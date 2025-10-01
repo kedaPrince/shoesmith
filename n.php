@@ -1,0 +1,3 @@
+<?php
+//We really shouldn't keep this file around when we deploy...
+phpinfo();
