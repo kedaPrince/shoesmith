@@ -1,6 +1,6 @@
 <section class="dashboard-container">
     <div>
-        <h1>Great, You're in!</h1>
+        <h1>Great, You're in! (recruiter)</h1>
         <h2>What would you like to see?</h2>
         <ul>
             <?php

@@ -526,10 +526,44 @@ class Login extends MY_Controller {
 			'script' => $script
 		));
 	}
-
+// Add this to your Login controller temporarily
+public function test_agency_login() {
+    $email = 'agent@elemental.co.za';
+    $password = '123456789';
+    
+    $this->db->where('email', $email);
+    $this->db->where('removed', 0);
+    $this->db->where('enabled', 1);
+    $query = $this->db->get('agency_staff');
+    
+    if ($query->num_rows() > 0) {
+        $user = $query->row();
+        echo "User found: " . $user->first_name . " " . $user->last_name . "<br>";
+        echo "Password hash: " . $user->password . "<br>";
+        
+        // Test password verification
+        if (password_verify($password, $user->password)) {
+            echo "Password VERIFIED!";
+        } else {
+            echo "Password FAILED!";
+        }
+    } else {
+        echo "User not found in agency_staff table";
+    }
+}
 	public function ajax_attempt_login() {
+
 		$email 		= $this->input->post('email');
 		$password 	= $this->input->post('password');
+
+		 // TEMPORARY DEBUG - ADD THIS
+			error_log("=== LOGIN DEBUG ===");
+			error_log("Email: " . $email);
+			error_log("Password: " . $password);
+			error_log("Login Groups: " . print_r($this->config->item('login_groups'), true));
+				// In your login controller
+			error_log("Session ID: " . session_id());
+			error_log("Session data: " . print_r($this->session->all_userdata(), true));
 
         //Reset filter data
         $this->session->unset_userdata('ecmsFilters');
@@ -695,5 +729,7 @@ class Login extends MY_Controller {
             redirect(site_url().$defaultUrl);
 		}
 	}
+
+
 
 }

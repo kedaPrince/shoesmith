@@ -53,7 +53,14 @@ $config['login_groups'] = array(
       'default_url'       => 'staff/dashboard',
       'super_user_id'     => 1,
       'session_fields'    => array('first_name', 'last_name')
-  )
+    ),
+     'agency' => array(
+      'path'              => 'agency/',
+      'table'             => 'agency_staff',
+      'default_url'       => 'agency/dashboard', // You'll need to create this controller
+      'super_user_id'     => 1,
+      'session_fields'    => array('first_name', 'last_name', 'email', 'agency_id', 'usr_type_id')
+    )
 );
 
 /**

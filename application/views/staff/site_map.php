@@ -1,5 +1,4 @@
 <?php
-$playbooks_menu_array = get_user_playbooks();
 
 $this->siteMap = array(
     (object) [
@@ -12,15 +11,14 @@ $this->siteMap = array(
         'active_by'     => 'view',
     ],
     (object) array(
-        'group'         => 'Playbooks',
-        'label'         => "Playbooks",
+        'group'         => 'Candidates',
+        'label'         => "Candidates",
         'icon'          => 'fa-folder-open',
-        'url'           => url('playbooks'),
+        'url'           => url('candidates'),
         'class'         => '',
         'show'          => true,
         'show_heading'  => false,
-        'active_by' 	=> 'view',
-        'items'			=> $playbooks_menu_array
+        'active_by' 	=> 'view'
     ),
     
 );

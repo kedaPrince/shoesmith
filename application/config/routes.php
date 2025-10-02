@@ -1,6 +1,12 @@
 <?php
 defined('BASEPATH') OR exit('No direct script access allowed');
 
+// Agency Routes - ADD THESE
+$route['agency'] = 'agency/dashboard';
+$route['agency/dashboard'] = 'agency/dashboard/index';
+$route['agency/login'] = 'login';
+$route['agency/logout'] = 'login/logout/agency';
+
 $route['browser/(:any)']  = "browser/$1";
 $route['cron/(:any)']               			= 'cron/$1';
 
@@ -52,29 +58,40 @@ $route['translate_uri_dashes'] = TRUE;
 
 function build_route(&$route, $regex, $path, $verb='') {
 
-	//Login groups or language
-	$ra['g'] = '(\badmin\b|\bstaff\b)/';
+    //Login groups or language - FIXED: ADDED AGENCY
+    $ra['g'] = '(\badmin\b|\bstaff\b|\bagency\b)/';
 
-	foreach ($ra as $g => $r) {
-		$p = $path;
+    foreach ($ra as $g => $r) {
+        $p = $path;
 
-		$p = preg_replace_callback('/(\$\d+)/', 'increment_match_number_by_one', $p);
+        $p = preg_replace_callback('/(\$\d+)/', 'increment_match_number_by_one', $p);
 
-		//Set folder to be capture group if one of the login groups
-		$folder = '$1/';
+        //Set folder to be capture group if one of the login groups
+        $folder = '$1/';
 
-		if (!empty($verb)) {
-			$route[$r.$regex][$verb] = $folder.$p;
-		}
-		else {
-			$route[$r.$regex] = $folder.$p;
-		}
-	}
+        if (!empty($verb)) {
+            $route[$r.$regex][$verb] = $folder.$p;
+        }
+        else {
+            $route[$r.$regex] = $folder.$p;
+        }
+    }
 }
+
 function increment_match_number_by_one($matches) {
-	return '$'.(str_replace('$', '', $matches[0])+1);
+    return '$'.(str_replace('$', '', $matches[0])+1);
 }
 
 function increment_match_number_by_two($matches) {
-	return '$'.(str_replace('$', '', $matches[0])+2);
+    return '$'.(str_replace('$', '', $matches[0])+2);
 }
+
+// Add this temporary route to test config
+$route['test-config'] = function() {
+    $ci =& get_instance();
+    echo "<pre>";
+    echo "Login Groups:\n";
+    print_r($ci->config->item('login_groups'));
+    echo "\nCurrent URL: " . current_url();
+    echo "</pre>";
+};

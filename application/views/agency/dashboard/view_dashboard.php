@@ -1,7 +1,6 @@
-<?php defined('BASEPATH') OR exit('No direct script access allowed'); ?>
 <section class="dashboard-container">
     <div>
-        <h1>Great, You're in! (admin)</h1>
+        <h1>Welcome Agency (client)</h1>
         <h2>What would you like to see?</h2>
         <ul>
             <?php
