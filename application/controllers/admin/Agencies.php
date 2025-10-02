@@ -130,49 +130,27 @@ class Agencies extends CRUD_Controller
     }
 
     public function setup_fields()
-    {
-        $this->formFields = array(
-            'main' => array(
-                'generate_index_page'   => 'trim|strip_tags|numeric',
-                'generate_references'   => 'trim|strip_tags|numeric',
-                'name'                  => 'trim|required|strip_tags',
-                'agency_type_id'        => 'trim|strip_tags|numeric',
-            ),
-            'multi_selects' => array(
-            'agency_access_groups' => array(  // ← matches field name
-                'validation'        => 'trim',
-                'pivot_table'       => 'pivot_agency_access_groups',
-                'main_field'        => 'agency_id',
-                'link_field'        => 'access_group_id',
+{
+    $this->formFields = array(
+        'main' => array(
+            'name'           => 'trim|required|strip_tags',
+            'agency_type_id' => 'trim|strip_tags|numeric',
+            'email'          => 'trim|valid-email',
+            'phone'          => 'trim',
+        ),
+        'multi_selects' => array(
+            'access_groups' => array(  // ← must match field name in view
+                'validation'  => 'trim',
+                'pivot_table' => 'pivot_agency_access_groups',
+                'main_field'  => 'agency_id',
+                'link_field'  => 'access_group_id',
             ),
         ),
-            'resources' => array(
-                'resource_id'           => 'trim|required|strip_tags|numeric',
-                'resource_type_id'      => 'trim|required|strip_tags|numeric',
-            ),
-            // 'dynamic_fields' => array(
-            //     'items' => array(
-            //         'table' => 'pivot_agency_agency_sections',
-            //         'parent_field' => 'agency_id',
-            //         'fields' => array(
-            //             'agency_section_id',
-            //             'position',
-            //         )
-            //     )
-            // )
-        );
+    );
 
-        // Get dropdown options from the model
-        $usrTypeOptions = $this->{$this->model}->get_usr_type_options();
-
-        $this->formLabels = array(
-            'agency_type_id' => array(
-                'label' => lang('label_agency_types'),
-                'type' => 'dropdown',
-                'options' => $usrTypeOptions,
-            ),
-        );
-    }
+    // ✅ REMOVE formLabels — let the system auto-generate from lang('label_X')
+    // $this->formLabels = array(...);
+}
 
     public function index()
     {
