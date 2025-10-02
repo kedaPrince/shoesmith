@@ -3,11 +3,13 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 general_labels($lang, 'users', 'user', 'users');
 general_labels($lang, 'roles', 'role', 'roles');
 general_labels($lang, 'access_groups', 'access_group', 'access groups');
+general_labels($lang, 'agency_types', 'agency_type', 'agency types');
 general_labels($lang, 'categories', 'category', 'categories');
 general_labels($lang, 'documents', 'document', 'documents');
 general_labels($lang, 'resources', 'resource', 'resources');
 general_labels($lang, 'playbooks', 'playbook', 'playbooks');
 general_labels($lang, 'agency_jobs_listings', 'agency jobs listing', 'agency jobs listings');
+general_labels($lang, 'candidates_profile', 'candidate profile', 'candidate profile');
 general_labels($lang, 'agencies', 'agency', 'agencies');
 general_labels($lang, 'jobs', 'job', 'jobs');
 general_labels($lang, 'my_playbooks', 'my playbook', 'my playbooks');
@@ -80,6 +82,7 @@ $lang['label_upload_addresses'] = 'Upload Addresses';
 $lang['label_job_name'] = 'Job Name';
 $lang['label_number'] = 'Number';
 $lang['label_title'] = 'Title';
+$lang['label_company'] = 'Client';
 $lang['label_sub_title'] = 'Sub-title';
 $lang['label_regions'] = 'Regions';
 $lang['label_geographic_tags'] = 'Geographic tags';
@@ -321,6 +324,7 @@ $lang['label_submit'] = 'Submit';
 $lang['label_submit_and_new'] = 'Submit And New';
 $lang['label_new'] = 'New';
 $lang['label_title'] = 'Title';
+$lang['label_company'] = 'Client';
 $lang['label_profit'] = 'Profit';
 $lang['label_yes'] = 'Yes';
 $lang['label_no'] = 'No';
@@ -549,6 +553,7 @@ $lang['playbook_management_heading'] = 'Playbook Management';
 $lang['agency_management_heading'] = 'Agency Management';
 // Agency Management
 $lang['agency_jobs_listings_heading'] = 'Agency Jobs Listings';
+$lang['candidates_profile_heading'] = 'Candidates Profile';
 //jobs
 $lang['jobs_heading'] = 'Jobs';
 
@@ -736,6 +741,7 @@ $lang['label_agency'] = 'Agency';
 $lang['label_jobs'] = 'Jobs';
 $lang['label_playbook_section'] = 'Playbook Section';
 $lang['label_agency_jobs_listings'] = 'Agency Jobs Listings';
+$lang['label_candidates_profile'] = 'Candidates Profile';
 $lang['label_playbook_sections'] = 'Playbook Sections';
 $lang['label_playbook_type'] = 'Playbook Type';
 $lang['label_playbook_types'] = 'Playbook Types';
@@ -743,8 +749,8 @@ $lang['label_administrator'] = 'Administrator';
 $lang['label_administrators'] = 'Administrators';
 $lang['label_access_group'] = 'Access Group';
 $lang['label_access_groups'] = 'Access Groups';
-
-
+$lang['label_agency_type'] = 'Agency Type';
+$lang['label_agency_types'] = 'Agency Types';
 $lang['label_user_type'] = 'User Type';
 $lang['label_resource_type'] = 'Resource Type';
 $lang['label_resource_types'] = 'Resource Types';
@@ -759,6 +765,7 @@ $lang['label_form_classes']    = 'CSS Classes';
 $lang['label_form_custom_function'] = 'Custom Function';
 
 general_labels($lang, 'access_groups', 'access_group', 'access groups');
+general_labels($lang, 'agency_types', 'agency_type', 'agency types');
 general_labels($lang, 'administrators', 'administrator');
 general_labels($lang, 'staff', 'staff member', 'staff members');
 general_labels($lang, 'blogs', 'blog');
@@ -777,6 +784,48 @@ general_labels($lang, 'single_image_uploader', 'Single-image Uploader Example', 
 general_labels($lang, 'single_file_uploader', 'Single-file Uploader Example', 'Single-file Uploader Example');
 general_labels($lang, 'dynamic_fields', 'Dynamic Fields Example', 'Dynamic Fields Example');
 general_labels($lang, 'users', 'user', 'users');
+
+
+//candidates
+// Add these to your general lang file
+general_labels($lang, 'candidates', 'candidate', 'candidates');
+general_labels($lang, 'candidates_resume_listings', 'candidate resume listing', 'candidate resume listings');
+
+// Specific candidate labels
+$lang['candidates_heading'] = 'Candidates';
+$lang['candidates_resume_listings_heading'] = 'Candidate Resume Listings';
+$lang['label_candidate'] = 'Candidate';
+$lang['label_candidates'] = 'Candidates';
+
+// Candidate specific fields
+$lang['label_first_name'] = 'First Name';
+$lang['label_last_name'] = 'Last Name';
+$lang['label_email'] = 'Email';
+$lang['label_phone'] = 'Phone';
+$lang['label_id_number'] = 'ID Number';
+$lang['label_date_of_birth'] = 'Date of Birth';
+$lang['label_gender'] = 'Gender';
+$lang['label_address'] = 'Address';
+$lang['label_city'] = 'City';
+$lang['label_province'] = 'Province';
+$lang['label_postal_code'] = 'Postal Code';
+$lang['label_country'] = 'Country';
+$lang['label_highest_qualification'] = 'Highest Qualification';
+$lang['label_years_experience'] = 'Years of Experience';
+$lang['label_current_position'] = 'Current Position';
+$lang['label_current_company'] = 'Current Company';
+$lang['label_current_salary'] = 'Current Salary';
+$lang['label_expected_salary'] = 'Expected Salary';
+$lang['label_notice_period'] = 'Notice Period (Days)';
+$lang['label_cv_file'] = 'CV File';
+$lang['label_cover_letter'] = 'Cover Letter';
+$lang['label_source'] = 'Source';
+$lang['label_status'] = 'Status';
+$lang['label_application_date'] = 'Application Date';
+$lang['label_assigned_agent'] = 'Assigned Agent';
+$lang['label_rating'] = 'Rating';
+$lang['label_notes'] = 'Notes';
+$lang['label_reference_number'] = 'Reference Number';
 
 
 

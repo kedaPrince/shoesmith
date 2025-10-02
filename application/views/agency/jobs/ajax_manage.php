@@ -19,26 +19,26 @@ function getValue(object|null $more_details, string $name): string
         <?php
         if (empty($row)) {
             ?>
-        <h2>Add Administrator</h2>
-        <p>
-            Here you can <span>manage administrators</span> that have access to this system.<br />
-            Once added, an Email will be sent to them with instructions to setup a password.
-        </p>
-        <?php
+            <h2>Add Jobs (Vacancies)</h2>
+            <p>
+                Here you can <span>manage job vacancies</span> that are available in the system.<br />
+                Once added, an Email will be sent to them with instructions to setup a password.
+            </p>
+            <?php
         } else {
             ?>
-        <h2>Edit Administrator <span><?= $row->first_name . ' ' . $row->last_name; ?></span></h2>
-        <p>
-            Here you can <span>edit administrators</span> that have access to this system.<br />
-            Once you have made the necessary changes, save your progress.
-        </p>
-        <?php
+            <h2>Edit Administrator <span><?= $row->first_name . ' ' . $row->last_name; ?></span></h2>
+            <p>
+                Here you can <span>edit administrators</span> that have access to this system.<br />
+                Once you have made the necessary changes, save your progress.
+            </p>
+            <?php
             if ($row->id == loginID()) {
                 ?>
-        <p>
-            Please note that changes made to your account will only be visible on your next login.
-        </p>
-        <?php
+                <p>
+                    Please note that changes made to your account will only be visible on your next login.
+                </p>
+                <?php
             }
         }
         ?>
@@ -75,17 +75,17 @@ function getValue(object|null $more_details, string $name): string
             <?php
             if (!empty($row)) {
                 ?>
-            <div class="row">
-                <div class="info-text">
-                    The password needs to be at least <strong>8 characters long</strong>.
+                <div class="row">
+                    <div class="info-text">
+                        The password needs to be at least <strong>8 characters long</strong>.
+                    </div>
+                    <div class="col-lg-6">
+                        <?= field_password('password', '', array('autocomplete' => 'off'), 'The password needs to be at least 8 characters long'); ?>
+                    </div>
+                    <div class="col-lg-6">
+                        <?= field_password('confirm_password', '', array('autocomplete' => 'off'), 'Confirm your password'); ?>
+                    </div>
                 </div>
-                <div class="col-lg-6">
-                    <?= field_password('password', '', array('autocomplete' => 'off'), 'The password needs to be at least 8 characters long'); ?>
-                </div>
-                <div class="col-lg-6">
-                    <?= field_password('confirm_password', '', array('autocomplete' => 'off'), 'Confirm your password'); ?>
-                </div>
-            </div>
             <?php } ?>
         </div>
         <div rel="2" class="qm-tabs-tab">
@@ -228,39 +228,39 @@ function getValue(object|null $more_details, string $name): string
     </div>
 </div>
 <script type="text/javascript">
-function save_form(el) {
-    // This removes the parsley validation for elements outside of the form.
-    let elementsToRemove = document.querySelectorAll('[class*=parsley-class-container]');
-    elementsToRemove.forEach(function(element) {
-        if (!element.closest('.quick-manage-form-container')) {
-            let classesToRemove = Array.from(element.classList).filter(function(className) {
-                return className.includes('parsley-class-container');
-            });
-            element.classList.remove(...classesToRemove);
-        }
-    });
+    function save_form(el) {
+        // This removes the parsley validation for elements outside of the form.
+        let elementsToRemove = document.querySelectorAll('[class*=parsley-class-container]');
+        elementsToRemove.forEach(function(element) {
+            if (!element.closest('.quick-manage-form-container')) {
+                let classesToRemove = Array.from(element.classList).filter(function(className) {
+                    return className.includes('parsley-class-container');
+                });
+                element.classList.remove(...classesToRemove);
+            }
+        });
 
-    $(el).closest('form').parsley().whenValidate().done(function() {
-        let view = '<?= !empty($row->id) ? 'update' : 'create' ?>';
-        let id = <?= !empty($row->id) ? $row->id : '0' ?>;
+        $(el).closest('form').parsley().whenValidate().done(function() {
+            let view = '<?= !empty($row->id) ? 'update' : 'create' ?>';
+            let id = <?= !empty($row->id) ? $row->id : '0' ?>;
 
-        ajax_submit_form(el, view, id);
-    });
-}
+            ajax_submit_form(el, view, id);
+        });
+    }
 
-$(document).ready(function() {
-    // Initialize all select values on page load
-    $('.quick-manage-container select').each(function() {
-        $(this).trigger('change');
-    });
+    $(document).ready(function() {
+        // Initialize all select values on page load
+        $('.quick-manage-container select').each(function() {
+            $(this).trigger('change');
+        });
 
-    <?php
+        <?php
         // Hide tabs when creating the user
         if (empty($row)) {
         ?>
-    $('.qm-tabs-header').hide();
-    <?php
+        $('.qm-tabs-header').hide();
+        <?php
         }
         ?>
-});
+    });
 </script>

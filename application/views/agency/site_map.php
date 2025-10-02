@@ -10,34 +10,33 @@ $this->siteMap = array(
         'show'          => true,
         'active_by'     => 'view',
     ],
-     (object)array(
-        'group'         => 'Candidates Profile',
+    (object) [
+        'group'         => 'Candidates Management',
         'page'          => 'candidates',
         'label'         => lang('candidates_heading'),
-        'icon'          => 'fa-universal-access',
-        'url'           => url('jobs'),
-        'class'         => 'Jobs',
+        'icon'          => 'fa-users',
+        'url'           => url('candidates'),
+        'class'         => '',
         'show'          => true,
-        'show_heading'  => false,
-        'active_by'     => 'view',
-          'items' => array(
-            (object)array(
+        'show_heading'  => true,
+        'active_by'     => 'candidates',
+        'items' => array(
+            (object) [
                 'page'          => 'candidates',
                 'view'          => 'listing',
                 'label'         => lang('candidates_heading'),
-                'icon'          => 'fa-folder-open',
+                'icon'          => 'fa-user-circle',
                 'url'           => url('candidates'),
                 'show'          => true,
-            ),
-            (object)array(
+            ],
+            (object) [
                 'page'          => 'candidates_resume_listings',
                 'view'          => 'listing',
                 'label'         => lang('candidates_resume_listings_heading'),
-                'icon'          => 'fa-folder-open',
+                'icon'          => 'fa-file-text',
                 'url'           => url('candidates_resume_listings'),
                 'show'          => true,
-            ),
+            ],
         ),
-    ),
-    
+    ],
 );
