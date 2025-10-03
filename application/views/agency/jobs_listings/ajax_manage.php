@@ -146,9 +146,7 @@
         <div class="btn-container" style="clear: left;">
             <?= qm_tab_buttons(); ?>
             <?= qm_close_button(); ?>
-            <?php if (!empty($row)): ?>
-            <?= $row->enabled ? disable_button($identifier, $row->id) : enable_button($identifier, $row->id); ?>
-            <?php endif; ?>
+
         </div>
 
         <?= form_close(); ?>

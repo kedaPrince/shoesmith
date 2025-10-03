@@ -48,6 +48,15 @@ class Jobs_listings extends CRUD_Controller
                 'label' => lang('label_job_type'),
                 'sort' => true,
             ),
+            // ✅ ADD THIS LINE
+        'enabled' => array(
+            'label' => lang('label_enabled'),
+            'sort' => true,
+            'type' => 'custom',
+            'function' => function($value, $row) {
+                return $row->enabled ? lang('label_enabled') : lang('label_disabled');
+            }
+        ),
         );
 
         $this->listActions = array(
@@ -138,7 +147,10 @@ class Jobs_listings extends CRUD_Controller
             ),
         );
     }
-
+public function row_class($row)
+{
+    return $row->enabled ? 'row-enabled' : 'row-disabled';
+}
     public function index()
     {
         $this->breadcrumbs = array(
