@@ -11,6 +11,11 @@ $route['agency/candidates'] = 'agency/candidates';
 $route['agency/candidates/(:any)'] = 'agency/candidates/$1';
 $route['agency/candidates/(:any)/(:any)'] = 'agency/candidates/$1/$2';
 
+$route['staff/candidates'] = 'staff/candidates';
+$route['staff/candidates/(:any)'] = 'staff/candidates/$1';
+$route['staff/candidates/(:any)/(:any)'] = 'staff/candidates/$1/$2';
+
+
 $route['browser/(:any)']  = "browser/$1";
 $route['cron/(:any)']               			= 'cron/$1';
 
