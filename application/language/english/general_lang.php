@@ -24,6 +24,10 @@ $lang['subject_new_admin']   	= 'New Administrator Account';
 $lang['subject_new_staff']   	= 'New Staff Member Account';
 
 //Common words
+$lang['label_registration_number'] = 'Registration Number';
+$lang['label_vat_number'] = 'VAT Number';
+$lang['label_billing_contact'] = 'Billing Contact';
+$lang['label_industry'] = 'Industry';
 $lang['label_email'] = 'Email';
 $lang['label_website'] = 'Website';
 $lang['label_update'] = 'Update';
