@@ -12,6 +12,7 @@ general_labels($lang, 'agency_jobs_listings', 'agency jobs listing', 'agency job
 general_labels($lang, 'candidates_profile', 'candidate profile', 'candidate profile');
 general_labels($lang, 'agencies', 'agency', 'agencies');
 general_labels($lang, 'jobs', 'job', 'jobs');
+general_labels($lang, 'recruiters', 'recruiter', 'recruiters');
 general_labels($lang, 'my_playbooks', 'my playbook', 'my playbooks');
 general_labels($lang, 'playbook_types', 'playbook type', 'playbook types');
 general_labels($lang, 'playbook_sections', 'playbook section', 'playbook sections');
@@ -560,7 +561,7 @@ $lang['agency_jobs_listings_heading'] = 'Agency Jobs Listings';
 $lang['candidates_profile_heading'] = 'Candidates Profile';
 //jobs
 $lang['jobs_heading'] = 'Jobs';
-
+$lang['recruiters_heading'] = 'Recruiters';
 // Leave Management
 $lang['leave_heading'] = 'Leave Management';
 
@@ -743,6 +744,7 @@ $lang['label_position'] = 'Position';
 $lang['label_playbook'] = 'Playbook';
 $lang['label_agency'] = 'Agency';
 $lang['label_jobs'] = 'Jobs';
+$lang['label_recruiters'] = 'Recruiters';
 $lang['label_playbook_section'] = 'Playbook Section';
 $lang['label_agency_jobs_listings'] = 'Agency Jobs Listings';
 $lang['label_candidates_profile'] = 'Candidates Profile';

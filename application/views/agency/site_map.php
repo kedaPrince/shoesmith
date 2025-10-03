@@ -10,6 +10,17 @@ $this->siteMap = array(
         'show'          => true,
         'active_by'     => 'view',
     ],
+    (object)array(
+        'group'         => 'Recruiters',
+        'page'          => 'recruiters',
+        'label'         => lang('recruiters_heading'),
+        'icon'          => 'fa-universal-access',
+        'url'           => url('recruiters'),
+        'class'         => 'Recruiters',
+        'show'          => true,
+        'show_heading'  => false,
+        'active_by'     => 'view',
+    ),
     (object) [
         'group'         => 'Candidates Management',
         'page'          => 'candidates',
