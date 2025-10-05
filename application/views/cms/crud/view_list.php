@@ -131,10 +131,11 @@ if (!empty($submodules[$this->pageName])) {
                     </div>
                     <div class="body">
                         <div class="table-responsive">
-                            <table class="table table-hover js-basic-example dataTable table-custom m-b-0 <?= $tableClasses; ?>">
+                            <table
+                                class="table table-hover js-basic-example dataTable table-custom m-b-0 <?= $tableClasses; ?>">
                                 <thead>
                                     <tr class="header-row">
-                                    <?php
+                                        <?php
                                         //If list items can expand, then make provision for expand and collapse buttons
                                         if ( ! empty($this->listExpanded)) {
                                             echo '<th></th>';
@@ -182,7 +183,7 @@ if (!empty($submodules[$this->pageName])) {
                                     </tr>
                                 </thead>
                                 <tbody>
-                                                                      
+
                                 </tbody>
                             </table>
                         </div>
@@ -195,9 +196,10 @@ if (!empty($submodules[$this->pageName])) {
 <?php
     if ($this->quickManage == TRUE) {
         ?>
-        <aside class="quick-manage-container" data-size="<?=$this->quickManageSize?>" data-original-size="<?=$this->quickManageSize?>">
-        </aside>
-        <?PHP
+<aside class="quick-manage-container" data-size="<?=$this->quickManageSize?>"
+    data-original-size="<?=$this->quickManageSize?>">
+</aside>
+<?PHP
     }
 ?>
 <?php
@@ -207,7 +209,6 @@ if (is_file(APPPATH . 'views/' . $this->folder . '/' . $this->pageName . '/view_
 }
 ?>
 <script type="text/javascript">
-
 var headerSize = 137;
 var callOnce;
 var defaultSorting = new Object();
@@ -243,7 +244,7 @@ window.addEventListener('DOMContentLoaded', (event) => {
 
     // Click on row to view
     var rowClick = '<?= isset($this->rowClick) ? $this->rowClick : 'edit-row' ?>';
-    $('.data-table').on('click', 'tr', function () {
+    $('.data-table').on('click', 'tr', function() {
         if (!$(this).hasClass('expanded-list-item')) {
             if ($(this).find('.' + rowClick).length) {
                 $(this).find('.' + rowClick)[0].click();
@@ -252,7 +253,7 @@ window.addEventListener('DOMContentLoaded', (event) => {
 
     });
 
-    $('.data-table').on('click', '.item-row', function (e) {
+    $('.data-table').on('click', '.item-row', function(e) {
         var url = $(this).attr('href');
 
         if (url != '') {
@@ -261,23 +262,23 @@ window.addEventListener('DOMContentLoaded', (event) => {
 
     });
 
-    $('.data-table').on('click', '.no-click', function (e) {
+    $('.data-table').on('click', '.no-click', function(e) {
         e.stopPropagation();
         e.preventDefault();
     });
 
-    $('.data-table').on('click', '.general-actions .open_action_list', function (e) {
+    $('.data-table').on('click', '.general-actions .open_action_list', function(e) {
         $('.action-list-menu').removeClass('show');
         $(this).closest('.general-actions').find('.action-list-menu').addClass('show');
     });
 
-    $('.data-table').on('click', '.general-actions > a', function (e) {
+    $('.data-table').on('click', '.general-actions > a', function(e) {
         e.stopPropagation();
     });
 
 
     //When scrollbar hits the bottom then load the next set of results
-    $(window).on('scroll', function () {
+    $(window).on('scroll', function() {
         if ($(window).scrollTop() + $(window).height() >= ($(document).height() - 20)) {
             if ($('.loader.loading').length == 0) {
                 load_results_bottom();
@@ -285,7 +286,7 @@ window.addEventListener('DOMContentLoaded', (event) => {
         }
     });
 
-    $('.data-table').on('click', '.sortable', function (e) {
+    $('.data-table').on('click', '.sortable', function(e) {
         var field = $(this).attr('data-field-header');
         var dir = $(this).attr('data-sort-order');
         var newDir = "";
@@ -299,16 +300,13 @@ window.addEventListener('DOMContentLoaded', (event) => {
         if (!extend && $('.header-row th[data-sort-order]').length > 1) {
             newDir = 'asc';
             sorting[field] = newDir;
-        }
-        else if (dir && dir.toLowerCase() == 'asc') {
+        } else if (dir && dir.toLowerCase() == 'asc') {
             newDir = 'desc';
             sorting[field] = newDir;
-        }
-        else if (dir && dir.toLowerCase() == 'desc') {
+        } else if (dir && dir.toLowerCase() == 'desc') {
             newDir = 'reset';
             delete sorting[field];
-        }
-        else {
+        } else {
             newDir = 'asc';
             sorting[field] = newDir;
         }
@@ -320,21 +318,21 @@ window.addEventListener('DOMContentLoaded', (event) => {
             for (var i in sorting) {
                 $('.header-row th[data-field-header="' + i + '"]').attr('data-sort-order', sorting[i]);
             }
-        }
-        else if (Object.keys(defaultSorting).length) {
+        } else if (Object.keys(defaultSorting).length) {
             for (var i in defaultSorting) {
-                $('.header-row th[data-field-header="' + i + '"]').attr('data-sort-order', defaultSorting[i]);
+                $('.header-row th[data-field-header="' + i + '"]').attr('data-sort-order',
+                    defaultSorting[i]);
             }
         }
 
     });
 
     //Dropdown filter
-    $('.listing-filters').on('change', '.dropdown-filter', function () {
+    $('.listing-filters').on('change', '.dropdown-filter', function() {
         show_loader();
         var filters = get_filter_params();
         filters.section = section;
-        ajax_post('ajax_apply_filters', filters, function (d) {
+        ajax_post('ajax_apply_filters', filters, function(d) {
             if (d.success) {
                 load_results_init();
             }
@@ -343,16 +341,16 @@ window.addEventListener('DOMContentLoaded', (event) => {
     });
 
     //Autocomplete filter
-    $('.listing-filters').on('keyup', '.autocomplete-textbox', function () {
-        
+    $('.listing-filters').on('keyup', '.autocomplete-textbox', function() {
+
         var name = $(this).attr('name');
         var value = $(this).val();
         filters = get_filter_params();
         filters.section = section;
         if (value.length >= 0) {
             clearTimeout(autoCompleteTimer);
-            autoCompleteTimer = setTimeout(function () {
-                ajax_post('ajax_apply_filters', filters, function (d) {
+            autoCompleteTimer = setTimeout(function() {
+                ajax_post('ajax_apply_filters', filters, function(d) {
                     if (d.success) {
                         load_results_init();
                     }
@@ -362,11 +360,11 @@ window.addEventListener('DOMContentLoaded', (event) => {
     });
 
     //Date filter
-    $('.listing-filters').on('change', '.date-filter', function () {
+    $('.listing-filters').on('change', '.date-filter', function() {
         var date = $(this).val();
         filters = get_filter_params();
         filters.section = section;
-        ajax_post('ajax_apply_filters', filters, function (d) {
+        ajax_post('ajax_apply_filters', filters, function(d) {
             if (d.success) {
                 load_results_init();
             }
@@ -374,14 +372,14 @@ window.addEventListener('DOMContentLoaded', (event) => {
     });
 
     //Date range filter
-    $('.listing-filters').on('change', '.date-range-filter input', function () {
+    $('.listing-filters').on('change', '.date-range-filter input', function() {
         var from = $(this).closest('.date-range-filter').find('.filter-value-from').val();
         var to = $(this).closest('.date-range-filter').find('.filter-value-to').val();
 
         if (to != '' && from != '') {
             filters = get_filter_params();
             filters.section = section;
-            ajax_post('ajax_apply_filters', filters, function (d) {
+            ajax_post('ajax_apply_filters', filters, function(d) {
                 if (d.success) {
                     load_results_init();
                 }
@@ -390,13 +388,13 @@ window.addEventListener('DOMContentLoaded', (event) => {
     });
 
     //Number range filter
-    $('.listing-filters').on('change', '.int-range', function () {
+    $('.listing-filters').on('change', '.int-range', function() {
         var from = $(this).closest('.range-filter').find('.filter-value-from').val();
         var to = $(this).closest('.range-filter').find('.filter-value-to').val();
         if (to != '' && from != '') {
             filters = get_filter_params();
             filters.section = section;
-            ajax_post('ajax_apply_filters', filters, function (d) {
+            ajax_post('ajax_apply_filters', filters, function(d) {
                 if (d.success) {
                     load_results_init();
                 }
@@ -405,12 +403,13 @@ window.addEventListener('DOMContentLoaded', (event) => {
     });
 
     //Delete confirmation
-    $('.data-table').on('click', '.delete-row', function (e) {
+    $('.data-table').on('click', '.delete-row', function(e) {
         e.preventDefault();
         e.stopPropagation();
 
         var link = $(this).attr('href');
-        var body = "<?= ! empty($this->confirmDelete) ? $this->confirmDelete : lang('confirm_delete_body'); ?>";
+        var body =
+            "<?= ! empty($this->confirmDelete) ? $this->confirmDelete : lang('confirm_delete_body'); ?>";
         var body = body.replace('{item}', $(this).closest('tr').attr('data-identifier'));
 
         Swal.fire({
@@ -420,7 +419,7 @@ window.addEventListener('DOMContentLoaded', (event) => {
             confirmButtonText: '<?= lang('label_delete'); ?>',
             closeOnConfirm: false
         }).then(function(result) {
-            if(result.isConfirmed) {
+            if (result.isConfirmed) {
                 window.location.href = link
             }
         });
@@ -428,12 +427,13 @@ window.addEventListener('DOMContentLoaded', (event) => {
     });
 
     //Disable confirmation
-    $('.data-table').on('click', '.disable-row', function (e) {
+    $('.data-table').on('click', '.disable-row', function(e) {
         e.preventDefault();
         e.stopPropagation();
 
         var link = $(this).attr('href');
-        var body = "<?= ! empty($this->confirmDisable) ? $this->confirmDisable : lang('confirm_disable_body'); ?>";
+        var body =
+            "<?= ! empty($this->confirmDisable) ? $this->confirmDisable : lang('confirm_disable_body'); ?>";
         var body = body.replace('{item}', $(this).closest('tr').attr('data-identifier'));
 
         Swal.fire({
@@ -443,7 +443,7 @@ window.addEventListener('DOMContentLoaded', (event) => {
             confirmButtonText: '<?= lang('label_disable'); ?>',
             closeOnConfirm: false
         }).then(function(result) {
-            if(result.isConfirmed) {
+            if (result.isConfirmed) {
                 window.location.href = link
             }
         });
@@ -451,13 +451,14 @@ window.addEventListener('DOMContentLoaded', (event) => {
     });
 
     //Enable confirmation
-    $('.data-table').on('click', '.enable-row', function (e) {
+    $('.data-table').on('click', '.enable-row', function(e) {
 
         e.preventDefault();
         e.stopPropagation();
 
         var link = $(this).attr('href');
-        var body = "<?= lang(! empty($this->confirmEnable) ? $this->confirmEnable : 'confirm_enable_body'); ?>";
+        var body =
+            "<?= lang(! empty($this->confirmEnable) ? $this->confirmEnable : 'confirm_enable_body'); ?>";
         var body = body.replace('{item}', $(this).closest('tr').attr('data-identifier'));
 
         Swal.fire({
@@ -467,7 +468,7 @@ window.addEventListener('DOMContentLoaded', (event) => {
             confirmButtonText: '<?= lang('label_enable'); ?>',
             closeOnConfirm: false
         }).then(function(result) {
-            if(result.isConfirmed) {
+            if (result.isConfirmed) {
                 window.location.href = link
             }
         });
@@ -475,45 +476,44 @@ window.addEventListener('DOMContentLoaded', (event) => {
     });
 
     //For opening and closing expanding list items
-    $('.data-table').on('click', '.list-expander', function (e) {
+    $('.data-table').on('click', '.list-expander', function(e) {
         e.stopPropagation();
         if ($(this).hasClass('open')) {
             $(this).removeClass('open');
             $(this).find('i').removeClass('fa-minus').addClass('fa-plus');
             $(this).closest('tr').next('tr.expanded-list-item').removeClass('open');
-        }
-        else {
+        } else {
             $(this).addClass('open');
             $(this).find('i').removeClass('fa-plus').addClass('fa-minus');
             $(this).closest('tr').next('tr.expanded-list-item').addClass('open');
         }
     });
 
-    $('.data-table').on('click', '.listing-position', function (e) {
+    $('.data-table').on('click', '.listing-position', function(e) {
         e.stopPropagation();
     });
 
-    <?PHP
-    if($this->quickManage == TRUE){
+    <?php
+    if ($this->quickManage == TRUE) {
     ?>
 
     <?php if (empty($this->fullEdit) || $this->fullEdit != TRUE) { ?>
-    $('.data-table').on('click', '.edit-row', function (e) {
+    $('.data-table').on('click', '.edit-row', function(e) {
         e.stopPropagation();
         e.preventDefault();
         var id = $(this).closest('tr').attr('data-row-id');
 
-        ajax_get('ajax_quick_manage/' + id, '', function (d) {
+        ajax_get('ajax_quick_manage/' + id, '', function(d) {
             if (d) {
                 open_qm(d);
             }
         });
     });
-    
+
     <?php } ?>
 
     if (window.location.hash.substring(1) == 'add') {
-        ajax_get('ajax_quick_manage/', '', function (d) {
+        ajax_get('ajax_quick_manage/', '', function(d) {
             if (d) {
                 open_qm(d);
             }
@@ -524,7 +524,7 @@ window.addEventListener('DOMContentLoaded', (event) => {
         var s = window.location.hash.substring(1).split('/');
 
         if (s.length > 1) {
-            ajax_get('ajax_quick_manage/' + s[1], '', function (d) {
+            ajax_get('ajax_quick_manage/' + s[1], '', function(d) {
                 if (d) {
                     open_qm(d);
                 }
@@ -532,34 +532,34 @@ window.addEventListener('DOMContentLoaded', (event) => {
         }
     }
 
-    $(document).on('click', ' .add-item', function () {
-        ajax_get('ajax_quick_manage/', '', function (d) {
+    $(document).on('click', ' .add-item', function() {
+        ajax_get('ajax_quick_manage/', '', function(d) {
             if (d) {
                 open_qm(d);
             }
         });
     });
 
-    $(document).on('click', '.close-quick-manage', function () {
+    $(document).on('click', '.close-quick-manage', function() {
         close_qm();
     });
 
     $(window).on('hashchange', function() {
         window.location.hash = "";
-        ajax_get('ajax_quick_manage/', '', function(d){
+        ajax_get('ajax_quick_manage/', '', function(d) {
             if (d) {
                 open_qm(d);
             }
         });
     });
-    <?PHP
+    <?php
     }
     ?>
 
 });
 
 function clear_filters() {
-    
+
     $('.listing-filters .filter-value').val('');
 
     // Clear dropdowns
@@ -569,11 +569,10 @@ function clear_filters() {
 
     filters = get_filter_params();
     filters.section = section;
-    ajax_post('ajax_apply_filters', filters, function (d) {
+    ajax_post('ajax_apply_filters', filters, function(d) {
         if (d.success) {
             load_results_init();
         }
     });
 }
-
 </script>

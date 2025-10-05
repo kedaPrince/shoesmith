@@ -23,7 +23,7 @@ class Jobs_listings extends CRUD_Controller
         parent::__construct();
 
         // ... rest of your setup
-        $this->load->model('agency/Model_jobs');
+        $this->load->model($this->folder . '/' . $this->model);
         $this->setup_listing();
         $this->setup_fields();
 
@@ -34,30 +34,26 @@ class Jobs_listings extends CRUD_Controller
     }
 
     private function setup_listing()
-    {
-        $this->listFields = array(
-            'name' => array(
-                'label' => lang('label_title'),
-                'sort' => true,
-            ),
-            'reference_number' => array(
-                'label' => lang('label_reference_number'),
-                'sort' => true,
-            ),
-            'employment_type' => array(
-                'label' => lang('label_job_type'),
-                'sort' => true,
-            ),
-            // ✅ ADD THIS LINE
-        'enabled' => array(
-            'label' => lang('label_enabled'),
+{
+    $this->listFields = array(
+        'name' => array(
+            'label' => lang('label_title'),
             'sort' => true,
-            'type' => 'custom',
-            'function' => function($value, $row) {
-                return $row->enabled ? lang('label_enabled') : lang('label_disabled');
-            }
         ),
-        );
+        'reference_number' => array(
+            'label' => lang('label_reference_number'),
+            'sort' => true,
+        ),
+        'agency_name' => array(
+            'label' => lang('label_agency'),
+            'sort' => true,
+            'field' => 'agencies.name' // ✅ Specify the exact field from the join
+        ),
+        'employment_type' => array(
+            'label' => lang('label_job_type'),
+            'sort' => true,
+        ),
+    );
 
         $this->listActions = array(
             'edit' => array(
@@ -147,26 +143,64 @@ class Jobs_listings extends CRUD_Controller
             ),
         );
     }
-public function row_class($row)
+    public function build_params($extra = array(), $group = 'main')
 {
-    return $row->enabled ? 'row-enabled' : 'row-disabled';
-}
-    public function index()
-    {
-        $this->breadcrumbs = array(
-            array(
-                'title' => lang($this->pageName . '_heading'),
-                'url' => redir($this->pageName, true),
-            ),
-        );
-        $this->view = 'listing';
-        $this->load->view($this->folder . '/view_header');
-        $this->load->view('cms/crud/view_list', array(
-            'heading' => lang($this->pageName . '_heading'),
-            'noRows' => lang($this->pageName . '_no_rows'),
-        ));
-        $this->load->view($this->folder . '/view_footer');
+    $params = parent::build_params($extra, $group);
+    
+    // Set default values for checkbox fields when they're not posted
+    $checkboxFields = ['is_remote'];
+    
+    foreach ($checkboxFields as $field) {
+        if (!isset($params[$field])) {
+            $params[$field] = 0; // Default to unchecked (0)
+        }
     }
+    
+    return $params;
+}
+public function create()
+{
+    // Debug: Check what's being posted
+    log_message('debug', 'POST data: ' . print_r($this->input->post(), true));
+    
+    // Continue with normal create process...
+    parent::create();
+}
+public function index()
+{
+    // Debug: Check if query works
+    try {
+        $query = $this->{$this->model}->get_all();
+        log_message('debug', 'Jobs query executed successfully. Rows: ' . $query->num_rows());
+        
+        if ($query->num_rows() > 0) {
+            $first_row = $query->row();
+            log_message('debug', 'First job - ID: ' . $first_row->id . ', Enabled: ' . $first_row->enabled . ', Name: ' . $first_row->name);
+            
+            // Debug: Check available fields
+            log_message('debug', 'Available fields in row: ' . implode(', ', array_keys((array)$first_row)));
+        } else {
+            log_message('debug', 'No jobs found in database');
+        }
+    } catch (Exception $e) {
+        log_message('error', 'Jobs query failed: ' . $e->getMessage());
+    }
+    
+    $this->breadcrumbs = array(
+        array(
+            'title' => lang($this->pageName . '_heading'),
+            'url' => redir($this->pageName, true),
+        ),
+    );
+    
+    $this->view = 'listing';
+    $this->load->view($this->folder . '/view_header');
+    $this->load->view('cms/crud/view_list', array(
+        'heading' => lang($this->pageName . '_heading'),
+        'noRows' => lang($this->pageName . '_no_rows'),
+    ));
+    $this->load->view($this->folder . '/view_footer');
+}
 
 public function quick_manage_extra($id, $row): array
 {

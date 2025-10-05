@@ -1,4 +1,5 @@
 <?php defined('BASEPATH') || exit('No direct script access allowed'); ?>
+
 <a class="close-quick-manage"><i class="fa fa-times"></i></a>
 <div class="quick-manage-form-container qm-tabs">
     <div class="quick-manage-heading">
@@ -146,7 +147,6 @@
         <div class="btn-container" style="clear: left;">
             <?= qm_tab_buttons(); ?>
             <?= qm_close_button(); ?>
-
         </div>
 
         <?= form_close(); ?>
@@ -161,15 +161,12 @@ function save_form(el) {
         ajax_submit_form(el, view, id);
     });
 }
+
 $(document).ready(function() {
     $('.quick-manage-container select').each(function() {
         $(this).trigger('change');
     });
 
-
-});
-
-$(document).ready(function() {
     // Handle tab clicks
     $('.qm-tabs-header li').on('click', function() {
         var tabId = $(this).attr('rel');
