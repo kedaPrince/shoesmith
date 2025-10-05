@@ -1,11 +1,10 @@
 <?php
 defined('BASEPATH') || exit('No direct script access allowed');
 
-class Jobs_listings extends CRUD_Controller
-{
+class Jobs_listings extends CRUD_Controller{
     public $pageName = 'jobs_listings';
     public $group = 'agency';
-    public $folder = 'agency'; // Set before parent::__construct()
+    public $folder = 'agency';
     public $model = 'Model_jobs';
     public $singular = 'Job Listing';
     public $plural = 'Jobs Listings';
@@ -15,15 +14,31 @@ class Jobs_listings extends CRUD_Controller
     public $adding = true;
     public $allowEdit = true;
     public $sorting = array('name' => 'ASC');
-     public $quickManageSize = 4;
+    public $quickManageSize = 4;
 
-    public function __construct()
-    {
-        $this->folder = 'agency'; // ✅ MUST be before parent::__construct()
+   public function __construct(){
+        $this->folder = 'agency';
         parent::__construct();
 
-        // ... rest of your setup
+        // Check if user is logged in as either agency OR recruiter
+        $login_data = $this->session->userdata('login');
+        $is_agency_logged_in = !empty($login_data['agency']);
+        $is_recruiter_logged_in = !empty($login_data['recruiter']);
+        
+        if (!$is_agency_logged_in && !$is_recruiter_logged_in) {
+            // Not logged in at all - redirect to login
+            redirect('login');
+        }
+
         $this->load->model($this->folder . '/' . $this->model);
+        
+        // Apply agency filter immediately after loading model
+        $user_agency_id = $this->get_user_agency_id();
+        if (!empty($user_agency_id)) {
+            $this->db->where('mod_jobs.agency_id', $user_agency_id);
+            log_message('debug', 'Applied global agency filter in constructor: ' . $user_agency_id);
+        }
+        
         $this->setup_listing();
         $this->setup_fields();
 
@@ -33,9 +48,8 @@ class Jobs_listings extends CRUD_Controller
         );
     }
 
-    private function setup_listing()
-{
-    $this->listFields = array(
+    private function setup_listing(){
+       $this->listFields = array(
         'name' => array(
             'label' => lang('label_title'),
             'sort' => true,
@@ -47,7 +61,13 @@ class Jobs_listings extends CRUD_Controller
         'agency_name' => array(
             'label' => lang('label_agency'),
             'sort' => true,
-            'field' => 'agencies.name' // ✅ Specify the exact field from the join
+            'field' => 'agencies.name'
+        ),
+        // Add this to ensure agency_id is available in row objects
+        'agency_id' => array(
+            'label' => 'Agency ID',
+            'sort' => true,
+            'hidden' => true // Hide from listing but make it available in row data
         ),
         'employment_type' => array(
             'label' => lang('label_job_type'),
@@ -103,8 +123,7 @@ class Jobs_listings extends CRUD_Controller
         );
     }
 
-    public function setup_fields()
-    {
+    public function setup_fields(){
         $this->formFields = array(
             'main' => array(
                 'name' => 'trim|required|strip_tags',
@@ -143,85 +162,232 @@ class Jobs_listings extends CRUD_Controller
             ),
         );
     }
-    public function build_params($extra = array(), $group = 'main')
-{
-    $params = parent::build_params($extra, $group);
-    
-    // Set default values for checkbox fields when they're not posted
-    $checkboxFields = ['is_remote'];
-    
-    foreach ($checkboxFields as $field) {
-        if (!isset($params[$field])) {
-            $params[$field] = 0; // Default to unchecked (0)
-        }
-    }
-    
-    return $params;
-}
-public function create()
-{
-    // Debug: Check what's being posted
-    log_message('debug', 'POST data: ' . print_r($this->input->post(), true));
-    
-    // Continue with normal create process...
-    parent::create();
-}
-public function index()
-{
-    // Debug: Check if query works
-    try {
-        $query = $this->{$this->model}->get_all();
-        log_message('debug', 'Jobs query executed successfully. Rows: ' . $query->num_rows());
-        
-        if ($query->num_rows() > 0) {
-            $first_row = $query->row();
-            log_message('debug', 'First job - ID: ' . $first_row->id . ', Enabled: ' . $first_row->enabled . ', Name: ' . $first_row->name);
-            
-            // Debug: Check available fields
-            log_message('debug', 'Available fields in row: ' . implode(', ', array_keys((array)$first_row)));
-        } else {
-            log_message('debug', 'No jobs found in database');
-        }
-    } catch (Exception $e) {
-        log_message('error', 'Jobs query failed: ' . $e->getMessage());
-    }
-    
-    $this->breadcrumbs = array(
-        array(
-            'title' => lang($this->pageName . '_heading'),
-            'url' => redir($this->pageName, true),
-        ),
-    );
-    
-    $this->view = 'listing';
-    $this->load->view($this->folder . '/view_header');
-    $this->load->view('cms/crud/view_list', array(
-        'heading' => lang($this->pageName . '_heading'),
-        'noRows' => lang($this->pageName . '_no_rows'),
-    ));
-    $this->load->view($this->folder . '/view_footer');
-}
 
-public function quick_manage_extra($id, $row): array
-{
+    /**
+     * Override the get_all method to filter by agency
+     */
+    /**
+     * Override the get_all method to filter by agency
+     */
+
+    public function get_all($limit = null, $offset = null, $sort_by = null, $sort_order = null){
+        $user_agency_id = $this->get_user_agency_id();
+        
+        if (!empty($user_agency_id)) {
+            log_message('debug', 'Filtering jobs by agency_id: ' . $user_agency_id);
+            $this->db->where('mod_jobs.agency_id', $user_agency_id);
+        } else {
+            log_message('debug', 'No agency_id found for filtering jobs');
+        }
+        
+        return parent::get_all($limit, $offset, $sort_by, $sort_order);
+    }
+
+    public function build_params($extra = array(), $group = 'main'){
+        $params = parent::build_params($extra, $group);
+        
+        $checkboxFields = ['is_remote'];
+        
+        foreach ($checkboxFields as $field) {
+            if (!isset($params[$field])) {
+                $params[$field] = 0;
+            }
+        }
+        
+        return $params;
+    }
+
+    public function create(){
+        log_message('debug', 'POST data: ' . print_r($this->input->post(), true));
+        
+        // Auto-set agency_id if not provided
+        if (!$this->input->post('agency_id')) {
+            $user_agency_id = $this->get_user_agency_id();
+            if (!empty($user_agency_id)) {
+                $_POST['agency_id'] = $user_agency_id;
+                log_message('debug', 'Auto-setting agency_id to: ' . $user_agency_id);
+            }
+        }
+        
+        parent::create();
+    }
+
+    /**
+     * Override the index method to ensure agency filtering
+     */
+    public function index(){
+        $user_agency_id = $this->get_user_agency_id();
+        log_message('debug', 'Current user agency_id: ' . $user_agency_id);
+        
+        // Apply agency filter directly to the model
+        if (!empty($user_agency_id)) {
+            $this->db->where('mod_jobs.agency_id', $user_agency_id);
+            log_message('debug', 'Applied agency filter in index method: ' . $user_agency_id);
+        }
+        
+        try {
+            $query = $this->{$this->model}->get_all();
+            log_message('debug', 'Jobs query executed successfully. Rows: ' . $query->num_rows());
+            
+            if ($query->num_rows() > 0) {
+                foreach ($query->result() as $row) {
+                    log_message('debug', 'Job - ID: ' . $row->id . ', Agency ID: ' . $row->agency_id . ', Name: ' . $row->name);
+                }
+            } else {
+                log_message('debug', 'No jobs found in database for agency: ' . $user_agency_id);
+            }
+        } catch (Exception $e) {
+            log_message('error', 'Jobs query failed: ' . $e->getMessage());
+        }
+        
+        $this->breadcrumbs = array(
+            array(
+                'title' => lang($this->pageName . '_heading'),
+                'url' => redir($this->pageName, true),
+            ),
+        );
+        
+        $this->view = 'listing';
+        $this->load->view($this->folder . '/view_header');
+        $this->load->view('cms/crud/view_list', array(
+            'heading' => lang($this->pageName . '_heading'),
+            'noRows' => lang($this->pageName . '_no_rows'),
+        ));
+        $this->load->view($this->folder . '/view_footer');
+    }
+
+   
+    public function quick_manage_extra($id, $row): array{
     $submodules = $this->session->submodules;
     $agency_id = !empty($submodules['job_listings']) ? $submodules['job_listings']->id : null;
 
+    // Get the logged-in user's agency ID (works for both agency staff and recruiters)
+    $user_agency_id = $this->get_user_agency_id();
+    
+    log_message('debug', 'User Agency ID: ' . $user_agency_id);
+    log_message('debug', 'Submodule Agency ID: ' . $agency_id);
+    
+    $agency_options = $this->{$this->model}->get_agency_options($user_agency_id);
+    
+    log_message('debug', 'Agency Options Count: ' . $agency_options->num_rows());
+    if ($agency_options->num_rows() > 0) {
+        foreach ($agency_options->result() as $agency) {
+            log_message('debug', 'Agency Option - ID: ' . $agency->id . ', Name: ' . $agency->name);
+        }
+    }
+    
+    // FIX: Safe way to get current agency_id from row
+    $current_agency_id = $user_agency_id; // Default to user's agency
+    
+    // FIX: Safe way to get current agency_id from row
+    $current_agency_id = $user_agency_id; // Default to user's agency
+
+    if (!empty($row) && is_object($row)) {
+        // More robust check for agency_id
+        if (isset($row->agency_id) && !empty($row->agency_id)) {
+            $current_agency_id = $row->agency_id;
+            log_message('debug', 'Found agency_id in row object: ' . $current_agency_id);
+        } else {
+            // Try to get agency_id from the database if we have an ID
+            if (!empty($id)) {
+                $job_data = $this->{$this->model}->get_by_id($id);
+                if ($job_data && isset($job_data->agency_id) && !empty($job_data->agency_id)) {
+                    $current_agency_id = $job_data->agency_id;
+                    log_message('debug', 'Found agency_id from database lookup: ' . $current_agency_id);
+                } else {
+                    log_message('debug', 'No agency_id found in database for job ID: ' . $id);
+                }
+            } else {
+                log_message('debug', 'No ID provided, using user agency ID: ' . $user_agency_id);
+            }
+        }
+    } else {
+        log_message('debug', 'No row object provided, using user agency ID: ' . $user_agency_id);
+    }
+    
     return [
         'agency_id' => $agency_id,
-        'agency_options' => $this->{$this->model}->get_agency_options(), // Returns Query object
+        'user_agency_id' => $user_agency_id,
+        'current_agency_id' => $current_agency_id, // Use this in the view
+        'user_agencies' => $user_agency_id, // For compatibility with view
+        'agency_options' => $agency_options,
         'industry_options' => $this->{$this->model}->get_industry_options(),
         'skill_options' => $this->{$this->model}->get_skill_options(),
         'qualification_options' => $this->{$this->model}->get_qualification_options(),
         'skills' => $id ? $this->{$this->model}->get_job_skills((int)$id) : [],
         'qualifications' => $id ? $this->{$this->model}->get_job_qualifications((int)$id) : [],
     ];
-}
+    }
 
-    public function is_unique_reference($reference)
-    {
+    /**
+     * Get the logged-in user's agency ID - Works for both agency staff and recruiters
+     */
+    /**
+     * Get the logged-in user's agency ID - Works for both agency staff and recruiters
+     */
+    private function get_user_agency_id(){
+        // Get the login data from session
+        $login_data = $this->session->userdata('login');
+        
+        log_message('debug', 'Login data: ' . print_r($login_data, true));
+        
+        // Check for agency staff login
+        if (!empty($login_data['agency'])) {
+            $agency_user = $login_data['agency'];
+            
+            if (!empty($agency_user['agency_id'])) {
+                $agency_id = $agency_user['agency_id'];
+                log_message('debug', 'Found agency_id in login[agency] data: ' . $agency_id);
+                return $agency_id;
+            } elseif (!empty($agency_user['id'])) {
+                // Sometimes the agency ID might be stored in the user ID field
+                $agency_id = $agency_user['id'];
+                log_message('debug', 'Found agency_id in login[agency] id field: ' . $agency_id);
+                return $agency_id;
+            }
+        }
+        
+        // Check for recruiter login
+        if (!empty($login_data['recruiter'])) {
+            $recruiter_user = $login_data['recruiter'];
+            
+            if (!empty($recruiter_user['agency_id'])) {
+                $agency_id = $recruiter_user['agency_id'];
+                log_message('debug', 'Found agency_id in login[recruiter] data: ' . $agency_id);
+                return $agency_id;
+            }
+        }
+        
+        // Fallback: check if we have direct agency_id in session
+        $agency_id = $this->session->userdata('agency_id');
+        if (!empty($agency_id)) {
+            log_message('debug', 'Found agency_id directly in session: ' . $agency_id);
+            return $agency_id;
+        }
+        
+        log_message('debug', 'No agency_id found in session');
+        return null;
+    }
+
+    public function is_unique_reference($reference){
         $id = $this->input->post('id');
         $this->form_validation->set_message('is_unique_reference', lang('ref_exists'));
         return $this->{$this->model}->is_unique_reference($reference, $id);
+    }
+
+    /**
+     * Override update method to ensure agency_id is set
+     */
+    public function update($id){
+        // Ensure agency_id is set for updates
+        if (!$this->input->post('agency_id')) {
+            $user_agency_id = $this->get_user_agency_id();
+            if (!empty($user_agency_id)) {
+                $_POST['agency_id'] = $user_agency_id;
+                log_message('debug', 'Auto-setting agency_id for update: ' . $user_agency_id);
+            }
+        }
+        
+        parent::update($id);
     }
 }

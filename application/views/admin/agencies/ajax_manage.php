@@ -6,12 +6,12 @@
         <h2>Add Agency</h2>
         <p>
             Here you can <span>add a new agency (company)</span> to the system.<br />
-            Enter the company's official details below.
+            Enter the company's official details and login credentials below.
         </p>
         <?php else: ?>
         <h2>Edit Agency <span><?= htmlspecialchars($row->name, ENT_QUOTES, 'UTF-8'); ?></span></h2>
         <p>
-            Update the agency's company details below.<br />
+            Update the agency's company details and login settings below.<br />
             Changes will take effect immediately.
         </p>
         <?php endif; ?>
@@ -20,6 +20,7 @@
     <ul class="qm-tabs-header">
         <li rel="1" class="active">General</li>
         <li rel="2">Contact & Address</li>
+        <li rel="3">Login Credentials</li>
     </ul>
 
     <div class="form-field-container">
@@ -58,13 +59,16 @@
         <div rel="2" class="qm-tabs-tab">
             <div class="row">
                 <div class="col-lg-6">
-                    <?= field_input('email', $row, 'valid-email', [], 'email', 'General contact email'); ?>
+                    <?= field_input('email', $row, 'required valid-email', [], 'email', 'Login email address'); ?>
                 </div>
                 <div class="col-lg-6">
                     <?= field_input('phone', $row, '', [], 'tel', 'Main office phone number'); ?>
                 </div>
             </div>
             <div class="row">
+                <div class="col-lg-6">
+                    <?= field_input('contact_person', $row, '', [], 'text', 'Primary contact person'); ?>
+                </div>
                 <div class="col-lg-6">
                     <?= field_input('billing_contact', $row, '', [], 'text', 'Billing department contact'); ?>
                 </div>
@@ -74,6 +78,45 @@
                     <?= field_textarea('address', $row, '', ['placeholder' => 'Enter full physical address'], 'Company physical address'); ?>
                 </div>
             </div>
+        </div>
+
+        <!-- Tab 3: Login Credentials -->
+        <div rel="3" class="qm-tabs-tab">
+            <div class="row">
+                <div class="col-lg-12">
+                    <div class="info-text">
+                        <strong>Login Credentials:</strong><br>
+                        The agency will use these credentials to access their dashboard and manage their staff members.
+                    </div>
+                </div>
+            </div>
+
+            <?php if (empty($row)): ?>
+            <!-- Password fields for new agency -->
+            <div class="row">
+                <div class="col-lg-6">
+                    <?= field_password('password', '', ['required' => 'required', 'autocomplete' => 'new-password'], 'Set login password (min 8 characters)'); ?>
+                </div>
+                <div class="col-lg-6">
+                    <?= field_password('confirm_password', '', ['required' => 'required', 'autocomplete' => 'new-password'], 'Confirm password'); ?>
+                </div>
+            </div>
+            <?php else: ?>
+            <!-- Password fields for existing agency (optional) -->
+            <div class="row">
+                <div class="col-lg-6">
+                    <?= field_password('password', '', ['autocomplete' => 'new-password'], 'Leave blank to keep current password'); ?>
+                </div>
+                <div class="col-lg-6">
+                    <?= field_password('confirm_password', '', ['autocomplete' => 'new-password'], 'Confirm new password'); ?>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-lg-6">
+                    <?= field_checkbox('login_enabled|label_login_enabled', $row, '1'); ?>
+                </div>
+            </div>
+            <?php endif; ?>
         </div>
 
         <div class="btn-container" style="clear: left;">
@@ -101,7 +144,5 @@ $(document).ready(function() {
     $('.quick-manage-container select').each(function() {
         $(this).trigger('change');
     });
-
-
 });
 </script>

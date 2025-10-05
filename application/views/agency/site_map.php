@@ -21,6 +21,17 @@ $this->siteMap = array(
         'show_heading'  => false,
         'active_by'     => 'view',
     ),
+      (object)array(
+        'group'         => 'Agency Staff',
+        'page'          => 'agency_staff',
+        'label'         => lang('agency_staff_heading'),
+        'icon'          => 'fa-universal-access',
+        'url'           => url('agency_staff'),
+        'class'         => 'Agency_Staff',
+        'show'          => true,
+        'show_heading'  => false,
+        'active_by'     => 'view',
+    ),
     (object)array(
         'group'         => 'Recruiters',
         'page'          => 'recruiters',

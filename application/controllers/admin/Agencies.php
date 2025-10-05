@@ -64,10 +64,14 @@ class Agencies extends CRUD_Controller
                 'label' => lang('label_industry'),
                 'sort' => true,
             ),
+            'login_enabled' => array(
+                'label' => lang('label_login_enabled'),
+                'sort' => true,
+                'format' => 'boolean',
+            ),
         );
 
         $this->listActions = array(
-          
             'edit' => array(
                 'label'     => lang('label_edit'),
                 'url'       => url($this->pageName . '/edit/{id}'),
@@ -93,6 +97,15 @@ class Agencies extends CRUD_Controller
                 'class'     => 'disable-row btn-disable',
                 'function'  => function ($str, $row) {
                     return (!$this->allowEdit || !$row->enabled) ? false : $str;
+                },
+            ),
+            'login_as' => array(
+                'label'     => lang('label_login_as_agency'),
+                'url'       => url($this->pageName . '/login_as/{id}'),
+                'icon'      => 'fa-sign-in',
+                'class'     => 'login-as-agency btn-info',
+                'function'  => function ($str, $row) {
+                    return (!$this->allowEdit || !$row->login_enabled) ? false : $str;
                 },
             ),
             'delete' => array(
@@ -123,7 +136,9 @@ class Agencies extends CRUD_Controller
                 'slug'                  => 'trim|strip_tags',
                 'registration_number'   => 'trim|strip_tags',
                 'vat_number'            => 'trim|strip_tags',
-                'email'                 => 'trim|valid_email',
+                'email'                 => 'trim|required|valid_email|callback_is_unique_agency_email',
+                'password'              => 'trim|callback_validate_agency_password',
+                'contact_person'        => 'trim|strip_tags',
                 'phone'                 => 'trim|strip_tags',
                 'address'               => 'trim',
                 'billing_contact'       => 'trim|strip_tags',
@@ -132,8 +147,149 @@ class Agencies extends CRUD_Controller
                 'logo'                  => 'trim|strip_tags',
             ),
         );
+    }
 
+    /**
+     * Validate agency password
+     */
+    public function validate_agency_password(): bool
+    {
+        $password = $this->input->post('password');
+        $confirm = $this->input->post('confirm_password');
 
+        // Don't validate if password is blank during update
+        if (empty($password) && $this->input->post('id')) {
+            return true;
+        }
+
+        // Check if passwords match
+        if ($password != $confirm) {
+            $this->form_validation->set_message('validate_agency_password', lang('validation_passwords_mismatch'));
+            return false;
+        }
+
+        // Check if password is strong enough
+        if (!is_password_strong($password, 8, false, false, false, false)) {
+            $this->form_validation->set_message('validate_agency_password', lang('validation_password_weak'));
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * Check if agency email is unique
+     */
+    public function is_unique_agency_email(string $email): bool
+    {
+        $id = $this->input->post('id');
+
+        $this->form_validation->set_message('is_unique_agency_email', lang('email_exists'));
+        $result = $this->{$this->model}->is_unique_email($email, $id);
+
+        return $result;
+    }
+
+    public function create_extra_params(): array
+    {
+        $params = [
+            'is_approved' => 1,
+            'login_enabled' => 1,
+            'enabled' => 1
+        ];
+
+        // Hash password if provided
+        if ($this->input->post('password')) {
+            $params['password'] = password_hash($this->input->post('password'), PASSWORD_DEFAULT);
+        }
+
+        return $params;
+    }
+
+    public function update_extra_params($id): array
+    {
+        $params = [];
+
+        // Hash new password if provided
+        if ($this->input->post('password')) {
+            $params['password'] = password_hash($this->input->post('password'), PASSWORD_DEFAULT);
+        } else {
+            // Unset password field if not changing
+            unset($this->formFields['main']['password']);
+        }
+
+        $params['login_enabled'] = $this->input->post('login_enabled') ? 1 : 0;
+
+        return $params;
+    }
+
+    public function create_success_extra($id): void
+    {
+        // Send welcome email to agency
+        $this->send_agency_welcome_email($id);
+    }
+
+    /**
+     * Send welcome email to agency
+     */
+    private function send_agency_welcome_email($agency_id): void
+    {
+        $agency = $this->{$this->model}->get_by_id($agency_id);
+        
+        if ($agency && !empty($agency->email)) {
+            $emailData = [
+                'agency_name' => $agency->name,
+                'contact_person' => $agency->contact_person,
+                'email' => $agency->email,
+                'login_url' => site_url('login'),
+                'site_name' => $this->config->item('site_name')
+            ];
+
+            // Send welcome email
+            send_mail('new_agency_account', $agency->email, 'Welcome to ' . $this->config->item('site_name'), $emailData, '', true);
+        }
+    }
+
+    /**
+     * Login as agency
+     */
+    public function login_as($id): void
+    {
+        if (!$this->allowEdit) {
+            flash_notification(lang('access_denied_description'), 'warning');
+            redir($this->pageName);
+        }
+
+        $agency = $this->{$this->model}->get_by_id($id);
+        if (!$agency || !$agency->login_enabled) {
+            flash_notification('Agency login is not enabled or agency not found', 'warning');
+            redir($this->pageName);
+        }
+
+        // Log action
+        Logger::log('Login As Agency', ['agency_id' => $id, 'agency_name' => $agency->name]);
+
+        $login = loginData();
+        if (!is_array($login)) $login = [];
+
+        $login['agency'] = [
+            'id' => $agency->id,
+            'group' => 'agency',
+            'name' => $agency->name,
+            'email' => $agency->email,
+            'contact_person' => $agency->contact_person,
+            'redirect' => site_url('agency/dashboard'),
+            'enabled' => $agency->enabled,
+            'login_enabled' => $agency->login_enabled
+        ];
+
+        $this->session->set_userdata('login', $login);
+        $this->session->set_userdata('is_logged_in', 1);
+
+        // Update last login
+        $this->{$this->model}->update_last_login($agency->id);
+
+        redirect('agency/dashboard');
     }
 
     public function index()
@@ -155,7 +311,7 @@ class Agencies extends CRUD_Controller
 
     public function quick_manage_extra($id, $row): array
     {
-        // Agencies have no user-related data
+        // No extra data needed for agencies
         return array();
     }
 
@@ -196,6 +352,4 @@ class Agencies extends CRUD_Controller
         $this->form_validation->set_message('valid_website', 'The {field} field must be a valid URL.');
         return FALSE;
     }
-
-
 }

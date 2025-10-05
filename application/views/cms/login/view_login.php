@@ -60,7 +60,7 @@
                             <p class="lead">Login to your account</p>
                         </div>
                         <div class="body form-auth-small">
-                            <?= form_open(); ?>
+                            <?= form_open('', ['id' => 'login-form']); ?>
                             <?= form_hidden('action', 'login'); ?>
                             <?= form_hidden('group', ''); ?>
                             <?= form_hidden('bgimage', set_value('bgimage', 0)); ?>
@@ -77,11 +77,9 @@
                                     type="password" class="form-control" id="signin-password" value=""
                                     placeholder="Password" required>
                             </div>
-                            <div class="login-error">
-                                <?= form_error('password'); ?>
-                            </div>
-                            <button type="button" class="btn btn-primary btn-lg btn-block submit_button"
-                                onclick="form_submit(this)">LOGIN</button>
+                            <div class="login-error" style="color: red; margin-bottom: 15px;"></div>
+                            <button type="submit" class="btn btn-primary btn-lg btn-block"
+                                id="login-button">LOGIN</button>
                             <div class="bottom">
                                 <span class="helper-text m-b-10"><i class="fa fa-lock"></i> <a
                                         href="<?= url('login/forgot-password'); ?>">Forgot password?</a></span>
@@ -95,64 +93,101 @@
     </div>
     <!-- END WRAPPER -->
     <script>
-    // $(document).ready(function(){
-    // 	//$('form').parsley();
-    $('input').attr('autocomplete', 'off');
+    $(document).ready(function() {
+        console.log("Document ready - JavaScript loaded");
 
-    //Submit form on enter key
-    $('form input').on('keyup', function(e) {
-        if (e.keyCode == 13) {
-            $(".submit_button").trigger('click');
-        }
+        $('input').attr('autocomplete', 'off');
+
+        // Handle form submission
+        $('#login-form').on('submit', function(e) {
+            console.log("Form submitted");
+            e.preventDefault(); // Prevent default form submission
+
+            // Clear previous errors
+            $('.login-error').html('');
+
+            $('#login-form').parsley().whenValidate().done(function() {
+                console.log("Form validation passed");
+                attempt_login();
+            }).fail(function() {
+                console.log("Form validation failed");
+            });
+        });
+
+        //Submit form on enter key
+        $('#login-form input').on('keyup', function(e) {
+            if (e.keyCode == 13) {
+                console.log("Enter key pressed");
+                $('#login-form').trigger('submit');
+            }
+        });
     });
 
-    // });
-
-    function form_submit(el) {
-
-        $('form').parsley().whenValidate().done(function() {
-            //Attempt login
-            attempt_login();
-            return false;
-        });
-    }
-
     function attempt_login(group) {
-        //Check if max batches has been set else set to 5
+        console.log("=== ATTEMPT LOGIN START ===");
+
         if (typeof group === 'undefined' || !group) {
             var group = 0;
         }
 
-        var email = $('form').find('input[name="email"]').val();
-        var password = $('form').find('input[name="password"]').val();
+        var email = $('#signin-email').val();
+        var password = $('#signin-password').val();
 
-        //Attempt login
-        show_loader();
-        ajax_post('', {
-            'email': email,
-            'password': password,
-            'group': group
-        }, function(d) {
-            if (d.success == true) {
-                if (d.accounts) {
-                    //Multiple logins has been found. Ask which section to login into
-                    show_multi_login_popup(d.accounts);
-                    hide_loader();
+        console.log("Email:", email, "Group:", group);
+
+        // Show loading
+        $('#login-button').prop('disabled', true).html('<i class="fa fa-spinner fa-spin"></i> LOGGING IN...');
+
+        // Use basic jQuery AJAX for better control
+        $.ajax({
+            url: '<?= site_url(); ?>login/ajax_attempt_login',
+            type: 'POST',
+            dataType: 'json',
+            data: {
+                'email': email,
+                'password': password,
+                'group': group,
+                'action': 'login',
+                '<?=$this->security->get_csrf_token_name()?>': '<?= $this->security->get_csrf_hash(); ?>'
+            },
+            success: function(response) {
+                console.log("=== AJAX SUCCESS ===");
+                console.log("Full response:", response);
+
+                if (response.success === 1) {
+                    console.log("Login successful, redirecting to:", response.redirect);
+                    window.location.href = response.redirect;
+                } else if (response.accounts) {
+                    console.log("Multiple accounts found");
+                    show_multi_login_popup(response.accounts);
                 } else {
-                    //User has been logged in. Redirect.
-                    window.location.replace(d.redirect);
+                    console.log("Login failed:", response.message);
+                    $('.login-error').html(response.message || 'Login failed. Please try again.');
+                    $('#login-button').prop('disabled', false).html('LOGIN');
                 }
-            } else {
-                $('.login-error').html(d.message);
-                $('input').removeClass('parsley-success').addClass('parsley-error');
-                hide_loader();
+            },
+            error: function(xhr, status, error) {
+                console.log("=== AJAX ERROR ===");
+                console.log("Status:", status);
+                console.log("Error:", error);
+                console.log("Response Text:", xhr.responseText);
+
+                // Try to parse the response if it's JSON
+                try {
+                    var response = JSON.parse(xhr.responseText);
+                    $('.login-error').html(response.message || 'Login request failed');
+                } catch (e) {
+                    $('.login-error').html('Login request failed. Please try again.');
+                }
+
+                $('#login-button').prop('disabled', false).html('LOGIN');
             }
-        }, {
-            url: '<?= site_url(); ?>login/ajax_attempt_login'
         });
     }
 
     function show_multi_login_popup(accounts) {
+        console.log("Showing account selection popup");
+
         var html = '<div class="account-list">';
         for (var i in accounts) {
             if (accounts[i].enabled) {
@@ -177,30 +212,10 @@
         });
     }
 
-    // Ensure you have the ucwords function defined
     function ucwords(str) {
         return str.replace(/^(.)|\s+(.)/g, function(letter) {
             return letter.toUpperCase();
         });
-    }
-
-    function show_loader() {
-        $('.loader').show();
-    }
-
-    function hide_loader() {
-        $('.loader').hide();
-    }
-
-    // function close_choice_popup() {
-    // 	$('.login-choice-popup').removeClass('open');
-    // }
-
-    function ucwords(str) {
-        str = str.toLowerCase().replace(/\b[a-z]/g, function(letter) {
-            return letter.toUpperCase();
-        });
-        return str;
     }
     </script>
     <!-- Theme Plugins -->
@@ -220,30 +235,21 @@
         width: 100%;
         text-align: left;
         background-color: white;
-        /* Ensure background is white */
         border: 1px solid #ccc;
-        /* Add a border */
         color: #333;
-        /* Text color */
         padding: 10px;
         transition: background-color 0.3s, color 0.3s;
-        /* Smooth transition */
         outline: none;
-        /* Remove default focus outline */
     }
 
     .account-item button:focus {
         box-shadow: none;
-        /* Remove default focus shadow */
     }
 
     .account-item button:hover {
         background-color: #f0f0f0 !important;
-        /* Light grey background on hover */
         color: #333 !important;
-        /* Ensure text remains visible */
         border-color: #999 !important;
-        /* Darken the border on hover */
     }
 
     .account-item.disabled button {

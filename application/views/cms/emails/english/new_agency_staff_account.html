@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Welcome to {site_name}</title>
+    <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background: #f8f9fa; padding: 20px; text-align: center; border-radius: 5px; }
+        .content { background: white; padding: 20px; border-radius: 5px; margin-top: 20px; }
+        .button { background: #007bff; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; display: inline-block; }
+        .footer { margin-top: 20px; padding: 20px; text-align: center; color: #666; font-size: 12px; }
+        .info-box { background: #f8f9fa; padding: 15px; border-radius: 4px; margin: 15px 0; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Welcome to {site_name}</h1>
+        </div>
+        
+        <div class="content">
+            <p>Hello,</p>
+            
+            <p>Your agency staff account has been created on {site_name}. You can now access the system using your email address.</p>
+            
+            <div class="info-box">
+                <strong>Your Login Details:</strong><br>
+                Email: {email}<br>
+                Account Created: {createDate} at {createTime}
+            </div>
+            
+            <p>To get started, please set your password by clicking the button below:</p>
+            
+            <p style="text-align: center;">
+                <a href="{link}" class="button">Set Your Password</a>
+            </p>
+            
+            <p><strong>Important:</strong> This link will expire for security reasons. If you need a new link, please contact your system administrator.</p>
+            
+            <p>If you have any questions or need assistance, please contact your agency administrator.</p>
+        </div>
+        
+        <div class="footer">
+            <p>This email was sent automatically from {site_name}. Please do not reply to this email.</p>
+            <p>&copy; {current_year} {site_name}. All rights reserved.</p>
+        </div>
+    </div>
+</body>
+</html>

@@ -15,6 +15,25 @@ $route['staff/candidates'] = 'staff/candidates';
 $route['staff/candidates/(:any)'] = 'staff/candidates/$1';
 $route['staff/candidates/(:any)/(:any)'] = 'staff/candidates/$1/$2';
 
+// Agency Routes
+$route['agency/dashboard'] = 'agency/dashboard';
+$route['agency/jobs_listings'] = 'agency/jobs_listings';
+$route['agency/jobs_listings/(:any)'] = 'agency/jobs_listings/$1';
+
+// Recruiter Routes - ADD THESE
+// Recruiter Login Routes - ADD THESE
+$route['recruiter/login'] = 'login';
+$route['recruiter/login/(:any)'] = 'login/$1';
+$route['recruiter/logout'] = 'login/logout/recruiter';
+
+// Recruiter Dashboard Routes - POINT TO AGENCY CONTROLLERS
+$route['recruiter/dashboard'] = 'agency/dashboard';
+$route['recruiter/dashboard/(:any)'] = 'agency/dashboard/$1';
+
+// Recruiter Jobs Routes - POINT TO AGENCY CONTROLLERS  
+$route['recruiter/jobs_listings'] = 'agency/jobs_listings';
+$route['recruiter/jobs_listings/(:any)'] = 'agency/jobs_listings/$1';
+
 
 $route['browser/(:any)']  = "browser/$1";
 $route['cron/(:any)']               			= 'cron/$1';
@@ -24,7 +43,15 @@ $route['images/(:any)/(:any)/(:any)/(:any)/(:any)']   			= 'files/image/$1/$2/$3
 $route['files/(:any)/(:any)/(:any)/(:any)/(:any)']   			= 'files/file/$1/$2/$3/$4/$5';
 $route['download/(:any)/(:any)/(:any)/(:any)/(:any)']   		= 'files/file/$1/$2/$3/$4/$5';
 
-
+// Add to routes.php temporarily
+$route['debug-session'] = function() {
+    $ci =& get_instance();
+    echo "<pre>";
+    echo "Session Login Data:\n";
+    print_r($ci->session->userdata('login'));
+    echo "Is Logged In: " . $ci->session->userdata('is_logged_in') . "\n";
+    echo "</pre>";
+};
 //Standard CMS
 build_route($route, '(:any)/ajax_pager_fetch_batch/(:num)/(:any)', '$1/ajax_pager_fetch_batch/$2/$3');
 build_route($route, '(:any)/ajax_pager_fetch_batch/(:num)', '$1/ajax_pager_fetch_batch/$2');
@@ -102,5 +129,40 @@ $route['test-config'] = function() {
     echo "Login Groups:\n";
     print_r($ci->config->item('login_groups'));
     echo "\nCurrent URL: " . current_url();
+    echo "</pre>";
+};
+
+// Debug route - check recruiters
+$route['debug-recruiters'] = function() {
+    $ci =& get_instance();
+    
+    echo "<h1>Recruiters Debug</h1>";
+    
+    // Check if recruiters table has users
+    $ci->db->where('removed', 0);
+    $ci->db->where('enabled', 1);
+    $recruiters = $ci->db->get('recruiters')->result();
+    
+    echo "<h2>Recruiters in database:</h2>";
+    echo "<pre>";
+    if (empty($recruiters)) {
+        echo "No recruiters found in database!\n";
+    } else {
+        foreach ($recruiters as $recruiter) {
+            echo "ID: " . $recruiter->id . "\n";
+            echo "Name: " . $recruiter->first_name . " " . $recruiter->last_name . "\n";
+            echo "Email: " . $recruiter->email . "\n";
+            echo "Agency ID: " . $recruiter->agency_id . "\n";
+            echo "Enabled: " . $recruiter->enabled . "\n";
+            echo "Removed: " . $recruiter->removed . "\n";
+            echo "---\n";
+        }
+    }
+    echo "</pre>";
+    
+    // Check login groups config
+    echo "<h2>Login Groups Config:</h2>";
+    echo "<pre>";
+    print_r($ci->config->item('login_groups'));
     echo "</pre>";
 };

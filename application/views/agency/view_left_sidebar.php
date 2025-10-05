@@ -13,19 +13,35 @@
         <?php 
             $defaultProfilePic = site_url('resources/cms/images/no-user.png'); 
             $profilePic = !empty($this->loginData['profile_pic']) ? image_url($this->loginData['profile_pic']) : $defaultProfilePic;
+            
+            // Handle agency vs other user types
+            $userName = '';
+            if (isset($this->loginData['first_name']) && isset($this->loginData['last_name'])) {
+                $userName = htmlspecialchars($this->loginData['first_name'] . ' ' . $this->loginData['last_name']);
+            } elseif (isset($this->loginData['name'])) {
+                $userName = htmlspecialchars($this->loginData['name']);
+            } else {
+                $userName = 'User';
+            }
             ?>
         <div class="user-account">
             <img src="<?= $profilePic ?>" class="rounded-circle user-photo" alt="User Profile Picture">
             <div class="dropdown">
                 <span>Welcome,</span>
                 <a href="javascript:void(0);" class="dropdown-toggle user-name" data-toggle="dropdown">
-                    <strong><?= htmlspecialchars($this->loginData['first_name'] . ' ' . $this->loginData['last_name']) ?></strong>
+                    <strong><?= $userName ?></strong>
                 </a>
                 <ul class="dropdown-menu dropdown-menu-right account">
                     <li>
+                        <?php if (isset($this->loginData['group']) && $this->loginData['group'] == 'agency'): ?>
+                        <a href="<?= site_url('agency/agencies#edit/' . loginID()) ?>">
+                            <i class="icon-user"></i> My Profile
+                        </a>
+                        <?php else: ?>
                         <a href="<?= site_url('admin/administrators#edit/' . loginID()) ?>">
                             <i class="icon-user"></i> My Profile
                         </a>
+                        <?php endif; ?>
                     </li>
                     <li class="divider"></li>
                     <li>

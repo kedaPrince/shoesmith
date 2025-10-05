@@ -15,7 +15,7 @@ class Model_agencies extends CRUD_Model
     }
 
     /**
-     * Get agency options for dropdowns (e.g., when assigning staff to agencies)
+     * Get agency options for dropdowns
      */
     public function get_agency_options()
     {
@@ -31,5 +31,42 @@ class Model_agencies extends CRUD_Model
             $options[$row->id] = $row->name;
         }
         return $options;
+    }
+
+    /**
+     * Check if agency email is unique
+     */
+    public function is_unique_email($email, $id = null)
+    {
+        $this->db->where('email', $email);
+        $this->db->where('removed', 0);
+        
+        if ($id) {
+            $this->db->where('id !=', $id);
+        }
+        
+        return $this->db->get($this->table)->num_rows() === 0;
+    }
+
+    /**
+     * Get agency by email for login
+     */
+    public function get_by_email($email)
+    {
+        return $this->db->where('email', $email)
+                       ->where('login_enabled', 1)
+                       ->where('enabled', 1)
+                       ->where('removed', 0)
+                       ->get($this->table)
+                       ->row();
+    }
+
+    /**
+     * Update last login
+     */
+    public function update_last_login($agency_id)
+    {
+        $this->db->where('id', $agency_id)
+                 ->update($this->table, ['last_login' => date('Y-m-d H:i:s')]);
     }
 }

@@ -54,13 +54,28 @@ $config['login_groups'] = array(
       'super_user_id'     => 1,
       'session_fields'    => array('first_name', 'last_name')
     ),
-     'agency' => array(
+    // FIXED: Remove duplicate and rename agency_staff
+    'agency' => array(
       'path'              => 'agency/',
-      'table'             => 'agency_staff',
-      'default_url'       => 'agency/dashboard', // You'll need to create this controller
+      'table'             => 'agencies',  // Agency company login
+      'default_url'       => 'agency/dashboard',
+      'super_user_id'     => 1,
+       'session_fields'    => array('name', 'email', 'contact_person', 'first_name', 'last_name')
+    ),
+    'agency_staff' => array(  // Renamed from duplicate 'agency'
+      'path'              => 'agency/',
+      'table'             => 'agency_staff',  // Agency staff table
+      'default_url'       => 'agency/dashboard',
       'super_user_id'     => 1,
       'session_fields'    => array('first_name', 'last_name', 'email', 'agency_id', 'usr_type_id')
-    )
+    ),
+    'recruiter' => array(
+      'path'              => 'recruiter/',
+      'table'             => 'recruiters',
+      'default_url'       => 'agency/dashboard',
+      'super_user_id'     => 1,
+      'session_fields'    => array('first_name', 'last_name', 'email', 'agency_id', 'usr_type_id')
+    ),
 );
 
 /**

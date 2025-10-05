@@ -46,12 +46,33 @@
             </div>
             <div class="row">
                 <!-- Replace the agency dropdown section -->
+                <!-- Replace the agency dropdown section -->
                 <div class="col-lg-6">
-                    <?php if (!empty($agency_id)): ?>
-                    <?= form_hidden('agency_id', $agency_id); ?>
-                    <div class="form-control-static"><?= $agency_options->row()->name ?? 'Agency' ?></div>
+                    <?php 
+    // Determine if we should show agency as static field
+    $show_static_agency = !empty($current_agency_id) || !empty($user_agency_id);
+    $final_agency_id = !empty($current_agency_id) ? $current_agency_id : $user_agency_id;
+    ?>
+
+                    <?php if ($show_static_agency && !empty($final_agency_id)): ?>
+                    <?= form_hidden('agency_id', $final_agency_id); ?>
+                    <div class="form-control-static">
+                        <strong>Agency:</strong><br>
+                        <?php 
+            // Display agency name
+            if (!empty($agency_options) && $agency_options->num_rows() > 0) {
+                $agency_name = $agency_options->row()->name;
+                echo htmlspecialchars($agency_name, ENT_QUOTES, 'UTF-8');
+                log_message('debug', 'Displaying static agency: ' . $agency_name . ' (ID: ' . $final_agency_id . ')');
+            } else {
+                echo 'Your Agency (ID: ' . $final_agency_id . ')';
+                log_message('debug', 'Agency options empty, showing fallback for ID: ' . $final_agency_id);
+            }
+            ?>
+                    </div>
                     <?php else: ?>
                     <?= field_dropdown('agency_id|label_agency', $agency_options, $row, 'required'); ?>
+                    <?php log_message('debug', 'Showing agency dropdown with ' . $agency_options->num_rows() . ' options'); ?>
                     <?php endif; ?>
                 </div>
                 <div class="col-lg-6">
