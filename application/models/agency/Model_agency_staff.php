@@ -10,20 +10,34 @@ public function get_all($limit = 0, $offset = 0, $section = '')
     $this->db->distinct();
     $this->db->join('agencies', 'agencies.id = agency_staff.agency_id', 'left');
     
-    // Explicitly select only the fields we want, including the joined field
+    // Explicitly select all needed fields including agency_id
     $this->db->select('
-        agency_staff.id,
-        agency_staff.first_name,
-        agency_staff.last_name,
-        agency_staff.name,
-        agency_staff.email,
-        agency_staff.enabled,
-        agency_staff.removed,
-        agency_staff.job_role,
+        agency_staff.*,
         agencies.name as agency_name
-    ', false); // false prevents adding table prefixes
+    ', false);
     
     $this->db->where('agency_staff.removed', 0);
+    
+    // Apply agency filtering - get agency ID from session
+    $ci =& get_instance();
+    $agency_id = null;
+    
+    // Get agency ID from session
+    if (isset($ci->session) && $ci->session->has_userdata('login')) {
+        $login_data = $ci->session->userdata('login');
+        
+        if (!empty($login_data['agency']) && !empty($login_data['agency']['id'])) {
+            $agency_id = $login_data['agency']['id'];
+        }
+    }
+    
+    // Apply agency filter if we have an agency ID
+    if (!empty($agency_id)) {
+        $this->db->where('agency_staff.agency_id', $agency_id);
+        log_message('debug', 'Model_agency_staff - Filtering by agency_id: ' . $agency_id);
+    } else {
+        log_message('debug', 'Model_agency_staff - No agency filter applied');
+    }
     
     // Apply sorting
     if (!empty($this->sorting)) {
@@ -36,14 +50,16 @@ public function get_all($limit = 0, $offset = 0, $section = '')
         $this->db->limit($limit, $offset);
     }
     
-    return $this->db->get($this->table);
+    $query = $this->db->get($this->table);
+    log_message('debug', 'Model_agency_staff get_all query: ' . $this->db->last_query());
+    return $query;
 }
 
-// Remove the selects() method entirely or keep it empty
-public function selects()
-{
-    // Leave this empty to prevent the CRUD system from auto-adding fields
-}
+    // Remove the selects() method entirely or keep it empty
+    public function selects()
+    {
+        // Leave this empty to prevent the CRUD system from auto-adding fields
+    }
 
     /**
      * Get user's agency information
@@ -168,6 +184,7 @@ public function selects()
 
         return $idsList;
     }
+
     /**
      * Add joins for listing queries
      */
@@ -176,6 +193,7 @@ public function selects()
         $this->db->join('agencies', 'agencies.id = agency_staff.agency_id', 'left');
         $this->db->select('agencies.name as agency_name');
     }
+
     public function get_access_groups_all()
     {
         $this->db->select('id, name');
@@ -200,14 +218,15 @@ public function selects()
     /**
      * Get agency options for dropdowns
      */
-    public function get_agency_options($agency_id = null)
-    {
+    public function get_agency_options($agency_id = null) {
         $this->db->select('id, name');
         $this->db->where('enabled', 1);
         $this->db->where('removed', 0);
         
+        // If agency_id is provided, filter to show only that agency
         if ($agency_id) {
             $this->db->where('id', $agency_id);
+            log_message('debug', 'Model_agency_staff - Filtering agencies to show only ID: ' . $agency_id);
         }
         
         $this->db->order_by('name');

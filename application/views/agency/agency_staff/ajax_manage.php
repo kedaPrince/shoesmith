@@ -68,7 +68,19 @@ function getValue(object|null $more_details, string $name): string
                     <?= field_dropdown('usr_type_id|label_user_type', $user_types_all, $row, 'required'); ?>
                 </div>
                 <div class="col-lg-6">
+                    <?php 
+                // If user has a specific agency, show it as static text
+                if (!empty($user_agency_id) && !empty($agency_options) && $agency_options->num_rows() == 1): 
+                    $agency = $agency_options->row();
+                ?>
+                    <?= form_hidden('agency_id', $user_agency_id); ?>
+                    <div class="form-control-static">
+                        <strong>Agency:</strong><br>
+                        <?= htmlspecialchars($agency->name, ENT_QUOTES, 'UTF-8'); ?>
+                    </div>
+                    <?php else: ?>
                     <?= field_dropdown('agency_id|label_agency', $agency_options, $row, 'required'); ?>
+                    <?php endif; ?>
                 </div>
             </div>
 

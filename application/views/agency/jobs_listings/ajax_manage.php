@@ -49,10 +49,10 @@
                 <!-- Replace the agency dropdown section -->
                 <div class="col-lg-6">
                     <?php 
-    // Determine if we should show agency as static field
-    $show_static_agency = !empty($current_agency_id) || !empty($user_agency_id);
-    $final_agency_id = !empty($current_agency_id) ? $current_agency_id : $user_agency_id;
-    ?>
+                        // Determine if we should show agency as static field
+                        $show_static_agency = !empty($current_agency_id) || !empty($user_agency_id);
+                        $final_agency_id = !empty($current_agency_id) ? $current_agency_id : $user_agency_id;
+                    ?>
 
                     <?php if ($show_static_agency && !empty($final_agency_id)): ?>
                     <?= form_hidden('agency_id', $final_agency_id); ?>
@@ -175,35 +175,35 @@
 </div>
 
 <script type="text/javascript">
-function save_form(el) {
-    $(el).closest('form').parsley().whenValidate().done(function() {
-        let view = '<?= !empty($row->id) ? 'update' : 'create' ?>';
-        let id = <?= !empty($row->id) ? $row->id : '0' ?>;
-        ajax_submit_form(el, view, id);
+    function save_form(el) {
+        $(el).closest('form').parsley().whenValidate().done(function() {
+            let view = '<?= !empty($row->id) ? 'update' : 'create' ?>';
+            let id = <?= !empty($row->id) ? $row->id : '0' ?>;
+            ajax_submit_form(el, view, id);
+        });
+    }
+
+    $(document).ready(function() {
+        $('.quick-manage-container select').each(function() {
+            $(this).trigger('change');
+        });
+
+        // Handle tab clicks
+        $('.qm-tabs-header li').on('click', function() {
+            var tabId = $(this).attr('rel');
+
+            // Remove active class from all tabs and tab content
+            $('.qm-tabs-header li').removeClass('active');
+            $('.qm-tabs-tab').removeClass('active');
+
+            // Add active class to clicked tab and corresponding content
+            $(this).addClass('active');
+            $('.qm-tabs-tab[rel="' + tabId + '"]').addClass('active');
+        });
+
+        // Initialize select values
+        $('.quick-manage-container select').each(function() {
+            $(this).trigger('change');
+        });
     });
-}
-
-$(document).ready(function() {
-    $('.quick-manage-container select').each(function() {
-        $(this).trigger('change');
-    });
-
-    // Handle tab clicks
-    $('.qm-tabs-header li').on('click', function() {
-        var tabId = $(this).attr('rel');
-
-        // Remove active class from all tabs and tab content
-        $('.qm-tabs-header li').removeClass('active');
-        $('.qm-tabs-tab').removeClass('active');
-
-        // Add active class to clicked tab and corresponding content
-        $(this).addClass('active');
-        $('.qm-tabs-tab[rel="' + tabId + '"]').addClass('active');
-    });
-
-    // Initialize select values
-    $('.quick-manage-container select').each(function() {
-        $(this).trigger('change');
-    });
-});
 </script>
