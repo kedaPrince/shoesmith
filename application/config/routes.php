@@ -36,6 +36,9 @@ $route['recruiter/logout'] = 'login/logout/recruiter';
 $route['recruiters/dashboard'] = 'recruiters/dashboard';
 $route['recruiters/dashboard/(:any)'] = 'recruiters/dashboard/$1';
 
+// Explicit route for recruiters' job listings
+$route['recruiters/agency_jobs_listings'] = 'recruiters/agency_jobs_listings';
+$route['recruiters/agency_jobs_listings/(:any)'] = 'recruiters/agency_jobs_listings/$1';
 
 
 $route['browser/(:any)']  = "browser/$1";
