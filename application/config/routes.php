@@ -10,6 +10,9 @@ $route['agency/logout'] = 'login/logout/agency';
 $route['agency/candidates'] = 'agency/candidates';
 $route['agency/candidates/(:any)'] = 'agency/candidates/$1';
 $route['agency/candidates/(:any)/(:any)'] = 'agency/candidates/$1/$2';
+// Add this to your routes.php
+$route['agency_staff/dashboard'] = 'agency_staff/dashboard';
+$route['agency_staff/dashboard/(:any)'] = 'agency_staff/dashboard/$1';
 
 $route['staff/candidates'] = 'staff/candidates';
 $route['staff/candidates/(:any)'] = 'staff/candidates/$1';

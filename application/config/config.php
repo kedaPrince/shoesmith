@@ -63,16 +63,16 @@ $config['login_groups'] = array(
        'session_fields'    => array('name', 'email', 'contact_person', 'first_name', 'last_name')
     ),
     'agency_staff' => array(  // Renamed from duplicate 'agency'
-      'path'              => 'agency/',
+      'path'              => 'agency_staff/',
       'table'             => 'agency_staff',  // Agency staff table
-      'default_url'       => 'agency/dashboard',
+      'default_url'       => 'agency_staff/dashboard',
       'super_user_id'     => 1,
       'session_fields'    => array('first_name', 'last_name', 'email', 'agency_id', 'usr_type_id')
     ),
     'recruiter' => array(
       'path'              => 'recruiter/',
       'table'             => 'recruiters',
-      'default_url'       => 'agency/dashboard',
+      'default_url'       => 'recruiters/dashboard',
       'super_user_id'     => 1,
       'session_fields'    => array('first_name', 'last_name', 'email', 'agency_id', 'usr_type_id')
     ),
