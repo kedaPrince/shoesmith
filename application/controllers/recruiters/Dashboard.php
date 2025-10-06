@@ -16,13 +16,11 @@ class Dashboard extends CRUD_Controller {
     public function __construct() {
         parent::__construct();
 
-        // Check if user is logged in as either agency OR recruiter
+        // Check if user is logged in as recruiter
         $login_data = $this->session->userdata('login');
-        $is_agency_logged_in = !empty($login_data['agency_staff']);
         $is_recruiter_logged_in = !empty($login_data['recruiters']);
         
-        if (!$is_agency_logged_in && !$is_recruiter_logged_in) {
-            // Not logged in at all - redirect to login
+        if (!$is_recruiter_logged_in) {
             redirect('login');
         }
 
@@ -34,6 +32,7 @@ class Dashboard extends CRUD_Controller {
     }
 
     public function index() {
+       
         $this->setup_breadcrumbs();
         load_custom_page($this->folder.'/'.$this->pageName.'/view_dashboard');
     }

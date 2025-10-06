@@ -69,8 +69,8 @@ $config['login_groups'] = array(
       'super_user_id'     => 1,
       'session_fields'    => array('first_name', 'last_name', 'email', 'agency_id', 'usr_type_id')
     ),
-    'recruiter' => array(
-      'path'              => 'recruiter/',
+    'recruiters' => array(
+      'path'              => 'recruiters/',
       'table'             => 'recruiters',
       'default_url'       => 'recruiters/dashboard',
       'super_user_id'     => 1,

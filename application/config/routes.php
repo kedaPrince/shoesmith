@@ -14,6 +14,10 @@ $route['agency/candidates/(:any)/(:any)'] = 'agency/candidates/$1/$2';
 $route['agency_staff/dashboard'] = 'agency_staff/dashboard';
 $route['agency_staff/dashboard/(:any)'] = 'agency_staff/dashboard/$1';
 
+
+
+$route['agency_staff/dashboard/(:any)'] = 'agency_staff/dashboard/$1';
+
 $route['staff/candidates'] = 'staff/candidates';
 $route['staff/candidates/(:any)'] = 'staff/candidates/$1';
 $route['staff/candidates/(:any)/(:any)'] = 'staff/candidates/$1/$2';
@@ -23,19 +27,15 @@ $route['agency/dashboard'] = 'agency/dashboard';
 $route['agency/jobs_listings'] = 'agency/jobs_listings';
 $route['agency/jobs_listings/(:any)'] = 'agency/jobs_listings/$1';
 
-// Recruiter Routes - ADD THESE
-// Recruiter Login Routes - ADD THESE
+
 $route['recruiter/login'] = 'login';
 $route['recruiter/login/(:any)'] = 'login/$1';
 $route['recruiter/logout'] = 'login/logout/recruiter';
 
-// Recruiter Dashboard Routes - POINT TO AGENCY CONTROLLERS
-$route['recruiter/dashboard'] = 'agency/dashboard';
-$route['recruiter/dashboard/(:any)'] = 'agency/dashboard/$1';
+// Add to routes.php
+$route['recruiters/dashboard'] = 'recruiters/dashboard';
+$route['recruiters/dashboard/(:any)'] = 'recruiters/dashboard/$1';
 
-// Recruiter Jobs Routes - POINT TO AGENCY CONTROLLERS  
-$route['recruiter/jobs_listings'] = 'agency/jobs_listings';
-$route['recruiter/jobs_listings/(:any)'] = 'agency/jobs_listings/$1';
 
 
 $route['browser/(:any)']  = "browser/$1";
@@ -98,7 +98,7 @@ $route['translate_uri_dashes'] = TRUE;
 function build_route(&$route, $regex, $path, $verb='') {
 
     //Login groups or language - FIXED: ADDED AGENCY
-    $ra['g'] = '(\badmin\b|\bstaff\b|\bagency\b)/';
+    $ra['g'] = '(\badmin\b|\bstaff\b|\bagency\b|\brecruiter\b)/';
 
     foreach ($ra as $g => $r) {
         $p = $path;
