@@ -114,6 +114,7 @@ class Jobs extends CRUD_Controller
 
     public function index()
     {
+        
         $this->breadcrumbs = array(
             array(
                 'title' => lang($this->pageName . '_heading'),

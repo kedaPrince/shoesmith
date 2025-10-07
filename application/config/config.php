@@ -32,7 +32,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
   | a PHP script and you can easily do that on your own.
   |
  */
-$config['base_url'] = '';
+$config['base_url'] = 'http://localhost/shoesmith/';  // CHANGE: Explicit base for subfolder routing—fixes 404
 $config['sys_email'] = '';
 $config['mail_config'] = array();
 
@@ -69,10 +69,10 @@ $config['login_groups'] = array(
       'super_user_id'     => 1,
       'session_fields'    => array('first_name', 'last_name', 'email', 'agency_id', 'usr_type_id')
     ),
-    'recruiters' => array(
-      'path'              => 'recruiters/',
+    'recruiter' => array(
+      'path'              => 'recruiter/',
       'table'             => 'recruiters',
-      'default_url'       => 'recruiters/dashboard',
+      'default_url'       => 'recruiter/dashboard',
       'super_user_id'     => 1,
       'session_fields'    => array('first_name', 'last_name', 'email', 'agency_id', 'usr_type_id')
     ),
@@ -383,7 +383,7 @@ $config['error_views_path'] = 'application/views/cms/errors/';
   |--------------------------------------------------------------------------
   |
   | Leave this BLANK unless you would like to set something other than the default
-  | application/cache/ directory.  Use a full server path with trailing slash.
+  | application/cache/ directory. Use a full server path with trailing slash.
   |
  */
 $config['cache_path'] = '';
@@ -464,7 +464,7 @@ $config['encryption_key'] = 'ac53(*&%Y(&6E374*f6*^(HR^@3^^secr(';
   |
   |	Whether to destroy session data associated with the old session ID
   |	when auto-regenerating the session ID. When set to FALSE, the data
-  |	will be later deleted by the garbage collector.
+  | will be later deleted by the garbage collector.
   |
   | Other session cookie settings are shared with the rest of the application,
   | except for 'cookie_prefix' and 'cookie_httponly', which are ignored here.

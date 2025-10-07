@@ -18,7 +18,7 @@ class Dashboard extends CRUD_Controller {
 
         // Check if user is logged in as recruiter
         $login_data = $this->session->userdata('login');
-        $is_recruiter_logged_in = !empty($login_data['recruiters']);
+        $is_recruiter_logged_in = !empty($login_data['recruiter']);
         
         if (!$is_recruiter_logged_in) {
             redirect('login');

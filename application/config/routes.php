@@ -1,6 +1,8 @@
 <?php
 defined('BASEPATH') OR exit('No direct script access allowed');
 
+
+
 // Agency Routes - ADD THESE
 $route['agency'] = 'agency/dashboard';
 $route['agency/dashboard'] = 'agency/dashboard/index';
@@ -28,17 +30,10 @@ $route['agency/jobs_listings'] = 'agency/jobs_listings';
 $route['agency/jobs_listings/(:any)'] = 'agency/jobs_listings/$1';
 
 
+
 $route['recruiter/login'] = 'login';
 $route['recruiter/login/(:any)'] = 'login/$1';
 $route['recruiter/logout'] = 'login/logout/recruiter';
-
-// Add to routes.php
-$route['recruiters/dashboard'] = 'recruiters/dashboard';
-$route['recruiters/dashboard/(:any)'] = 'recruiters/dashboard/$1';
-
-// Explicit route for recruiters' job listings
-$route['recruiters/agency_jobs_listings'] = 'recruiters/agency_jobs_listings';
-$route['recruiters/agency_jobs_listings/(:any)'] = 'recruiters/agency_jobs_listings/$1';
 
 
 $route['browser/(:any)']  = "browser/$1";
@@ -101,7 +96,7 @@ $route['translate_uri_dashes'] = TRUE;
 function build_route(&$route, $regex, $path, $verb='') {
 
     //Login groups or language - FIXED: ADDED AGENCY
-    $ra['g'] = '(\badmin\b|\bstaff\b|\bagency\b|\brecruiter\b)/';
+   $ra['g'] = '(\badmin\b|\bstaff\b|\bagency\b|\brecruiter\b|\brecruiters\b)/';
 
     foreach ($ra as $g => $r) {
         $p = $path;

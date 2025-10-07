@@ -57,8 +57,14 @@ function getLoggedInUserType(): string
         return '';
     }
 
-    // FIXED: Include agency in the login data check
-    if (isset($login['login']['admin'])) {
+    // Check for recruiters FIRST
+    if (isset($login['login']['recruiters'])) {
+        $loginData = $login['login']['recruiters'];
+        $userGroup = 'recruiters';
+        $tableUsers = 'recruiters'; // matches your table name
+    }
+    // Then existing cases
+    elseif (isset($login['login']['admin'])) {
         $loginData = $login['login']['admin'];
         $userGroup = 'admin';
         $tableUsers = 'usr_admins';
@@ -74,17 +80,15 @@ function getLoggedInUserType(): string
         return '';
     }
 
-    // Get the user type
+    // Get the user type title from usr_types
     $ci->db->select('usr_types.title');
-    $ci->db->join($tableUsers, $tableUsers . '.usr_type_id = usr_types.id AND ' . $tableUsers . '.id = ' . $loginData['id'], 'inner');
+    $ci->db->from('usr_types');
+    $ci->db->join($tableUsers, "{$tableUsers}.usr_type_id = usr_types.id AND {$tableUsers}.id = " . (int)$loginData['id'], 'inner');
     $ci->db->where('usr_types.enabled', 1);
     $ci->db->where('usr_types.removed', 0);
-    $result = $ci->db->get('usr_types')->row();
+    $result = $ci->db->get()->row();
     
-    if (empty($result)) {
-        return '';
-    }
-    return $result->title;
+    return $result ? $result->title : '';
 }
 
 function getLoggedInUserTypeMenu(): string
@@ -92,18 +96,16 @@ function getLoggedInUserTypeMenu(): string
     $ci = &get_instance();
     $login = $ci->session->get_userdata();
     
-    // FIXED: Check for agency first, then admin, then staff
-    if (isset($login['login']['agency'])) {
+    if (isset($login['login']['recruiters'])) {
+        return 'recruiter'; // ← lowercase for consistency
+    }
+    elseif (isset($login['login']['agency'])) {
         return 'agency';
     } elseif (isset($login['login']['admin'])) {
         $ci->db->select('usr_type_id');
         $ci->db->where('id', $login['login']['admin']['id']);
         $result = $ci->db->get('usr_admins')->row();
-        
-        if (empty($result)) {
-            return 'staff';
-        }
-        if (!in_array((int)$result->usr_type_id, [1, 2])) {
+        if (empty($result) || !in_array((int)$result->usr_type_id, [1, 2])) {
             return 'staff';
         }
         return 'admin';
