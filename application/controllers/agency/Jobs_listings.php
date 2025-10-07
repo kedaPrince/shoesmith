@@ -390,4 +390,21 @@ class Jobs_listings extends CRUD_Controller{
         
         parent::update($id);
     }
+
+    public function candidates($job_id)
+{
+    $job_id = (int)$job_id;
+    $agency_id = $this->get_user_agency_id();
+
+    $job = $this->db->get_where('mod_jobs', ['id' => $job_id, 'agency_id' => $agency_id])->row();
+    if (!$job) show_404();
+
+    $candidates = $this->db->get_where('candidates', [
+        'job_id' => $job_id,
+        'agency_id' => $agency_id,
+        'removed' => 0
+    ])->result();
+
+    $this->load->view('agency/jobs/candidates_list', compact('job', 'candidates'));
+}
 }

@@ -87,12 +87,7 @@ class Jobs extends CRUD_Controller
                     return (!$row->enabled) ? false : $str;
                 }),
             ),
-            'delete' => array(
-                'label'     => lang('label_delete'),
-                'url'       => url($this->pageName . '/remove/{id}'),
-                'icon'      => 'fa-trash-o',
-                'class'     => 'delete-row btn-delete',
-            ),
+          
         );
 
         $this->filters = array(
