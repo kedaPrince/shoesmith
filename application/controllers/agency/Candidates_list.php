@@ -212,37 +212,38 @@ class Candidates_list extends CRUD_Controller
         return null;
     }
 
-    public function view($id)
-    {
-        $agency_id = $this->get_user_agency_id();
-        
-        // Get candidate with STRICT agency and job verification
-        $this->db->select('candidates.*, mod_jobs.name as job_name, mod_jobs.reference_number as job_ref');
-        $this->db->from('candidates');
-        $this->db->join('mod_jobs', 'mod_jobs.id = candidates.job_id', 'left');
-        $this->db->where('candidates.id', $id);
-        $this->db->where('candidates.agency_id', $agency_id);
-        $this->db->where('candidates.removed', 0);
-        
-        $candidate = $this->db->get()->row();
+public function view($id)
+{
+    $agency_id = $this->get_user_agency_id();
+    
+    // Get candidate with STRICT agency and job verification
+    $this->db->select('candidates.*, mod_jobs.name as job_name, mod_jobs.reference_number as job_ref, agencies.name as agency_name');
+    $this->db->from('candidates');
+    $this->db->join('mod_jobs', 'mod_jobs.id = candidates.job_id', 'left');
+    $this->db->join('agencies', 'agencies.id = candidates.agency_id', 'left');
+    $this->db->where('candidates.id', $id);
+    $this->db->where('candidates.agency_id', $agency_id);
+    $this->db->where('candidates.removed', 0);
+    
+    $candidate = $this->db->get()->row();
 
-        if (!$candidate) {
-            show_error('Candidate not found', 404);
-        }
+    if (!$candidate) {
+        show_error('Candidate not found or you do not have permission to view this candidate', 404);
+    }
 
-        $this->breadcrumbs = array(
-            array('title' => lang('jobs_listings_heading'), 'url' => site_url('agency/jobs_listings')),
+    $data = array(
+        'candidate' => $candidate,
+        'heading' => 'Candidate Details: ' . $candidate->first_name . ' ' . $candidate->last_name,
+        'breadcrumbs' => array(
+            array('title' => 'Dashboard', 'url' => site_url('agency/dashboard')),
+            array('title' => 'Jobs', 'url' => site_url('agency/jobs_listings')),
             array('title' => 'Candidates', 'url' => site_url('agency/candidates_list/index/' . $candidate->job_id)),
             array('title' => 'View Candidate', 'url' => '#'),
-        );
+        )
+    );
 
-        $data = array(
-            'candidate' => $candidate,
-            'heading' => 'Candidate Details: ' . $candidate->first_name . ' ' . $candidate->last_name
-        );
-
-        $this->load->view($this->folder . '/view_header');
-        $this->load->view('agency/candidates_list/view', $data);
-        $this->load->view($this->folder . '/view_footer');
-    }
+    $this->load->view($this->folder . '/view_header');
+    $this->load->view('agency/candidates_list/view', $data);
+    $this->load->view($this->folder . '/view_footer');
+}
 }

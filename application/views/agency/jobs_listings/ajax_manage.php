@@ -175,35 +175,35 @@
 </div>
 
 <script type="text/javascript">
-    function save_form(el) {
-        $(el).closest('form').parsley().whenValidate().done(function() {
-            let view = '<?= !empty($row->id) ? 'update' : 'create' ?>';
-            let id = <?= !empty($row->id) ? $row->id : '0' ?>;
-            ajax_submit_form(el, view, id);
-        });
-    }
-
-    $(document).ready(function() {
-        $('.quick-manage-container select').each(function() {
-            $(this).trigger('change');
-        });
-
-        // Handle tab clicks
-        $('.qm-tabs-header li').on('click', function() {
-            var tabId = $(this).attr('rel');
-
-            // Remove active class from all tabs and tab content
-            $('.qm-tabs-header li').removeClass('active');
-            $('.qm-tabs-tab').removeClass('active');
-
-            // Add active class to clicked tab and corresponding content
-            $(this).addClass('active');
-            $('.qm-tabs-tab[rel="' + tabId + '"]').addClass('active');
-        });
-
-        // Initialize select values
-        $('.quick-manage-container select').each(function() {
-            $(this).trigger('change');
-        });
+function save_form(el) {
+    $(el).closest('form').parsley().whenValidate().done(function() {
+        let view = '<?= !empty($row->id) ? 'update' : 'create' ?>';
+        let id = <?= !empty($row->id) ? $row->id : '0' ?>;
+        ajax_submit_form(el, view, id);
     });
+}
+
+$(document).ready(function() {
+    $('.quick-manage-container select').each(function() {
+        $(this).trigger('change');
+    });
+
+    // Handle tab clicks
+    $('.qm-tabs-header li').on('click', function() {
+        var tabId = $(this).attr('rel');
+
+        // Remove active class from all tabs and tab content
+        $('.qm-tabs-header li').removeClass('active');
+        $('.qm-tabs-tab').removeClass('active');
+
+        // Add active class to clicked tab and corresponding content
+        $(this).addClass('active');
+        $('.qm-tabs-tab[rel="' + tabId + '"]').addClass('active');
+    });
+
+    // Initialize select values
+    $('.quick-manage-container select').each(function() {
+        $(this).trigger('change');
+    });
+});
 </script>
