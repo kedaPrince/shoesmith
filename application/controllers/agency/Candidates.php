@@ -36,6 +36,10 @@ class Candidates extends CRUD_Controller{
             'title' => lang($this->pageName . '_heading'),
             'url' => redir($this->pageName, true),
         );
+
+        // DEBUG: Log agency information
+        $agency_id = $this->get_user_agency_id();
+        log_message('debug', 'Candidates Controller: Current agency_id = ' . $agency_id);
     }
 
     private function setup_listing(): void{
@@ -60,6 +64,11 @@ class Candidates extends CRUD_Controller{
                 'label' => lang('label_phone'),
                 'sort' => true,
             ),
+            'job_name' => array(
+                'label' => lang('label_job'),
+                'sort' => true,
+                'field' => 'mod_jobs.name'
+            ),
             'status' => array(
                 'label' => lang('label_status'),
                 'sort' => true,
@@ -78,12 +87,12 @@ class Candidates extends CRUD_Controller{
                 'icon'      => 'fa-eye',
                 'class'     => 'view-row',
             ),
-            'edit' => array(
-                'label'     => lang('label_edit'),
-                'url'       => redir($this->pageName . '/edit/{id}', true),
-                'icon'      => 'fa-edit',
-                'class'     => 'edit-row',
-            ),
+            // 'edit' => array(
+            //     'label'     => lang('label_edit'),
+            //     'url'       => redir($this->pageName . '/edit/{id}', true),
+            //     'icon'      => 'fa-edit',
+            //     'class'     => 'edit-row',
+            // ),
             'enable' => array(
                 'label'    => lang('label_enable'),
                 'url'      => redir($this->pageName . '/enable/{id}', true),
@@ -183,6 +192,48 @@ class Candidates extends CRUD_Controller{
         );
     }
 
+    /**
+     * OVERRIDE get_all to filter by agency_id - ENHANCED
+     */
+    public function get_all($limit = null, $offset = null, $sort_by = null, $sort_order = null)
+    {
+        $agency_id = $this->get_user_agency_id();
+        
+        if (!empty($agency_id)) {
+            $this->db->where('candidates.agency_id', $agency_id);
+            log_message('debug', 'Controller get_all: Applied agency filter for candidates: ' . $agency_id);
+        } else {
+            log_message('error', 'Controller get_all: No agency_id found for filtering');
+            // For safety, show no candidates if no agency ID
+            $this->db->where('candidates.agency_id', 0);
+        }
+        
+        return parent::get_all($limit, $offset, $sort_by, $sort_order);
+    }
+
+    /**
+     * Get user agency ID - ENHANCED
+     */
+    private function get_user_agency_id()
+    {
+        $login = $this->session->userdata('login');
+        
+        if (!empty($login['agency'])) {
+            $agency_user = $login['agency'];
+            
+            log_message('debug', 'Agency user session data: ' . print_r($agency_user, true));
+            
+            if (!empty($agency_user['agency_id'])) {
+                return $agency_user['agency_id'];
+            } elseif (!empty($agency_user['id'])) {
+                return $agency_user['id'];
+            }
+        }
+        
+        log_message('error', 'No agency_id found in session for agency user');
+        return null;
+    }
+
     public function index(): void{
         $this->breadcrumbs = array(
             array(
@@ -202,6 +253,7 @@ class Candidates extends CRUD_Controller{
 
     public function quick_manage_extra($id, $row): array{
         $candidateId = is_bool($id) || !is_object($row) ? 0 : (int)$row->id;
+        $agency_id = $this->get_user_agency_id();
 
         // Initialize with empty arrays to prevent null values
         $agencies_all = [];
@@ -210,22 +262,24 @@ class Candidates extends CRUD_Controller{
         $candidate_data = null;
 
         try {
-            $agencies_all = $this->{$this->model}->get_agencies_all();
+            // Only get the current agency
+            $agencies_all = $this->{$this->model}->get_agency_by_id($agency_id);
         } catch (Exception $e) {
             error_log('Error loading agencies: ' . $e->getMessage());
             $agencies_all = [];
         }
 
         try {
-            $jobs_all = $this->{$this->model}->get_jobs_all();
+            // Only get jobs for this agency
+            $jobs_all = $this->{$this->model}->get_jobs_by_agency($agency_id);
         } catch (Exception $e) {
             error_log('Error loading jobs: ' . $e->getMessage());
             $jobs_all = [];
         }
 
         try {
-            // Use a more robust method call that won't cause the array_merge error
-            $agents_all = $this->get_agency_agents_safe();
+            // Only get agents for this agency
+            $agents_all = $this->{$this->model}->get_agency_agents_by_agency($agency_id);
         } catch (Exception $e) {
             error_log('Error loading agents: ' . $e->getMessage());
             $agents_all = [];
@@ -243,48 +297,12 @@ class Candidates extends CRUD_Controller{
             'jobs_all'          => $jobs_all,
             'agents_all'        => $agents_all,
             'candidate_data'    => $candidate_data,
+            'user_agency_id'    => $agency_id,
         );
     }
 
     /**
-     * Safe method to get agency agents without causing array_merge errors
-     */
-    private function get_agency_agents_safe(){
-        try {
-            $agency_id = loginVar('agency_id', 'agency');
-            
-            $this->db->select('id, first_name, last_name, email');
-            $this->db->from('agency_staff');
-            $this->db->where('enabled', 1);
-            
-            if ($agency_id) {
-                $this->db->where('agency_id', (int)$agency_id);
-            }
-            
-            // Use direct SQL ordering to avoid active record issues
-            $query = $this->db->get();
-            $results = $query->result();
-            
-            // Manual sorting if needed
-            usort($results, function($a, $b) {
-                return strcmp($a->first_name, $b->first_name);
-            });
-            
-            return $results;
-        } catch (Exception $e) {
-            error_log('Error in get_agency_agents_safe: ' . $e->getMessage());
-            return [];
-        }
-    }
-
-    /**
      * Is Unique Email
-     *
-     * Callback function to check whether or not the email already exists in the database
-     *
-     * @param string $email
-     *
-     * @return bool
      */
     public function is_unique_email(string $email): bool{
         $id = $this->input->post('id');
@@ -296,13 +314,12 @@ class Candidates extends CRUD_Controller{
             return $result;
         } catch (Exception $e) {
             error_log('Error checking unique email: ' . $e->getMessage());
-            // If there's an error, assume it's unique to allow the form to proceed
             return true;
         }
     }
 
     public function create_extra_params(): array{
-        $agency_id = $this->input->post('agency_id') ? (int)$this->input->post('agency_id') : loginVar('agency_id', 'agency');
+        $agency_id = $this->get_user_agency_id();
         $assigned_agent_id = $this->input->post('assigned_agent_id') ? (int)$this->input->post('assigned_agent_id') : loginID('agency');
         
         $params = array(
@@ -354,54 +371,6 @@ class Candidates extends CRUD_Controller{
         return $params;
     }
 
-    public function create_success_extra($id): void{
-        // Log candidate creation
-        try {
-            $candidate = $this->{$this->model}->get_candidate($id);
-            if ($candidate) {
-                $logData = array(
-                    'candidate_id' => $id,
-                    'action' => 'created',
-                    'details' => "Candidate {$candidate->first_name} {$candidate->last_name} was added to the system",
-                    'performed_by' => loginID('agency'),
-                    'performed_at' => date('Y-m-d H:i:s')
-                );
-                $this->{$this->model}->log_candidate_activity($logData);
-            }
-            
-            // Optional: Send notification to assigned agent
-            $this->send_agent_notification($id);
-        } catch (Exception $e) {
-            error_log('Error in create_success_extra: ' . $e->getMessage());
-        }
-    }
-
-    public function update_success_extra($id): void{
-        // Log candidate update
-        try {
-            $candidate = $this->{$this->model}->get_candidate($id);
-            if ($candidate) {
-                $logData = array(
-                    'candidate_id' => $id,
-                    'action' => 'updated',
-                    'details' => "Candidate {$candidate->first_name} {$candidate->last_name} profile was updated",
-                    'performed_by' => loginID('agency'),
-                    'performed_at' => date('Y-m-d H:i:s')
-                );
-                $this->{$this->model}->log_candidate_activity($logData);
-                
-                // Log status change specifically if status was updated
-                if ($this->input->post('status')) {
-                    $logData['action'] = 'status_change';
-                    $logData['details'] = "Candidate status changed to: " . $this->input->post('status');
-                    $this->{$this->model}->log_candidate_activity($logData);
-                }
-            }
-        } catch (Exception $e) {
-            error_log('Error in update_success_extra: ' . $e->getMessage());
-        }
-    }
-
     /**
      * Generate reference number for candidate (called from AJAX)
      */
@@ -448,4 +417,66 @@ class Candidates extends CRUD_Controller{
             error_log('Error sending agent notification: ' . $e->getMessage());
         }
     }
+
+    /**
+     * OVERRIDE: Enable candidate with agency check
+     */
+    public function enable($id) {
+        // Verify the candidate belongs to the current agency
+        $agency_id = $this->get_user_agency_id();
+        if ($agency_id) {
+            $this->db->where('agency_id', $agency_id);
+        }
+        parent::enable($id);
+    }
+
+    /**
+     * OVERRIDE: Disable candidate with agency check
+     */
+    public function disable($id) {
+        // Verify the candidate belongs to the current agency
+        $agency_id = $this->get_user_agency_id();
+        if ($agency_id) {
+            $this->db->where('agency_id', $agency_id);
+        }
+        parent::disable($id);
+    }
+
+    /**
+     * OVERRIDE: Remove candidate with agency check
+     */
+    public function remove($id) {
+        // Verify the candidate belongs to the current agency
+        $agency_id = $this->get_user_agency_id();
+        if ($agency_id) {
+            $this->db->where('agency_id', $agency_id);
+        }
+        parent::remove($id);
+    }
+
+    /**
+     * OVERRIDE: View candidate with agency check
+     */
+    public function view($id) {
+        // Verify the candidate belongs to the current agency
+        $agency_id = $this->get_user_agency_id();
+        if ($agency_id) {
+            $this->db->where('agency_id', $agency_id);
+        }
+        parent::view($id);
+    }
+
+    /**
+     * OVERRIDE: Edit candidate with agency check
+     */
+    public function edit($id) {
+        // Verify the candidate belongs to the current agency
+        $agency_id = $this->get_user_agency_id();
+        if ($agency_id) {
+            $this->db->where('agency_id', $agency_id);
+        }
+        parent::edit($id);
+    }
+
+   
 }

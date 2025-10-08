@@ -244,7 +244,25 @@ a.btn.btn-primary.add-item {
         <div rel="4" class="qm-tabs-tab">
             <div class="row">
                 <div class="col-lg-6">
+                    <?php if (!empty($user_agency_id)): ?>
+                    <?= form_hidden('agency_id', $user_agency_id); ?>
+                    <div class="form-group">
+                        <label class="control-label">Agency</label>
+                        <div class="form-control-static">
+                            <strong>
+                                <?php 
+                                    if (!empty($agencies_all_array) && count($agencies_all_array) > 0) {
+                                        echo htmlspecialchars($agencies_all_array[0]['name'], ENT_QUOTES, 'UTF-8');
+                                    } else {
+                                        echo 'Your Agency';
+                                    }
+                                    ?>
+                            </strong>
+                        </div>
+                    </div>
+                    <?php else: ?>
                     <?= field_dropdown('agency_id|label_agency', $agencies_all_array, $row, 'required'); ?>
+                    <?php endif; ?>
                 </div>
                 <div class="col-lg-6">
                     <?= field_dropdown('job_id|label_job', $jobs_all_array, $row, ''); ?>
@@ -256,15 +274,6 @@ a.btn.btn-primary.add-item {
                 </div>
                 <div class="col-lg-6">
                     <?= field_checkbox('enabled|label_enabled', $row, '1', !empty($row) ? $row->enabled : 1); ?>
-                </div>
-            </div>
-            <div class="row">
-                <div class="col-lg-12">
-                    <div class="info-box">
-                        <h4>Agency Information</h4>
-                        <p>This candidate is managed by your agency. Ensure all information is accurate and up-to-date.
-                        </p>
-                    </div>
                 </div>
             </div>
         </div>
