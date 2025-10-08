@@ -52,18 +52,18 @@ class Candidates extends CRUD_Controller{
                 'label' => lang('label_first_name'),
                 'sort' => true,
             ),
-            'last_name' => array(
-                'label' => lang('label_last_name'),
-                'sort' => true,
-            ),
+            // 'last_name' => array(
+            //     'label' => lang('label_last_name'),
+            //     'sort' => true,
+            // ),
             'email' => array(
                 'label' => lang('label_email'),
                 'sort' => true,
             ),
-            'phone' => array(
-                'label' => lang('label_phone'),
-                'sort' => true,
-            ),
+            // 'phone' => array(
+            //     'label' => lang('label_phone'),
+            //     'sort' => true,
+            // ),
             'job_name' => array(
                 'label' => lang('label_job'),
                 'sort' => true,
@@ -72,6 +72,13 @@ class Candidates extends CRUD_Controller{
             'status' => array(
                 'label' => lang('label_status'),
                 'sort' => true,
+            ),
+            'onboarding_stage' => array(
+                'label' => 'Onboarding Stage',
+                'sort' => true,
+                'function' => function($value, $row) {
+                    return $this->get_onboarding_stage_display($row);
+                }
             ),
             'application_date' => array(
                 'label' => lang('label_application_date'),
@@ -87,12 +94,18 @@ class Candidates extends CRUD_Controller{
                 'icon'      => 'fa-eye',
                 'class'     => 'view-row',
             ),
-            // 'edit' => array(
-            //     'label'     => lang('label_edit'),
-            //     'url'       => redir($this->pageName . '/edit/{id}', true),
-            //     'icon'      => 'fa-edit',
-            //     'class'     => 'edit-row',
-            // ),
+            'edit' => array(
+                'label'     => lang('label_edit'),
+                'url'       => redir($this->pageName . '/edit/{id}', true),
+                'icon'      => 'fa-edit',
+                'class'     => 'edit-row',
+            ),
+            'onboarding' => array(
+                'label'     => 'Onboarding',
+                'url'       => redir($this->pageName . '/onboarding/{id}', true),
+                'icon'      => 'fa-eye',
+                'class'     => 'onboarding-row',
+            ),
             'enable' => array(
                 'label'    => lang('label_enable'),
                 'url'      => redir($this->pageName . '/enable/{id}', true),
@@ -144,6 +157,19 @@ class Candidates extends CRUD_Controller{
                     'on_hold' => 'On Hold',
                 ),
             ),
+            'onboarding_stage' => array(
+                'label' => 'Onboarding Stage',
+                'type' => 'dropdown',
+                'field' => 'candidates.onboarding_stage',
+                'options' => array(
+                    'not_started' => 'Not Started',
+                    'stage_under_review' => 'Under Review',
+                    'stage_submitted_to_hm' => 'Submitted to HM',
+                    'stage_requested_docs' => 'Requested Documents',
+                    'stage_position_offered' => 'Position Offered',
+                    'completed' => 'Completed',
+                ),
+            ),
         );
     }
 
@@ -178,6 +204,11 @@ class Candidates extends CRUD_Controller{
                 'agency_id'         => 'trim|required|numeric',
                 'job_id'            => 'trim|numeric',
                 'assigned_agent_id' => 'trim|numeric',
+                // Onboarding stages
+                'stage_under_review' => 'trim|numeric',
+                'stage_submitted_to_hm' => 'trim|numeric',
+                'stage_requested_docs' => 'trim|numeric',
+                'stage_position_offered' => 'trim|numeric',
             ),
         );
 
@@ -190,6 +221,133 @@ class Candidates extends CRUD_Controller{
                 'info'      => '<strong>File Requirements:</strong><br/>File Type: PDF, DOC, DOCX<br/>Max Size: 10MB',
             ],
         );
+    }
+
+    /**
+     * Get onboarding stage display for listing
+     */
+    private function get_onboarding_stage_display($row) {
+        $stages = [
+            'stage_under_review' => ['label' => 'Under Review', 'completed' => $row->stage_under_review],
+            'stage_submitted_to_hm' => ['label' => 'Submitted to HM', 'completed' => $row->stage_submitted_to_hm],
+            'stage_requested_docs' => ['label' => 'Requested Docs', 'completed' => $row->stage_requested_docs],
+            'stage_position_offered' => ['label' => 'Position Offered', 'completed' => $row->stage_position_offered],
+        ];
+
+        $current_stage = 'Not Started';
+        $all_completed = true;
+
+        foreach ($stages as $stage => $data) {
+            if ($data['completed'] == 1) {
+                $current_stage = $data['label'];
+            } else {
+                $all_completed = false;
+                break;
+            }
+        }
+
+        if ($all_completed) {
+            return '<span class="label label-success">Completed</span>';
+        }
+
+        return '<span class="label label-info">' . $current_stage . '</span>';
+    }
+
+    /**
+     * Onboarding management page
+     */
+    /**
+ * Onboarding management page
+ */
+public function onboarding($id) {
+    $agency_id = $this->get_user_agency_id();
+    if ($agency_id) {
+        $this->db->where('agency_id', $agency_id);
+    }
+
+    $candidate = $this->{$this->model}->get_candidate_details($id);
+    
+    if (!$candidate) {
+        show_error('Candidate not found or you do not have permission to access it.');
+    }
+
+    $this->breadcrumbs = array(
+        array(
+            'title' => lang($this->pageName . '_heading'),
+            'url'   => redir($this->pageName, true)
+        ),
+        array(
+            'title' => 'Onboarding: ' . $candidate->first_name . ' ' . $candidate->last_name,
+            'url'   => redir($this->pageName . '/onboarding/' . $id, true)
+        ),
+    );
+
+    $this->load->view($this->folder . '/' . 'view_header');
+    // CORRECTED: Load from agency/candidates folder
+    $this->load->view('agency/candidates/onboarding', array(
+        'candidate' => $candidate,
+        'heading'   => 'Onboarding: ' . $candidate->first_name . ' ' . $candidate->last_name,
+    ));
+    $this->load->view($this->folder . '/' . 'view_footer');
+}
+
+    /**
+     * Update onboarding stage via AJAX
+     */
+    public function update_onboarding_stage() {
+        $candidate_id = $this->input->post('candidate_id');
+        $stage = $this->input->post('stage');
+        $value = $this->input->post('value');
+
+        // Verify the candidate belongs to the current agency
+        $agency_id = $this->get_user_agency_id();
+        if ($agency_id) {
+            $this->db->where('agency_id', $agency_id);
+        }
+
+        $result = $this->{$this->model}->update_onboarding_stage($candidate_id, $stage, $value);
+
+        if ($result) {
+            // Log the activity
+            $stage_labels = [
+                'stage_under_review' => 'Under Review',
+                'stage_submitted_to_hm' => 'Submitted to Hiring Manager',
+                'stage_requested_docs' => 'Requested Further Documents',
+                'stage_position_offered' => 'Position Offered'
+            ];
+
+            $action = $value ? 'completed' : 'reopened';
+            $this->{$this->model}->log_candidate_activity([
+                'candidate_id' => $candidate_id,
+                'action' => 'onboarding_stage_' . $action,
+                'description' => $stage_labels[$stage] . ' stage ' . $action,
+                'created_by' => loginID('agency'),
+                'created_at' => date('Y-m-d H:i:s')
+            ]);
+
+            ajax_return([
+                'success' => true,
+                'message' => 'Onboarding stage updated successfully'
+            ]);
+        } else {
+            ajax_return([
+                'success' => false,
+                'message' => 'Failed to update onboarding stage'
+            ]);
+        }
+    }
+
+    /**
+     * Get onboarding statistics
+     */
+    public function onboarding_stats() {
+        $agency_id = $this->get_user_agency_id();
+        $stats = $this->{$this->model}->get_onboarding_stats($agency_id);
+
+        ajax_return([
+            'success' => true,
+            'stats' => $stats
+        ]);
     }
 
     /**
@@ -327,6 +485,13 @@ class Candidates extends CRUD_Controller{
             'application_date' => $this->input->post('application_date') ? $this->input->post('application_date') : date('Y-m-d H:i:s'),
             'assigned_agent_id' => $assigned_agent_id ? (int)$assigned_agent_id : 0,
             'enabled' => 1,
+            // Initialize onboarding stages
+            'stage_under_review' => 0,
+            'stage_submitted_to_hm' => 0,
+            'stage_requested_docs' => 0,
+            'stage_position_offered' => 0,
+            'onboarding_stage' => 'not_started',
+            'onboarding_progress' => 0,
         );
         
         // Auto-generate reference number if not provided
@@ -478,5 +643,40 @@ class Candidates extends CRUD_Controller{
         parent::edit($id);
     }
 
-   
+    /**
+     * Debug function to check agency filtering
+     */
+    public function debug_agency() {
+        if (ENVIRONMENT !== 'development') {
+            show_404();
+        }
+
+        echo "<h1>Agency Debug Information</h1>";
+        
+        echo "<h2>Session Data:</h2>";
+        echo "<pre>";
+        print_r($this->session->userdata('login'));
+        echo "</pre>";
+        
+        echo "<h2>Current Agency ID:</h2>";
+        $agency_id = $this->get_user_agency_id();
+        echo "Agency ID: " . ($agency_id ?? 'NOT FOUND');
+        
+        echo "<h2>Database Candidates Count:</h2>";
+        $total_candidates = $this->db->count_all('candidates');
+        echo "Total candidates in database: " . $total_candidates . "<br>";
+        
+        $this->db->where('agency_id', $agency_id);
+        $agency_candidates = $this->db->count_all_results('candidates');
+        echo "Candidates for agency {$agency_id}: " . $agency_candidates . "<br>";
+        
+        echo "<h2>Sample Candidates:</h2>";
+        $this->db->select('id, reference_number, first_name, last_name, agency_id');
+        $this->db->from('candidates');
+        $this->db->limit(10);
+        $candidates = $this->db->get()->result();
+        echo "<pre>";
+        print_r($candidates);
+        echo "</pre>";
+    }
 }

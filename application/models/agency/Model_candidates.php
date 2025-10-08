@@ -9,8 +9,8 @@ class Model_candidates extends CRUD_Model
     {
         $this->db->distinct();
         
-        // CORRECTED: Clean field selection without duplicate table references
-        $this->db->select('candidates.id, candidates.enabled, candidates.reference_number, candidates.first_name, candidates.last_name, candidates.email, candidates.phone, candidates.status, candidates.application_date, mod_jobs.name as job_name, candidates.agency_id');
+        // Added onboarding stage fields
+        $this->db->select('candidates.id, candidates.enabled, candidates.reference_number, candidates.first_name, candidates.last_name, candidates.email, candidates.phone, candidates.status, candidates.application_date, mod_jobs.name as job_name, candidates.agency_id, candidates.onboarding_stage, candidates.stage_under_review, candidates.stage_submitted_to_hm, candidates.stage_requested_docs, candidates.stage_position_offered, candidates.onboarding_completed_at');
         
         // Join with jobs table to get job names
         $this->db->join('mod_jobs', 'mod_jobs.id = candidates.job_id', 'left');
@@ -64,6 +64,98 @@ class Model_candidates extends CRUD_Model
         }
         
         return parent::get_all($limit, $offset, $sort_by, $sort_order);
+    }
+
+    /**
+     * Update onboarding stage
+     */
+    public function update_onboarding_stage($candidate_id, $stage, $value)
+    {
+        $update_data = array(
+            $stage => $value,
+            'updated_at' => date('Y-m-d H:i:s')
+        );
+
+        // If marking a stage as completed, update the timestamp
+        if ($value == 1) {
+            $stage_timestamp_field = $stage . '_at';
+            $update_data[$stage_timestamp_field] = date('Y-m-d H:i:s');
+        }
+
+        // Update onboarding stage based on progress
+        $this->update_onboarding_progress($candidate_id);
+
+        return $this->db->where('id', $candidate_id)->update($this->table, $update_data);
+    }
+
+    /**
+     * Calculate and update overall onboarding progress
+     */
+    private function update_onboarding_progress($candidate_id)
+    {
+        $candidate = $this->get_candidate_details($candidate_id);
+        
+        if (!$candidate) return;
+
+        $stages = [
+            'stage_under_review',
+            'stage_submitted_to_hm', 
+            'stage_requested_docs',
+            'stage_position_offered'
+        ];
+
+        $completed_stages = 0;
+        $current_stage = 'not_started';
+
+        foreach ($stages as $index => $stage) {
+            if ($candidate->$stage == 1) {
+                $completed_stages++;
+                $current_stage = $stage;
+            } else {
+                // Found the first incomplete stage
+                $current_stage = $stage;
+                break;
+            }
+        }
+
+        // If all stages are completed
+        if ($completed_stages == 4) {
+            $current_stage = 'completed';
+            $this->db->where('id', $candidate_id)->update($this->table, [
+                'onboarding_completed_at' => date('Y-m-d H:i:s')
+            ]);
+        }
+
+        $progress_percentage = ($completed_stages / 4) * 100;
+
+        $this->db->where('id', $candidate_id)->update($this->table, [
+            'onboarding_stage' => $current_stage,
+            'onboarding_progress' => $progress_percentage
+        ]);
+    }
+
+    /**
+     * Get onboarding statistics for dashboard
+     */
+    public function get_onboarding_stats($agency_id = null)
+    {
+        if ($agency_id) {
+            $this->db->where('agency_id', $agency_id);
+        }
+
+        $this->db->select('
+            COUNT(*) as total_candidates,
+            SUM(stage_under_review) as under_review_count,
+            SUM(stage_submitted_to_hm) as submitted_hm_count,
+            SUM(stage_requested_docs) as requested_docs_count,
+            SUM(stage_position_offered) as position_offered_count,
+            SUM(onboarding_stage = "completed") as completed_count
+        ');
+        
+        $this->db->where('enabled', 1);
+        $this->db->where('removed', 0);
+        
+        return $this->db->get($this->table)->row();
     }
 
     /**
