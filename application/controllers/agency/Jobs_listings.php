@@ -85,6 +85,12 @@ class Jobs_listings extends CRUD_Controller{
                     return (!$this->allowEdit) ? false : $str;
                 },
             ),
+           'view_candidates' => array(
+    'label' => 'View Candidates',
+    'url' => site_url('agency/candidates_list/index/{id}'), // Changed to use new controller
+    'icon' => 'fa-users',
+    'class' => 'btn-info',
+),
             'enable' => array(
                 'label' => lang('label_enable'),
                 'url' => url($this->pageName . '/enable/{id}'),
@@ -170,18 +176,7 @@ class Jobs_listings extends CRUD_Controller{
      * Override the get_all method to filter by agency
      */
 
-    public function get_all($limit = null, $offset = null, $sort_by = null, $sort_order = null){
-        $user_agency_id = $this->get_user_agency_id();
-        
-        if (!empty($user_agency_id)) {
-            log_message('debug', 'Filtering jobs by agency_id: ' . $user_agency_id);
-            $this->db->where('mod_jobs.agency_id', $user_agency_id);
-        } else {
-            log_message('debug', 'No agency_id found for filtering jobs');
-        }
-        
-        return parent::get_all($limit, $offset, $sort_by, $sort_order);
-    }
+   
 
     public function build_params($extra = array(), $group = 'main'){
         $params = parent::build_params($extra, $group);
@@ -391,20 +386,123 @@ class Jobs_listings extends CRUD_Controller{
         parent::update($id);
     }
 
-    public function candidates($job_id)
+public function candidates($job_id)
 {
     $job_id = (int)$job_id;
     $agency_id = $this->get_user_agency_id();
 
+    // Verify job exists and belongs to agency
     $job = $this->db->get_where('mod_jobs', ['id' => $job_id, 'agency_id' => $agency_id])->row();
-    if (!$job) show_404();
+    if (!$job) {
+        show_error('Job not found', 404);
+    }
 
-    $candidates = $this->db->get_where('candidates', [
-        'job_id' => $job_id,
-        'agency_id' => $agency_id,
-        'removed' => 0
-    ])->result();
+    // Store job_id in session for filtering
+    $this->session->set_userdata('current_job_id', $job_id);
 
-    $this->load->view('agency/jobs/candidates_list', compact('job', 'candidates'));
+    // Set up breadcrumbs
+    $this->breadcrumbs = array(
+        array('title' => lang('jobs_listings_heading'), 'url' => site_url('agency/jobs_listings')),
+        array('title' => 'Candidates for: ' . $job->name, 'url' => '#'),
+    );
+
+    // Load the CRUD listing view with proper layout
+    $this->view = 'listing';
+    $this->load->view($this->folder . '/view_header');
+    $this->load->view('cms/crud/view_list', array(
+        'heading' => 'Candidates for: ' . $job->name,
+        'noRows' => lang('candidates_no_rows'),
+    ));
+    $this->load->view($this->folder . '/view_footer');
 }
+// In Jobs_listings.php
+// In Jobs_listings.php
+public function all_candidates()
+{
+    // Set up fields and actions (same as job listings)
+    $this->listFields = [
+        'reference_number' => ['label' => lang('label_reference_number'), 'sort' => true],
+        'first_name' => ['label' => lang('label_first_name'), 'sort' => true],
+        'last_name' => ['label' => lang('label_last_name'), 'sort' => true],
+        'email' => ['label' => lang('label_email'), 'sort' => true],
+        'job_name' => ['label' => lang('label_job'), 'sort' => true, 'field' => 'mod_jobs.name'],
+        'status' => ['label' => lang('label_status'), 'sort' => true],
+        'application_date' => ['label' => lang('label_application_date'), 'sort' => true, 'type' => 'date'],
+    ];
+
+    $this->listActions = [
+        'view' => [
+            'label' => lang('label_view'),
+            'url' => site_url('agency/candidates/view/{id}'),
+            'icon' => 'fa-eye',
+            'class' => 'view-row',
+        ],
+    ];
+
+    // Store job_id = null to show all candidates
+    $this->session->set_userdata('current_job_id', null);
+
+    // Set breadcrumbs
+    $this->breadcrumbs = [
+        ['title' => lang('jobs_listings_heading'), 'url' => site_url('agency/jobs_listings')],
+        ['title' => lang('candidates_heading'), 'url' => '#'],
+    ];
+
+    // Load the STANDARD listing view (with full layout)
+    $this->view = 'listing';
+    $this->load->view($this->folder . '/view_header');
+    $this->load->view('cms/crud/view_list', [
+        'heading' => lang('candidates_heading'),
+        'noRows' => lang('candidates_no_rows'),
+    ]);
+    $this->load->view($this->folder . '/view_footer');
+}
+
+// Override get_all to support all candidates
+public function get_all($limit = null, $offset = null, $sort_by = null, $sort_order = null)
+{
+    $job_id = $this->session->userdata('current_job_id');
+    $agency_id = $this->get_user_agency_id();
+
+    $this->db->select('candidates.*, mod_jobs.name as job_name');
+    $this->db->from('candidates');
+    $this->db->join('mod_jobs', 'mod_jobs.id = candidates.job_id', 'left');
+    $this->db->where('candidates.agency_id', $agency_id);
+    $this->db->where('candidates.removed', 0);
+
+    if ($job_id) {
+        $this->db->where('candidates.job_id', $job_id);
+    }
+
+    if ($sort_by && isset($this->listFields[$sort_by])) {
+        if ($sort_by === 'job_name') {
+            $this->db->order_by('mod_jobs.name', $sort_order ?: 'ASC');
+        } else {
+            $this->db->order_by("candidates.$sort_by", $sort_order ?: 'ASC');
+        }
+    } else {
+        $this->db->order_by('candidates.application_date', 'DESC');
+    }
+
+    if ($limit !== null) {
+        $this->db->limit($limit, $offset);
+    }
+
+    return $this->db->get();
+}
+
+public function count_all()
+{
+    $job_id = $this->session->userdata('current_job_id');
+    $agency_id = $this->get_user_agency_id();
+    $this->db->from('candidates');
+    $this->db->where('agency_id', $agency_id);
+    $this->db->where('removed', 0);
+    if ($job_id) {
+        $this->db->where('job_id', $job_id);
+    }
+    return $this->db->count_all_results();
+}
+
+
 }
