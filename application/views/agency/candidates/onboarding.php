@@ -1,425 +1,7 @@
 <?php defined('BASEPATH') || exit('No direct script access allowed'); ?>
 
 <style>
-.onboarding-container {
-    max-width: 1000px;
-    margin: 0 auto;
-    background: #fff;
-    border-radius: 12px;
-    box-shadow: 0 2px 20px rgba(0, 0, 0, 0.1);
-    overflow: hidden;
-}
 
-.onboarding-header {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
-    padding: 30px;
-    position: relative;
-}
-
-.onboarding-header::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 100" fill="rgba(255,255,255,0.1)"><polygon points="0,0 1000,100 0,100"/></svg>');
-    background-size: cover;
-}
-
-.onboarding-title {
-    margin: 0;
-    font-size: 28px;
-    font-weight: 700;
-    position: relative;
-    z-index: 2;
-}
-
-.onboarding-subtitle {
-    margin: 5px 0 0 0;
-    font-size: 16px;
-    opacity: 0.9;
-    position: relative;
-    z-index: 2;
-}
-
-.onboarding-content {
-    padding: 30px;
-}
-
-.candidate-info-card {
-    background: #f8f9fa;
-    border-radius: 10px;
-    padding: 25px;
-    margin-bottom: 30px;
-    border-left: 4px solid #667eea;
-}
-
-.candidate-info-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 20px;
-}
-
-.info-item {
-    display: flex;
-    flex-direction: column;
-}
-
-.info-label {
-    font-weight: 600;
-    color: #495057;
-    font-size: 12px;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    margin-bottom: 5px;
-}
-
-.info-value {
-    color: #212529;
-    font-size: 14px;
-    font-weight: 500;
-}
-
-.onboarding-progress-section {
-    background: #fff;
-    border-radius: 12px;
-    padding: 25px;
-    margin-bottom: 30px;
-    border: 1px solid #e9ecef;
-}
-
-.progress-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 20px;
-}
-
-.progress-title {
-    font-size: 18px;
-    font-weight: 600;
-    color: #212529;
-    margin: 0;
-}
-
-.progress-percentage {
-    font-size: 24px;
-    font-weight: 700;
-    color: #28a745;
-}
-
-.progress-bar-container {
-    background: #f8f9fa;
-    border-radius: 10px;
-    height: 16px;
-    margin-bottom: 15px;
-    overflow: hidden;
-    position: relative;
-}
-
-.progress-fill {
-    background: linear-gradient(90deg, #28a745, #20c997);
-    height: 100%;
-    border-radius: 10px;
-    transition: all 0.8s cubic-bezier(0.34, 1.56, 0.64, 1);
-    position: relative;
-    overflow: hidden;
-}
-
-.progress-fill::after {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: -100%;
-    width: 100%;
-    height: 100%;
-    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
-    animation: shimmer 2s infinite;
-}
-
-@keyframes shimmer {
-    0% {
-        left: -100%;
-    }
-
-    100% {
-        left: 100%;
-    }
-}
-
-.progress-stats {
-    display: flex;
-    justify-content: space-between;
-    font-size: 12px;
-    color: #6c757d;
-}
-
-.onboarding-stages {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-    gap: 25px;
-    margin-bottom: 30px;
-}
-
-.stage-card {
-    background: #fff;
-    border: 2px solid #e9ecef;
-    border-radius: 12px;
-    padding: 25px;
-    transition: all 0.3s ease;
-    position: relative;
-    overflow: hidden;
-}
-
-.stage-card::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 4px;
-    height: 100%;
-    background: #6c757d;
-    transition: all 0.3s ease;
-}
-
-.stage-card.completed::before {
-    background: #28a745;
-}
-
-.stage-card.active::before {
-    background: #007bff;
-}
-
-.stage-card.completed {
-    border-color: #28a745;
-    background: linear-gradient(135deg, #f8fff9 0%, #f0fff4 100%);
-    transform: translateY(-2px);
-    box-shadow: 0 4px 15px rgba(40, 167, 69, 0.15);
-}
-
-.stage-card.active {
-    border-color: #007bff;
-    background: linear-gradient(135deg, #f8fbff 0%, #f0f7ff 100%);
-    transform: translateY(-2px);
-    box-shadow: 0 4px 15px rgba(0, 123, 255, 0.15);
-}
-
-.stage-card.pending {
-    border-color: #ffc107;
-    background: linear-gradient(135deg, #fffdf6 0%, #fff9e6 100%);
-}
-
-.stage-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 15px;
-}
-
-.stage-number {
-    width: 32px;
-    height: 32px;
-    border-radius: 50%;
-    background: #6c757d;
-    color: white;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-weight: 700;
-    font-size: 14px;
-    transition: all 0.3s ease;
-}
-
-.stage-card.completed .stage-number {
-    background: #28a745;
-    box-shadow: 0 2px 8px rgba(40, 167, 69, 0.3);
-}
-
-.stage-card.active .stage-number {
-    background: #007bff;
-    box-shadow: 0 2px 8px rgba(0, 123, 255, 0.3);
-}
-
-.completion-badge {
-    background: #28a745;
-    color: white;
-    padding: 6px 12px;
-    border-radius: 20px;
-    font-size: 11px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-}
-
-.stage-content {
-    margin-bottom: 20px;
-}
-
-.stage-title {
-    font-weight: 700;
-    margin-bottom: 8px;
-    color: #212529;
-    font-size: 16px;
-}
-
-.stage-description {
-    font-size: 13px;
-    color: #6c757d;
-    line-height: 1.5;
-    margin-bottom: 10px;
-}
-
-.stage-date {
-    font-size: 11px;
-    color: #28a745;
-    font-style: italic;
-    font-weight: 500;
-}
-
-.stage-actions {
-    margin-top: 15px;
-}
-
-.btn-toggle-stage {
-    width: 100%;
-    padding: 10px 15px;
-    font-weight: 600;
-    border-radius: 8px;
-    transition: all 0.3s ease;
-    position: relative;
-    overflow: hidden;
-}
-
-.btn-toggle-stage::before {
-    content: '';
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    width: 0;
-    height: 0;
-    background: rgba(255, 255, 255, 0.2);
-    border-radius: 50%;
-    transition: all 0.3s ease;
-    transform: translate(-50%, -50%);
-}
-
-.btn-toggle-stage:hover::before {
-    width: 300px;
-    height: 300px;
-}
-
-.btn-toggle-stage:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
-    transform: none !important;
-}
-
-.btn-toggle-stage:disabled:hover {
-    transform: none;
-}
-
-.completion-celebration {
-    background: linear-gradient(135deg, #28a745, #20c997);
-    color: white;
-    padding: 30px;
-    border-radius: 12px;
-    text-align: center;
-    margin-bottom: 30px;
-    animation: pulse 2s infinite;
-}
-
-@keyframes pulse {
-    0% {
-        transform: scale(1);
-    }
-
-    50% {
-        transform: scale(1.02);
-    }
-
-    100% {
-        transform: scale(1);
-    }
-}
-
-.completion-celebration h4 {
-    margin: 0 0 10px 0;
-    font-size: 24px;
-    font-weight: 700;
-}
-
-.completion-celebration p {
-    margin: 0;
-    font-size: 16px;
-    opacity: 0.9;
-}
-
-.navigation-actions {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding-top: 20px;
-    border-top: 1px solid #e9ecef;
-}
-
-.breadcrumb-nav {
-    font-size: 14px;
-    color: #6c757d;
-}
-
-.breadcrumb-nav a {
-    color: #007bff;
-    text-decoration: none;
-    transition: color 0.3s ease;
-}
-
-.breadcrumb-nav a:hover {
-    color: #0056b3;
-    text-decoration: underline;
-}
-
-/* Loading states */
-.loading {
-    position: relative;
-    pointer-events: none;
-}
-
-.loading::after {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(255, 255, 255, 0.8);
-    border-radius: inherit;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-/* Responsive design */
-@media (max-width: 768px) {
-    .onboarding-content {
-        padding: 20px;
-    }
-
-    .candidate-info-grid {
-        grid-template-columns: 1fr;
-    }
-
-    .onboarding-stages {
-        grid-template-columns: 1fr;
-    }
-
-    .navigation-actions {
-        flex-direction: column;
-        gap: 15px;
-        text-align: center;
-    }
-}
 </style>
 
 <div id="main-content">
@@ -443,14 +25,14 @@
                         <li class="breadcrumb-item active">Onboarding</li>
                     </ul>
                 </div>
+                <!-- In the header section - around line 50+ -->
                 <div class="col-lg-6 col-md-6 col-sm-12">
                     <div class="d-flex flex-row-reverse">
                         <div class="page_action">
-                            <a href="<?= redir('candidates/edit/' . $candidate->id, true) ?>" class="btn btn-primary">
-                                <i class="fa fa-edit"></i> Edit Candidate
-                            </a>
-                            <a href="<?= redir('candidates/view/' . $candidate->id, true) ?>" class="btn btn-info">
-                                <i class="fa fa-user"></i> View Profile
+                            <!-- ADD THIS BUTTON -->
+                            <a href="<?= site_url('agency/candidates_list/view/' . $candidate->id) ?>"
+                                class="btn btn-info">
+                                <i class="fa fa-user-circle"></i> View Full Profile
                             </a>
                         </div>
                     </div>
@@ -666,6 +248,20 @@
                             </div>
                         </div>
 
+                        <!-- Completion Actions -->
+                        <?php if ($candidate->stage_under_review && $candidate->stage_submitted_to_hm && $candidate->stage_requested_docs && $candidate->stage_position_offered): ?>
+                        <?php if (!$candidate->onboarding_completed_at): ?>
+                        <div class="completion-actions">
+                            <h4 style="margin-bottom: 15px; color: #28a745;">🎉 All Stages Completed!</h4>
+                            <p style="margin-bottom: 20px; color: #6c757d;">All onboarding stages have been completed.
+                                You can now mark the entire onboarding process as complete.</p>
+                            <button class="btn btn-success btn-lg" id="completeOnboarding">
+                                <i class="fa fa-check-circle"></i> Complete Onboarding Process
+                            </button>
+                        </div>
+                        <?php endif; ?>
+                        <?php endif; ?>
+
                         <!-- Completion Celebration -->
                         <?php if ($candidate->onboarding_completed_at): ?>
                         <div class="completion-celebration">
@@ -676,19 +272,17 @@
                         <?php endif; ?>
 
                         <!-- Navigation -->
+                        <!-- In your onboarding view file - around line 350+ -->
                         <div class="navigation-actions">
                             <div class="breadcrumb-nav">
                                 <a href="<?= redir('candidates', true) ?>"><i class="fa fa-arrow-left"></i> Back to
                                     Candidates List</a>
                             </div>
                             <div>
-                                <a href="<?= redir('candidates/view/' . $candidate->id, true) ?>"
-                                    class="btn btn-outline-primary">
-                                    <i class="fa fa-user"></i> View Candidate Profile
-                                </a>
-                                <a href="<?= redir('candidates/edit/' . $candidate->id, true) ?>"
-                                    class="btn btn-primary">
-                                    <i class="fa fa-edit"></i> Edit Candidate
+                                <!-- ADD THIS BUTTON -->
+                                <a href="<?= site_url('agency/candidates_list/view/' . $candidate->id) ?>"
+                                    class="btn btn-info">
+                                    <i class="fa fa-user-circle"></i> View Full Profile
                                 </a>
                             </div>
                         </div>
@@ -716,6 +310,35 @@
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
                 <button type="button" class="btn btn-primary" id="confirmAction">Confirm</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Complete Onboarding Modal -->
+<div class="modal fade" id="completeOnboardingModal" tabindex="-1" role="dialog"
+    aria-labelledby="completeOnboardingModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="completeOnboardingModalLabel">Complete Onboarding Process</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to mark the entire onboarding process as complete? This will:</p>
+                <ul>
+                    <li>Set onboarding progress to 100%</li>
+                    <li>Record the completion timestamp</li>
+                    <li>Mark the candidate as fully onboarded</li>
+                </ul>
+                <p>This action cannot be undone.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-success" id="confirmCompleteOnboarding">Complete
+                    Onboarding</button>
             </div>
         </div>
     </div>
@@ -805,17 +428,77 @@ on_script_load('jQuery', function() {
                         if (typeof toastr !== 'undefined') {
                             toastr.error(
                                 'An error occurred while updating the stage. Please try again.'
-                                );
+                            );
                         } else {
                             alert(
-                                'An error occurred while updating the stage. Please try again.');
+                                'An error occurred while updating the stage. Please try again.'
+                            );
                         }
                         button.prop('disabled', false).html(originalText);
                         button.closest('.stage-card').removeClass(
-                        'loading');
+                            'loading');
                         console.error('AJAX Error:', error);
                     }
                 });
+            });
+        });
+
+        // Complete onboarding handler
+        $('#completeOnboarding').on('click', function(e) {
+            e.preventDefault();
+            $('#completeOnboardingModal').modal('show');
+        });
+
+        // Handle complete onboarding confirmation
+        $('#confirmCompleteOnboarding').on('click', function() {
+            const button = $(this);
+            const candidateId = <?= $candidate->id ?>;
+
+            button.prop('disabled', true).html(
+                '<i class="fa fa-spinner fa-spin"></i> Completing...');
+
+            $.ajax({
+                url: '<?= site_url("agency/candidates/complete_onboarding") ?>',
+                type: 'POST',
+                data: {
+                    candidate_id: candidateId
+                },
+                success: function(response) {
+                    $('#completeOnboardingModal').modal('hide');
+
+                    if (response.success) {
+                        if (typeof toastr !== 'undefined') {
+                            toastr.success('Onboarding completed successfully!');
+                        } else {
+                            alert('Onboarding completed successfully!');
+                        }
+
+                        // Reload the page to show the completion state
+                        setTimeout(function() {
+                            location.reload();
+                        }, 1500);
+                    } else {
+                        if (typeof toastr !== 'undefined') {
+                            toastr.error('Error: ' + response.message);
+                        } else {
+                            alert('Error: ' + response.message);
+                        }
+                        button.prop('disabled', false).html('Complete Onboarding');
+                    }
+                },
+                error: function(xhr, status, error) {
+                    $('#completeOnboardingModal').modal('hide');
+                    if (typeof toastr !== 'undefined') {
+                        toastr.error(
+                            'An error occurred while completing onboarding. Please try again.'
+                        );
+                    } else {
+                        alert(
+                            'An error occurred while completing onboarding. Please try again.'
+                        );
+                    }
+                    console.error('AJAX Error:', error);
+                }
             });
         });
 

@@ -161,53 +161,69 @@ class Model_candidates extends CRUD_Model
     /**
      * Get agency by ID (for dropdown)
      */
-    public function get_agency_by_id($agency_id){
-        try {
-            $this->db->select('id, name');
-            $this->db->from('agencies');
-            $this->db->where('id', $agency_id);
-            $this->db->where('enabled', 1);
-            return $this->db->get()->result_array();
-        } catch (Exception $e) {
-            error_log('Error in get_agency_by_id: ' . $e->getMessage());
-            return [];
+    public function get_agency_by_id($agency_id) {
+        if (empty($agency_id)) {
+            return false;
         }
+        
+        $this->db->select('id, name');
+        $this->db->from('agencies');
+        $this->db->where('id', $agency_id);
+        $this->db->where('enabled', 1);
+        $this->db->where('removed', 0);
+        
+        return $this->db->get();
     }
 
     /**
      * Get jobs by agency ID
      */
-    public function get_jobs_by_agency($agency_id){
-        try {
-            $this->db->select('id, name as job_title, reference_number as job_reference');
-            $this->db->from('mod_jobs');
-            $this->db->where('agency_id', $agency_id);
-            $this->db->where('enabled', 1);
-            $this->db->where('removed', 0);
-            $this->db->order_by('name', 'ASC');
-            return $this->db->get()->result_array();
-        } catch (Exception $e) {
-            error_log('Error in get_jobs_by_agency: ' . $e->getMessage());
-            return [];
+    public function get_jobs_by_agency($agency_id) {
+        if (empty($agency_id)) {
+            return false;
         }
+        
+        $this->db->select('id, name, reference_number');
+        $this->db->from('mod_jobs');
+        $this->db->where('agency_id', $agency_id);
+        $this->db->where('enabled', 1);
+        $this->db->where('removed', 0);
+        $this->db->order_by('name', 'ASC');
+        
+        return $this->db->get();
     }
 
     /**
      * Get agency agents by agency ID
      */
-    public function get_agency_agents_by_agency($agency_id){
-        try {
+    public function get_agency_agents_by_agency($agency_id) {
+        if (empty($agency_id)) {
+            return false;
+        }
+        
+        // Try to get from agency_staff table first
+        $this->db->select('id, first_name, last_name, email');
+        $this->db->from('agency_staff');
+        $this->db->where('agency_id', $agency_id);
+        $this->db->where('enabled', 1);
+        $this->db->where('removed', 0);
+        $this->db->order_by('first_name', 'ASC');
+        
+        $result = $this->db->get();
+        
+        // If no agency_staff found, try recruiters table
+        if ($result->num_rows() === 0) {
             $this->db->select('id, first_name, last_name, email');
-            $this->db->from('agency_staff');
+            $this->db->from('recruiters');
             $this->db->where('agency_id', $agency_id);
             $this->db->where('enabled', 1);
+            $this->db->where('removed', 0);
             $this->db->order_by('first_name', 'ASC');
-            $this->db->order_by('last_name', 'ASC');
-            return $this->db->get()->result_array();
-        } catch (Exception $e) {
-            error_log('Error in get_agency_agents_by_agency: ' . $e->getMessage());
-            return [];
+            
+            $result = $this->db->get();
         }
+        
+        return $result;
     }
 
     /**
@@ -230,63 +246,6 @@ class Model_candidates extends CRUD_Model
 
         $query = $this->db->get($this->table);
         return $query->num_rows() == 0;
-    }
-
-    public function get_agencies_all(){
-        try {
-            $this->db->select('id, name');
-            $this->db->from('agencies');
-            $this->db->where('enabled', 1);
-            $this->db->order_by('name', 'ASC');
-            return $this->db->get()->result_array();
-        } catch (Exception $e) {
-            error_log('Error in get_agencies_all: ' . $e->getMessage());
-            return [];
-        }
-    }
-
-    public function get_jobs_all(){
-        try {
-            $agency_id = $this->get_current_agency_id();
-            
-            $this->db->select('id, name as job_title, reference_number as job_reference');
-            $this->db->from('mod_jobs');
-            $this->db->where('enabled', 1);
-            $this->db->where('removed', 0);
-            
-            // Only show jobs for current agency
-            if ($agency_id) {
-                $this->db->where('agency_id', $agency_id);
-            }
-            
-            $this->db->order_by('name', 'ASC');
-            return $this->db->get()->result_array();
-        } catch (Exception $e) {
-            error_log('Error in get_jobs_all: ' . $e->getMessage());
-            return [];
-        }
-    }
-
-    public function get_agency_agents_all(){
-        try {
-            $agency_id = $this->get_current_agency_id();
-            
-            $this->db->select('id, first_name, last_name, email');
-            $this->db->from('agency_staff');
-            $this->db->where('enabled', 1);
-            
-            if ($agency_id) {
-                $this->db->where('agency_id', (int)$agency_id);
-            }
-            
-            $this->db->order_by('first_name', 'ASC');
-            $this->db->order_by('last_name', 'ASC');
-            
-            return $this->db->get()->result_array();
-        } catch (Exception $e) {
-            error_log('Error in get_agency_agents_all: ' . $e->getMessage());
-            return [];
-        }
     }
 
     public function get_candidate_details($candidateId){
@@ -388,4 +347,18 @@ class Model_candidates extends CRUD_Model
     public function get_candidate($id){
         return $this->get_candidate_details($id);
     }
+
+    /**
+ * Complete onboarding process
+ */
+public function complete_onboarding($candidate_id) {
+    $update_data = array(
+        'onboarding_stage' => 'completed',
+        'onboarding_progress' => 100,
+        'onboarding_completed_at' => date('Y-m-d H:i:s'),
+        'updated_at' => date('Y-m-d H:i:s')
+    );
+
+    return $this->db->where('id', $candidate_id)->update($this->table, $update_data);
+}
 }

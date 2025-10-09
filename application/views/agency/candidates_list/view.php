@@ -20,7 +20,7 @@
                         <li class="breadcrumb-item active">Candidate Details</li>
                     </ul>
                 </div>
-                <div class="col-lg-6 col-md-6 col-sm-12">
+                <!-- <div class="col-lg-6 col-md-6 col-sm-12">
                     <div class="d-flex flex-row-reverse">
                         <div class="page_action">
                             <a href="<?= site_url('agency/candidates_list/edit/' . $candidate->id) ?>"
@@ -29,7 +29,7 @@
                             </a>
                         </div>
                     </div>
-                </div>
+                </div> -->
             </div>
         </div>
 
