@@ -82,7 +82,7 @@ $config['login_groups'] = array(
  * Website settings
  */
 //Site name
-$config['site_name'] = 'Shoesmith Agency';
+$config['site_name'] = 'HyrEvo';
 
 //Dark Mode enabled by default:
 $config['dark_mode'] = false;
