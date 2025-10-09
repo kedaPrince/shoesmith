@@ -1,5 +1,15 @@
 <?php defined('BASEPATH') || exit('No direct script access allowed'); ?>
+<style>
+body .form-control {
+    color: var(--font-color);
+    background: #dfdfdf;
+}
 
+body .form-control {
+    color: #000000;
+    background: #dfdfdf;
+}
+</style>
 <a class="close-quick-manage"><i class="fa fa-times"></i></a>
 <div class="quick-manage-form-container qm-tabs">
     <div class="quick-manage-heading">
