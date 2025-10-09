@@ -133,3 +133,5 @@ $autoload['language'] = array('general');
 |	$autoload['model'] = array('first_model' => 'first');
 */
 $autoload['model'] = array();
+
+$autoload['helper'] = array('url', 'form', 'notification'); // Add 'notification' to the array

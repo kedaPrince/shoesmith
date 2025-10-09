@@ -55,8 +55,6 @@ if (!empty($css)) {
         src="<?= site_url(); ?>resources/cms/plugins/ckeditor5/custom/ecms-upload-adapter.js"></script>
     <script type="text/javascript" src="<?= site_url(); ?>resources/cms/plugins/ckeditor5/ckeditor.js"></script>
 
-
-
     <script>
     //Function to check if script has been loaded before executing
     function on_script_load(scriptName, func) {
@@ -72,7 +70,6 @@ if (!empty($css)) {
         }
     }
     </script>
-
 
 </head>
 
@@ -99,7 +96,27 @@ if (!empty($css)) {
         </div>
 
         <?php 
-    $this->load->view($this->folder.'/view_top_bar'); 
+    // Load notifications for header
+    $this->load->model('Model_notifications');
+    $login_data = $this->session->userdata('login');
+    $recruiter_id = !empty($login_data['recruiter']['id']) ? $login_data['recruiter']['id'] : null;
+    
+    if ($recruiter_id) {
+        $unread_count = $this->Model_notifications->get_unread_count('recruiter', $recruiter_id);
+        $notifications = $this->Model_notifications->get_for_receiver('recruiter', $recruiter_id, 5, 0, true);
+        
+        $notification_data = [
+            'unread_notifications_count' => $unread_count,
+            'notifications' => $notifications
+        ];
+    } else {
+        $notification_data = [
+            'unread_notifications_count' => 0,
+            'notifications' => []
+        ];
+    }
+    
+    $this->load->view($this->folder.'/view_top_bar', $notification_data); 
     $this->load->view($this->folder.'/view_left_sidebar');
     $this->load->view($this->folder.'/view_right_sidebar');
 ?>

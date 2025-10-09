@@ -19,6 +19,7 @@ class Candidates extends CRUD_Controller
     {
         parent::__construct();
         $this->folder = 'recruiter';
+        $this->load->helper('notification'); // ← ADD HERE
 
         // Allow only recruiters
         $login_data = $this->session->userdata('login');
