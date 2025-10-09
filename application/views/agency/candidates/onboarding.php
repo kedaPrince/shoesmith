@@ -1,8 +1,6 @@
 <?php defined('BASEPATH') || exit('No direct script access allowed'); ?>
 
-<style>
 
-</style>
 
 <div id="main-content">
     <div class="container-fluid">

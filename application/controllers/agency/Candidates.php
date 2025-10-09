@@ -83,23 +83,26 @@ class Candidates extends CRUD_Controller{
     $this->listActions = array(
         'view' => array(
             'label'     => lang('label_view'),
-            'url'       => site_url('agency/candidates_list/view/{id}'), // CHANGED THIS LINE
+            'url'       => site_url('agency/candidates_list/view/{id}'),
             'icon'      => 'fa-eye',
             'class'     => 'view-row',
+            'title'     => 'View detailed candidate profile', // ADD THIS
         ),
         'edit' => array(
             'label'     => lang('label_edit'),
             'url'       => redir($this->pageName . '/edit/{id}', true),
             'icon'      => 'fa-edit',
             'class'     => 'edit-row',
+            'title'     => 'Edit candidate information', // ADD THIS
         ),
         'onboarding' => array(
             'label'     => 'Onboarding',
             'url'       => redir($this->pageName . '/onboarding/{id}', true),
             'icon'      => 'fa-eye',
             'class'     => 'onboarding-row',
+            'title'     => 'Manage candidate onboarding process', // ADD THIS
         ),
-        // Remove enable/disable/delete actions for agencies
+
     );
 
     $this->filters = array(
@@ -383,6 +386,7 @@ class Candidates extends CRUD_Controller{
             ),
         );
         $this->view = 'listing';
+        $this->load->view('agency/candidates/view_list_extra');
 
         $this->load->view($this->folder . '/' . 'view_header');
         $this->load->view('cms/crud/view_list', array(

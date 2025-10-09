@@ -17,9 +17,41 @@ defined('BASEPATH') || exit('No direct script access allowed');
 ?>
 
 <style>
+/* Enhanced tooltip styles */
+.btn-action[title] {
+    position: relative;
+}
+
+/* Custom tooltip styling if needed */
+.tooltip {
+    font-family: Arial, sans-serif;
+    font-size: 12px;
+}
+
+/* If you want to customize the native tooltip appearance */
+[tooltip]:hover:after {
+    content: attr(tooltip);
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #333;
+    color: white;
+    padding: 5px 10px;
+    border-radius: 4px;
+    font-size: 12px;
+    white-space: nowrap;
+    z-index: 1000;
+}
+
 a.btn.btn-primary.add-item {
     background: #f00 !important;
     color: #fff !important;
+}
+
+.ecms-field textarea {
+    height: 114px;
+    width: 100%;
 }
 
 /* Clean read-only styles - no background colors */
@@ -68,6 +100,85 @@ a.btn.btn-primary.add-item {
 
 .info-modal-close:hover {
     color: black;
+}
+
+/* NEW STYLES: Position labels above inputs */
+.form-group {
+    display: flex;
+    flex-direction: column;
+    margin-bottom: 15px;
+}
+
+.form-group label.control-label {
+    margin-bottom: 5px;
+    font-weight: 600;
+    color: #333;
+}
+
+.form-group .form-control,
+.form-group .form-control-static {
+    width: 100%;
+}
+
+/* Ensure proper spacing in rows */
+.row {
+    display: flex;
+    flex-wrap: wrap;
+    margin-right: -15px;
+    margin-left: -15px;
+}
+
+.col-lg-1,
+.col-lg-2,
+.col-lg-3,
+.col-lg-4,
+.col-lg-5,
+.col-lg-6,
+.col-lg-7,
+.col-lg-8,
+.col-lg-9,
+.col-lg-10,
+.col-lg-11,
+.col-lg-12 {
+    position: relative;
+    width: 100%;
+    padding-right: 15px;
+    padding-left: 15px;
+}
+
+@media (min-width: 992px) {
+    .col-lg-6 {
+        flex: 0 0 50%;
+        max-width: 50%;
+    }
+
+    .col-lg-4 {
+        flex: 0 0 33.333333%;
+        max-width: 33.333333%;
+    }
+
+    .col-lg-12 {
+        flex: 0 0 100%;
+        max-width: 100%;
+    }
+}
+
+/* Adjust spacing for the form container */
+.form-field-container {
+    padding: 20px;
+}
+
+/* Style adjustments for better visual hierarchy */
+.info-box {
+    background-color: #f8f9fa;
+    border-left: 4px solid #007bff;
+    padding: 15px;
+    margin-top: 20px;
+}
+
+.info-box h4 {
+    margin-top: 0;
+    color: #007bff;
 }
 </style>
 
