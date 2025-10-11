@@ -1,6 +1,6 @@
 <?php
 defined('BASEPATH') OR exit('No direct script access allowed');
-
+#change
 class Model_jobs extends CRUD_Model
 {
     protected $table = 'mod_jobs';
