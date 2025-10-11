@@ -17,8 +17,12 @@ class Jobs extends CRUD_Controller
     public $sorting = array('name' => 'ASC');
     public $quickManageSize = 4;
 
+<<<<<<< HEAD
     public function __construct()
     {
+=======
+    public function __construct() {
+>>>>>>> 711e81e28e28cf18860d036865290b5d2e3dc386
         parent::__construct();
 
         $this->folder = 'recruiter';
@@ -46,8 +50,7 @@ class Jobs extends CRUD_Controller
         );
     }
 
-    private function setup_listing()
-    {
+    private function setup_listing(){
         $this->listFields = array(
             'name' => array('label' => lang('label_title'), 'sort' => true),
             'reference_number' => array('label' => lang('label_reference_number'), 'sort' => true),
@@ -80,8 +83,7 @@ class Jobs extends CRUD_Controller
         );
     }
 
-    public function setup_fields()
-    {
+    public function setup_fields(){
         $this->formFields = array(
             'main' => array(
                 'name' => 'trim|required|strip_tags',
@@ -119,8 +121,12 @@ class Jobs extends CRUD_Controller
         );
     }
 
+<<<<<<< HEAD
     public function index()
     {
+=======
+    public function index(){
+>>>>>>> 711e81e28e28cf18860d036865290b5d2e3dc386
         $this->breadcrumbs = array(
             array(
                 'title' => lang($this->pageName . '_heading'),
@@ -136,8 +142,12 @@ class Jobs extends CRUD_Controller
         $this->load->view($this->folder . '/view_footer');
     }
 
+<<<<<<< HEAD
     public function get_all($limit = null, $offset = null, $sort_by = null, $sort_order = null)
     {
+=======
+    public function get_all($limit = null, $offset = null, $sort_by = null, $sort_order = null){
+>>>>>>> 711e81e28e28cf18860d036865290b5d2e3dc386
         $user_agency_id = $this->get_user_agency_id();
         if ($user_agency_id) {
             $this->db->where('mod_jobs.agency_id', $user_agency_id);
@@ -145,8 +155,12 @@ class Jobs extends CRUD_Controller
         return parent::get_all($limit, $offset, $sort_by, $sort_order);
     }
 
+<<<<<<< HEAD
     private function get_user_agency_id()
     {
+=======
+    private function get_user_agency_id(){
+>>>>>>> 711e81e28e28cf18860d036865290b5d2e3dc386
         $login = $this->session->userdata('login');
         if (!empty($login['recruiters']['agency_id'])) {
             return (int) $login['recruiters']['agency_id'];
@@ -154,8 +168,7 @@ class Jobs extends CRUD_Controller
         return null;
     }
 
-    public function is_unique_reference($reference)
-    {
+    public function is_unique_reference($reference) {
         $id = $this->input->post('id');
         $this->form_validation->set_message('is_unique_reference', lang('ref_exists'));
         return $this->{$this->model}->is_unique_reference($reference, $id);
@@ -190,8 +203,12 @@ class Jobs extends CRUD_Controller
     /**
      * View job details - Only method recruiters can access
      */
+<<<<<<< HEAD
     public function view($id)
     {
+=======
+    public function view($id){
+>>>>>>> 711e81e28e28cf18860d036865290b5d2e3dc386
         $user_agency_id = $this->get_user_agency_id();
         
         // Get the job with agency filtering
