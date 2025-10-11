@@ -35,7 +35,7 @@ class Jobs_listings extends CRUD_Controller{
         // Apply agency filter immediately after loading model
         $user_agency_id = $this->get_user_agency_id();
         if (!empty($user_agency_id)) {
-            $this->db->where('mod_jobs.agency_id', $user_agency_id);
+            $this->db->where('agency_id', $user_agency_id);
             log_message('debug', 'Applied global agency filter in constructor: ' . $user_agency_id);
         }
         
@@ -86,11 +86,11 @@ class Jobs_listings extends CRUD_Controller{
                 },
             ),
            'view_candidates' => array(
-    'label' => 'View Candidates',
-    'url' => site_url('agency/candidates_list/index/{id}'), // Changed to use new controller
-    'icon' => 'fa-users',
-    'class' => 'btn-info',
-),
+            'label' => 'View Candidates',
+            'url' => site_url('agency/candidates_list/index/{id}'), // Changed to use new controller
+            'icon' => 'fa-users',
+            'class' => 'btn-info',
+        ),
             'enable' => array(
                 'label' => lang('label_enable'),
                 'url' => url($this->pageName . '/enable/{id}'),
@@ -138,7 +138,7 @@ class Jobs_listings extends CRUD_Controller{
                 'project_overview' => 'trim',
                 'department' => 'trim|strip_tags',
                 'agency_id' => 'trim|required|numeric',
-                'industry_id' => 'trim|numeric',
+                'industry_id' => 'trim|numeric', // SOLUTION 1: Remove 'required' and make it numeric only
                 'employment_type' => 'trim|required',
                 'salary_min' => 'trim|numeric',
                 'salary_max' => 'trim|numeric',
@@ -169,15 +169,6 @@ class Jobs_listings extends CRUD_Controller{
         );
     }
 
-    /**
-     * Override the get_all method to filter by agency
-     */
-    /**
-     * Override the get_all method to filter by agency
-     */
-
-   
-
     public function build_params($extra = array(), $group = 'main'){
         $params = parent::build_params($extra, $group);
         
@@ -193,7 +184,24 @@ class Jobs_listings extends CRUD_Controller{
     }
 
     public function create(){
+        log_message('debug', '=== JOB CREATION START ===');
         log_message('debug', 'POST data: ' . print_r($this->input->post(), true));
+        
+        // SIMPLIFIED SOLUTION: Handle industry_id safely without extra DB connection
+        $industry_id = $this->input->post('industry_id');
+        log_message('debug', 'Raw Industry ID from POST: ' . $industry_id);
+        
+        // Safe industry_id handling - just ensure it's valid numeric or null
+        if (!empty($industry_id) && is_numeric($industry_id)) {
+            $industry_id = (int)$industry_id;
+            // Let the database foreign key handle validation
+            $_POST['industry_id'] = $industry_id;
+            log_message('debug', 'Setting industry_id to: ' . $industry_id);
+        } else {
+            // No industry_id or invalid, set to null
+            $_POST['industry_id'] = null;
+            log_message('debug', 'No valid industry_id provided, setting to null');
+        }
         
         // Auto-set agency_id if not provided
         if (!$this->input->post('agency_id')) {
@@ -203,6 +211,12 @@ class Jobs_listings extends CRUD_Controller{
                 log_message('debug', 'Auto-setting agency_id to: ' . $user_agency_id);
             }
         }
+        
+        // Final validation before parent::create()
+        log_message('debug', 'Final industry_id before create: ' . $_POST['industry_id']);
+        log_message('debug', 'Final agency_id before create: ' . $_POST['agency_id']);
+        
+        log_message('debug', '=== JOB CREATION END ===');
         
         parent::create();
     }
@@ -216,7 +230,7 @@ class Jobs_listings extends CRUD_Controller{
         
         // Apply agency filter directly to the model
         if (!empty($user_agency_id)) {
-            $this->db->where('mod_jobs.agency_id', $user_agency_id);
+            $this->db->where('agency_id', $user_agency_id);
             log_message('debug', 'Applied agency filter in index method: ' . $user_agency_id);
         }
         
@@ -278,45 +292,42 @@ class Jobs_listings extends CRUD_Controller{
     $current_agency_id = $user_agency_id; // Default to user's agency
 
     if (!empty($row) && is_object($row)) {
-        // More robust check for agency_id
-        if (isset($row->agency_id) && !empty($row->agency_id)) {
-            $current_agency_id = $row->agency_id;
-            log_message('debug', 'Found agency_id in row object: ' . $current_agency_id);
-        } else {
-            // Try to get agency_id from the database if we have an ID
-            if (!empty($id)) {
-                $job_data = $this->{$this->model}->get_by_id($id);
-                if ($job_data && isset($job_data->agency_id) && !empty($job_data->agency_id)) {
-                    $current_agency_id = $job_data->agency_id;
-                    log_message('debug', 'Found agency_id from database lookup: ' . $current_agency_id);
-                } else {
-                    log_message('debug', 'No agency_id found in database for job ID: ' . $id);
-                }
+            // More robust check for agency_id
+            if (isset($row->agency_id) && !empty($row->agency_id)) {
+                $current_agency_id = $row->agency_id;
+                log_message('debug', 'Found agency_id in row object: ' . $current_agency_id);
             } else {
-                log_message('debug', 'No ID provided, using user agency ID: ' . $user_agency_id);
+                // Try to get agency_id from the database if we have an ID
+                if (!empty($id)) {
+                    $job_data = $this->{$this->model}->get_by_id($id);
+                    if ($job_data && isset($job_data->agency_id) && !empty($job_data->agency_id)) {
+                        $current_agency_id = $job_data->agency_id;
+                        log_message('debug', 'Found agency_id from database lookup: ' . $current_agency_id);
+                    } else {
+                        log_message('debug', 'No agency_id found in database for job ID: ' . $id);
+                    }
+                } else {
+                    log_message('debug', 'No ID provided, using user agency ID: ' . $user_agency_id);
+                }
             }
+        } else {
+            log_message('debug', 'No row object provided, using user agency ID: ' . $user_agency_id);
         }
-    } else {
-        log_message('debug', 'No row object provided, using user agency ID: ' . $user_agency_id);
-    }
-    
-    return [
-        'agency_id' => $agency_id,
-        'user_agency_id' => $user_agency_id,
-        'current_agency_id' => $current_agency_id, // Use this in the view
-        'user_agencies' => $user_agency_id, // For compatibility with view
-        'agency_options' => $agency_options,
-        'industry_options' => $this->{$this->model}->get_industry_options(),
-        'skill_options' => $this->{$this->model}->get_skill_options(),
-        'qualification_options' => $this->{$this->model}->get_qualification_options(),
-        'skills' => $id ? $this->{$this->model}->get_job_skills((int)$id) : [],
-        'qualifications' => $id ? $this->{$this->model}->get_job_qualifications((int)$id) : [],
-    ];
+        
+        return [
+                'agency_id' => $agency_id,
+                'user_agency_id' => $user_agency_id,
+                'current_agency_id' => $current_agency_id, // Use this in the view
+                'user_agencies' => $user_agency_id, // For compatibility with view
+                'agency_options' => $agency_options,
+                'industry_options' => $this->{$this->model}->get_industry_options(),
+                'skill_options' => $this->{$this->model}->get_skill_options(),
+                'qualification_options' => $this->{$this->model}->get_qualification_options(),
+                'skills' => $id ? $this->{$this->model}->get_job_skills((int)$id) : [],
+                'qualifications' => $id ? $this->{$this->model}->get_job_qualifications((int)$id) : [],
+            ];
     }
 
-    /**
-     * Get the logged-in user's agency ID - Works for both agency staff and recruiters
-     */
     /**
      * Get the logged-in user's agency ID - Works for both agency staff and recruiters
      */
@@ -371,9 +382,28 @@ class Jobs_listings extends CRUD_Controller{
     }
 
     /**
-     * Override update method to ensure agency_id is set
+     * Override update method to ensure agency_id is set and validate industry_id
      */
     public function update($id){
+        log_message('debug', '=== JOB UPDATE START ===');
+        log_message('debug', 'POST data: ' . print_r($this->input->post(), true));
+        
+        // SIMPLIFIED SOLUTION: Handle industry_id safely without extra DB connection
+        $industry_id = $this->input->post('industry_id');
+        log_message('debug', 'Raw Industry ID from POST: ' . $industry_id);
+        
+        // Safe industry_id handling - just ensure it's valid numeric or null
+        if (!empty($industry_id) && is_numeric($industry_id)) {
+            $industry_id = (int)$industry_id;
+            // Let the database foreign key handle validation
+            $_POST['industry_id'] = $industry_id;
+            log_message('debug', 'Setting industry_id to: ' . $industry_id);
+        } else {
+            // No industry_id or invalid, set to null
+            $_POST['industry_id'] = null;
+            log_message('debug', 'No valid industry_id provided, setting to null');
+        }
+        
         // Ensure agency_id is set for updates
         if (!$this->input->post('agency_id')) {
             $user_agency_id = $this->get_user_agency_id();
@@ -383,126 +413,180 @@ class Jobs_listings extends CRUD_Controller{
             }
         }
         
+        // Final validation before parent::update()
+        log_message('debug', 'Final industry_id before update: ' . $_POST['industry_id']);
+        log_message('debug', 'Final agency_id before update: ' . $_POST['agency_id']);
+        
+        log_message('debug', '=== JOB UPDATE END ===');
+        
         parent::update($id);
     }
 
-public function candidates($job_id)
-{
-    $job_id = (int)$job_id;
-    $agency_id = $this->get_user_agency_id();
+    public function candidates($job_id){
+        $job_id = (int)$job_id;
+        $agency_id = $this->get_user_agency_id();
 
-    // Verify job exists and belongs to agency
-    $job = $this->db->get_where('mod_jobs', ['id' => $job_id, 'agency_id' => $agency_id])->row();
-    if (!$job) {
-        show_error('Job not found', 404);
-    }
-
-    // Store job_id in session for filtering
-    $this->session->set_userdata('current_job_id', $job_id);
-
-    // Set up breadcrumbs
-    $this->breadcrumbs = array(
-        array('title' => lang('jobs_listings_heading'), 'url' => site_url('agency/jobs_listings')),
-        array('title' => 'Candidates for: ' . $job->name, 'url' => '#'),
-    );
-
-    // Load the CRUD listing view with proper layout
-    $this->view = 'listing';
-    $this->load->view($this->folder . '/view_header');
-    $this->load->view('cms/crud/view_list', array(
-        'heading' => 'Candidates for: ' . $job->name,
-        'noRows' => lang('candidates_no_rows'),
-    ));
-    $this->load->view($this->folder . '/view_footer');
-}
-// In Jobs_listings.php
-// In Jobs_listings.php
-public function all_candidates()
-{
-    // Set up fields and actions (same as job listings)
-    $this->listFields = [
-        'reference_number' => ['label' => lang('label_reference_number'), 'sort' => true],
-        'first_name' => ['label' => lang('label_first_name'), 'sort' => true],
-        'last_name' => ['label' => lang('label_last_name'), 'sort' => true],
-        'email' => ['label' => lang('label_email'), 'sort' => true],
-        'job_name' => ['label' => lang('label_job'), 'sort' => true, 'field' => 'mod_jobs.name'],
-        'status' => ['label' => lang('label_status'), 'sort' => true],
-        'application_date' => ['label' => lang('label_application_date'), 'sort' => true, 'type' => 'date'],
-    ];
-
-    $this->listActions = [
-        'view' => [
-            'label' => lang('label_view'),
-            'url' => site_url('agency/candidates/view/{id}'),
-            'icon' => 'fa-eye',
-            'class' => 'view-row',
-        ],
-    ];
-
-    // Store job_id = null to show all candidates
-    $this->session->set_userdata('current_job_id', null);
-
-    // Set breadcrumbs
-    $this->breadcrumbs = [
-        ['title' => lang('jobs_listings_heading'), 'url' => site_url('agency/jobs_listings')],
-        ['title' => lang('candidates_heading'), 'url' => '#'],
-    ];
-
-    // Load the STANDARD listing view (with full layout)
-    $this->view = 'listing';
-    $this->load->view($this->folder . '/view_header');
-    $this->load->view('cms/crud/view_list', [
-        'heading' => lang('candidates_heading'),
-        'noRows' => lang('candidates_no_rows'),
-    ]);
-    $this->load->view($this->folder . '/view_footer');
-}
-
-// Override get_all to support all candidates
-public function get_all($limit = null, $offset = null, $sort_by = null, $sort_order = null)
-{
-    $job_id = $this->session->userdata('current_job_id');
-    $agency_id = $this->get_user_agency_id();
-
-    $this->db->select('candidates.*, mod_jobs.name as job_name');
-    $this->db->from('candidates');
-    $this->db->join('mod_jobs', 'mod_jobs.id = candidates.job_id', 'left');
-    $this->db->where('candidates.agency_id', $agency_id);
-    $this->db->where('candidates.removed', 0);
-
-    if ($job_id) {
-        $this->db->where('candidates.job_id', $job_id);
-    }
-
-    if ($sort_by && isset($this->listFields[$sort_by])) {
-        if ($sort_by === 'job_name') {
-            $this->db->order_by('mod_jobs.name', $sort_order ?: 'ASC');
-        } else {
-            $this->db->order_by("candidates.$sort_by", $sort_order ?: 'ASC');
+        // Verify job exists and belongs to agency
+        $job = $this->db->get_where('mod_jobs', ['id' => $job_id, 'agency_id' => $agency_id])->row();
+        if (!$job) {
+            show_error('Job not found', 404);
         }
-    } else {
-        $this->db->order_by('candidates.application_date', 'DESC');
+
+        // Store job_id in session for filtering
+        $this->session->set_userdata('current_job_id', $job_id);
+
+        // Set up breadcrumbs
+        $this->breadcrumbs = array(
+            array('title' => lang('jobs_listings_heading'), 'url' => site_url('agency/jobs_listings')),
+            array('title' => 'Candidates for: ' . $job->name, 'url' => '#'),
+        );
+
+        // Load the CRUD listing view with proper layout
+        $this->view = 'listing';
+        $this->load->view($this->folder . '/view_header');
+        $this->load->view('cms/crud/view_list', array(
+            'heading' => 'Candidates for: ' . $job->name,
+            'noRows' => lang('candidates_no_rows'),
+        ));
+        $this->load->view($this->folder . '/view_footer');
     }
 
-    if ($limit !== null) {
-        $this->db->limit($limit, $offset);
+    public function all_candidates(){
+        // Set up fields and actions (same as job listings)
+        $this->listFields = [
+            'reference_number' => ['label' => lang('label_reference_number'), 'sort' => true],
+            'first_name' => ['label' => lang('label_first_name'), 'sort' => true],
+            'last_name' => ['label' => lang('label_last_name'), 'sort' => true],
+            'email' => ['label' => lang('label_email'), 'sort' => true],
+            'job_name' => ['label' => lang('label_job'), 'sort' => true, 'field' => 'mod_jobs.name'],
+            'status' => ['label' => lang('label_status'), 'sort' => true],
+            'application_date' => ['label' => lang('label_application_date'), 'sort' => true, 'type' => 'date'],
+        ];
+
+        $this->listActions = [
+            'view' => [
+                'label' => lang('label_view'),
+                'url' => site_url('agency/candidates/view/{id}'),
+                'icon' => 'fa-eye',
+                'class' => 'view-row',
+            ],
+        ];
+
+        // Store job_id = null to show all candidates
+        $this->session->set_userdata('current_job_id', null);
+
+        // Set breadcrumbs
+        $this->breadcrumbs = [
+            ['title' => lang('jobs_listings_heading'), 'url' => site_url('agency/jobs_listings')],
+            ['title' => lang('candidates_heading'), 'url' => '#'],
+        ];
+
+        // Load the STANDARD listing view (with full layout)
+        $this->view = 'listing';
+        $this->load->view($this->folder . '/view_header');
+        $this->load->view('cms/crud/view_list', [
+            'heading' => lang('candidates_heading'),
+            'noRows' => lang('candidates_no_rows'),
+        ]);
+        $this->load->view($this->folder . '/view_footer');
     }
 
-    return $this->db->get();
-}
+    // Override get_all to support all candidates
+    public function get_all($limit = null, $offset = null, $sort_by = null, $sort_order = null){
+        $job_id = $this->session->userdata('current_job_id');
+        $agency_id = $this->get_user_agency_id();
 
-public function count_all()
-{
-    $job_id = $this->session->userdata('current_job_id');
-    $agency_id = $this->get_user_agency_id();
-    $this->db->from('candidates');
-    $this->db->where('agency_id', $agency_id);
-    $this->db->where('removed', 0);
-    if ($job_id) {
-        $this->db->where('job_id', $job_id);
+        $this->db->select('candidates.*, mod_jobs.name as job_name');
+        $this->db->from('candidates');
+        $this->db->join('mod_jobs', 'mod_jobs.id = candidates.job_id', 'left');
+        $this->db->where('candidates.agency_id', $agency_id);
+        $this->db->where('candidates.removed', 0);
+
+        if ($job_id) {
+            $this->db->where('candidates.job_id', $job_id);
+        }
+
+        if ($sort_by && isset($this->listFields[$sort_by])) {
+            if ($sort_by === 'job_name') {
+                $this->db->order_by('mod_jobs.name', $sort_order ?: 'ASC');
+            } else {
+                $this->db->order_by("candidates.$sort_by", $sort_order ?: 'ASC');
+            }
+        } else {
+            $this->db->order_by('candidates.application_date', 'DESC');
+        }
+
+        if ($limit !== null) {
+            $this->db->limit($limit, $offset);
+        }
+
+        return $this->db->get();
     }
-    return $this->db->count_all_results();
-}
 
+    public function count_all(){
+        $job_id = $this->session->userdata('current_job_id');
+        $agency_id = $this->get_user_agency_id();
+        $this->db->from('candidates');
+        $this->db->where('agency_id', $agency_id);
+        $this->db->where('removed', 0);
+        if ($job_id) {
+            $this->db->where('job_id', $job_id);
+        }
+        return $this->db->count_all_results();
+    }
 
+    // In Jobs_listings.php - update the create_success_extra method:
+    public function create_success_extra($job_id) {
+        log_message('debug', '=== JOB CREATION - NOTIFICATION PROCESS START ===');
+        
+        // Load notifications model
+        $this->load->model('recruiter/Model_notifications');
+        
+        // Get agency_id and sender_id
+        $agency_id = $this->input->post('agency_id');
+        $sender_id = $this->get_user_agency_id();
+        
+        log_message('debug', 'Job Creation Details:');
+        log_message('debug', ' - Job ID: ' . $job_id);
+        log_message('debug', ' - POST agency_id: ' . $agency_id);
+        log_message('debug', ' - User agency_id: ' . $sender_id);
+        
+        // Use the correct agency ID - prefer the one from the user session
+        $effective_agency_id = !empty($sender_id) ? $sender_id : $agency_id;
+        log_message('debug', ' - Effective agency_id for notifications: ' . $effective_agency_id);
+        
+        // Double-check the job was created with the correct agency
+        $job_check = $this->db->get_where('mod_jobs', ['id' => $job_id])->row();
+        if ($job_check) {
+            log_message('debug', ' - Job agency_id in database: ' . $job_check->agency_id);
+        }
+        
+        // Create notifications for ALL recruiters
+        $result = $this->Model_notifications->create_job_notification($job_id, $effective_agency_id, $sender_id);
+        
+        log_message('debug', 'Notification creation result: ' . ($result ? 'SUCCESS' : 'FAILED'));
+        log_message('debug', '=== JOB CREATION - NOTIFICATION PROCESS END ===');
+    }
+
+    /**
+     * Debug method to check available industries
+     */
+    public function debug_industries() {
+        log_message('debug', '=== DEBUG INDUSTRIES START ===');
+        
+        // Use the existing database connection instead of creating a new one
+        $industries = $this->db->get('mod_industries')->result();
+        
+        log_message('debug', 'Available industries:');
+        foreach ($industries as $industry) {
+            log_message('debug', ' - ID: ' . $industry->id . ', Name: ' . $industry->name);
+        }
+        
+        // Check what industry_id is being submitted in the form
+        log_message('debug', 'Current POST industry_id: ' . $this->input->post('industry_id'));
+        
+        log_message('debug', '=== DEBUG INDUSTRIES END ===');
+        
+        echo "Check your application logs for industry debug output";
+    }
 }
