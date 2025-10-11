@@ -6,11 +6,18 @@ class Model_jobs extends CRUD_Model
     protected $table = 'mod_jobs';
 
     public function main_selects() {
-        parent::main_selects();  // Call parent to get id, enabled, etc.
-
-        // Ensure joined fields are selected for listFields
-        $this->db->select('agencies.name AS agency_name');
-        $this->db->select('mod_industries.name AS industry_name');
+        // Completely override parent selection to avoid non-existent fields
+        $this->db->select([
+            'mod_jobs.id',
+            'mod_jobs.enabled', 
+            'mod_jobs.name',
+            'mod_jobs.reference_number',
+            'mod_jobs.employment_type',
+            'mod_jobs.industry_id',
+            'mod_jobs.agency_id',
+            'agencies.name AS agency_name',
+            'mod_industries.name AS industry_name'
+        ]);
     }
 
     public function joins()
@@ -18,58 +25,6 @@ class Model_jobs extends CRUD_Model
         $this->db->join('agencies', 'agencies.id = mod_jobs.agency_id', 'left');
         $this->db->join('mod_industries', 'mod_industries.id = mod_jobs.industry_id', 'left');
     }
-
-    // ✅ Override get_all to control SELECT and JOIN manually
-    public function get_all($limit = null, $offset = null, $sort_by = null, $sort_order = null, $agency_id = null)
-    {
-        // Start fresh
-        $this->db->reset_query();
-
-        // Select base fields
-        $this->db->select("{$this->table}.id, {$this->table}.enabled, {$this->table}.name, {$this->table}.reference_number, {$this->table}.employment_type");
-
-        // Select joined fields with aliases
-        $this->db->select('agencies.name AS agency_name');
-        $this->db->select('mod_industries.name AS industry_name');
-
-        // From main table
-        $this->db->from($this->table);
-
-        // Joins
-        $this->db->join('agencies', 'agencies.id = mod_jobs.agency_id', 'left');
-        $this->db->join('mod_industries', 'mod_industries.id = mod_jobs.industry_id', 'left');
-
-        // Filters
-        $this->db->where("{$this->table}.removed", 0);
-        if (!empty($agency_id)) {
-            $this->db->where("{$this->table}.agency_id", $agency_id);
-        }
-
-        // Sorting
-        if ($sort_by) {
-            // Map listFields aliases to real columns
-            $sort_map = [
-                'name' => "{$this->table}.name",
-                'reference_number' => "{$this->table}.reference_number",
-                'employment_type' => "{$this->table}.employment_type",
-                'industry' => 'mod_industries.name',
-                'agency' => 'agencies.name',
-            ];
-            $real_sort = $sort_map[$sort_by] ?? "{$this->table}.name";
-            $this->db->order_by($real_sort, $sort_order ?: 'ASC');
-        } else {
-            $this->db->order_by("{$this->table}.name", 'ASC');
-        }
-
-        // Limit
-        if ($limit !== null) {
-            $this->db->limit($limit, $offset);
-        }
-
-        return $this->db->get();
-    }
-
-   
 
     public function get_agency_options($user_agency_id = null)
     {

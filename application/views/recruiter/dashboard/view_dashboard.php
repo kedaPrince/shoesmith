@@ -1,3 +1,8 @@
+<style>
+    body {
+    background: linear-gradient(110deg, #0f242f 0%) !important;
+}
+</style>
 <section class="dashboard-container">
     <div>
         <h1>Welcome recruiter</h1>

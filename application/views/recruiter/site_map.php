@@ -52,4 +52,15 @@ $this->siteMap = array(
             ],
         ),
     ],
+     (object)array(
+        'group'         => 'Notifications',
+        'page'          => 'notifications',
+        'label'         => lang('notifications_heading'),
+        'icon'          => 'fa-bell',
+        'url'           => url('dashboard/notifications'),
+        'class'         => 'Notifications',
+        'show'          => true,
+        'show_heading'  => false,
+        'active_by'     => 'view',
+    ),
 );

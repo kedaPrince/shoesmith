@@ -165,12 +165,14 @@
 }
 
 #navbar-menu {
-    overflow: hidden;
+    overflow: visible;
     li {
         float: left;
     }
 }
-
+#navbar-menu .dropdown-menu {
+    overflow: visible !important;
+}
 .page_action {
     a.btn {
         color: var(--font-white);

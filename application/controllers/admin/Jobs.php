@@ -14,8 +14,11 @@ class Jobs extends CRUD_Controller
     public $identifierField = 'name';
     public $hideSubNav = true;
     public $seoFields = false;
-    public $quickManageSize = 2;
+    public $quickManageSize = 4;
     public $sluggify = true;
+    
+    // ADD THIS LINE to specify custom ajax manage path
+    public $ajaxManageView = 'admin/jobs/ajax-manage';
 
     public function __construct()
     {
@@ -45,6 +48,29 @@ class Jobs extends CRUD_Controller
             'name' => array(
                 'label' => lang('label_title'),
                 'sort' => true,
+            ),
+            'reference_number' => array(
+                'label' => lang('label_reference_number'),
+                'sort' => true,
+            ),
+            'agency_name' => array(
+                'label' => lang('label_agency'),
+                'sort' => true,
+            ),
+            'industry_name' => array(
+                'label' => lang('label_industry'),
+                'sort' => true,
+            ),
+            'employment_type' => array(
+                'label' => lang('label_job_type'),
+                'sort' => true,
+            ),
+            'enabled' => array(
+                'label' => lang('label_status'),
+                'sort' => true,
+                'function' => function($value, $row) {
+                    return $value ? '<span class="badge badge-success">Enabled</span>' : '<span class="badge badge-danger">Disabled</span>';
+                }
             ),
         );
 
@@ -82,15 +108,49 @@ class Jobs extends CRUD_Controller
         );
 
         $this->filters = array(
-            //dropdown filter
             'general' => array(
                 'label' => lang('label_search'),
                 'type' => 'autocomplete',
                 'field' => array(
-                    'mod_access_groups.name',
+                    'mod_jobs.name',
+                    'mod_jobs.reference_number',
                 ),
             ),
+            'agency' => array(
+                'label' => lang('label_agency'),
+                'type' => 'dropdown',
+                'field' => 'mod_jobs.agency_id',
+                'options' => $this->get_agency_filter_options(),
+            ),
+            'industry' => array(
+                'label' => lang('label_industry'),
+                'type' => 'dropdown',
+                'field' => 'mod_jobs.industry_id',
+                'options' => $this->get_industry_filter_options(),
+            ),
         );
+    }
+
+    private function get_agency_filter_options()
+    {
+        $this->load->model('admin/Model_jobs');
+        $agencies = $this->Model_jobs->get_agency_options();
+        $options = ['' => 'All Agencies'];
+        foreach ($agencies->result() as $agency) {
+            $options[$agency->id] = $agency->name;
+        }
+        return $options;
+    }
+
+    private function get_industry_filter_options()
+    {
+        $this->load->model('admin/Model_jobs');
+        $industries = $this->Model_jobs->get_industry_options();
+        $options = ['' => 'All Industries'];
+        foreach ($industries->result() as $industry) {
+            $options[$industry->id] = $industry->name;
+        }
+        return $options;
     }
 
     public function setup_fields()
@@ -98,23 +158,44 @@ class Jobs extends CRUD_Controller
         $this->formFields = array(
             'main' => array(
                 'name' => 'trim|required|strip_tags',
+                'reference_number' => 'trim|required|strip_tags|callback_is_unique_reference',
+                'description' => 'trim',
+                'project_overview' => 'trim',
+                'department' => 'trim|strip_tags',
+                'agency_id' => 'trim|required|numeric',
+                'industry_id' => 'trim|numeric',
+                'employment_type' => 'trim|required',
+                'salary_min' => 'trim|numeric',
+                'salary_max' => 'trim|numeric',
+                'salary_currency' => 'trim|strip_tags',
+                'pay_rate' => 'trim|strip_tags',
+                'is_remote' => 'trim|numeric',
+                'roster' => 'trim|strip_tags',
+                'accommodation' => 'trim|strip_tags',
+                'transport' => 'trim|strip_tags',
+                'application_email' => 'trim|valid_email',
+                'application_url' => 'trim|valid_url',
+                'closing_date' => 'trim',
             ),
             'multi_selects' => array(
-                'admin_id' => array(
-                    'validation'  => 'trim|required',
-                    'pivot_table' => 'pivot_admin_access_groups',
-                    'main_field'  => 'access_group_id',
-                    'link_field'  => 'admin_id',
+                'skills' => array(
+                    'validation' => 'trim',
+                    'pivot_table' => 'pivot_job_skills',
+                    'main_field' => 'job_id',
+                    'link_field' => 'skill_id',
+                ),
+                'qualifications' => array(
+                    'validation' => 'trim',
+                    'pivot_table' => 'pivot_job_qualifications',
+                    'main_field' => 'job_id',
+                    'link_field' => 'qualification_id',
                 ),
             ),
         );
-
-        $this->formLabels = array();
     }
 
     public function index()
     {
-        
         $this->breadcrumbs = array(
             array(
                 'title' => lang($this->pageName . '_heading'),
@@ -133,8 +214,19 @@ class Jobs extends CRUD_Controller
     public function quick_manage_extra($id, $row): array
     {
         return array(
-            'admins_all'    => $this->{$this->model}->get_admins_all(),
-            'admins'       => $this->{$this->model}->get_admins((int)$id),
+            'agency_options' => $this->{$this->model}->get_agency_options(),
+            'industry_options' => $this->{$this->model}->get_industry_options(),
+            'skill_options' => $this->{$this->model}->get_skill_options(),
+            'qualification_options' => $this->{$this->model}->get_qualification_options(),
+            'skills' => $id ? $this->{$this->model}->get_job_skills((int)$id) : [],
+            'qualifications' => $id ? $this->{$this->model}->get_job_qualifications((int)$id) : [],
         );
+    }
+
+    public function is_unique_reference($reference)
+    {
+        $id = $this->input->post('id');
+        $this->form_validation->set_message('is_unique_reference', lang('ref_exists'));
+        return $this->{$this->model}->is_unique_reference($reference, $id);
     }
 }

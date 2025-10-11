@@ -6,24 +6,24 @@ class Jobs extends CRUD_Controller
     public $pageName = 'jobs';
     public $group = 'Jobs';
     public $folder = 'recruiter';
-    public $model = 'model_jobs';  // CHANGE: Lowercase to match file name for reliable loading
+    public $model = 'model_jobs';
     public $singular = 'Job';
     public $plural = 'Jobs';
     public $identifierField = 'name';
-    public $quickManage = true;
+    public $quickManage = false; // Disable quick manage since recruiters can't edit
     public $sluggify = true;
-    public $adding = true;
-    public $allowEdit = true;
+    public $adding = false; // Remove Add Job button
+    public $allowEdit = false; // Disable editing
     public $sorting = array('name' => 'ASC');
     public $quickManageSize = 4;
 
     public function __construct()
     {
-        parent::__construct();  // CHANGE: Parent first for proper inheritance
+        parent::__construct();
 
-        $this->folder = 'recruiter';  // CHANGE: Moved inside construct after parent; set once
+        $this->folder = 'recruiter';
 
-        // Allow only recruiters — session uses 'recruiters' (plural)
+        // Allow only recruiters
         $login_data = $this->session->userdata('login');
         if (empty($login_data['recruiter'])) {
             redirect('recruiter/dashboard');
@@ -52,42 +52,23 @@ class Jobs extends CRUD_Controller
             'name' => array('label' => lang('label_title'), 'sort' => true),
             'reference_number' => array('label' => lang('label_reference_number'), 'sort' => true),
             'employment_type' => array('label' => lang('label_job_type'), 'sort' => true),
-            'industry_name' => array(  // ← use alias name directly
-            'label' => lang('label_industry'),
-            'sort' => true,
-        ),
-             'agency_name' => array(    // ← use alias name directly
-            'label' => lang('label_agency'),
-            'sort' => true,
-        ),
+            'industry_name' => array(
+                'label' => lang('label_industry'),
+                'sort' => true,
+            ),
+            'agency_name' => array(
+                'label' => lang('label_agency'),
+                'sort' => true,
+            ),
         );
 
         $this->listActions = array(
-            'edit' => array(
-                'label'     => lang('label_edit'),
-                'url'       => url($this->pageName . '/edit/{id}'),
-                'icon'      => 'fa-edit',
-                'class'     => 'edit-row',
-            ),
-            'enable' => array(
-                'label'     => lang('label_enable'),
-                'url'       => url($this->pageName . '/enable/{id}'),
+            'view' => array(
+                'label'     => lang('label_view'),
+                'url'       => url($this->pageName . '/view/{id}'),
                 'icon'      => 'fa-eye',
-                'class'     => 'enable-row btn-enable',
-                'function'  => (function ($str, $row) {
-                    return ($row->enabled) ? false : $str;
-                }),
+                'class'     => 'view-row btn-info',
             ),
-            'disable' => array(
-                'label'     => lang('label_disable'),
-                'url'       => url($this->pageName . '/disable/{id}'),
-                'icon'      => 'fa-eye-slash',
-                'class'     => 'disable-row btn-disable',
-                'function'  => (function ($str, $row) {
-                    return (!$row->enabled) ? false : $str;
-                }),
-            ),
-          
         );
 
         $this->filters = array(
@@ -139,22 +120,21 @@ class Jobs extends CRUD_Controller
     }
 
     public function index()
-{
-    $this->breadcrumbs = array(
-        array(
-            'title' => lang($this->pageName . '_heading'),
-            'url' => redir($this->pageName, true),
-        ),
-    );
-    $this->view = 'listing';
-    $this->load->view($this->folder . '/view_header');
-    $this->load->view('cms/crud/view_list', array(
-        'heading' => lang($this->pageName . '_heading'),
-        'noRows' => lang($this->pageName . '_no_rows'),
-    ));
-    $this->load->view($this->folder . '/view_footer');
-}
-
+    {
+        $this->breadcrumbs = array(
+            array(
+                'title' => lang($this->pageName . '_heading'),
+                'url' => redir($this->pageName, true),
+            ),
+        );
+        $this->view = 'listing';
+        $this->load->view($this->folder . '/view_header');
+        $this->load->view('cms/crud/view_list', array(
+            'heading' => lang($this->pageName . '_heading'),
+            'noRows' => lang($this->pageName . '_no_rows'),
+        ));
+        $this->load->view($this->folder . '/view_footer');
+    }
 
     public function get_all($limit = null, $offset = null, $sort_by = null, $sort_order = null)
     {
@@ -163,22 +143,6 @@ class Jobs extends CRUD_Controller
             $this->db->where('mod_jobs.agency_id', $user_agency_id);
         }
         return parent::get_all($limit, $offset, $sort_by, $sort_order);
-    }
-
-    public function quick_manage_extra($id, $row): array
-    {
-        $user_agency_id = $this->get_user_agency_id();
-        return [
-            'agency_id' => $user_agency_id,
-            'user_agency_id' => $user_agency_id,
-            'current_agency_id' => $user_agency_id,
-            'agency_options' => $this->{$this->model}->get_agency_options($user_agency_id),
-            'industry_options' => $this->{$this->model}->get_industry_options(),
-            'skill_options' => $this->{$this->model}->get_skill_options(),
-            'qualification_options' => $this->{$this->model}->get_qualification_options(),
-            'skills' => $id ? $this->{$this->model}->get_job_skills((int)$id) : [],
-            'qualifications' => $id ? $this->{$this->model}->get_job_qualifications((int)$id) : [],
-        ];
     }
 
     private function get_user_agency_id()
@@ -197,25 +161,73 @@ class Jobs extends CRUD_Controller
         return $this->{$this->model}->is_unique_reference($reference, $id);
     }
 
+    // Block create and update methods for recruiters
     public function create()
     {
-        if (!$this->input->post('agency_id')) {
-            $agency_id = $this->get_user_agency_id();
-            if ($agency_id) {
-                $_POST['agency_id'] = $agency_id;
-            }
-        }
-        parent::create();
+        show_404(); // Block access to create
     }
 
     public function update($id)
     {
-        if (!$this->input->post('agency_id')) {
-            $agency_id = $this->get_user_agency_id();
-            if ($agency_id) {
-                $_POST['agency_id'] = $agency_id;
-            }
+        show_404(); // Block access to update
+    }
+
+    public function edit($id)
+    {
+        show_404(); // Block access to edit
+    }
+
+    public function enable($id)
+    {
+        show_404(); // Block access to enable
+    }
+
+    public function disable($id)
+    {
+        show_404(); // Block access to disable
+    }
+
+    /**
+     * View job details - Only method recruiters can access
+     */
+    public function view($id)
+    {
+        $user_agency_id = $this->get_user_agency_id();
+        
+        // Get the job with agency filtering
+        $this->db->where('mod_jobs.id', $id);
+        if ($user_agency_id) {
+            $this->db->where('mod_jobs.agency_id', $user_agency_id);
         }
-        parent::update($id);
+        
+        $job = $this->{$this->model}->get_by_id($id);
+        
+        if (!$job) {
+            show_404();
+        }
+
+        // Load additional data
+        $data['job'] = $job;
+        $data['skills'] = $this->{$this->model}->get_job_skills((int)$id);
+        $data['qualifications'] = $this->{$this->model}->get_job_qualifications((int)$id);
+        $data['skill_options'] = $this->{$this->model}->get_skill_options();
+        $data['qualification_options'] = $this->{$this->model}->get_qualification_options();
+        
+        // Set breadcrumbs
+        $this->breadcrumbs = array(
+            array(
+                'title' => lang($this->pageName . '_heading'),
+                'url' => redir($this->pageName, true),
+            ),
+            array(
+                'title' => $job->name,
+                'url' => '#',
+            ),
+        );
+
+        // Load the view
+        $this->load->view($this->folder . '/view_header');
+        $this->load->view('recruiter/jobs/view_job', $data);
+        $this->load->view($this->folder . '/view_footer');
     }
 }

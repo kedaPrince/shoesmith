@@ -14,6 +14,7 @@ general_labels($lang, 'agency_staff_listings', 'agency staff listing', 'agency s
 general_labels($lang, 'candidates_profile', 'candidate profile', 'candidate profile');
 general_labels($lang, 'agencies', 'agency', 'agencies');
 general_labels($lang, 'jobs', 'job', 'jobs');
+general_labels($lang, 'notifications', 'notification', 'notifications');
 general_labels($lang, 'jobs_listings', 'job listing', 'job listings');
 general_labels($lang, 'recruiters', 'recruiter', 'recruiters');
 general_labels($lang, 'my_playbooks', 'my playbook', 'my playbooks');
@@ -786,6 +787,7 @@ $lang['label_form_custom_function'] = 'Custom Function';
 // Job Listing Specific Fields
 $lang['label_reference_number'] = 'Reference Number';
 $lang['label_job_type'] = 'Job Type';
+$lang['label_notification'] = 'Notification';
 $lang['label_industry'] = 'Industry';
 $lang['label_department'] = 'Department';
 $lang['label_project_overview'] = 'Project Overview';

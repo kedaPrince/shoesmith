@@ -1,10 +1,9 @@
 <?php defined('BASEPATH') || exit('No direct script access allowed'); ?>
 <style>
-body .form-control {
+    body .form-control {
     color: var(--font-color);
     background: #dfdfdf;
 }
-
 body .form-control {
     color: #000000;
     background: #dfdfdf;

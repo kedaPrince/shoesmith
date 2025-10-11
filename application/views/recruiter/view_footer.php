@@ -24,28 +24,52 @@
 <script type="text/javascript" src="<?= site_url(); ?>resources/cms/javascript/jquery-ui.min.js"></script>
 
 <!-- Core JS -->
-<script src="<?= site_url(); ?>resources/cms/javascript/theme/common.js?v=<?= $this->config->item('version'); ?>"></script>
+<script src="<?= site_url(); ?>resources/cms/javascript/theme/common.js?v=<?= $this->config->item('version'); ?>">
+</script>
 
 <script type="text/javascript">
-    var crudLimit               = <?= $this->config->item('CRUD_row_limit'); ?>;
-    var previousBatchCount      = <?= $this->config->item('CRUD_row_limit'); ?>;
-    var csrf                    = '<?= $this->security->get_csrf_hash(); ?>';
-    var csrfName                = '<?= $this->security->get_csrf_token_name(); ?>';
-    var dynamicPath             = '<?= url($this->pageName); ?>';
-    var maxBatches              = '<?= $this->config->item('CRUD_batch_limit'); ?>';
-    var noResults               = '<?= lang('general_no_results'); ?>';
-    var siteURL                 = '<?= site_url(); ?>';
-    var section                 = '<?= ! is_numeric(uri_segment(2, 0)) ? uri_segment(2) : '' ?>';
-    var df                      = new Array();
-    var dffu                    = new Array();
-    var exportable              = <?= ! empty($this->export) ? 1 : 0; ?>;
-    var uploadedImages          = {};
-    var uploaderData            = {};
-    var ecmsFieldOptions        = {};
+var crudLimit = <?= $this->config->item('CRUD_row_limit'); ?>;
+var previousBatchCount = <?= $this->config->item('CRUD_row_limit'); ?>;
+var csrf = '<?= $this->security->get_csrf_hash(); ?>';
+var csrfName = '<?= $this->security->get_csrf_token_name(); ?>';
+var dynamicPath = '<?= url($this->pageName); ?>';
+var maxBatches = '<?= $this->config->item('CRUD_batch_limit'); ?>';
+var noResults = '<?= lang('general_no_results'); ?>';
+var siteURL = '<?= site_url(); ?>';
+var section = '<?= ! is_numeric(uri_segment(2, 0)) ? uri_segment(2) : '' ?>';
+var df = new Array();
+var dffu = new Array();
+var exportable = <?= ! empty($this->export) ? 1 : 0; ?>;
+var uploadedImages = {};
+var uploaderData = {};
+var ecmsFieldOptions = {};
+
+// Make sure the dropdown works
+$(document).ready(function() {
+    // Initialize dropdowns
+    $('.dropdown-toggle').dropdown();
+
+    // Handle notification bell click
+    $('.notifications-menu .dropdown-toggle').on('click', function(e) {
+        e.preventDefault();
+        $(this).parent().toggleClass('open');
+    });
+
+    // Close dropdown when clicking outside
+    $(document).on('click', function(e) {
+        if (!$(e.target).closest('.notifications-menu').length) {
+            $('.notifications-menu').removeClass('open');
+        }
+    });
+});
 </script>
-<script type="text/javascript" src="<?= site_url(); ?>resources/cms/javascript/core.min.js?v=<?= $this->config->item('version'); ?>"></script>
-<script type="text/javascript" src="<?= site_url(); ?>resources/cms/javascript/custom.min.js?v=<?= $this->config->item('version'); ?>"></script>
+
+<script type="text/javascript"
+    src="<?= site_url(); ?>resources/cms/javascript/core.min.js?v=<?= $this->config->item('version'); ?>"></script>
+<script type="text/javascript"
+    src="<?= site_url(); ?>resources/cms/javascript/custom.min.js?v=<?= $this->config->item('version'); ?>"></script>
 
 <?php show_flash_notifications(); ?>
 </body>
+
 </html>

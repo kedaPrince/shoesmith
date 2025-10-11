@@ -1713,3 +1713,51 @@ function format_menu_items($items_array){
         return [];
     }
 }
+
+
+// Add this to application/helpers/general_helper.php or create a new helper
+if (!function_exists('time_ago')) {
+    function time_ago($datetime) {
+        $time = strtotime($datetime);
+        $now = time();
+        $diff = $now - $time;
+
+        if ($diff < 60) {
+            return 'just now';
+        } elseif ($diff < 3600) {
+            $mins = round($diff / 60);
+            return $mins . ' min' . ($mins == 1 ? '' : 's') . ' ago';
+        } elseif ($diff < 86400) {
+            $hours = round($diff / 3600);
+            return $hours . ' hour' . ($hours == 1 ? '' : 's') . ' ago';
+        } elseif ($diff < 604800) {
+            $days = round($diff / 86400);
+            return $days . ' day' . ($days == 1 ? '' : 's') . ' ago';
+        } else {
+            return date('M j, Y', $time);
+        }
+    }
+}
+
+if (!function_exists('character_limiter')) {
+    function character_limiter($str, $n = 500, $end_char = '&#8230;') {
+        if (strlen($str) < $n) {
+            return $str;
+        }
+        
+        $str = preg_replace("/\s+/", ' ', str_replace(array("\r\n", "\r", "\n"), ' ', $str));
+        
+        if (strlen($str) <= $n) {
+            return $str;
+        }
+        
+        $out = "";
+        foreach (explode(' ', trim($str)) as $val) {
+            $out .= $val.' ';
+            if (strlen($out) >= $n) {
+                $out = trim($out);
+                return (strlen($out) === strlen($str)) ? $out : $out.$end_char;
+            }
+        }
+    }
+}
