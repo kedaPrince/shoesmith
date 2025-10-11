@@ -86,11 +86,11 @@ class Jobs_listings extends CRUD_Controller{
                 },
             ),
            'view_candidates' => array(
-            'label' => 'View Candidates',
-            'url' => site_url('agency/candidates_list/index/{id}'), // Changed to use new controller
-            'icon' => 'fa-users',
-            'class' => 'btn-info',
-        ),
+    'label' => 'View Candidates',
+    'url' => site_url('agency/candidates_list/index/{id}'), // Changed to use new controller
+    'icon' => 'fa-users',
+    'class' => 'btn-info',
+),
             'enable' => array(
                 'label' => lang('label_enable'),
                 'url' => url($this->pageName . '/enable/{id}'),
@@ -292,40 +292,40 @@ class Jobs_listings extends CRUD_Controller{
     $current_agency_id = $user_agency_id; // Default to user's agency
 
     if (!empty($row) && is_object($row)) {
-            // More robust check for agency_id
-            if (isset($row->agency_id) && !empty($row->agency_id)) {
-                $current_agency_id = $row->agency_id;
-                log_message('debug', 'Found agency_id in row object: ' . $current_agency_id);
-            } else {
-                // Try to get agency_id from the database if we have an ID
-                if (!empty($id)) {
-                    $job_data = $this->{$this->model}->get_by_id($id);
-                    if ($job_data && isset($job_data->agency_id) && !empty($job_data->agency_id)) {
-                        $current_agency_id = $job_data->agency_id;
-                        log_message('debug', 'Found agency_id from database lookup: ' . $current_agency_id);
-                    } else {
-                        log_message('debug', 'No agency_id found in database for job ID: ' . $id);
-                    }
-                } else {
-                    log_message('debug', 'No ID provided, using user agency ID: ' . $user_agency_id);
-                }
-            }
+        // More robust check for agency_id
+        if (isset($row->agency_id) && !empty($row->agency_id)) {
+            $current_agency_id = $row->agency_id;
+            log_message('debug', 'Found agency_id in row object: ' . $current_agency_id);
         } else {
-            log_message('debug', 'No row object provided, using user agency ID: ' . $user_agency_id);
+            // Try to get agency_id from the database if we have an ID
+            if (!empty($id)) {
+                $job_data = $this->{$this->model}->get_by_id($id);
+                if ($job_data && isset($job_data->agency_id) && !empty($job_data->agency_id)) {
+                    $current_agency_id = $job_data->agency_id;
+                    log_message('debug', 'Found agency_id from database lookup: ' . $current_agency_id);
+                } else {
+                    log_message('debug', 'No agency_id found in database for job ID: ' . $id);
+                }
+            } else {
+                log_message('debug', 'No ID provided, using user agency ID: ' . $user_agency_id);
+            }
         }
-        
-        return [
-                'agency_id' => $agency_id,
-                'user_agency_id' => $user_agency_id,
-                'current_agency_id' => $current_agency_id, // Use this in the view
-                'user_agencies' => $user_agency_id, // For compatibility with view
-                'agency_options' => $agency_options,
-                'industry_options' => $this->{$this->model}->get_industry_options(),
-                'skill_options' => $this->{$this->model}->get_skill_options(),
-                'qualification_options' => $this->{$this->model}->get_qualification_options(),
-                'skills' => $id ? $this->{$this->model}->get_job_skills((int)$id) : [],
-                'qualifications' => $id ? $this->{$this->model}->get_job_qualifications((int)$id) : [],
-            ];
+    } else {
+        log_message('debug', 'No row object provided, using user agency ID: ' . $user_agency_id);
+    }
+    
+    return [
+        'agency_id' => $agency_id,
+        'user_agency_id' => $user_agency_id,
+        'current_agency_id' => $current_agency_id, // Use this in the view
+        'user_agencies' => $user_agency_id, // For compatibility with view
+        'agency_options' => $agency_options,
+        'industry_options' => $this->{$this->model}->get_industry_options(),
+        'skill_options' => $this->{$this->model}->get_skill_options(),
+        'qualification_options' => $this->{$this->model}->get_qualification_options(),
+        'skills' => $id ? $this->{$this->model}->get_job_skills((int)$id) : [],
+        'qualifications' => $id ? $this->{$this->model}->get_job_qualifications((int)$id) : [],
+    ];
     }
 
     /**
@@ -422,12 +422,8 @@ class Jobs_listings extends CRUD_Controller{
         parent::update($id);
     }
 
-<<<<<<< HEAD
     public function candidates($job_id)
     {
-=======
-    public function candidates($job_id){
->>>>>>> 711e81e28e28cf18860d036865290b5d2e3dc386
         $job_id = (int)$job_id;
         $agency_id = $this->get_user_agency_id();
 
@@ -456,12 +452,8 @@ class Jobs_listings extends CRUD_Controller{
         $this->load->view($this->folder . '/view_footer');
     }
 
-<<<<<<< HEAD
     public function all_candidates()
     {
-=======
-    public function all_candidates(){
->>>>>>> 711e81e28e28cf18860d036865290b5d2e3dc386
         // Set up fields and actions (same as job listings)
         $this->listFields = [
             'reference_number' => ['label' => lang('label_reference_number'), 'sort' => true],
@@ -502,12 +494,8 @@ class Jobs_listings extends CRUD_Controller{
     }
 
     // Override get_all to support all candidates
-<<<<<<< HEAD
     public function get_all($limit = null, $offset = null, $sort_by = null, $sort_order = null)
     {
-=======
-    public function get_all($limit = null, $offset = null, $sort_by = null, $sort_order = null){
->>>>>>> 711e81e28e28cf18860d036865290b5d2e3dc386
         $job_id = $this->session->userdata('current_job_id');
         $agency_id = $this->get_user_agency_id();
 
@@ -538,12 +526,8 @@ class Jobs_listings extends CRUD_Controller{
         return $this->db->get();
     }
 
-<<<<<<< HEAD
     public function count_all()
     {
-=======
-    public function count_all(){
->>>>>>> 711e81e28e28cf18860d036865290b5d2e3dc386
         $job_id = $this->session->userdata('current_job_id');
         $agency_id = $this->get_user_agency_id();
         $this->db->from('candidates');
