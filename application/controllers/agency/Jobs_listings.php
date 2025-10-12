@@ -382,11 +382,27 @@ class Jobs_listings extends CRUD_Controller{
     }
 
     /**
-     * Override update method to ensure agency_id is set and validate industry_id
+     * Override update method to track changes and send notifications
      */
+    /**
+ * Override update method to track changes and send notifications
+ */
     public function update($id){
         log_message('debug', '=== JOB UPDATE START ===');
+        log_message('debug', 'Updating job ID: ' . $id);
         log_message('debug', 'POST data: ' . print_r($this->input->post(), true));
+        
+        // Get original job data before update for change tracking - FIXED METHOD CALL
+        $original_job = $this->{$this->model}->get_by_id($id);
+        if (!$original_job) {
+            log_message('error', 'Original job not found for ID: ' . $id);
+            return parent::update($id);
+        }
+        
+        log_message('debug', 'Original job data - Name: ' . $original_job->name . ', Agency: ' . $original_job->agency_id);
+        
+        // Track changed fields
+        $changed_fields = $this->track_changed_fields($original_job);
         
         // SIMPLIFIED SOLUTION: Handle industry_id safely without extra DB connection
         $industry_id = $this->input->post('industry_id');
@@ -416,10 +432,103 @@ class Jobs_listings extends CRUD_Controller{
         // Final validation before parent::update()
         log_message('debug', 'Final industry_id before update: ' . $_POST['industry_id']);
         log_message('debug', 'Final agency_id before update: ' . $_POST['agency_id']);
+        log_message('debug', 'Changed fields detected: ' . implode(', ', $changed_fields));
+        
+        // Call parent update
+        $result = parent::update($id);
+        
+        // Send update notification if fields were changed
+        if (!empty($changed_fields)) {
+            $this->send_update_notification($id, $original_job->agency_id, $changed_fields);
+        } else {
+            log_message('debug', 'No fields changed, skipping update notification');
+        }
         
         log_message('debug', '=== JOB UPDATE END ===');
+        return $result;
+    }
+
+    /**
+     * Track which fields were changed during update
+     */
+    private function track_changed_fields($original_job) {
+        $changed_fields = [];
+        $post_data = $this->input->post();
         
-        parent::update($id);
+        foreach ($post_data as $field => $new_value) {
+            // Skip non-job fields and ID field
+            if ($field === 'id' || !property_exists($original_job, $field)) {
+                continue;
+            }
+            
+            $original_value = $original_job->$field;
+            
+            // Handle different data types for comparison
+            if ($field === 'is_remote') {
+                // Handle checkbox values
+                $original_bool = !empty($original_value) ? '1' : '0';
+                $new_bool = !empty($new_value) ? '1' : '0';
+                
+                if ($original_bool !== $new_bool) {
+                    $changed_fields[] = $field;
+                    log_message('debug', 'Field changed: ' . $field . ' from ' . $original_bool . ' to ' . $new_bool);
+                }
+            } elseif (is_numeric($original_value) && is_numeric($new_value)) {
+                // Handle numeric comparisons
+                if ((float)$original_value != (float)$new_value) {
+                    $changed_fields[] = $field;
+                    log_message('debug', 'Field changed: ' . $field . ' from ' . $original_value . ' to ' . $new_value);
+                }
+            } else {
+                // Handle string comparisons
+                if ((string)$original_value !== (string)$new_value) {
+                    $changed_fields[] = $field;
+                    log_message('debug', 'Field changed: ' . $field . ' from "' . $original_value . '" to "' . $new_value . '"');
+                }
+            }
+        }
+        
+        return $changed_fields;
+    }
+
+    /**
+     * Send update notification to recruiters
+     */
+    private function send_update_notification($job_id, $agency_id, $changed_fields) {
+        log_message('debug', '=== SENDING UPDATE NOTIFICATION START ===');
+        
+        // Load recruiter notifications model (this is the key fix!)
+        $this->load->model('recruiter/Model_notifications');
+        
+        // Get sender ID (current user)
+        $sender_id = $this->get_user_agency_id();
+        
+        log_message('debug', 'Update Notification Details:');
+        log_message('debug', ' - Job ID: ' . $job_id);
+        log_message('debug', ' - Agency ID: ' . $agency_id);
+        log_message('debug', ' - Sender ID: ' . $sender_id);
+        log_message('debug', ' - Changed Fields: ' . implode(', ', $changed_fields));
+        
+        // Create update notification for ALL recruiters
+        $result = $this->Model_notifications->create_job_notification(
+            $job_id, 
+            $agency_id, 
+            $sender_id, 
+            'job_updated', 
+            $changed_fields
+        );
+        
+        log_message('debug', 'Update notification creation result: ' . ($result ? 'SUCCESS' : 'FAILED'));
+        
+        if ($result) {
+            log_message('debug', '✅ Update notification sent successfully for job ID: ' . $job_id);
+            log_message('debug', '✅ Recruiters will see these updated fields: ' . implode(', ', $changed_fields));
+        } else {
+            log_message('error', '❌ Failed to send update notification for job ID: ' . $job_id);
+        }
+        
+        log_message('debug', '=== SENDING UPDATE NOTIFICATION END ===');
+        return $result;
     }
 
     public function candidates($job_id)
@@ -543,7 +652,7 @@ class Jobs_listings extends CRUD_Controller{
     public function create_success_extra($job_id) {
         log_message('debug', '=== JOB CREATION - NOTIFICATION PROCESS START ===');
         
-        // Load notifications model
+        // Load recruiter notifications model (this is the key fix!)
         $this->load->model('recruiter/Model_notifications');
         
         // Get agency_id and sender_id
@@ -569,6 +678,13 @@ class Jobs_listings extends CRUD_Controller{
         $result = $this->Model_notifications->create_job_notification($job_id, $effective_agency_id, $sender_id);
         
         log_message('debug', 'Notification creation result: ' . ($result ? 'SUCCESS' : 'FAILED'));
+        
+        if ($result) {
+            log_message('debug', '✅ New job notification sent successfully for job ID: ' . $job_id);
+        } else {
+            log_message('error', '❌ Failed to send new job notification for job ID: ' . $job_id);
+        }
+        
         log_message('debug', '=== JOB CREATION - NOTIFICATION PROCESS END ===');
     }
 

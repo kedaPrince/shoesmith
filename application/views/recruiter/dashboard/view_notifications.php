@@ -1,10 +1,123 @@
 <?php defined('BASEPATH') OR exit('No direct script access allowed'); ?>
 <style>
 /* Your existing CSS styles remain the same */
+.notification-card.updated .notification-header {
+    border-left: 4px solid #ffc107;
+    background: #fffbf0;
+}
+
+.updated-fields {
+    background: #fff8e1;
+    border: 1px solid #ffeaa7;
+    border-radius: 6px;
+    padding: 12px;
+    margin: 12px 0;
+}
+
+.updated-fields h5 {
+    margin: 0 0 10px 0;
+    font-size: 14px;
+    color: #856404;
+    font-weight: 600;
+}
+
+.updated-field-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.updated-field-badge {
+    background: #fff3cd;
+    border: 1px solid #ffeaa7;
+    color: #856404;
+    padding: 4px 10px;
+    border-radius: 15px;
+    font-size: 12px;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.notification-type-badge {
+    background: #17a2b8;
+    color: white;
+    padding: 3px 10px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 600;
+    margin-left: 8px;
+    text-transform: uppercase;
+}
+
+.notification-type-badge.new {
+    background: #28a745;
+}
+
+.notification-type-badge.updated {
+    background: #ffc107;
+    color: #212529;
+}
+
+.update-highlight {
+    animation: pulse-update 2s ease-in-out;
+}
+
+@keyframes pulse-update {
+    0% {
+        background-color: #fffbf0;
+    }
+
+    50% {
+        background-color: #fff3cd;
+    }
+
+    100% {
+        background-color: #fffbf0;
+    }
+}
+
+/* Debug info for testing */
+.debug-info {
+    background: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    padding: 10px;
+    margin: 10px 0;
+    font-size: 12px;
+    color: #6c757d;
+}
+
+.notification-message.update-message {
+    font-weight: 600;
+    color: #856404;
+    background: #fff3cd;
+    padding: 8px 12px;
+    border-radius: 4px;
+    border-left: 3px solid #ffc107;
+}
+
+/* Fix for accordion */
+.notification-expandable {
+    display: none;
+    padding-top: 15px;
+}
+
+.notification-card.expanded .notification-expandable {
+    display: block;
+}
+
+.notification-card.expanded .expand-indicator i {
+    transform: rotate(180deg);
+}
+
+.expand-indicator i {
+    transition: transform 0.3s ease;
+}
 </style>
 
 <div id="main-content">
-    <!-- Header Section -->
     <header class="page-header">
         <div class="container-fluid">
             <div class="row clearfix">
@@ -29,7 +142,6 @@
             <div class="col-lg-12">
                 <div class="notifications-container">
                     <div class="card main-card">
-                        <!-- Card Header -->
                         <div class="card-header-custom">
                             <div class="row align-items-center">
                                 <div class="col">
@@ -46,9 +158,29 @@
                             </div>
                         </div>
 
-                        <!-- Notifications List -->
                         <div class="card-body">
                             <?php if (!empty($notifications)): ?>
+
+                            <!-- Debug Info -->
+                            <div class="debug-info">
+                                <strong>Debug Info:</strong>
+                                Total Notifications: <?php echo count($notifications); ?> |
+                                New Jobs:
+                                <?php echo count(array_filter($notifications, function($n) { return $n->type === 'job_added'; })); ?>
+                                |
+                                Updated Jobs:
+                                <?php echo count(array_filter($notifications, function($n) { return $n->type === 'job_updated'; })); ?>
+                                <?php 
+                                // Debug: Show specific update notifications
+                                $update_notifications = array_filter($notifications, function($n) { 
+                                    return $n->type === 'job_updated'; 
+                                });
+                                foreach ($update_notifications as $update_notif) {
+                                    echo "<!-- Update Notification ID: {$update_notif->id}, Updated Fields: {$update_notif->updated_fields} -->";
+                                }
+                                ?>
+                            </div>
+
                             <div class="notifications-list">
                                 <?php foreach ($notifications as $notification): ?>
                                 <?php 
@@ -61,17 +193,34 @@
                                         'is_remote' => $notification->is_remote
                                     ];
                                     
-                                    // Agency name is now available from the query
                                     $agency_name = !empty($notification->agency_name) ? $notification->agency_name : 'Your Agency';
+                                    
+                                    // Parse updated fields
+                                    $updated_fields = [];
+                                    $is_update_notification = $notification->type === 'job_updated';
+                                    if ($is_update_notification && !empty($notification->updated_fields)) {
+                                        $updated_fields = json_decode($notification->updated_fields, true);
+                                        if (!is_array($updated_fields)) {
+                                            $updated_fields = [];
+                                        }
+                                    }
+                                    
+                                    // Debug output for this notification
+                                    echo "<!-- Notification ID: {$notification->id}, Type: {$notification->type}, Updated Fields: " . (!empty($updated_fields) ? implode(', ', $updated_fields) : 'none') . " -->";
                                 ?>
-                                <div class="notification-card <?php echo $notification->is_read ? '' : 'unread'; ?>"
-                                    data-notification-id="<?php echo $notification->id; ?>">
+                                <div class="notification-card <?php echo $notification->is_read ? '' : 'unread'; ?> <?php echo $is_update_notification ? 'updated update-highlight' : ''; ?>"
+                                    data-notification-id="<?php echo $notification->id; ?>"
+                                    data-notification-type="<?php echo $notification->type; ?>">
 
-                                    <!-- Header -->
                                     <div class="notification-header">
                                         <div class="notification-title-section">
                                             <h3 class="notification-title">
-                                                <?php echo htmlspecialchars($notification->title); ?></h3>
+                                                <?php echo htmlspecialchars($notification->title); ?>
+                                                <span
+                                                    class="notification-type-badge <?php echo $is_update_notification ? 'updated' : 'new'; ?>">
+                                                    <?php echo $is_update_notification ? 'UPDATED' : 'NEW'; ?>
+                                                </span>
+                                            </h3>
                                             <div class="notification-meta">
                                                 <span class="meta-item">
                                                     <i class="fa fa-building"></i>
@@ -86,6 +235,13 @@
                                                     <i class="fa fa-bell"></i> New
                                                 </span>
                                                 <?php endif; ?>
+                                                <?php if ($is_update_notification && !empty($updated_fields)): ?>
+                                                <span class="notification-tag"
+                                                    style="background: #ffc107; color: #212529;">
+                                                    <i class="fa fa-edit"></i> <?php echo count($updated_fields); ?>
+                                                    fields updated
+                                                </span>
+                                                <?php endif; ?>
                                             </div>
                                         </div>
                                         <span class="notification-time">
@@ -93,7 +249,6 @@
                                         </span>
                                     </div>
 
-                                    <!-- Quick Info Bar (Always Visible) -->
                                     <?php if ($job_data && ($job_data->salary_min || $job_data->salary_max || $job_data->employment_type)): ?>
                                     <div class="quick-info-bar">
                                         <?php if ($job_data->salary_min || $job_data->salary_max): ?>
@@ -142,29 +297,76 @@
                                     </div>
                                     <?php endif; ?>
 
-                                    <!-- Expandable Content -->
                                     <div class="notification-expandable">
-                                        <!-- Job Details Grid -->
+                                        <!-- Updated Fields Section -->
+                                        <?php if ($is_update_notification && !empty($updated_fields)): ?>
+                                        <div class="updated-fields">
+                                            <h5><i class="fa fa-edit"></i> 🆕 Updated Information</h5>
+                                            <p class="text-muted small mb-2">The following fields were recently updated:
+                                            </p>
+                                            <div class="updated-field-list">
+                                                <?php 
+                                                $field_labels = [
+                                                    'name' => 'Job Title',
+                                                    'reference_number' => 'Reference Number',
+                                                    'department' => 'Department',
+                                                    'employment_type' => 'Employment Type',
+                                                    'description' => 'Job Description',
+                                                    'project_overview' => 'Project Overview',
+                                                    'pay_rate' => 'Pay Rate',
+                                                    'salary_min' => 'Minimum Salary',
+                                                    'salary_max' => 'Maximum Salary',
+                                                    'roster' => 'Roster',
+                                                    'accommodation' => 'Accommodation',
+                                                    'transport' => 'Transport',
+                                                    'is_remote' => 'Remote Work',
+                                                    'industry_id' => 'Industry',
+                                                    'application_email' => 'Application Email',
+                                                    'application_url' => 'Application URL',
+                                                    'closing_date' => 'Closing Date'
+                                                ];
+                                                
+                                                foreach ($updated_fields as $field): 
+                                                    $label = isset($field_labels[$field]) ? $field_labels[$field] : $field;
+                                                ?>
+                                                <span class="updated-field-badge">
+                                                    <i class="fa fa-pencil-alt"></i>
+                                                    <?php echo htmlspecialchars($label); ?>
+                                                </span>
+                                                <?php endforeach; ?>
+                                            </div>
+                                        </div>
+                                        <?php elseif ($is_update_notification): ?>
+                                        <div class="updated-fields">
+                                            <h5><i class="fa fa-edit"></i> Job Updated</h5>
+                                            <p class="text-muted small">This job has been updated with general changes.
+                                            </p>
+                                        </div>
+                                        <?php endif; ?>
+
                                         <?php if ($job_data && !empty($job_data->department)): ?>
                                         <div class="job-details-grid">
-                                            <?php if (!empty($job_data->department)): ?>
                                             <div class="job-detail-item">
                                                 <span class="detail-label">Department</span>
                                                 <span
                                                     class="detail-value"><?php echo htmlspecialchars($job_data->department); ?></span>
                                             </div>
-                                            <?php endif; ?>
                                         </div>
                                         <?php endif; ?>
 
-                                        <!-- Content -->
                                         <div class="notification-content">
+                                            <?php if ($is_update_notification): ?>
+                                            <p class="notification-message update-message">
+                                                <i class="fa fa-info-circle"></i>
+                                                <?php echo htmlspecialchars($notification->message); ?>
+                                            </p>
+                                            <?php else: ?>
                                             <p class="notification-message">
                                                 <?php echo htmlspecialchars($notification->message); ?>
                                             </p>
+                                            <?php endif; ?>
                                         </div>
 
-                                        <!-- Actions -->
                                         <div class="notification-actions">
                                             <div class="action-buttons">
                                                 <?php if (!empty($job_id)): ?>
@@ -186,7 +388,6 @@
                                         </div>
                                     </div>
 
-                                    <!-- Expand Indicator -->
                                     <div class="expand-indicator">
                                         <i class="fa fa-chevron-down"></i> Click to view more details
                                     </div>
@@ -204,19 +405,18 @@
                             <?php endif; ?>
                         </div>
 
-                        <!-- Footer -->
                         <?php if (!empty($notifications)): ?>
                         <div class="card-footer bg-transparent border-top">
                             <div class="row">
                                 <div class="col">
                                     <small class="text-muted">
-                                        Showing <?php echo count($notifications); ?> job notification(s)
+                                        Showing <?php echo count($notifications); ?> notification(s)
                                     </small>
                                 </div>
                                 <div class="col-auto">
                                     <small class="text-muted">
-                                        <i class="fa fa-circle" style="color: var(--notification-primary);"></i> Unread
-                                        notifications highlighted
+                                        <i class="fa fa-circle text-success"></i> New Jobs
+                                        <i class="fa fa-circle text-warning ml-2"></i> Updated Jobs
                                     </small>
                                 </div>
                             </div>
@@ -229,16 +429,23 @@
     </div>
 </div>
 
-
 <script>
-// Toggle notification expansion
+// Fixed JavaScript - No syntax errors
 document.addEventListener('DOMContentLoaded', function() {
     const notificationCards = document.querySelectorAll('.notification-card');
 
+    console.log('Found notification cards:', notificationCards.length);
+
     notificationCards.forEach(card => {
         card.addEventListener('click', function(e) {
-            // Don't toggle if clicking on action buttons
-            if (e.target.closest('.btn-notification') || e.target.closest('.action-buttons')) {
+            console.log('Card clicked:', card.dataset.notificationId);
+
+            // Don't toggle if clicking on action buttons or links
+            if (e.target.closest('.btn-notification') ||
+                e.target.closest('.action-buttons') ||
+                e.target.closest('a') ||
+                e.target.tagName === 'BUTTON') {
+                console.log('Clicked on action button, skipping toggle');
                 return;
             }
 
@@ -246,19 +453,33 @@ document.addEventListener('DOMContentLoaded', function() {
             notificationCards.forEach(otherCard => {
                 if (otherCard !== card && otherCard.classList.contains('expanded')) {
                     otherCard.classList.remove('expanded');
+                    console.log('Closed other notification:', otherCard.dataset
+                        .notificationId);
                 }
             });
 
             // Toggle current notification
             card.classList.toggle('expanded');
+            console.log('Toggled notification:', card.dataset.notificationId, 'Expanded:', card
+                .classList.contains('expanded'));
         });
+    });
+
+    // Highlight update notifications
+    const updateNotifications = document.querySelectorAll('.notification-card.updated');
+    console.log('Found update notifications:', updateNotifications.length);
+    updateNotifications.forEach(card => {
+        console.log('Update notification:', card.dataset.notificationId, 'Type:', card.dataset
+            .notificationType);
     });
 });
 
 // Close notifications when clicking outside
 document.addEventListener('click', function(e) {
     if (!e.target.closest('.notification-card')) {
-        document.querySelectorAll('.notification-card.expanded').forEach(card => {
+        const expandedCards = document.querySelectorAll('.notification-card.expanded');
+        console.log('Closing all expanded notifications:', expandedCards.length);
+        expandedCards.forEach(card => {
             card.classList.remove('expanded');
         });
     }
@@ -266,6 +487,7 @@ document.addEventListener('click', function(e) {
 
 // Your existing JavaScript functions
 function markAsRead(notificationId) {
+    console.log('Marking as read:', notificationId);
     $.post('<?php echo site_url("recruiter/dashboard/ajax_mark_notification_read"); ?>', {
         notification_id: notificationId,
         <?php echo $this->security->get_csrf_token_name(); ?>: '<?php echo $this->security->get_csrf_hash(); ?>'

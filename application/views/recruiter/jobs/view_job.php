@@ -1,3 +1,4 @@
+its great that everything is showing as expected by the css is broken
 <?php defined('BASEPATH') || exit('No direct script access allowed'); ?>
 
 <div id="main-content">
@@ -28,18 +29,59 @@
 
     <!-- Main Content Area with Flex Layout -->
     <div id="main-job-layout">
+
         <!-- Left Navigation Sidebar (20%) -->
         <nav class="job-sidebar-left">
             <div class="sidebar-content">
                 <div class="job-actions-card">
                     <h6><i class="fa fa-cog mr-2"></i>Job Actions</h6>
                     <div class="action-buttons">
-
                         <a href="<?php echo site_url('recruiter/jobs'); ?>" class="btn btn-secondary btn-block">
                             <i class="fa fa-arrow-left"></i> Back to Jobs
                         </a>
                     </div>
                 </div>
+
+                <!-- Updated Fields Summary -->
+                <?php if (!empty($updated_fields) && is_array($updated_fields)): ?>
+                <div class="updated-fields-summary">
+                    <h6><i class="fa fa-edit mr-2"></i>Recently Updated</h6>
+                    <div class="updated-fields-list">
+                        <?php 
+                        $field_labels = [
+                            'name' => 'Job Title',
+                            'reference_number' => 'Reference Number',
+                            'department' => 'Department',
+                            'employment_type' => 'Employment Type',
+                            'description' => 'Job Description',
+                            'project_overview' => 'Project Overview',
+                            'pay_rate' => 'Pay Rate',
+                            'salary_min' => 'Minimum Salary',
+                            'salary_max' => 'Maximum Salary',
+                            'roster' => 'Roster',
+                            'accommodation' => 'Accommodation',
+                            'transport' => 'Transport',
+                            'is_remote' => 'Remote Work',
+                            'industry_id' => 'Industry',
+                            'agency_id' => 'Agency',
+                            'application_email' => 'Application Email',
+                            'application_url' => 'Application URL',
+                            'closing_date' => 'Closing Date',
+                            'skills' => 'Skills',
+                            'qualifications' => 'Qualifications'
+                        ];
+                        
+                        foreach ($updated_fields as $field): 
+                            $label = $field_labels[$field] ?? $field;
+                        ?>
+                        <div class="updated-field-item">
+                            <i class="fa fa-pencil-alt text-warning mr-2"></i>
+                            <span><?php echo htmlspecialchars($label); ?></span>
+                        </div>
+                        <?php endforeach; ?>
+                    </div>
+                </div>
+                <?php endif; ?>
 
                 <div class="job-quick-info">
                     <h6><i class="fa fa-info-circle mr-2"></i>Quick Info</h6>
@@ -81,8 +123,21 @@
         <!-- Main Article Content (60%) -->
         <article class="job-main-content">
             <div class="content-header">
-                <h1><?php echo htmlspecialchars($job->name); ?></h1>
-                <p class="text-muted"><?php echo htmlspecialchars($job->department ?? 'No department specified'); ?></p>
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <h1><?php echo htmlspecialchars($job->name); ?></h1>
+                        <p class="text-muted">
+                            <?php echo htmlspecialchars($job->department ?? 'No department specified'); ?></p>
+                    </div>
+                    <!-- Update Notification Badge -->
+                    <?php if (!empty($updated_fields) && is_array($updated_fields)): ?>
+                    <div class="update-notification-badge">
+                        <span class="badge badge-warning update-badge">
+                            <i class="fa fa-edit"></i> Recently Updated
+                        </span>
+                    </div>
+                    <?php endif; ?>
+                </div>
             </div>
 
             <!-- Tab Navigation -->
@@ -91,21 +146,33 @@
                     <li class="nav-item">
                         <a class="nav-link active" data-toggle="tab" href="#project-overview">
                             <i class="fa fa-project-diagram"></i> Project Overview
+                            <?php if (in_array('project_overview', $updated_fields ?? [])): ?>
+                            <span class="update-indicator"></span>
+                            <?php endif; ?>
                         </a>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link" data-toggle="tab" href="#job-description">
                             <i class="fa fa-file-alt"></i> Job Description
+                            <?php if (in_array('description', $updated_fields ?? [])): ?>
+                            <span class="update-indicator"></span>
+                            <?php endif; ?>
                         </a>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link" data-toggle="tab" href="#requirements">
                             <i class="fa fa-tasks"></i> Requirements
+                            <?php if (in_array('skills', $updated_fields ?? []) || in_array('qualifications', $updated_fields ?? [])): ?>
+                            <span class="update-indicator"></span>
+                            <?php endif; ?>
                         </a>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link" data-toggle="tab" href="#application">
                             <i class="fa fa-paper-plane"></i> Application
+                            <?php if (in_array('application_email', $updated_fields ?? []) || in_array('application_url', $updated_fields ?? []) || in_array('closing_date', $updated_fields ?? [])): ?>
+                            <span class="update-indicator"></span>
+                            <?php endif; ?>
                         </a>
                     </li>
                 </ul>
@@ -116,8 +183,16 @@
                 <div class="tab-content">
                     <!-- Project Overview Tab -->
                     <div class="tab-pane fade show active" id="project-overview" role="tabpanel">
-                        <div class="tab-section">
-                            <h5><i class="fa fa-project-diagram text-primary mr-2"></i>Project Overview</h5>
+                        <div
+                            class="tab-section <?php echo in_array('project_overview', $updated_fields ?? []) ? 'recently-updated' : ''; ?>">
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <h5><i class="fa fa-project-diagram text-primary mr-2"></i>Project Overview</h5>
+                                <?php if (in_array('project_overview', $updated_fields ?? [])): ?>
+                                <span class="badge badge-warning update-field-badge">
+                                    <i class="fa fa-pencil-alt"></i> Updated
+                                </span>
+                                <?php endif; ?>
+                            </div>
                             <div class="project-content">
                                 <?php if (!empty($job->project_overview)): ?>
                                 <?php echo nl2br(htmlspecialchars($job->project_overview)); ?>
@@ -130,8 +205,16 @@
 
                     <!-- Job Description Tab -->
                     <div class="tab-pane fade" id="job-description" role="tabpanel">
-                        <div class="tab-section">
-                            <h5><i class="fa fa-file-alt text-primary mr-2"></i>Job Description</h5>
+                        <div
+                            class="tab-section <?php echo in_array('description', $updated_fields ?? []) ? 'recently-updated' : ''; ?>">
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <h5><i class="fa fa-file-alt text-primary mr-2"></i>Job Description</h5>
+                                <?php if (in_array('description', $updated_fields ?? [])): ?>
+                                <span class="badge badge-warning update-field-badge">
+                                    <i class="fa fa-pencil-alt"></i> Updated
+                                </span>
+                                <?php endif; ?>
+                            </div>
                             <div class="description-content">
                                 <?php echo !empty($job->description) ? nl2br(htmlspecialchars($job->description)) : '<p class="text-muted"><em>No description provided</em></p>'; ?>
                             </div>
@@ -141,8 +224,16 @@
                     <!-- Requirements Tab -->
                     <div class="tab-pane fade" id="requirements" role="tabpanel">
                         <div class="requirements-grid">
-                            <div class="requirement-column">
-                                <h6><i class="fa fa-cogs text-primary"></i> Skills Required</h6>
+                            <div
+                                class="requirement-column <?php echo in_array('skills', $updated_fields ?? []) ? 'recently-updated' : ''; ?>">
+                                <div class="d-flex justify-content-between align-items-center mb-3">
+                                    <h6><i class="fa fa-cogs text-primary"></i> Skills Required</h6>
+                                    <?php if (in_array('skills', $updated_fields ?? [])): ?>
+                                    <span class="badge badge-warning update-field-badge">
+                                        <i class="fa fa-pencil-alt"></i> Updated
+                                    </span>
+                                    <?php endif; ?>
+                                </div>
                                 <?php if (!empty($skills) && $skill_options && $skill_options->num_rows() > 0): ?>
                                 <?php
                         $skill_names = [];
@@ -165,8 +256,16 @@
                                 <?php endif; ?>
                             </div>
 
-                            <div class="requirement-column">
-                                <h6><i class="fa fa-graduation-cap text-success"></i> Qualifications</h6>
+                            <div
+                                class="requirement-column <?php echo in_array('qualifications', $updated_fields ?? []) ? 'recently-updated' : ''; ?>">
+                                <div class="d-flex justify-content-between align-items-center mb-3">
+                                    <h6><i class="fa fa-graduation-cap text-success"></i> Qualifications</h6>
+                                    <?php if (in_array('qualifications', $updated_fields ?? [])): ?>
+                                    <span class="badge badge-warning update-field-badge">
+                                        <i class="fa fa-pencil-alt"></i> Updated
+                                    </span>
+                                    <?php endif; ?>
+                                </div>
                                 <?php if (!empty($qualifications) && $qualification_options && $qualification_options->num_rows() > 0): ?>
                                 <?php
                         $qualification_names = [];
@@ -195,10 +294,18 @@
                     <div class="tab-pane fade" id="application" role="tabpanel">
                         <div class="application-details">
                             <?php if (!empty($job->application_email)): ?>
-                            <div class="application-method">
+                            <div
+                                class="application-method <?php echo in_array('application_email', $updated_fields ?? []) ? 'recently-updated' : ''; ?>">
                                 <i class="fa fa-envelope fa-2x text-primary"></i>
                                 <div class="method-details">
-                                    <h6>Apply via Email</h6>
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <h6>Apply via Email</h6>
+                                        <?php if (in_array('application_email', $updated_fields ?? [])): ?>
+                                        <span class="badge badge-warning update-field-badge">
+                                            <i class="fa fa-pencil-alt"></i> Updated
+                                        </span>
+                                        <?php endif; ?>
+                                    </div>
                                     <a href="mailto:<?php echo htmlspecialchars($job->application_email); ?>"
                                         class="application-link">
                                         <?php echo htmlspecialchars($job->application_email); ?>
@@ -208,10 +315,18 @@
                             <?php endif; ?>
 
                             <?php if (!empty($job->application_url)): ?>
-                            <div class="application-method">
+                            <div
+                                class="application-method <?php echo in_array('application_url', $updated_fields ?? []) ? 'recently-updated' : ''; ?>">
                                 <i class="fa fa-globe fa-2x text-info"></i>
                                 <div class="method-details">
-                                    <h6>Apply Online</h6>
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <h6>Apply Online</h6>
+                                        <?php if (in_array('application_url', $updated_fields ?? [])): ?>
+                                        <span class="badge badge-warning update-field-badge">
+                                            <i class="fa fa-pencil-alt"></i> Updated
+                                        </span>
+                                        <?php endif; ?>
+                                    </div>
                                     <a href="<?php echo htmlspecialchars($job->application_url); ?>" target="_blank"
                                         class="application-link">
                                         Visit Application Portal
@@ -221,10 +336,18 @@
                             <?php endif; ?>
 
                             <?php if (!empty($job->closing_date)): ?>
-                            <div class="closing-date">
+                            <div
+                                class="closing-date <?php echo in_array('closing_date', $updated_fields ?? []) ? 'recently-updated' : ''; ?>">
                                 <i class="fa fa-calendar fa-2x text-warning"></i>
                                 <div class="date-details">
-                                    <h6>Closing Date</h6>
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <h6>Closing Date</h6>
+                                        <?php if (in_array('closing_date', $updated_fields ?? [])): ?>
+                                        <span class="badge badge-warning update-field-badge">
+                                            <i class="fa fa-pencil-alt"></i> Updated
+                                        </span>
+                                        <?php endif; ?>
+                                    </div>
                                     <span
                                         class="<?php echo strtotime($job->closing_date) < time() ? 'text-danger' : 'text-success'; ?>">
                                         <?php echo date('F j, Y', strtotime($job->closing_date)); ?>
@@ -247,12 +370,28 @@
                 <div class="job-details-card">
                     <h6><i class="fa fa-building mr-2"></i>Company Details</h6>
                     <div class="details-list">
-                        <div class="detail-item">
-                            <small>Agency</small>
+                        <div
+                            class="detail-item <?php echo in_array('agency_id', $updated_fields ?? []) ? 'recently-updated' : ''; ?>">
+                            <div class="d-flex justify-content-between align-items-center w-100">
+                                <small>Agency</small>
+                                <?php if (in_array('agency_id', $updated_fields ?? [])): ?>
+                                <span class="badge badge-warning update-field-badge-small">
+                                    <i class="fa fa-pencil-alt"></i>
+                                </span>
+                                <?php endif; ?>
+                            </div>
                             <strong><?php echo htmlspecialchars($job->agency_name ?? 'Not specified'); ?></strong>
                         </div>
-                        <div class="detail-item">
-                            <small>Industry</small>
+                        <div
+                            class="detail-item <?php echo in_array('industry_id', $updated_fields ?? []) ? 'recently-updated' : ''; ?>">
+                            <div class="d-flex justify-content-between align-items-center w-100">
+                                <small>Industry</small>
+                                <?php if (in_array('industry_id', $updated_fields ?? [])): ?>
+                                <span class="badge badge-warning update-field-badge-small">
+                                    <i class="fa fa-pencil-alt"></i>
+                                </span>
+                                <?php endif; ?>
+                            </div>
                             <strong><?php echo htmlspecialchars($job->industry_name ?? 'Not specified'); ?></strong>
                         </div>
                     </div>
@@ -262,8 +401,16 @@
                     <h6><i class="fa fa-money-bill-wave mr-2"></i>Compensation</h6>
                     <div class="compensation-details">
                         <?php if (!empty($job->salary_min) || !empty($job->salary_max)): ?>
-                        <div class="salary-range">
-                            <small>Salary Range</small>
+                        <div
+                            class="salary-range <?php echo (in_array('salary_min', $updated_fields ?? []) || in_array('salary_max', $updated_fields ?? [])) ? 'recently-updated' : ''; ?>">
+                            <div class="d-flex justify-content-between align-items-center w-100">
+                                <small>Salary Range</small>
+                                <?php if (in_array('salary_min', $updated_fields ?? []) || in_array('salary_max', $updated_fields ?? [])): ?>
+                                <span class="badge badge-warning update-field-badge-small">
+                                    <i class="fa fa-pencil-alt"></i>
+                                </span>
+                                <?php endif; ?>
+                            </div>
                             <strong class="text-success">
                                 <?php 
                                 if ($job->salary_min && $job->salary_max) {
@@ -279,8 +426,16 @@
                         <?php endif; ?>
 
                         <?php if (!empty($job->pay_rate)): ?>
-                        <div class="pay-rate">
-                            <small>Pay Rate</small>
+                        <div
+                            class="pay-rate <?php echo in_array('pay_rate', $updated_fields ?? []) ? 'recently-updated' : ''; ?>">
+                            <div class="d-flex justify-content-between align-items-center w-100">
+                                <small>Pay Rate</small>
+                                <?php if (in_array('pay_rate', $updated_fields ?? [])): ?>
+                                <span class="badge badge-warning update-field-badge-small">
+                                    <i class="fa fa-pencil-alt"></i>
+                                </span>
+                                <?php endif; ?>
+                            </div>
                             <strong><?php echo htmlspecialchars($job->pay_rate); ?></strong>
                         </div>
                         <?php endif; ?>
@@ -292,20 +447,44 @@
                     <h6><i class="fa fa-info-circle mr-2"></i>Additional Info</h6>
                     <div class="additional-details">
                         <?php if (!empty($job->roster)): ?>
-                        <div class="info-item">
-                            <small>Roster</small>
+                        <div
+                            class="info-item <?php echo in_array('roster', $updated_fields ?? []) ? 'recently-updated' : ''; ?>">
+                            <div class="d-flex justify-content-between align-items-center w-100">
+                                <small>Roster</small>
+                                <?php if (in_array('roster', $updated_fields ?? [])): ?>
+                                <span class="badge badge-warning update-field-badge-small">
+                                    <i class="fa fa-pencil-alt"></i>
+                                </span>
+                                <?php endif; ?>
+                            </div>
                             <span><?php echo htmlspecialchars($job->roster); ?></span>
                         </div>
                         <?php endif; ?>
                         <?php if (!empty($job->accommodation)): ?>
-                        <div class="info-item">
-                            <small>Accommodation</small>
+                        <div
+                            class="info-item <?php echo in_array('accommodation', $updated_fields ?? []) ? 'recently-updated' : ''; ?>">
+                            <div class="d-flex justify-content-between align-items-center w-100">
+                                <small>Accommodation</small>
+                                <?php if (in_array('accommodation', $updated_fields ?? [])): ?>
+                                <span class="badge badge-warning update-field-badge-small">
+                                    <i class="fa fa-pencil-alt"></i>
+                                </span>
+                                <?php endif; ?>
+                            </div>
                             <span><?php echo htmlspecialchars($job->accommodation); ?></span>
                         </div>
                         <?php endif; ?>
                         <?php if (!empty($job->transport)): ?>
-                        <div class="info-item">
-                            <small>Transport</small>
+                        <div
+                            class="info-item <?php echo in_array('transport', $updated_fields ?? []) ? 'recently-updated' : ''; ?>">
+                            <div class="d-flex justify-content-between align-items-center w-100">
+                                <small>Transport</small>
+                                <?php if (in_array('transport', $updated_fields ?? [])): ?>
+                                <span class="badge badge-warning update-field-badge-small">
+                                    <i class="fa fa-pencil-alt"></i>
+                                </span>
+                                <?php endif; ?>
+                            </div>
                             <span><?php echo htmlspecialchars($job->transport); ?></span>
                         </div>
                         <?php endif; ?>
@@ -317,6 +496,36 @@
     </div>
 </div>
 
+<script>
+// Test functions for manual badge testing
+function showTestBadges() {
+    document.querySelectorAll('.test-badge').forEach(function(badge) {
+        badge.style.display = 'inline-block';
+    });
+    document.querySelectorAll('.update-badge, .update-field-badge, .update-indicator').forEach(function(badge) {
+        badge.style.display = 'inline-block';
+    });
+    console.log('Test badges shown');
+}
+
+function hideTestBadges() {
+    document.querySelectorAll('.test-badge').forEach(function(badge) {
+        badge.style.display = 'none';
+    });
+    console.log('Test badges hidden');
+}
+
+// Check if we should show badges based on updated_fields
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('Job view loaded with updated fields:', <?php echo json_encode($updated_fields); ?>);
+
+    <?php if (!empty($updated_fields) && is_array($updated_fields)): ?>
+    console.log('Updated fields found, badges should be visible');
+    <?php else: ?>
+    console.log('No updated fields found, badges will be hidden');
+    <?php endif; ?>
+});
+</script>
 <style>
 /* Main Layout Structure */
 #main-job-layout {
@@ -589,12 +798,12 @@
 }
 
 .job-sidebar-left .sidebar-content>div {
-    background: linear-gradient(135deg, #28a745 0%, #0c0d19 100%);
+
     border: none;
     border-radius: 15px;
     padding: 25px 20px;
     margin-bottom: 25px;
-    box-shadow: 0 8px 25px rgba(108, 74, 182, 0.3);
+
     color: white;
     position: relative;
     overflow: hidden;
@@ -603,7 +812,7 @@
 
 .job-sidebar-left .sidebar-content>div:hover {
     transform: translateY(-5px);
-    box-shadow: 0 12px 35px #28a745;
+
 }
 
 .job-sidebar-left .sidebar-content>div::before {
@@ -666,11 +875,11 @@
 #main-job-layout>.job-main-content {
     flex: 3 1 60%;
     order: 2;
-    background: linear-gradient(135deg, #2F5249 0%, #2F5249 100%);
+
     border-radius: 20px;
     padding: 30px;
     border: none;
-    box-shadow: 0 10px 30px rgba(63, 78, 79, 0.1);
+
     position: relative;
     overflow: hidden;
 }
@@ -900,12 +1109,12 @@
 }
 
 .job-sidebar-right .sidebar-content>div {
-    background: linear-gradient(136deg, #437057 0%, #000000 100%);
+
     border: none;
     border-radius: 15px;
     padding: 25px 20px;
     margin-bottom: 25px;
-    box-shadow: 0 8px 25px #28a7452e;
+
     color: white;
     position: relative;
     overflow: hidden;
@@ -914,7 +1123,7 @@
 
 .job-sidebar-right .sidebar-content>div:hover {
     transform: translateY(-5px);
-    box-shadow: 0 12px 35px #437057;
+
 }
 
 .job-sidebar-right .sidebar-content>div::before {
@@ -1019,5 +1228,366 @@
 
 .job-sidebar-right .sidebar-content>div:nth-child(3) {
     animation-delay: 0.3s;
+}
+
+/* Update Notification Styles */
+.update-notification-badge {
+    margin-left: 15px;
+}
+
+.update-badge {
+    font-size: 0.8rem;
+    padding: 8px 12px;
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0% {
+        transform: scale(1);
+    }
+
+    50% {
+        transform: scale(1.05);
+    }
+
+    100% {
+        transform: scale(1);
+    }
+}
+
+.update-indicator {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    background: #ffc107;
+    border-radius: 50%;
+    margin-left: 5px;
+    animation: blink 1.5s infinite;
+}
+
+@keyframes blink {
+
+    0%,
+    50% {
+        opacity: 1;
+    }
+
+    51%,
+    100% {
+        opacity: 0.3;
+    }
+}
+
+.update-field-badge {
+    font-size: 0.7rem;
+    padding: 4px 8px;
+    background: linear-gradient(135deg, #ffc107 0%, #ffb300 100%);
+    border: none;
+}
+
+.update-field-badge-small {
+    font-size: 0.6rem;
+    padding: 2px 5px;
+    background: linear-gradient(135deg, #ffc107 0%, #ffb300 100%);
+    border: none;
+}
+
+/* Recently Updated Sections */
+.recently-updated {
+    position: relative;
+    border-left: 4px solid #ffc107 !important;
+    background: linear-gradient(90deg, rgba(255, 193, 7, 0.05) 0%, transparent 100%) !important;
+}
+
+.tab-section.recently-updated {
+    border-left: 5px solid #ffc107 !important;
+}
+
+.requirement-column.recently-updated {
+    border: 2px solid rgba(255, 193, 7, 0.3) !important;
+    box-shadow: 0 5px 20px rgba(255, 193, 7, 0.2) !important;
+}
+
+.application-method.recently-updated,
+.closing-date.recently-updated {
+    border-left: 5px solid #ffc107 !important;
+    background: linear-gradient(135deg, #FFFBF0 0%, #FFFFFF 100%) !important;
+}
+
+.detail-item.recently-updated,
+.salary-range.recently-updated,
+.pay-rate.recently-updated,
+.info-item.recently-updated {
+    background: rgba(255, 193, 7, 0.05);
+    border-radius: 5px;
+    padding: 10px;
+    margin: 5px 0;
+}
+
+/* Enhanced badge visibility */
+.badge-warning {
+    color: #212529;
+    font-weight: 600;
+}
+
+/* Your existing CSS remains the same below this line */
+/* Main Layout Structure */
+#main-job-layout {
+    min-height: 800px;
+    margin: 0;
+    padding: 20px;
+    display: flex;
+    flex-flow: row;
+    gap: 20px;
+}
+
+/* Update Notification Badge Styles - ADD THESE TO YOUR EXISTING CSS */
+.update-notification-badge {
+    margin-left: 15px;
+}
+
+.update-badge {
+    font-size: 0.8rem;
+    padding: 8px 12px;
+    animation: pulse 2s infinite;
+    background: linear-gradient(135deg, #ffc107 0%, #ffb300 100%);
+    border: none;
+    color: #212529;
+    font-weight: 600;
+}
+
+.update-indicator {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    background: #ffc107;
+    border-radius: 50%;
+    margin-left: 5px;
+    animation: blink 1.5s infinite;
+}
+
+.update-field-badge {
+    font-size: 0.7rem;
+    padding: 4px 8px;
+    background: linear-gradient(135deg, #ffc107 0%, #ffb300 100%);
+    border: none;
+    color: #212529;
+    font-weight: 600;
+}
+
+.update-field-badge-small {
+    font-size: 0.6rem;
+    padding: 2px 5px;
+    background: linear-gradient(135deg, #ffc107 0%, #ffb300 100%);
+    border: none;
+    color: #212529;
+    font-weight: 600;
+}
+
+/* Recently Updated Sections */
+.recently-updated {
+    position: relative;
+    border-left: 4px solid #ffc107 !important;
+    background: linear-gradient(90deg, rgba(255, 193, 7, 0.05) 0%, transparent 100%) !important;
+}
+
+.tab-section.recently-updated {
+    border-left: 5px solid #ffc107 !important;
+}
+
+.requirement-column.recently-updated {
+    border: 2px solid rgba(255, 193, 7, 0.3) !important;
+    box-shadow: 0 5px 20px rgba(255, 193, 7, 0.2) !important;
+}
+
+.application-method.recently-updated,
+.closing-date.recently-updated {
+    border-left: 5px solid #ffc107 !important;
+    background: linear-gradient(135deg, #FFFBF0 0%, #FFFFFF 100%) !important;
+}
+
+.detail-item.recently-updated,
+.salary-range.recently-updated,
+.pay-rate.recently-updated,
+.info-item.recently-updated {
+    background: rgba(255, 193, 7, 0.05);
+    border-radius: 5px;
+    padding: 10px;
+    margin: 5px 0;
+}
+
+/* Animations */
+@keyframes pulse {
+    0% {
+        transform: scale(1);
+    }
+
+    50% {
+        transform: scale(1.05);
+    }
+
+    100% {
+        transform: scale(1);
+    }
+}
+
+@keyframes blink {
+
+    0%,
+    50% {
+        opacity: 1;
+    }
+
+    51%,
+    100% {
+        opacity: 0.3;
+    }
+}
+
+/* Update Notification Badge Styles */
+.update-notification-badge {
+    margin-left: 15px;
+}
+
+.update-badge {
+    font-size: 0.8rem;
+    padding: 8px 12px;
+    animation: pulse 2s infinite;
+    background: linear-gradient(135deg, #ffc107 0%, #ffb300 100%);
+    border: none;
+    color: #212529;
+    font-weight: 600;
+}
+
+.update-indicator {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    background: #ffc107;
+    border-radius: 50%;
+    margin-left: 5px;
+    animation: blink 1.5s infinite;
+}
+
+.update-field-badge {
+    font-size: 0.7rem;
+    padding: 4px 8px;
+    background: linear-gradient(135deg, #ffc107 0%, #ffb300 100%);
+    border: none;
+    color: #212529;
+    font-weight: 600;
+}
+
+.update-field-badge-small {
+    font-size: 0.6rem;
+    padding: 2px 5px;
+    background: linear-gradient(135deg, #ffc107 0%, #ffb300 100%);
+    border: none;
+    color: #212529;
+    font-weight: 600;
+}
+
+/* Recently Updated Sections */
+.recently-updated {
+    position: relative;
+    border-left: 4px solid #ffc107 !important;
+    background: linear-gradient(90deg, rgba(255, 193, 7, 0.05) 0%, transparent 100%) !important;
+}
+
+.tab-section.recently-updated {
+    border-left: 5px solid #ffc107 !important;
+}
+
+.requirement-column.recently-updated {
+    border: 2px solid rgba(255, 193, 7, 0.3) !important;
+    box-shadow: 0 5px 20px rgba(255, 193, 7, 0.2) !important;
+}
+
+.application-method.recently-updated,
+.closing-date.recently-updated {
+    border-left: 5px solid #ffc107 !important;
+    background: linear-gradient(135deg, #FFFBF0 0%, #FFFFFF 100%) !important;
+}
+
+.detail-item.recently-updated,
+.salary-range.recently-updated,
+.pay-rate.recently-updated,
+.info-item.recently-updated {
+    background: rgba(255, 193, 7, 0.05);
+    border-radius: 5px;
+    padding: 10px;
+    margin: 5px 0;
+}
+
+/* Animations */
+@keyframes pulse {
+    0% {
+        transform: scale(1);
+    }
+
+    50% {
+        transform: scale(1.05);
+    }
+
+    100% {
+        transform: scale(1);
+    }
+}
+
+@keyframes blink {
+
+    0%,
+    50% {
+        opacity: 1;
+    }
+
+    51%,
+    100% {
+        opacity: 0.3;
+    }
+}
+
+/* Updated Fields Summary Styles */
+.updated-fields-summary {
+    background: linear-gradient(135deg, #fffbf0 0%, #fff3cd 100%);
+    border: 1px solid #ffeaa7;
+    border-radius: 10px;
+    padding: 20px;
+    margin-bottom: 20px;
+    border-left: 4px solid #ffc107;
+}
+
+.updated-fields-summary h6 {
+    color: #856404;
+    margin-bottom: 15px;
+    font-weight: 600;
+    font-size: 1rem;
+}
+
+.updated-fields-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.updated-field-item {
+    display: flex;
+    align-items: center;
+    padding: 8px 12px;
+    background: rgba(255, 255, 255, 0.7);
+    border-radius: 6px;
+    border-left: 3px solid #ffc107;
+    font-size: 0.85rem;
+    color: #856404;
+    transition: all 0.3s ease;
+}
+
+.updated-field-item:hover {
+    background: rgba(255, 255, 255, 0.9);
+    transform: translateX(5px);
+}
+
+.updated-field-item i {
+    font-size: 0.8rem;
 }
 </style>

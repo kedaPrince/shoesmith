@@ -5,7 +5,7 @@
 
 .navbar-fixed-top {
 
-    background: #2F5249;
+    background: #222426;
 }
 
 /* Custom Color Palette */
@@ -22,7 +22,7 @@
 
 /* Main Content Structure */
 #main-content {
-    background: linear-gradient(135deg, #1C352D 0%, #010016 100%);
+    background: #222426;
     min-height: 100vh;
     padding: 20px;
 }
@@ -34,8 +34,7 @@
 }
 
 body {
-    background: linear-gradient(
-110deg, #00adff 0%,) !important;
+ 	background: #222426;
 }
 /* Notification Cards */
 .notification-card {
@@ -523,7 +522,7 @@ hr {
     -ms-transition: all .3s;
     -o-transition: all .3s;
     transition: all .3s;
-    background: #2f5249;
+    background: #222426;
     /* border: 1px dashed #2f4f75; */
     margin-bottom: 30px;
     position: relative;

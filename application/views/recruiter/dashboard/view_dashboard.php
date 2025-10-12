@@ -1,8 +1,4 @@
-<style>
-    body {
-    background: linear-gradient(110deg, #0f242f 0%) !important;
-}
-</style>
+<?php defined('BASEPATH') || exit('No direct script access allowed'); ?>
 <section class="dashboard-container">
     <div>
         <h1>Welcome recruiter</h1>
