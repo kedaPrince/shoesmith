@@ -176,14 +176,15 @@ public function index()
 
 public function view($id)
 {
-    $job_id = $this->uri->segment(4); // Optional: get job_id from URL for context
+    $job_id = $this->session->userdata('current_job_id');
     $agency_id = $this->get_user_agency_id();
     
     if (!$agency_id) {
         show_error('Access denied', 403);
     }
 
-    // Verify candidate is assigned to this agency AND (if job_id given) to the job
+    // ✅ FIXED: Only check agency assignment, not job assignment
+    // This allows viewing candidates from the agency even if they're not in the current job
     $this->db->select('c.*, j.name as job_name, j.reference_number as job_ref, a.name as agency_name');
     $this->db->from('candidates c');
     $this->db->join('mod_jobs j', 'j.id = c.job_id', 'left');
@@ -192,11 +193,6 @@ public function view($id)
     $this->db->where('c.id', $id);
     $this->db->where('ca.agency_id', $agency_id);
     $this->db->where('c.removed', 0);
-    
-    if ($job_id) {
-        $this->db->join('candidate_jobs cj', 'cj.candidate_id = c.id', 'inner');
-        $this->db->where('cj.job_id', $job_id);
-    }
 
     $candidate = $this->db->get()->row();
 
@@ -204,12 +200,15 @@ public function view($id)
         show_error('Candidate not found', 404);
     }
 
+    // Use the candidate's actual job_id for breadcrumbs, not the session job_id
+    $breadcrumb_job_id = $candidate->job_id ?: $job_id;
+
     $data = array(
         'candidate' => $candidate,
         'heading' => 'Candidate Details: ' . $candidate->first_name . ' ' . $candidate->last_name,
         'breadcrumbs' => array(
             array('title' => 'Jobs', 'url' => site_url('agency/jobs_listings')),
-            array('title' => 'Candidates', 'url' => $job_id ? site_url("agency/candidates_list/index/{$job_id}") : site_url('agency/candidates_list')),
+            array('title' => 'Candidates', 'url' => $breadcrumb_job_id ? site_url("agency/candidates_list/index/{$breadcrumb_job_id}") : site_url('agency/candidates_list')),
             array('title' => 'View Candidate', 'url' => '#'),
         )
     );
@@ -276,172 +275,99 @@ public function _get_list_count($filter = null)
     return $this->db->count_all_results();
 }
 
-public function debug_job_candidates($job_id = null)
-{
-    if (empty($job_id)) {
-        echo "<h2>Usage: /agency/candidates_list/debug_job_candidates/{job_id}</h2>";
-        echo "<p>Example: <a href='" . site_url('agency/candidates_list/debug_job_candidates/8') . "'>/agency/candidates_list/debug_job_candidates/8</a></p>";
-        return;
-    }
 
-    // Get job details
-    $job = $this->db->get_where('mod_jobs', ['id' => $job_id])->row();
-    if (!$job) {
-        echo "<h2>Job ID $job_id not found</h2>";
-        return;
-    }
-
-    echo "<h2>Debug: Candidates Assigned to Job ID: $job_id</h2>";
-    echo "<h3>Job: " . htmlspecialchars($job->name, ENT_QUOTES, 'UTF-8') . " (Ref: " . ($job->reference_number ?: 'N/A') . ")</h3>";
-
-    // Get candidates via pivot table
-    $candidates = $this->db->select('c.*, a.name as agency_name')
-                           ->from('candidate_jobs cj')
-                           ->join('candidates c', 'c.id = cj.candidate_id')
-                           ->join('agencies a', 'a.id = c.agency_id', 'left')
-                           ->where('cj.job_id', $job_id)
-                           ->where('c.removed', 0)
-                           ->get()
-                           ->result();
-
-    if ($candidates) {
-        echo "<h4>Candidates linked via `candidate_jobs`:</h4>";
-        echo "<ul>";
-        foreach ($candidates as $c) {
-            // Get all agencies this candidate is assigned to
-            $agencies = $this->db->select('ag.name')
-                                 ->from('candidate_agencies ca')
-                                 ->join('agencies ag', 'ag.id = ca.agency_id')
-                                 ->where('ca.candidate_id', $c->id)
-                                 ->get()
-                                 ->result();
-            $agency_list = implode(', ', array_column($agencies, 'name'));
-
-            echo "<li>";
-            echo "<strong>ID: {$c->id} | {$c->first_name} {$c->last_name} | Ref: {$c->reference_number}</strong><br>";
-            echo "<small>";
-            echo "Primary Agency: " . ($c->agency_name ?: 'None') . "<br>";
-            echo "Assigned to agencies: " . ($agency_list ?: 'None') . "<br>";
-            echo "Status: {$c->status}";
-            echo "</small>";
-            echo "</li>";
-        }
-        echo "</ul>";
-    } else {
-        echo "<p><em>No candidates found in `candidate_jobs` for job ID $job_id.</em></p>";
-    }
-
-    // Also show candidates where candidates.job_id = job_id (primary link)
-    $primary_candidates = $this->db->where('job_id', $job_id)
-                                   ->where('removed', 0)
-                                   ->get('candidates')
-                                   ->result();
-
-    if ($primary_candidates) {
-        echo "<h4>Candidates with `candidates.job_id = $job_id` (Primary):</h4>";
-        echo "<ul>";
-        foreach ($primary_candidates as $c) {
-            echo "<li>ID: {$c->id} | {$c->first_name} {$c->last_name} | Ref: {$c->reference_number}</li>";
-        }
-        echo "</ul>";
-    } else {
-        echo "<p><em>No candidates with primary `job_id = $job_id`.</em></p>";
-    }
-
-    echo "<hr><p><em>Debug generated at " . date('Y-m-d H:i:s') . "</em></p>";
-}
-
-public function debug_current_job_candidates()
+public function debug_view_access($candidate_id = 12)
 {
     $job_id = $this->session->userdata('current_job_id');
     $agency_id = $this->get_user_agency_id();
     
-    echo "<h2>Current Session Debug</h2>";
-    echo "<p>Current Job ID in session: " . ($job_id ?: 'NOT SET') . "</p>";
-    echo "<p>Current Agency ID: " . ($agency_id ?: 'NOT SET') . "</p>";
-    
-    if ($job_id && $agency_id) {
-        echo "<h3>Candidates that should show for job ID $job_id:</h3>";
-        
-        $this->db->select('c.id, c.first_name, c.last_name, c.reference_number, j.name as job_name, j.id as job_id');
-        $this->db->from('candidates c');
-        $this->db->join('candidate_jobs cj', 'cj.candidate_id = c.id', 'inner');
-        $this->db->join('mod_jobs j', 'j.id = cj.job_id', 'left');
-        $this->db->join('candidate_agencies ca', 'ca.candidate_id = c.id', 'inner');
-        $this->db->where('cj.job_id', (int)$job_id);
-        $this->db->where('ca.agency_id', (int)$agency_id);
-        $this->db->where('c.removed', 0);
-        
-        $results = $this->db->get()->result();
-        
-        if ($results) {
-            echo "<ul>";
-            foreach ($results as $row) {
-                echo "<li>ID: {$row->id} | {$row->first_name} {$row->last_name} | Job: {$row->job_name} (ID: {$row->job_id})</li>";
-            }
-            echo "</ul>";
-        } else {
-            echo "<p>No candidates found with current filters.</p>";
-        }
-        
-        // Show the actual query
-        echo "<h3>Actual Query:</h3>";
-        echo "<pre>" . $this->db->last_query() . "</pre>";
-    }
-}
-
-public function debug_ajax_query()
-{
-    $job_id = $this->session->userdata('current_job_id');
-    $agency_id = $this->get_user_agency_id();
-
-    echo "<h2>AJAX Query Debug</h2>";
-    echo "<p>Job ID: " . ($job_id ?: 'NOT SET') . "</p>";
+    echo "<h2>Debug View Access - Candidate ID: $candidate_id</h2>";
+    echo "<p>Job ID from session: " . ($job_id ?: 'NOT SET') . "</p>";
     echo "<p>Agency ID: " . ($agency_id ?: 'NOT SET') . "</p>";
-
-    if ($job_id && $agency_id) {
-        $this->db->select('c.*, j.name as job_name, j.reference_number as job_ref');
-        $this->db->from('candidates c');
-        $this->db->join('candidate_jobs cj', 'cj.candidate_id = c.id', 'inner');
-        $this->db->join('mod_jobs j', 'j.id = cj.job_id', 'left');
-        $this->db->join('candidate_agencies ca', 'ca.candidate_id = c.id', 'inner');
-        $this->db->where('cj.job_id', (int)$job_id);
-        $this->db->where('ca.agency_id', (int)$agency_id);
-        $this->db->where('c.removed', 0);
-
-        $query = $this->db->get();
+    
+    if ($agency_id) {
+        // Create a fresh query without interfering with active DB state
+        $db = $this->load->database('default', TRUE);
         
-        echo "<h3>Query Results (" . $query->num_rows() . " rows):</h3>";
-        echo "<table border='1'>";
-        echo "<tr><th>ID</th><th>Name</th><th>Email</th><th>Job</th><th>Reference</th></tr>";
-        foreach ($query->result() as $row) {
-            echo "<tr>";
-            echo "<td>{$row->id}</td>";
-            echo "<td>{$row->first_name} {$row->last_name}</td>";
-            echo "<td>{$row->email}</td>";
-            echo "<td>{$row->job_name}</td>";
-            echo "<td>{$row->reference_number}</td>";
-            echo "</tr>";
+        $db->select('c.*, j.name as job_name, j.reference_number as job_ref, a.name as agency_name');
+        $db->from('candidates c');
+        $db->join('mod_jobs j', 'j.id = c.job_id', 'left');
+        $db->join('agencies a', 'a.id = c.agency_id', 'left');
+        $db->join('candidate_agencies ca', 'ca.candidate_id = c.id', 'inner');
+        $db->where('c.id', $candidate_id);
+        $db->where('ca.agency_id', $agency_id);
+        $db->where('c.removed', 0);
+        
+        echo "<h3>View Method Query:</h3>";
+        echo "<pre>" . $db->get_compiled_select() . "</pre>";
+        
+        $result = $db->get();
+        echo "<p>Query Results: " . $result->num_rows() . " rows</p>";
+        
+        if ($result->num_rows() > 0) {
+            $candidate = $result->row();
+            echo "<p style='color: green;'>✓ Candidate found: " . $candidate->first_name . " " . $candidate->last_name . "</p>";
+            echo "<p>Job: " . ($candidate->job_name ?: 'Not assigned') . "</p>";
+        } else {
+            echo "<p style='color: red;'>✗ Candidate NOT found with current query</p>";
+            
+            // Let's check why...
+            echo "<h3>Debugging why candidate is not found:</h3>";
+            
+            // Check if candidate exists at all
+            $exists = $db->where('id', $candidate_id)->where('removed', 0)->get('candidates')->row();
+            echo "<p>Candidate exists in database: " . ($exists ? 'YES - ' . $exists->first_name . ' ' . $exists->last_name : 'NO') . "</p>";
+            
+            // Check agency assignment
+            $agency_assigned = $db->where('candidate_id', $candidate_id)
+                                 ->where('agency_id', $agency_id)
+                                 ->get('candidate_agencies')
+                                 ->row();
+            echo "<p>Assigned to agency $agency_id: " . ($agency_assigned ? 'YES' : 'NO') . "</p>";
+            
+            // Check ALL agency assignments
+            $all_agencies = $db->select('a.id, a.name')
+                              ->from('candidate_agencies ca')
+                              ->join('agencies a', 'a.id = ca.agency_id')
+                              ->where('ca.candidate_id', $candidate_id)
+                              ->get()
+                              ->result();
+            echo "<p>All agency assignments:</p>";
+            if ($all_agencies) {
+                echo "<ul>";
+                foreach ($all_agencies as $agency) {
+                    $current = ($agency->id == $agency_id) ? ' ✅ CURRENT' : '';
+                    echo "<li>Agency ID: {$agency->id} - {$agency->name}{$current}</li>";
+                }
+                echo "</ul>";
+            } else {
+                echo "<p>No agency assignments found</p>";
+            }
+            
+            // Check job assignment
+            $job_assigned = $db->select('cj.job_id, j.name as job_name')
+                              ->from('candidate_jobs cj')
+                              ->join('mod_jobs j', 'j.id = cj.job_id', 'left')
+                              ->where('cj.candidate_id', $candidate_id)
+                              ->get()
+                              ->result();
+            echo "<p>Job assignments:</p>";
+            if ($job_assigned) {
+                echo "<ul>";
+                foreach ($job_assigned as $job) {
+                    $current = ($job->job_id == $job_id) ? ' ✅ CURRENT SESSION JOB' : '';
+                    echo "<li>Job ID: {$job->job_id} - {$job->job_name}{$current}</li>";
+                }
+                echo "</ul>";
+            } else {
+                echo "<p>No job assignments found</p>";
+            }
         }
-        echo "</table>";
-
-        echo "<h3>SQL Query:</h3>";
-        echo "<pre>" . $this->db->last_query() . "</pre>";
+        
+        $db->close();
     }
+    
+    echo "<hr><p><a href='" . site_url('agency/candidates_list/index/' . $job_id) . "'>Back to Candidates List</a></p>";
 }
-public function test_parent_method()
-{
-    echo "<h2>Testing Parent vs Child Methods</h2>";
-    
-    // Test what the parent get_all returns
-    $parent_results = parent::get_all();
-    echo "<p>Parent get_all returns: " . $parent_results->num_rows() . " rows</p>";
-    
-    // Test what your get_all returns
-    $your_results = $this->get_all();
-    echo "<p>Your get_all returns: " . $your_results->num_rows() . " rows</p>";
-    
-    echo "<h3>Parent Query:</h3>";
-    echo "<pre>" . $this->db->last_query() . "</pre>";
-}
+
 }
