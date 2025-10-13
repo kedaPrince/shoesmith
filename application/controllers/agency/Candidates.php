@@ -278,50 +278,63 @@ class Candidates extends CRUD_Controller{
     }
 
     /**
-     * Update onboarding stage via AJAX
-     */
-    public function update_onboarding_stage() {
-        $candidate_id = $this->input->post('candidate_id');
-        $stage = $this->input->post('stage');
-        $value = $this->input->post('value');
+ * Update onboarding stage via AJAX - with agency check
+ */
+public function update_onboarding_stage() {
+    $candidate_id = $this->input->post('candidate_id');
+    $stage = $this->input->post('stage');
+    $value = $this->input->post('value');
 
-        // Verify the candidate belongs to the current agency
-        $agency_id = $this->get_user_agency_id();
-        if ($agency_id) {
-            $this->db->where('agency_id', $agency_id);
-        }
-
-        $result = $this->{$this->model}->update_onboarding_stage($candidate_id, $stage, $value);
-
-        if ($result) {
-            // Log the activity
-            $stage_labels = [
-                'stage_under_review' => 'Under Review',
-                'stage_submitted_to_hm' => 'Submitted to Hiring Manager',
-                'stage_requested_docs' => 'Requested Further Documents',
-                'stage_position_offered' => 'Position Offered'
-            ];
-
-            $action = $value ? 'completed' : 'reopened';
-            $this->{$this->model}->log_candidate_activity([
-                'candidate_id' => $candidate_id,
-                'action' => 'onboarding_stage_' . $action,
-                'description' => $stage_labels[$stage] . ' stage ' . $action,
-                'created_by' => loginID('agency'),
-                'created_at' => date('Y-m-d H:i:s')
-            ]);
-
-            ajax_return([
-                'success' => true,
-                'message' => 'Onboarding stage updated successfully'
-            ]);
-        } else {
+    // Verify the candidate belongs to the current agency via pivot table
+    $agency_id = $this->get_user_agency_id();
+    if ($agency_id) {
+        $exists = $this->db->select('1')
+            ->from('candidate_agencies')
+            ->where('candidate_id', $candidate_id)
+            ->where('agency_id', $agency_id)
+            ->get()
+            ->row();
+        
+        if (!$exists) {
             ajax_return([
                 'success' => false,
-                'message' => 'Failed to update onboarding stage'
+                'message' => 'Candidate not found or access denied'
             ]);
+            return;
         }
     }
+
+    $result = $this->{$this->model}->update_onboarding_stage($candidate_id, $stage, $value);
+
+    if ($result) {
+        // Log the activity
+        $stage_labels = [
+            'stage_under_review' => 'Under Review',
+            'stage_submitted_to_hm' => 'Submitted to Hiring Manager',
+            'stage_requested_docs' => 'Requested Further Documents',
+            'stage_position_offered' => 'Position Offered'
+        ];
+
+        $action = $value ? 'completed' : 'reopened';
+        $this->{$this->model}->log_candidate_activity([
+            'candidate_id' => $candidate_id,
+            'action' => 'onboarding_stage_' . $action,
+            'description' => $stage_labels[$stage] . ' stage ' . $action,
+            'created_by' => loginID('agency'),
+            'created_at' => date('Y-m-d H:i:s')
+        ]);
+
+        ajax_return([
+            'success' => true,
+            'message' => 'Onboarding stage updated successfully'
+        ]);
+    } else {
+        ajax_return([
+            'success' => false,
+            'message' => 'Failed to update onboarding stage'
+        ]);
+    }
+}
 
     /**
      * Get onboarding statistics
@@ -339,21 +352,31 @@ class Candidates extends CRUD_Controller{
     /**
      * OVERRIDE get_all to filter by agency_id - ENHANCED
      */
-    public function get_all($limit = null, $offset = null, $sort_by = null, $sort_order = null)
-    {
-        $agency_id = $this->get_user_agency_id();
-        
-        if (!empty($agency_id)) {
-            $this->db->where('candidates.agency_id', $agency_id);
-            log_message('debug', 'Controller get_all: Applied agency filter for candidates: ' . $agency_id);
-        } else {
-            log_message('error', 'Controller get_all: No agency_id found for filtering');
-            // For safety, show no candidates if no agency ID
-            $this->db->where('candidates.agency_id', 0);
-        }
-        
+/**
+ * OVERRIDE get_all to filter by agency assignment via pivot table
+ */
+public function get_all($limit = null, $offset = null, $sort_by = null, $sort_order = null)
+{
+    $agency_id = $this->get_user_agency_id();
+    
+    if (empty($agency_id)) {
+        log_message('error', 'No agency_id found for filtering candidates');
+        // Return empty result
+        $this->db->where('candidates.id', 0);
         return parent::get_all($limit, $offset, $sort_by, $sort_order);
     }
+
+    // ✅ CRITICAL FIX: Use candidate_agencies pivot table to filter
+    $this->db->join('candidate_agencies ca', 'ca.candidate_id = candidates.id', 'inner');
+    $this->db->where('ca.agency_id', (int)$agency_id);
+    
+    // Avoid duplicates if candidate is linked multiple times
+    $this->db->group_by('candidates.id');
+
+    log_message('debug', 'Main Candidates controller: Filtering candidates via candidate_agencies for agency_id = ' . $agency_id);
+
+    return parent::get_all($limit, $offset, $sort_by, $sort_order);
+}
 
     /**
      * Get user agency ID - ENHANCED
@@ -379,6 +402,7 @@ class Candidates extends CRUD_Controller{
     }
 
     public function index(): void{
+       // dd('here');
         $this->breadcrumbs = array(
             array(
                 'title' => lang($this->pageName . '_heading'),
@@ -585,62 +609,146 @@ class Candidates extends CRUD_Controller{
     /**
      * OVERRIDE: Enable candidate with agency check
      */
-    public function enable($id) {
-        // Verify the candidate belongs to the current agency
-        $agency_id = $this->get_user_agency_id();
-        if ($agency_id) {
-            $this->db->where('agency_id', $agency_id);
-        }
-        parent::enable($id);
-    }
-
     /**
-     * OVERRIDE: Disable candidate with agency check
-     */
-    public function disable($id) {
-        // Verify the candidate belongs to the current agency
-        $agency_id = $this->get_user_agency_id();
-        if ($agency_id) {
-            $this->db->where('agency_id', $agency_id);
+ * OVERRIDE: Enable candidate with agency check via pivot table
+ */
+public function enable($id) {
+    // Verify the candidate belongs to the current agency via pivot table
+    $agency_id = $this->get_user_agency_id();
+    if ($agency_id) {
+        $exists = $this->db->select('1')
+            ->from('candidate_agencies')
+            ->where('candidate_id', $id)
+            ->where('agency_id', $agency_id)
+            ->get()
+            ->row();
+        
+        if (!$exists) {
+            ajax_return([
+                'success' => false,
+                'error' => 'Candidate not found or access denied'
+            ]);
+            return;
         }
-        parent::disable($id);
     }
+    parent::enable($id);
+}
 
-    /**
-     * OVERRIDE: Remove candidate with agency check
-     */
-    public function remove($id) {
-        // Verify the candidate belongs to the current agency
-        $agency_id = $this->get_user_agency_id();
-        if ($agency_id) {
-            $this->db->where('agency_id', $agency_id);
+/**
+ * OVERRIDE: Disable candidate with agency check via pivot table
+ */
+public function disable($id) {
+    // Verify the candidate belongs to the current agency via pivot table
+    $agency_id = $this->get_user_agency_id();
+    if ($agency_id) {
+        $exists = $this->db->select('1')
+            ->from('candidate_agencies')
+            ->where('candidate_id', $id)
+            ->where('agency_id', $agency_id)
+            ->get()
+            ->row();
+        
+        if (!$exists) {
+            ajax_return([
+                'success' => false,
+                'error' => 'Candidate not found or access denied'
+            ]);
+            return;
         }
-        parent::remove($id);
     }
+    parent::disable($id);
+}
+
+/**
+ * OVERRIDE: Remove candidate with agency check via pivot table
+ */
+public function remove($id) {
+    // Verify the candidate belongs to the current agency via pivot table
+    $agency_id = $this->get_user_agency_id();
+    if ($agency_id) {
+        $exists = $this->db->select('1')
+            ->from('candidate_agencies')
+            ->where('candidate_id', $id)
+            ->where('agency_id', $agency_id)
+            ->get()
+            ->row();
+        
+        if (!$exists) {
+            ajax_return([
+                'success' => false,
+                'error' => 'Candidate not found or access denied'
+            ]);
+            return;
+        }
+    }
+    parent::remove($id);
+}
+
+/**
+ * OVERRIDE: Edit candidate with agency check via pivot table
+ */
+public function edit($id) {
+    // Verify the candidate belongs to the current agency via pivot table
+    $agency_id = $this->get_user_agency_id();
+    if ($agency_id) {
+        $exists = $this->db->select('1')
+            ->from('candidate_agencies')
+            ->where('candidate_id', $id)
+            ->where('agency_id', $agency_id)
+            ->get()
+            ->row();
+        
+        if (!$exists) {
+            show_error('Candidate not found or access denied', 403);
+        }
+    }
+    parent::edit($id);
+}
+
+ 
 
     /**
      * OVERRIDE: View candidate with agency check
      */
-    public function view($id) {
-        // Verify the candidate belongs to the current agency
-        $agency_id = $this->get_user_agency_id();
-        if ($agency_id) {
-            $this->db->where('agency_id', $agency_id);
-        }
-        parent::view($id);
+   public function view($id)
+{
+    $agency_id = $this->get_user_agency_id();
+    if (!$agency_id) {
+        show_error('Access denied');
     }
 
-    /**
-     * OVERRIDE: Edit candidate with agency check
-     */
-    public function edit($id) {
-        // Verify the candidate belongs to the current agency
-        $agency_id = $this->get_user_agency_id();
-        if ($agency_id) {
-            $this->db->where('agency_id', $agency_id);
-        }
-        parent::edit($id);
+    // Check if candidate is assigned to this agency via pivot table
+    $exists = $this->db->select('1')
+        ->from('candidate_agencies')
+        ->where('candidate_id', $id)
+        ->where('agency_id', $agency_id)
+        ->get()
+        ->row();
+
+    if (!$exists) {
+        show_404();
     }
+
+    // Now load the candidate (without agency_id filter)
+    $row = $this->{$this->model}->get_by_id($id);
+    if (empty($row) || !$row->enabled || $row->removed) {
+        show_404();
+    }
+
+    // Proceed with view...
+    $this->breadcrumbs = [
+        ['title' => lang($this->pageName . '_heading'), 'url' => redir($this->pageName, true)],
+        ['title' => htmlspecialchars($row->first_name . ' ' . $row->last_name, ENT_QUOTES, 'UTF-8'), 'url' => ''],
+    ];
+
+    $this->load->view($this->folder . '/view_header');
+    $this->load->view('cms/crud/view_single', [
+        'row' => $row,
+        'heading' => lang('view_candidate_heading'),
+    ]);
+    $this->load->view($this->folder . '/view_footer');
+}
+
 
     /**
  * Complete onboarding process
@@ -676,6 +784,78 @@ public function complete_onboarding() {
             'message' => 'Failed to complete onboarding'
         ]);
     }
+}
+
+public function debug_candidates($agency_id = null)
+{
+    if (empty($agency_id)) {
+        echo "<h2>Usage: /agency/candidates/debug_candidates/{agency_id}</h2>";
+        echo "<p>Example: <a href='" . site_url('agency/candidates/debug_candidates/8') . "'>/agency/candidates/debug_candidates/8</a></p>";
+        return;
+    }
+
+    echo "<h2>Debug: Candidates Assigned to Agency ID: $agency_id</h2>";
+
+    // Get agency name
+    $agency = $this->db->select('name')->where('id', $agency_id)->get('agencies')->row();
+    if ($agency) {
+        echo "<h3>Agency: " . htmlspecialchars($agency->name, ENT_QUOTES, 'UTF-8') . "</h3>";
+    }
+
+    echo "<h4>1. Candidates where `candidates.agency_id = $agency_id` (Primary)</h4>";
+    $primary = $this->db->where('agency_id', $agency_id)
+                        ->where('removed', 0)
+                        ->get('candidates')
+                        ->result();
+    if ($primary) {
+        echo "<ul>";
+        foreach ($primary as $c) {
+            echo "<li>ID: {$c->id} | {$c->first_name} {$c->last_name} | Ref: {$c->reference_number}</li>";
+        }
+        echo "</ul>";
+    } else {
+        echo "<p><em>None</em></p>";
+    }
+
+    echo "<h4>2. Candidates via `candidate_agencies` (Pivot Table)</h4>";
+    $via_pivot = $this->db->select('c.*')
+                          ->from('candidate_agencies ca')
+                          ->join('candidates c', 'c.id = ca.candidate_id')
+                          ->where('ca.agency_id', $agency_id)
+                          ->where('c.removed', 0)
+                          ->get()
+                          ->result();
+
+    if ($via_pivot) {
+        echo "<ul>";
+        foreach ($via_pivot as $c) {
+            // Get ALL agencies this candidate is assigned to
+            $assigned_agencies = $this->db->select('a.id, a.name')
+                                          ->from('candidate_agencies ca2')
+                                          ->join('agencies a', 'a.id = ca2.agency_id')
+                                          ->where('ca2.candidate_id', $c->id)
+                                          ->where('a.removed', 0)
+                                          ->get()
+                                          ->result();
+
+            $agency_list = [];
+            foreach ($assigned_agencies as $a) {
+                $mark = ($a->id == $agency_id) ? ' ✅' : '';
+                $agency_list[] = $a->name . ' (ID: ' . $a->id . ')' . $mark;
+            }
+
+            echo "<li>";
+            echo "<strong>ID: {$c->id} | {$c->first_name} {$c->last_name} | Ref: {$c->reference_number}</strong><br>";
+            echo "<small>Primary Agency ID: {$c->agency_id}<br>";
+            echo "Assigned to agencies:<br>– " . implode('<br>– ', $agency_list) . "</small>";
+            echo "</li>";
+        }
+        echo "</ul>";
+    } else {
+        echo "<p><em>None</em></p>";
+    }
+
+    echo "<hr><p><em>Debug output generated at " . date('Y-m-d H:i:s') . "</em></p>";
 }
 
 

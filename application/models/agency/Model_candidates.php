@@ -5,29 +5,29 @@ class Model_candidates extends CRUD_Model
 {
     protected $table = 'candidates';
 
-    public function selects()
-    {
-        $this->db->distinct();
-        
-        // Added onboarding stage fields
-        $this->db->select('candidates.id, candidates.enabled, candidates.reference_number, candidates.first_name, candidates.last_name, candidates.email, candidates.phone, candidates.status, candidates.application_date, mod_jobs.name as job_name, candidates.agency_id, candidates.onboarding_stage, candidates.stage_under_review, candidates.stage_submitted_to_hm, candidates.stage_requested_docs, candidates.stage_position_offered, candidates.onboarding_completed_at');
-        
-        // Join with jobs table to get job names
-        $this->db->join('mod_jobs', 'mod_jobs.id = candidates.job_id', 'left');
-        
-        // Apply agency filter for agency staff - ENSURES ONLY CURRENT AGENCY CANDIDATES
-        $agency_id = $this->get_current_agency_id();
-        if ($agency_id) {
-            $this->db->where('candidates.agency_id', (int)$agency_id);
-            log_message('debug', 'Model: Filtering candidates for agency_id: ' . $agency_id);
-        } else {
-            log_message('error', 'Model: No agency_id found for filtering candidates');
-        }
-        
-        // Only get enabled records
-        $this->db->where('candidates.enabled', 1);
-        $this->db->where('candidates.removed', 0);
+public function selects()
+{
+    $this->db->distinct();
+    
+    // Get current agency ID
+    $agency_id = $this->get_current_agency_id();
+    
+    // Select fields
+    $this->db->select('candidates.id, candidates.enabled, candidates.reference_number, candidates.first_name, candidates.last_name, candidates.email, candidates.phone, candidates.status, candidates.application_date, mod_jobs.name as job_name, candidates.agency_id, candidates.job_id, candidates.onboarding_stage, candidates.stage_under_review, candidates.stage_submitted_to_hm, candidates.stage_requested_docs, candidates.stage_position_offered, candidates.onboarding_completed_at');
+    
+    // Join with jobs table
+    $this->db->join('mod_jobs', 'mod_jobs.id = candidates.job_id', 'left');
+    
+    // ✅ CRITICAL FIX: Join with candidate_agencies to filter by agency assignment
+    if ($agency_id) {
+        $this->db->join('candidate_agencies ca', 'ca.candidate_id = candidates.id', 'inner');
+        $this->db->where('ca.agency_id', $agency_id);
     }
+    
+    // Universal filters
+    $this->db->where('candidates.enabled', 1);
+    $this->db->where('candidates.removed', 0);
+}
 
     /**
      * Get current agency ID from session
@@ -51,20 +51,7 @@ class Model_candidates extends CRUD_Model
         return null;
     }
 
-    /**
-     * OVERRIDE get_all to ensure agency filtering
-     */
-    public function get_all($limit = null, $offset = null, $sort_by = null, $sort_order = null)
-    {
-        // Apply agency filter again to be safe
-        $agency_id = $this->get_current_agency_id();
-        if ($agency_id) {
-            $this->db->where('candidates.agency_id', (int)$agency_id);
-            log_message('debug', 'Model get_all: Applied agency filter: ' . $agency_id);
-        }
-        
-        return parent::get_all($limit, $offset, $sort_by, $sort_order);
-    }
+
 
     /**
      * Update onboarding stage
@@ -248,28 +235,30 @@ class Model_candidates extends CRUD_Model
         return $query->num_rows() == 0;
     }
 
-    public function get_candidate_details($candidateId){
-        if (!$candidateId) return null;
+   public function get_candidate_details($candidateId){
+    if (!$candidateId) return null;
+    
+    try {
+        $agency_id = $this->get_current_agency_id();
         
-        try {
-            $agency_id = $this->get_current_agency_id();
-            
-            $this->db->select('*');
-            $this->db->from('candidates');
-            $this->db->where('id', $candidateId);
-            $this->db->where('enabled', 1);
-            
-            // Only allow access to candidates from current agency
-            if ($agency_id) {
-                $this->db->where('agency_id', $agency_id);
-            }
-            
-            return $this->db->get()->row();
-        } catch (Exception $e) {
-            error_log('Error in get_candidate_details: ' . $e->getMessage());
-            return null;
+        $this->db->select('c.*');
+        $this->db->from('candidates c');
+        $this->db->where('c.id', $candidateId);
+        $this->db->where('c.enabled', 1);
+        $this->db->where('c.removed', 0);
+        
+        // ✅ Check both primary agency AND pivot table assignments
+        if ($agency_id) {
+            $this->db->join('candidate_agencies ca', 'ca.candidate_id = c.id', 'inner');
+            $this->db->where('ca.agency_id', $agency_id);
         }
+        
+        return $this->db->get()->row();
+    } catch (Exception $e) {
+        error_log('Error in get_candidate_details: ' . $e->getMessage());
+        return null;
     }
+}
 
     public function generate_reference_number(){
         try {

@@ -5,97 +5,71 @@ class Model_candidates_list extends CRUD_Model
 {
     protected $table = 'candidates';
 
-    public function __construct()
+    public function get_all($limit = null, $offset = null, $sort_by = null, $sort_order = null, $filter = null)
     {
-        parent::__construct();
-    }
+        // Get the CI instance to access session
+        $CI =& get_instance();
+        $job_id = $CI->session->userdata('current_job_id');
+        $agency_id = $CI->session->userdata('login')['agency']['agency_id'] ?? $CI->session->userdata('login')['agency']['id'] ?? null;
 
-    /**
-     * Override the main_selects to include joins
-     */
-    public function main_selects()
-    {
-        parent::main_selects();
-        $this->db->select('mod_jobs.name as job_name, mod_jobs.reference_number as job_ref');
-    }
+        // Log for debugging
+        log_message('debug', "Model get_all called - Job ID: " . $job_id . ", Agency ID: " . $agency_id);
 
-    /**
-     * Override joins to include job table
-     */
-    public function joins()
-    {
-        $this->db->join('mod_jobs', 'mod_jobs.id = candidates.job_id', 'left');
-    }
-
-    /**
-     * Override get_all to apply strict filtering
-     */
-    public function get_all($limit = null, $offset = null, $sort_by = null, $sort_order = null)
-    {
-        // Get filtering parameters from session
-        $job_id = $this->session->userdata('current_job_id');
-        $agency_id = $this->get_user_agency_id();
-        
-        log_message('debug', 'Model get_all - Job ID: ' . $job_id . ', Agency ID: ' . $agency_id);
-
-        // Apply strict filtering
         if ($job_id && $agency_id) {
-            $this->db->where('candidates.job_id', $job_id);
-            $this->db->where('candidates.agency_id', $agency_id);
-        }
-        
-        $this->db->where('candidates.removed', 0);
+            // Build custom query for job-specific candidates
+            $CI->db->select('c.*, j.name as job_name, j.reference_number as job_ref, a.name as agency_name');
+            $CI->db->from('candidates c');
+            $CI->db->join('candidate_jobs cj', 'cj.candidate_id = c.id', 'inner');
+            $CI->db->join('mod_jobs j', 'j.id = cj.job_id', 'left');
+            $CI->db->join('agencies a', 'a.id = c.agency_id', 'left');
+            $CI->db->join('candidate_agencies ca', 'ca.candidate_id = c.id', 'inner');
+            $CI->db->where('cj.job_id', (int)$job_id);
+            $CI->db->where('ca.agency_id', (int)$agency_id);
+            $CI->db->where('c.removed', 0);
 
-        return parent::get_all($limit, $offset, $sort_by, $sort_order);
+            if ($sort_by) {
+                $CI->db->order_by($sort_by, $sort_order ?: 'ASC');
+            } else {
+                $CI->db->order_by('c.application_date', 'DESC');
+            }
+
+            if ($limit) {
+                $CI->db->limit($limit, $offset);
+            }
+
+            $query = $CI->db->get();
+            
+            // Log the query and results
+            log_message('debug', "Custom query executed: " . $CI->db->last_query());
+            log_message('debug', "Custom query results: " . $query->num_rows() . " rows");
+            
+            return $query;
+        }
+
+        // Fallback to parent method
+        return parent::get_all($limit, $offset, $sort_by, $sort_order, $filter);
     }
 
-    /**
-     * Get user agency ID for model filtering
-     */
-    private function get_user_agency_id()
+    public function count_all($filter = null)
     {
         $CI =& get_instance();
-        $login = $CI->session->userdata('login');
-        
-        if (!empty($login['agency'])) {
-            $agency_user = $login['agency'];
-            return !empty($agency_user['agency_id']) ? $agency_user['agency_id'] : 
-                   (!empty($agency_user['id']) ? $agency_user['id'] : null);
-        }
-        
-        return null;
-    }
+        $job_id = $CI->session->userdata('current_job_id');
+        $agency_id = $CI->session->userdata('login')['agency']['agency_id'] ?? $CI->session->userdata('login')['agency']['id'] ?? null;
 
-    /**
-     * Keep these for backward compatibility
-     */
-    public function get_candidates_by_job($job_id, $agency_id, $limit = null, $offset = null, $sort_by = 'first_name', $sort_order = 'ASC')
-    {
-        $this->db->select('candidates.*, mod_jobs.name as job_name');
-        $this->db->from($this->table);
-        $this->db->join('mod_jobs', 'mod_jobs.id = candidates.job_id', 'left');
-        $this->db->where('candidates.job_id', (int)$job_id);
-        $this->db->where('candidates.agency_id', (int)$agency_id);
-        $this->db->where('candidates.removed', 0);
+        if ($job_id && $agency_id) {
+            $CI->db->from('candidates c');
+            $CI->db->join('candidate_jobs cj', 'cj.candidate_id = c.id', 'inner');
+            $CI->db->join('candidate_agencies ca', 'ca.candidate_id = c.id', 'inner');
+            $CI->db->where('cj.job_id', (int)$job_id);
+            $CI->db->where('ca.agency_id', (int)$agency_id);
+            $CI->db->where('c.removed', 0);
 
-        if ($sort_by && in_array($sort_by, ['first_name', 'last_name', 'email', 'status', 'application_date'])) {
-            $this->db->order_by($sort_by, $sort_order ?: 'ASC');
-        } else {
-            $this->db->order_by('application_date', 'DESC');
+            $count = $CI->db->count_all_results();
+            log_message('debug', "Custom count results: " . $count . " candidates");
+            
+            return $count;
         }
 
-        if ($limit !== null) {
-            $this->db->limit($limit, $offset);
-        }
-
-        return $this->db->get();
-    }
-
-    public function count_candidates_by_job($job_id, $agency_id)
-    {
-        return $this->db->where('job_id', (int)$job_id)
-                        ->where('agency_id', (int)$agency_id)
-                        ->where('removed', 0)
-                        ->count_all_results($this->table);
+        return parent::count_all($filter);
     }
 }
