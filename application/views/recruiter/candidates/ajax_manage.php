@@ -8,7 +8,8 @@
         <p>Submit a candidate to any agency and job.</p>
         <?php else: ?>
         <h2>Edit Candidate
-            <span><?= htmlspecialchars($row->first_name . ' ' . $row->last_name, ENT_QUOTES, 'UTF-8'); ?></span></h2>
+            <span><?= htmlspecialchars($row->first_name . ' ' . $row->last_name, ENT_QUOTES, 'UTF-8'); ?></span>
+        </h2>
         <?php endif; ?>
     </div>
 
@@ -22,6 +23,15 @@
     <div class="form-field-container">
         <?= form_open(); ?>
         <?= form_hidden('id', !empty($row->id) ? $row->id : 0); ?>
+
+        <?php
+        // Set default agency_id from the first selected additional agency (if any)
+        $default_agency_id = '';
+        if (!empty($additional_agency_ids) && is_array($additional_agency_ids)) {
+            $default_agency_id = $additional_agency_ids[0];
+        }
+        ?>
+        <?= form_hidden('agency_id', !empty($row->agency_id) ? $row->agency_id : $default_agency_id); ?>
 
         <!-- Tab 1: Personal -->
         <div rel="1" class="qm-tabs-tab active">
@@ -88,22 +98,21 @@
         <div rel="4" class="qm-tabs-tab">
             <div class="row">
                 <div class="col-lg-6">
-                    <?= field_dropdown('agency_id|label_agency', 
-                        array_column($agencies_all, 'name', 'id'), 
-                        $row, 
-                        'required',
-                        ['id' => 'agency_id']
+                    <?= field_multi_select('additional_agency_ids|label_additional_agencies', 
+                        $additional_agency_options, 
+                        $additional_agency_ids,
+                        'Select additional agencies'
                     ); ?>
                 </div>
                 <div class="col-lg-6">
-                    <?= field_dropdown('job_id|label_job', 
-                        !empty($jobs_all) ? array_column($jobs_all, 'job_title', 'id') : [], 
-                        $row, 
-                        '',
-                        ['id' => 'job_id']
+                    <?= field_multi_select('additional_job_ids|label_additional_jobs', 
+                        $additional_job_options, 
+                        $additional_job_ids,
+                        'Select additional jobs'
                     ); ?>
                 </div>
             </div>
+
             <div class="row">
                 <div class="col-lg-6">
                     <?= field_dropdown('assigned_agent_id|label_assigned_agent', 
@@ -144,6 +153,15 @@ $(document).ready(function() {
         $('input[name="application_date"]').val(new Date().toISOString().split('T')[0]);
     }
 
+    // Update hidden agency_id when additional agencies change
+    $('select[name="additional_agency_ids[]"]').on('change', function() {
+        const selectedAgencies = $(this).val();
+        if (selectedAgencies && selectedAgencies.length > 0) {
+            // Use the first selected agency as primary
+            $('input[name="agency_id"]').val(selectedAgencies[0]);
+        }
+    });
+
     // Dynamic agent loading when agency changes
     $('#agency_id').on('change', function() {
         const agencyId = $(this).val();
@@ -160,5 +178,21 @@ $(document).ready(function() {
             $('#assigned_agent_id').html('<option value="">-- Select Agency First --</option>');
         }
     });
+
+    // Initialize multi-select styles
+    $('select[multiple]').each(function() {
+        $(this).addClass('multi-select');
+    });
 });
 </script>
+
+<style>
+.multi-select {
+    height: 120px !important;
+    min-height: 120px;
+}
+
+.multi-select option {
+    padding: 8px 12px;
+}
+</style>

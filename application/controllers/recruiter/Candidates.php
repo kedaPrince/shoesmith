@@ -49,7 +49,7 @@ class Candidates extends CRUD_Controller
         );
 
         $this->listActions = array(
-            'view' => array('label' => lang('label_view'), 'url' => url($this->pageName . '/view/{id}'), 'icon' => 'fa-eye', 'class' => 'view-row'),
+            //'view' => array('label' => lang('label_view'), 'url' => url($this->pageName . '/view/{id}'), 'icon' => 'fa-eye', 'class' => 'view-row'),
             'edit' => array('label' => lang('label_edit'), 'url' => url($this->pageName . '/edit/{id}'), 'icon' => 'fa-edit', 'class' => 'edit-row'),
              'enable' => array(
                 'label'     => lang('label_enable'),
@@ -128,6 +128,20 @@ class Candidates extends CRUD_Controller
                 'job_id' => 'trim|numeric',
                 'assigned_agent_id' => 'trim|numeric',
             ),
+            'multi_selects' => array(
+                'additional_agency_ids' => array(
+                    'validation' => 'trim',
+                    'pivot_table' => 'candidate_agencies',
+                    'main_field' => 'candidate_id',
+                    'link_field' => 'agency_id',
+                ),
+                'additional_job_ids' => array(
+                    'validation' => 'trim',
+                    'pivot_table' => 'candidate_jobs',
+                    'main_field' => 'candidate_id',
+                    'link_field' => 'job_id',
+                ),
+            ),
         );
 
         $this->formLabels = array();
@@ -160,24 +174,61 @@ class Candidates extends CRUD_Controller
         return parent::get_all($limit, $offset, $sort_by, $sort_order);
     }
 
-    public function quick_manage_extra($id, $row): array
-    {
-        // Get ALL agencies and jobs (no filtering)
-        $agencies = $this->{$this->model}->get_agencies_all();
-        $jobs = $this->{$this->model}->get_jobs_all();
+public function quick_manage_extra($id, $row): array
+{
+    // Get ALL agencies and jobs (no filtering)
+    $agencies = $this->{$this->model}->get_agencies_all();
+    $jobs = $this->{$this->model}->get_jobs_all();
 
-        // Get agents for selected agency (dynamic via JS later if needed)
-        $agents = [];
-        if (!empty($row->agency_id)) {
-            $agents = $this->{$this->model}->get_agency_agents_by_agency($row->agency_id);
-        }
-
-        return [
-            'agencies_all' => $agencies,
-            'jobs_all' => $jobs,
-            'agents_all' => $agents,
-        ];
+    // Get agents for selected agency
+    $agents = [];
+    if (!empty($row->agency_id)) {
+        $agents = $this->{$this->model}->get_agency_agents_by_agency($row->agency_id);
     }
+
+    // Exclude primary agency/job from additional lists
+    $exclude_agency_id = !empty($row->agency_id) ? $row->agency_id : null;
+    $exclude_job_id = !empty($row->job_id) ? $row->job_id : null;
+
+    // Get options for multi-selects (excluding primary selections)
+    $additional_agency_options = $this->{$this->model}->get_additional_agency_options($exclude_agency_id);
+    $additional_job_options = $this->{$this->model}->get_additional_job_options($exclude_job_id);
+
+    // Convert objects to arrays for the helper
+    $agency_options_array = [];
+    if (!empty($additional_agency_options)) {
+        foreach ($additional_agency_options as $agency) {
+            $agency_options_array[] = [
+                'id' => $agency->id,
+                'name' => $agency->name
+            ];
+        }
+    }
+
+    $job_options_array = [];
+    if (!empty($additional_job_options)) {
+        foreach ($additional_job_options as $job) {
+            $job_options_array[] = [
+                'id' => $job->id,
+                'name' => $job->name
+            ];
+        }
+    }
+
+    // Get currently selected additional values
+    $additional_agency_ids = !empty($id) ? $this->{$this->model}->get_candidate_additional_agencies($id) : [];
+    $additional_job_ids = !empty($id) ? $this->{$this->model}->get_candidate_additional_jobs($id) : [];
+
+    return [
+        'agencies_all' => $agencies,
+        'jobs_all' => $jobs,
+        'agents_all' => $agents,
+        'additional_agency_options' => $agency_options_array,
+        'additional_job_options' => $job_options_array,
+        'additional_agency_ids' => $additional_agency_ids,
+        'additional_job_ids' => $additional_job_ids,
+    ];
+}
 
     public function is_unique_email(string $email): bool
     {
@@ -186,22 +237,60 @@ class Candidates extends CRUD_Controller
         return $this->{$this->model}->is_unique_email($email, $id);
     }
 
-    public function create_extra_params(): array
-    {
-        return [
-            'application_date' => $this->input->post('application_date') ?: date('Y-m-d H:i:s'),
-            'enabled' => 1,
-        ];
-    }
+   public function create_extra_params(): array
+{
+    $additional_agencies = $this->input->post('additional_agency_ids') ?: [];
+    $additional_jobs = $this->input->post('additional_job_ids') ?: [];
 
-    public function update_extra_params($id): array
-    {
-        return [];
-    }
+    return [
+        'application_date' => $this->input->post('application_date') ?: date('Y-m-d H:i:s'),
+        'enabled' => 1,
+        'agency_id' => !empty($additional_agencies) ? $additional_agencies[0] : null,
+        'job_id' => !empty($additional_jobs) ? $additional_jobs[0] : null,
+    ];
+}
+
+public function update_extra_params($id): array
+{
+    $additional_agencies = $this->input->post('additional_agency_ids') ?: [];
+    $additional_jobs = $this->input->post('additional_job_ids') ?: [];
+
+    return [
+        'agency_id' => !empty($additional_agencies) ? $additional_agencies[0] : null,
+        'job_id' => !empty($additional_jobs) ? $additional_jobs[0] : null,
+    ];
+}
 
     public function get_agents($agency_id)
+    {
+        $agents = $this->{$this->model}->get_agency_agents_by_agency((int)$agency_id);
+        echo json_encode($agents);
+    }
+
+    public function view($id = null)
 {
-    $agents = $this->{$this->model}->get_agency_agents_by_agency((int)$agency_id);
-    echo json_encode($agents);
+    if (empty($id) || !is_numeric($id)) {
+        show_404();
+    }
+
+    $row = $this->{$this->model}->get_by_id($id);
+    if (empty($row) || $row->removed) {
+        show_404();
+    }
+
+    // Optional: Ensure the candidate belongs to this recruiter (if needed)
+    // But you said recruiters see all they submitted, so maybe skip agency check
+
+    $this->breadcrumbs = [
+        ['title' => lang($this->pageName . '_heading'), 'url' => redir($this->pageName, true)],
+        ['title' => htmlspecialchars($row->first_name . ' ' . $row->last_name, ENT_QUOTES, 'UTF-8'), 'url' => ''],
+    ];
+
+    $this->load->view($this->folder . '/view_header');
+    $this->load->view('cms/crud/view_single', [
+        'row' => $row,
+        'heading' => lang('view_candidate_heading'),
+    ]);
+    $this->load->view($this->folder . '/view_footer');
 }
 }

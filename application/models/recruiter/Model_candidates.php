@@ -6,30 +6,45 @@ class Model_candidates extends CRUD_Model
     protected $table = 'candidates';
 
     // Override to include joins for agency/job names in listing
-    public function get_all($limit = null, $offset = null, $sort_by = 'first_name', $sort_order = 'ASC')
-    {
-        $this->db->select('candidates.*, agencies.name as agency_name, mod_jobs.name as job_name');
-        $this->db->from($this->table);
-        $this->db->join('agencies', 'agencies.id = candidates.agency_id', 'left');
-        $this->db->join('mod_jobs', 'mod_jobs.id = candidates.job_id', 'left');
-        $this->db->where('candidates.removed', 0);
+   public function get_all($limit = null, $offset = null, $sort_by = 'first_name', $sort_order = 'ASC')
+{
+    // Select base candidate fields
+    $this->db->select('candidates.*');
 
-        if ($sort_by) {
-            // Map virtual fields
-            $sort_map = [
-                'agency_name' => 'agencies.name',
-                'job_name' => 'mod_jobs.name',
-            ];
-            $real_sort = $sort_map[$sort_by] ?? "candidates.$sort_by";
-            $this->db->order_by($real_sort, $sort_order ?: 'ASC');
+    // Subquery: get all agency names for this candidate
+    $this->db->select("(SELECT GROUP_CONCAT(a.name SEPARATOR ', ')
+                        FROM candidate_agencies ca
+                        JOIN agencies a ON a.id = ca.agency_id
+                        WHERE ca.candidate_id = candidates.id
+                        AND a.removed = 0 AND a.enabled = 1
+                       ) AS agency_name", false);
+
+    // Subquery: get all job names for this candidate
+    $this->db->select("(SELECT GROUP_CONCAT(j.name SEPARATOR ', ')
+                        FROM candidate_jobs cj
+                        JOIN mod_jobs j ON j.id = cj.job_id
+                        WHERE cj.candidate_id = candidates.id
+                        AND j.removed = 0 AND j.enabled = 1
+                       ) AS job_name", false);
+
+    $this->db->from($this->table);
+    $this->db->where('candidates.removed', 0);
+
+    // Sorting
+    if ($sort_by) {
+        // Only allow sorting on real fields (not virtual agency_name/job_name for now)
+        if (!in_array($sort_by, ['agency_name', 'job_name'])) {
+            $this->db->order_by("candidates.$sort_by", $sort_order ?: 'ASC');
         }
-
-        if ($limit !== null) {
-            $this->db->limit($limit, $offset);
-        }
-
-        return $this->db->get();
+        // Optional: add complex sorting later if needed
     }
+
+    if ($limit !== null) {
+        $this->db->limit($limit, $offset);
+    }
+
+    return $this->db->get();
+}
 
     public function count_all()
     {
@@ -88,4 +103,69 @@ class Model_candidates extends CRUD_Model
         $sequence = $count + 1;
         return $prefix . '-' . date('Y') . '-' . str_pad($sequence, 4, '0', STR_PAD_LEFT);
     }
+
+    // Get additional agencies assigned to candidate
+    public function get_candidate_additional_agencies($candidate_id)
+    {
+        if (empty($candidate_id)) return [];
+        
+        $result = $this->db->select('ca.agency_id')
+                        ->from('candidate_agencies ca')
+                        ->where('ca.candidate_id', $candidate_id)
+                        ->get()
+                        ->result_array();
+        
+        return array_column($result, 'agency_id');
+    }
+
+    // Get additional jobs assigned to candidate
+    public function get_candidate_additional_jobs($candidate_id)
+    {
+        if (empty($candidate_id)) return [];
+        
+        $result = $this->db->select('cj.job_id')
+                        ->from('candidate_jobs cj')
+                        ->where('cj.candidate_id', $candidate_id)
+                        ->get()
+                        ->result_array();
+        
+        return array_column($result, 'job_id');
+    }
+
+    // NEW METHODS - For multi-select options (like skills pattern)
+public function get_additional_agency_options($exclude_id = null)
+{
+    $this->db->select('id, name')
+             ->from('agencies')
+             ->where('enabled', 1)
+             ->where('removed', 0);
+    if ($exclude_id) {
+        $this->db->where('id !=', $exclude_id);
+    }
+    return $this->db->order_by('name', 'ASC')->get()->result();
+}
+
+public function get_additional_job_options($exclude_id = null)
+{
+    $this->db->select('id, name, reference_number')
+             ->from('mod_jobs')
+             ->where('enabled', 1)
+             ->where('removed', 0);
+    if ($exclude_id) {
+        $this->db->where('id !=', $exclude_id);
+    }
+    return $this->db->order_by('name', 'ASC')->get()->result();
+}
+
+
+public function get_by_id($id, $table = false)
+{
+    $table = $table ?: $this->table;
+    return $this->db->where($table . '.id', $id)
+                    ->where($table . '.removed', 0)
+                    ->get($table)
+                    ->row();
+}
+
+
 }
