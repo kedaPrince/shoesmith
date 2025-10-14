@@ -3,16 +3,17 @@
 <div class="quick-manage-form-container qm-tabs">
     <div class="quick-manage-heading">
         <?php if (empty($row)): ?>
-        <h2>Add Recruiter</h2>
+        <h2>Add Contractors</h2>
         <p>
-            Here you can <span>add a new recruiter</span> to the system.<br />
+            Here you can <span>add a new contractor</span> to the system.<br />
             Assign them to an agency and set their role and permissions.
         </p>
         <?php else: ?>
-        <h2>Edit Recruiter
-            <span><?= htmlspecialchars($row->first_name . ' ' . $row->last_name, ENT_QUOTES, 'UTF-8'); ?></span></h2>
+        <h2>Edit Contractor
+            <span><?= htmlspecialchars($row->first_name . ' ' . $row->last_name, ENT_QUOTES, 'UTF-8'); ?></span>
+        </h2>
         <p>
-            Update the recruiter's details below.<br />
+            Update the contractor's details below.<br />
             Changes will take effect immediately.
         </p>
         <?php endif; ?>

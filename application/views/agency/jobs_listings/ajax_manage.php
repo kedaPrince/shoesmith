@@ -1,9 +1,10 @@
 <?php defined('BASEPATH') || exit('No direct script access allowed'); ?>
 <style>
-    body .form-control {
+body .form-control {
     color: var(--font-color);
     background: #dfdfdf;
 }
+
 body .form-control {
     color: #000000;
     background: #dfdfdf;
@@ -50,11 +51,35 @@ body .form-control {
                     <?= field_input('name', $row, 'required', [], 'text', 'Enter job title'); ?>
                 </div>
                 <div class="col-lg-6">
-                    <?= field_input('reference_number', $row, 'required', [], 'text', 'Enter reference number'); ?>
+                    <?php if (empty($row)): ?>
+                    <!-- For new jobs - show auto-generated reference -->
+                    <div class="form-group">
+                        <label for="reference_number">Reference Number</label>
+                        <div class="input-group">
+                            <input type="text" class="form-control" id="reference_number" name="reference_number"
+                                value="<?= !empty($row->reference_number) ? htmlspecialchars($row->reference_number, ENT_QUOTES, 'UTF-8') : '' ?>"
+                                placeholder="Auto-generated" readonly>
+                            <div class="input-group-append">
+                                <button type="button" class="btn btn-outline-secondary" id="generate-reference"
+                                    title="Generate new reference number">
+                                    <i class="fa fa-refresh"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <small class="form-text text-muted">Reference number will be generated automatically</small>
+                    </div>
+                    <?php else: ?>
+                    <!-- For existing jobs - show current reference as read-only -->
+                    <div class="form-group">
+                        <label for="reference_number">Reference Number</label>
+                        <input type="text" class="form-control" id="reference_number" name="reference_number"
+                            value="<?= htmlspecialchars($row->reference_number, ENT_QUOTES, 'UTF-8') ?>" readonly>
+                        <small class="form-text text-muted">Reference number cannot be changed</small>
+                    </div>
+                    <?php endif; ?>
                 </div>
             </div>
             <div class="row">
-                <!-- Replace the agency dropdown section -->
                 <!-- Replace the agency dropdown section -->
                 <div class="col-lg-6">
                     <?php 
@@ -192,6 +217,24 @@ function save_form(el) {
     });
 }
 
+function generateReferenceNumber() {
+    $.ajax({
+        url: '<?= site_url("agency/jobs_listings/generate_reference") ?>',
+        type: 'POST',
+        dataType: 'json',
+        success: function(response) {
+            if (response.success) {
+                $('#reference_number').val(response.reference);
+            } else {
+                alert('Failed to generate reference number: ' + response.error);
+            }
+        },
+        error: function() {
+            alert('Error generating reference number');
+        }
+    });
+}
+
 $(document).ready(function() {
     $('.quick-manage-container select').each(function() {
         $(this).trigger('change');
@@ -213,6 +256,16 @@ $(document).ready(function() {
     // Initialize select values
     $('.quick-manage-container select').each(function() {
         $(this).trigger('change');
+    });
+
+    // Generate reference number on page load for new jobs
+    <?php if (empty($row)): ?>
+    generateReferenceNumber();
+    <?php endif; ?>
+
+    // Generate reference number when button is clicked
+    $('#generate-reference').on('click', function() {
+        generateReferenceNumber();
     });
 });
 </script>

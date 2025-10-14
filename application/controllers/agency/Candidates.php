@@ -690,7 +690,26 @@ public function remove($id) {
             return;
         }
     }
-    parent::remove($id);
+    
+    // Get all jobs this candidate is associated with BEFORE deletion
+    $this->db->select('job_id');
+    $this->db->from('candidate_jobs');
+    $this->db->where('candidate_id', $id);
+    $job_associations = $this->db->get()->result_array();
+    
+    // Call parent remove
+    $result = parent::remove($id);
+    
+    // After successful deletion, update all associated job counts
+    if ($result && !empty($job_associations)) {
+        foreach ($job_associations as $job) {
+            $this->db->set('candidate_count', 'candidate_count - 1', false);
+            $this->db->where('id', $job['job_id']);
+            $this->db->update('mod_jobs');
+        }
+    }
+    
+    return $result;
 }
 
 /**
@@ -924,6 +943,5 @@ public function debug_candidates($agency_id = null)
 
     echo "<hr><p><em>Debug output generated at " . date('Y-m-d H:i:s') . "</em></p>";
 }
-
 
 }

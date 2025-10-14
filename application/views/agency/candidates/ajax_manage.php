@@ -196,15 +196,15 @@ a.btn.btn-primary.add-item {
 <div class="quick-manage-form-container qm-tabs">
     <div class="quick-manage-heading">
         <?php if (empty($row)): ?>
-        <h2>Add Candidate</h2>
+        <h2>Add Contractor</h2>
         <p>
-            <strong style="color: #dc3545;">Agencies cannot add candidates directly.</strong><br />
-            Please contact recruiters to add new candidates to the system.
+            <strong style="color: #dc3545;">Agencies cannot add contractors directly.</strong><br />
+            Please contact contractors to add new contractors to the system.
         </p>
         <?php else: ?>
-        <h2>View Candidate <span><?= $row->first_name . ' ' . $row->last_name; ?></span></h2>
+        <h2>View Contractor <span><?= $row->first_name . ' ' . $row->last_name; ?></span></h2>
         <p>
-            <strong>Viewing candidate information</strong> - Most fields are read-only.<br />
+            <strong>Viewing contractor information</strong> - Most fields are read-only.<br />
             You can update the candidate status and add internal notes.
         </p>
         <?php endif; ?>

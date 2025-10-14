@@ -4,27 +4,80 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 class Model_jobs extends CRUD_Model{
     protected $table = 'mod_jobs';
 
-    public function joins(){
-        $this->db->join('agencies', 'agencies.id = mod_jobs.agency_id', 'left');
-        $this->db->select('mod_jobs.agency_id, agencies.name AS agency_name'); // Explicitly select agency_id
+public function joins(){
+    $this->db->join('agencies', 'agencies.id = mod_jobs.agency_id', 'left');
+    $this->db->select('mod_jobs.agency_id, agencies.name AS agency_name');
 
-        $this->db->join('mod_industries', 'mod_industries.id = mod_jobs.industry_id', 'left');
-        $this->db->select('mod_industries.name AS industry_name');
+    $this->db->join('mod_industries', 'mod_industries.id = mod_jobs.industry_id', 'left');
+    $this->db->select('mod_industries.name AS industry_name');
+}
+
+/**
+ * Generate unique reference number for job
+ */
+public function generate_reference_number() {
+    $prefix = 'JOB';
+    $year = date('Y');
+    
+    // Get the highest reference number for this year
+    $this->db->select('reference_number');
+    $this->db->like('reference_number', $prefix . '-' . $year, 'after');
+    $this->db->order_by('reference_number', 'DESC');
+    $this->db->limit(1);
+    $query = $this->db->get($this->table);
+    
+    if ($query->num_rows() > 0) {
+        $last_ref = $query->row()->reference_number;
+        // Extract the number part and increment
+        preg_match('/-(\d+)$/', $last_ref, $matches);
+        $next_num = isset($matches[1]) ? (int)$matches[1] + 1 : 1;
+    } else {
+        $next_num = 1;
     }
-
-    /**
-     * Override get_all to support agency filtering
-     */
-    public function get_all($limit = null, $offset = null, $sort_by = null, $sort_order = null, $agency_id = null){
-        // Apply agency filter if provided
-        if (!empty($agency_id)) {
-            $this->db->where('mod_jobs.agency_id', $agency_id);
-            log_message('debug', 'Model filtering jobs by agency_id: ' . $agency_id);
-        }
-        
-        return parent::get_all($limit, $offset, $sort_by, $sort_order);
+    
+    // Format with leading zeros
+    $reference = $prefix . '-' . $year . '-' . str_pad($next_num, 4, '0', STR_PAD_LEFT);
+    
+    // Double check it's unique
+    $counter = 0;
+    while ($this->db->where('reference_number', $reference)->count_all_results($this->table) > 0 && $counter < 100) {
+        $next_num++;
+        $reference = $prefix . '-' . $year . '-' . str_pad($next_num, 4, '0', STR_PAD_LEFT);
+        $counter++;
     }
-
+    
+    if ($counter >= 100) {
+        throw new Exception('Unable to generate unique reference number after 100 attempts');
+    }
+    
+    return $reference;
+}
+     /**
+ * Override get_all to support agency filtering
+ */
+public function get_all($limit = null, $offset = null, $sort_by = null, $sort_order = null, $agency_id = null){
+    // Apply agency filter if provided
+    if (!empty($agency_id)) {
+        $this->db->where('mod_jobs.agency_id', $agency_id);
+        log_message('debug', 'Model filtering jobs by agency_id: ' . $agency_id);
+    }
+    
+    return parent::get_all($limit, $offset, $sort_by, $sort_order);
+}
+/**
+ * Override main_selects to include candidate count as calculated field
+ */
+public function main_selects() {
+    // First call parent to get the basic fields
+    parent::main_selects();
+    
+    // Add candidate count as a calculated field
+    $this->db->select('(
+        SELECT COUNT(*) 
+        FROM candidate_jobs 
+        WHERE candidate_jobs.job_id = mod_jobs.id
+    ) as candidate_count', false);
+}
     public function get_agency_options($user_agency_id = null){
         $this->db->select('id, name');
         $this->db->from('agencies');

@@ -48,33 +48,36 @@ class Jobs_listings extends CRUD_Controller{
         );
     }
 
-    private function setup_listing(){
-       $this->listFields = array(
-        'name' => array(
-            'label' => lang('label_title'),
-            'sort' => true,
-        ),
-        'reference_number' => array(
-            'label' => lang('label_reference_number'),
-            'sort' => true,
-        ),
-        'agency_name' => array(
-            'label' => lang('label_agency'),
-            'sort' => true,
-            'field' => 'agencies.name'
-        ),
-        // Add this to ensure agency_id is available in row objects
-        'agency_id' => array(
-            'label' => 'Agency ID',
-            'sort' => true,
-            'hidden' => true // Hide from listing but make it available in row data
-        ),
-        'employment_type' => array(
-            'label' => lang('label_job_type'),
-            'sort' => true,
-        ),
-    );
-
+private function setup_listing(){
+   $this->listFields = array(
+    'name' => array(
+        'label' => 'Job Title',
+        'sort' => true,
+    ),
+    'reference_number' => array(
+        'label' => lang('label_reference_number'),
+        'sort' => true,
+    ),
+ 'candidate_count' => array(
+        'label' => 'Candidates',
+        'sort' => true,
+        'function' => function($str, $row) {
+            $count = $row->candidate_count;
+            
+            // Return formatted count with link
+            $url = site_url('agency/candidates_list/index/' . $row->id);
+            if ($count > 0) {
+                return '<a href="' . $url . '" class="btn btn-sm btn-info" title="View ' . $count . ' Candidates">' . $count . '</a>';
+            } else {
+                return '<span class="text-muted">0</span>';
+            }
+        }
+    ),
+    'employment_type' => array(
+        'label' => lang('label_job_type'),
+        'sort' => true,
+    ),
+);
         $this->listActions = array(
             'edit' => array(
                 'label' => lang('label_edit'),
@@ -86,12 +89,12 @@ class Jobs_listings extends CRUD_Controller{
                 },
             ),
            'view_candidates' => array(
-    'label' => 'View Candidates',
-    'url' => site_url('agency/candidates_list/index/{id}'), // Changed to use new controller
-    'icon' => 'fa-users',
-    'class' => 'btn-info',
-),
-            'enable' => array(
+            'label' => 'View Candidates',
+            'url' => site_url('agency/candidates_list/index/{id}'), // Changed to use new controller
+            'icon' => 'fa-users',
+            'class' => 'btn-info',
+        ),
+                    'enable' => array(
                 'label' => lang('label_enable'),
                 'url' => url($this->pageName . '/enable/{id}'),
                 'icon' => 'fa-eye',
@@ -168,7 +171,19 @@ class Jobs_listings extends CRUD_Controller{
             ),
         );
     }
-
+/**
+ * Override field selection to exclude calculated fields
+ */
+public function get_list_fields() {
+    $fields = parent::get_list_fields();
+    
+    // Remove candidate_count from the field selection since it's calculated
+    if (isset($fields['candidate_count'])) {
+        unset($fields['candidate_count']);
+    }
+    
+    return $fields;
+}
     public function build_params($extra = array(), $group = 'main'){
         $params = parent::build_params($extra, $group);
         
@@ -182,7 +197,24 @@ class Jobs_listings extends CRUD_Controller{
         
         return $params;
     }
-
+/**
+ * Generate reference number for job (called from AJAX)
+ */
+public function generate_reference() {
+    try {
+        $reference = $this->{$this->model}->generate_reference_number();
+        ajax_return(array(
+            'success' => true,
+            'reference' => $reference
+        ));
+    } catch (Exception $e) {
+        error_log('Error generating reference: ' . $e->getMessage());
+        ajax_return(array(
+            'success' => false,
+            'error' => 'Failed to generate reference number'
+        ));
+    }
+}
     public function create(){
         log_message('debug', '=== JOB CREATION START ===');
         log_message('debug', 'POST data: ' . print_r($this->input->post(), true));
@@ -576,25 +608,88 @@ class Jobs_listings extends CRUD_Controller{
         log_message('debug', '=== JOB CREATION - NOTIFICATION PROCESS END ===');
     }
 
-    /**
-     * Debug method to check available industries
-     */
-    public function debug_industries() {
-        log_message('debug', '=== DEBUG INDUSTRIES START ===');
-        
-        // Use the existing database connection instead of creating a new one
-        $industries = $this->db->get('mod_industries')->result();
-        
-        log_message('debug', 'Available industries:');
-        foreach ($industries as $industry) {
-            log_message('debug', ' - ID: ' . $industry->id . ', Name: ' . $industry->name);
+/**
+ * Debug method to check candidate counts for each job
+ */
+public function debug_candidates_count() {
+    log_message('debug', '=== DEBUG CANDIDATES COUNT START ===');
+    
+    // Get user agency ID for filtering
+    $user_agency_id = $this->get_user_agency_id();
+    
+    // Build query to get jobs with candidate counts
+    $this->db->select('mj.id, mj.name, mj.reference_number, COUNT(cj.id) as candidate_count');
+    $this->db->from('mod_jobs mj');
+    $this->db->join('candidate_jobs cj', 'mj.id = cj.job_id', 'left');
+    
+    // Apply agency filter if user has one
+    if (!empty($user_agency_id)) {
+        $this->db->where('mj.agency_id', $user_agency_id);
+        log_message('debug', 'Applied agency filter: ' . $user_agency_id);
+    }
+    
+    $this->db->group_by('mj.id');
+    $this->db->order_by('mj.name', 'ASC');
+    
+    $query = $this->db->get();
+    $results = $query->result();
+    
+    // Display results in browser
+    echo "<h1>Candidate Counts by Job</h1>";
+    echo "<table border='1' cellpadding='8' style='border-collapse: collapse;'>";
+    echo "<tr style='background-color: #f2f2f2;'>";
+    echo "<th>Job ID</th>";
+    echo "<th>Job Name</th>";
+    echo "<th>Reference Number</th>";
+    echo "<th>Candidate Count</th>";
+    echo "</tr>";
+    
+    $total_candidates = 0;
+    
+    if (!empty($results)) {
+        foreach ($results as $job) {
+            echo "<tr>";
+            echo "<td>{$job->id}</td>";
+            echo "<td>{$job->name}</td>";
+            echo "<td>{$job->reference_number}</td>";
+            echo "<td style='text-align: center;'><strong>{$job->candidate_count}</strong></td>";
+            echo "</tr>";
+            
+            $total_candidates += $job->candidate_count;
+            
+            // Also log for debugging
+            log_message('debug', "Job ID: {$job->id}, Name: {$job->name}, Candidates: {$job->candidate_count}");
         }
         
-        // Check what industry_id is being submitted in the form
-        log_message('debug', 'Current POST industry_id: ' . $this->input->post('industry_id'));
-        
-        log_message('debug', '=== DEBUG INDUSTRIES END ===');
-        
-        echo "Check your application logs for industry debug output";
+        echo "<tr style='background-color: #e6f7ff;'>";
+        echo "<td colspan='3' style='text-align: right;'><strong>Total Candidates:</strong></td>";
+        echo "<td style='text-align: center;'><strong>{$total_candidates}</strong></td>";
+        echo "</tr>";
+    } else {
+        echo "<tr><td colspan='4' style='text-align: center;'>No jobs found</td></tr>";
     }
+    
+    echo "</table>";
+    
+    // Additional debug info
+    echo "<br><br>";
+    echo "<h3>Debug Information:</h3>";
+    echo "<ul>";
+    echo "<li>User Agency ID: " . ($user_agency_id ?: 'Not set') . "</li>";
+    echo "<li>Total Jobs Found: " . count($results) . "</li>";
+    echo "<li>Database: " . $this->db->database . "</li>";
+    echo "</ul>";
+    
+    // Check database tables
+    echo "<h3>Table Check:</h3>";
+    $candidate_jobs_count = $this->db->count_all('candidate_jobs');
+    $mod_jobs_count = $this->db->count_all('mod_jobs');
+    
+    echo "<ul>";
+    echo "<li>Total records in candidate_jobs table: {$candidate_jobs_count}</li>";
+    echo "<li>Total records in mod_jobs table: {$mod_jobs_count}</li>";
+    echo "</ul>";
+    
+    log_message('debug', '=== DEBUG CANDIDATES COUNT END ===');
+}
 }
