@@ -13,6 +13,7 @@ class Candidates_resume_listings extends CRUD_Controller
     public $quickManage = false;
     public $identifierField = 'first_name';
     public $hideSubNav = false;
+    public $adding = false;
 
     public function __construct()
     {
@@ -34,65 +35,66 @@ class Candidates_resume_listings extends CRUD_Controller
         );
     }
 
-    private function setup_listing(): void
-    {
-        $this->listFields = array(
-            'reference_number' => array('label' => lang('label_reference_number'), 'sort' => true),
-            'first_name' => array('label' => lang('label_first_name'), 'sort' => true),
-            'last_name' => array('label' => lang('label_last_name'), 'sort' => true),
-            'email' => array('label' => lang('label_email'), 'sort' => true),
-            'phone' => array('label' => lang('label_phone'), 'sort' => true),
-            'cv_file' => array('label' => lang('label_cv_file'), 'sort' => false, 'type' => 'custom'),
-            'application_date' => array('label' => lang('label_application_date'), 'sort' => true, 'type' => 'date'),
-            'status' => array('label' => lang('label_status'), 'sort' => true),
-        );
+   private function setup_listing(): void
+{
+    $this->listFields = array(
+        'reference_number' => array('label' => lang('label_reference_number'), 'sort' => true),
+        'first_name' => array('label' => lang('label_first_name'), 'sort' => true),
+        'last_name' => array('label' => lang('label_last_name'), 'sort' => true),
+        'email' => array('label' => lang('label_email'), 'sort' => true),
+        'phone' => array('label' => lang('label_phone'), 'sort' => true),
+        'cv_file' => array(
+            'label' => lang('label_cv_file'), 
+            'sort' => false, 
+            'type' => 'custom',
+            'function' => 'custom_field_cv_file'
+        ),
+        'application_date' => array('label' => lang('label_application_date'), 'sort' => true, 'type' => 'date'),
+        'status' => array('label' => lang('label_status'), 'sort' => true),
+    );
 
-        $this->listActions = array(
-            'download_cv' => array(
-                'label' => lang('label_download_cv'),
-                'url' => url($this->pageName . '/download_cv/{id}'),
-                'icon' => 'fa-download',
-                'class' => 'btn-primary download-cv',
-            ),
-            'view' => array(
-                'label' => lang('label_view'),
-                'url' => url('candidates/view/{id}'),
-                'icon' => 'fa-eye',
-                'class' => 'btn-info view-candidate',
-            ),
-        );
+    // FIXED: Change 'title' to 'label' to match what the view expects
+    $this->listActions = array(
+        'download' => array(
+            'label' => 'Download CV', // CHANGED from 'title' to 'label'
+            'icon' => 'fa-download',
+            'class' => 'btn btn-sm btn-primary',
+            'url' => site_url('recruiter/candidates_resume_listings/download_cv/{id}'),
+            'target' => '_self'
+        )
+    );
 
-        $this->filters = array(
-            'search' => array(
-                'label' => lang('label_search'),
-                'type' => 'autocomplete',
-                'field' => array('candidates.first_name', 'candidates.last_name', 'candidates.email', 'candidates.reference_number'),
+    $this->filters = array(
+        'search' => array(
+            'label' => lang('label_search'),
+            'type' => 'autocomplete',
+            'field' => array('candidates.first_name', 'candidates.last_name', 'candidates.email', 'candidates.reference_number'),
+        ),
+        'status' => array(
+            'label' => lang('label_status'),
+            'type' => 'dropdown',
+            'field' => 'candidates.status',
+            'options' => array(
+                'new' => 'New',
+                'reviewed' => 'Reviewed',
+                'shortlisted' => 'Shortlisted',
+                'interviewed' => 'Interviewed',
+                'rejected' => 'Rejected',
+                'hired' => 'Hired',
+                'on_hold' => 'On Hold',
             ),
-            'status' => array(
-                'label' => lang('label_status'),
-                'type' => 'dropdown',
-                'field' => 'candidates.status',
-                'options' => array(
-                    'new' => 'New',
-                    'reviewed' => 'Reviewed',
-                    'shortlisted' => 'Shortlisted',
-                    'interviewed' => 'Interviewed',
-                    'rejected' => 'Rejected',
-                    'hired' => 'Hired',
-                    'on_hold' => 'On Hold',
-                ),
+        ),
+        'has_cv' => array(
+            'label' => lang('label_has_cv'),
+            'type' => 'dropdown',
+            'field' => 'candidates.cv_file',
+            'options' => array(
+                '1' => 'With CV',
+                '0' => 'Without CV',
             ),
-            'has_cv' => array(
-                'label' => lang('label_has_cv'),
-                'type' => 'dropdown',
-                'field' => 'candidates.cv_file',
-                'options' => array(
-                    '1' => 'With CV',
-                    '0' => 'Without CV',
-                ),
-            ),
-        );
-    }
+        ),
+    );
+}
 
     public function setup_fields(): void
     {
@@ -153,39 +155,61 @@ class Candidates_resume_listings extends CRUD_Controller
         exit;
     }
 
-    public function preview_cv($id)
+    public function custom_field_cv_file($value, $row)
     {
-        $candidate = $this->{$this->model}->get_candidate_with_cv($id);
-        
-        if (!$candidate || empty($candidate->cv_file)) {
-            show_error(lang('cv_not_found'));
+        if (empty($value)) {
+            return '<span class="text-muted">No CV</span>';
         }
 
-        $file_path = FCPATH . 'uploads/candidates/cv/' . $candidate->cv_file;
+        $cv_extension = pathinfo($value, PATHINFO_EXTENSION);
+        $cv_size = file_exists(FCPATH . 'uploads/candidates/cv/' . $value) ? 
+                   round(filesize(FCPATH . 'uploads/candidates/cv/' . $value) / 1024, 1) : 0;
         
-        if (!file_exists($file_path)) {
-            show_error(lang('cv_file_not_found'));
-        }
+        $file_icon = $this->get_file_icon($cv_extension);
+        $truncated_name = $this->truncate_filename($value, 25);
 
-        $file_info = pathinfo($file_path);
-        $mime_type = $this->get_mime_type($file_info['extension']);
+        $html = '<div class="cv-file-info">';
+        $html .= '<div class="file-type">';
+        $html .= '<i class="fa fa-file-' . $file_icon . '-o"></i>';
+        $html .= '<span class="text-uppercase">' . $cv_extension . '</span>';
+        $html .= '</div>';
+        $html .= '<div class="file-size">';
+        $html .= '<small class="text-muted">' . $cv_size . ' KB</small>';
+        $html .= '</div>';
+        $html .= '<div class="file-name">';
+        $html .= '<small>' . $truncated_name . '</small>';
+        $html .= '</div>';
+        $html .= '</div>';
 
-        header('Content-Type: ' . $mime_type);
-        header('Content-Disposition: inline; filename="' . $candidate->cv_file . '"');
-        header('Content-Length: ' . filesize($file_path));
-        
-        readfile($file_path);
-        exit;
+        return $html;
     }
 
-    private function get_mime_type($extension)
+    private function get_file_icon($extension)
     {
-        $mime_types = array(
-            'pdf' => 'application/pdf',
-            'doc' => 'application/msword',
-            'docx' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-        );
+        $icons = [
+            'pdf' => 'pdf',
+            'doc' => 'word',
+            'docx' => 'word',
+            'txt' => 'text',
+        ];
+        
+        return isset($icons[strtolower($extension)]) ? $icons[strtolower($extension)] : 'file';
+    }
 
-        return isset($mime_types[strtolower($extension)]) ? $mime_types[strtolower($extension)] : 'application/octet-stream';
+    private function truncate_filename($filename, $length = 25)
+    {
+        if (strlen($filename) <= $length) {
+            return $filename;
+        }
+        
+        $extension = pathinfo($filename, PATHINFO_EXTENSION);
+        $name = pathinfo($filename, PATHINFO_FILENAME);
+        $max_name_length = $length - strlen($extension) - 1;
+        
+        if (strlen($name) > $max_name_length) {
+            $name = substr($name, 0, $max_name_length - 3) . '...';
+        }
+        
+        return $name . '.' . $extension;
     }
 }

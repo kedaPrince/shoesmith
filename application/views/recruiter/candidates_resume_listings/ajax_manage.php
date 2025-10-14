@@ -1,4 +1,47 @@
-<?php defined('BASEPATH') || exit('No direct script access allowed'); ?>
+<?php defined('BASEPATH') || exit('No direct script access allowed'); 
+
+// Helper functions for this view
+function get_file_icon($extension) {
+    $icons = [
+        'pdf' => 'pdf',
+        'doc' => 'word',
+        'docx' => 'word',
+        'txt' => 'text',
+    ];
+    
+    return isset($icons[strtolower($extension)]) ? $icons[strtolower($extension)] : 'file';
+}
+
+function truncate_filename($filename, $length = 25) {
+    if (strlen($filename) <= $length) {
+        return $filename;
+    }
+    
+    $extension = pathinfo($filename, PATHINFO_EXTENSION);
+    $name = pathinfo($filename, PATHINFO_FILENAME);
+    $max_name_length = $length - strlen($extension) - 1; // -1 for the dot
+    
+    if (strlen($name) > $max_name_length) {
+        $name = substr($name, 0, $max_name_length - 3) . '...';
+    }
+    
+    return $name . '.' . $extension;
+}
+
+function get_status_badge($status) {
+    $badges = [
+        'new' => 'primary',
+        'reviewed' => 'info',
+        'shortlisted' => 'success',
+        'interviewed' => 'warning',
+        'rejected' => 'danger',
+        'hired' => 'dark',
+        'on_hold' => 'secondary',
+    ];
+    
+    return isset($badges[$status]) ? $badges[$status] : 'secondary';
+}
+?>
 
 <div class="resume-listing-container">
     <div class="row">
@@ -25,10 +68,9 @@
                                     <th width="10%"><?= lang('label_reference_number') ?></th>
                                     <th width="15%"><?= lang('label_candidate') ?></th>
                                     <th width="15%"><?= lang('label_contact') ?></th>
-                                    <th width="20%"><?= lang('label_cv_file') ?></th>
-                                    <th width="10%"><?= lang('label_application_date') ?></th>
-                                    <th width="10%"><?= lang('label_status') ?></th>
-                                    <th width="15%"><?= lang('label_actions') ?></th>
+                                    <th width="25%"><?= lang('label_cv_file') ?></th>
+                                    <th width="15%"><?= lang('label_application_date') ?></th>
+                                    <th width="15%"><?= lang('label_status') ?></th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -71,18 +113,33 @@
                                         </div>
                                     </td>
                                     <td>
-                                        <div class="cv-info">
-                                            <div class="file-type">
-                                                <i class="fa fa-file-<?= $this->get_file_icon($cv_extension) ?>-o"></i>
-                                                <span class="text-uppercase"><?= $cv_extension ?></span>
-                                            </div>
-                                            <div class="file-size">
-                                                <small class="text-muted"><?= $cv_size ?> KB</small>
-                                            </div>
-                                            <div class="file-name">
-                                                <small title="<?= htmlspecialchars($row->cv_file) ?>">
-                                                    <?= $this->truncate_filename($row->cv_file, 25) ?>
-                                                </small>
+                                        <div class="cv-file-section">
+                                            <div class="cv-info-container">
+                                                <div class="cv-file-details">
+                                                    <div class="file-icon">
+                                                        <i
+                                                            class="fa fa-file-<?= get_file_icon($cv_extension) ?>-o fa-2x text-primary"></i>
+                                                    </div>
+                                                    <div class="file-meta">
+                                                        <div class="file-name"
+                                                            title="<?= htmlspecialchars($row->cv_file) ?>">
+                                                            <strong><?= truncate_filename($row->cv_file, 30) ?></strong>
+                                                        </div>
+                                                        <div class="file-info">
+                                                            <span
+                                                                class="file-type badge badge-light"><?= strtoupper($cv_extension) ?></span>
+                                                            <span class="file-size text-muted"><?= $cv_size ?> KB</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div class="download-action">
+                                                    <a href="<?= site_url('recruiter/candidates_resume_listings/download_cv/' . $row->id) ?>"
+                                                        class="btn btn-sm btn-primary download-cv-btn"
+                                                        title="Download CV">
+                                                        <i class="fa fa-download"></i>
+                                                        Download
+                                                    </a>
+                                                </div>
                                             </div>
                                         </div>
                                     </td>
@@ -90,29 +147,9 @@
                                         <?= !empty($row->application_date) ? date('M j, Y', strtotime($row->application_date)) : 'N/A' ?>
                                     </td>
                                     <td>
-                                        <span class="badge badge-<?= $this->get_status_badge($row->status) ?>">
+                                        <span class="badge badge-<?= get_status_badge($row->status) ?>">
                                             <?= ucfirst($row->status) ?>
                                         </span>
-                                    </td>
-                                    <td>
-                                        <div class="btn-group">
-                                            <a href="<?= site_url('recruiter/candidates_resume_listings/download_cv/' . $row->id) ?>"
-                                                class="btn btn-sm btn-primary download-cv"
-                                                title="<?= lang('label_download_cv') ?>">
-                                                <i class="fa fa-download"></i>
-                                            </a>
-                                            <button type="button" class="btn btn-sm btn-info preview-cv"
-                                                data-candidate-id="<?= $row->id ?>"
-                                                data-candidate-name="<?= htmlspecialchars($row->first_name . ' ' . $row->last_name) ?>"
-                                                title="<?= lang('label_preview_cv') ?>">
-                                                <i class="fa fa-eye"></i>
-                                            </button>
-                                            <a href="<?= site_url('recruiter/candidates/view/' . $row->id) ?>"
-                                                class="btn btn-sm btn-secondary view-candidate"
-                                                title="<?= lang('label_view_candidate') ?>">
-                                                <i class="fa fa-user"></i>
-                                            </a>
-                                        </div>
                                     </td>
                                 </tr>
                                 <?php endforeach; ?>
@@ -124,10 +161,7 @@
                         <i class="fa fa-file-text-o fa-4x text-muted mb-3"></i>
                         <h4 class="text-muted"><?= lang('candidates_resume_listings_no_rows') ?></h4>
                         <p class="text-muted"><?= lang('candidates_resume_listings_no_cvs_description') ?></p>
-                        <a href="<?= site_url('recruiter/candidates/add') ?>" class="btn btn-primary">
-                            <i class="fa fa-plus"></i>
-                            <?= lang('label_add_candidate') ?>
-                        </a>
+                        <!-- REMOVED: Add Candidate button -->
                     </div>
                     <?php endif; ?>
                 </div>
@@ -136,99 +170,27 @@
     </div>
 </div>
 
-<!-- CV Preview Modal -->
-<div class="modal fade" id="cvPreviewModal" tabindex="-1" role="dialog" aria-labelledby="cvPreviewModalLabel"
-    aria-hidden="true">
-    <div class="modal-dialog modal-xl" role="document">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="cvPreviewModalLabel">
-                    <i class="fa fa-file-text"></i>
-                    <?= lang('label_cv_preview') ?>: <span id="candidate-name"></span>
-                </h5>
-                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                    <span aria-hidden="true">&times;</span>
-                </button>
-            </div>
-            <div class="modal-body">
-                <div id="cv-preview-container">
-                    <div class="text-center p-5">
-                        <div class="spinner-border text-primary" role="status">
-                            <span class="sr-only"><?= lang('label_loading') ?>...</span>
-                        </div>
-                        <p class="mt-2"><?= lang('label_loading_cv') ?>...</p>
-                    </div>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <a href="#" id="download-cv-link" class="btn btn-primary">
-                    <i class="fa fa-download"></i>
-                    <?= lang('label_download_cv') ?>
-                </a>
-                <button type="button" class="btn btn-secondary" data-dismiss="modal">
-                    <?= lang('label_close') ?>
-                </button>
-            </div>
-        </div>
-    </div>
-</div>
-
 <script>
 $(document).ready(function() {
-    // CV Preview functionality
-    $('.preview-cv').on('click', function() {
-        const candidateId = $(this).data('candidate-id');
-        const candidateName = $(this).data('candidate-name');
-
-        $('#candidate-name').text(candidateName);
-        $('#download-cv-link').attr('href',
-            '<?= site_url("recruiter/candidates_resume_listings/download_cv/") ?>' + candidateId);
-
-        // Show loading state
-        $('#cv-preview-container').html(`
-            <div class="text-center p-5">
-                <div class="spinner-border text-primary" role="status">
-                    <span class="sr-only"><?= lang('label_loading') ?>...</span>
-                </div>
-                <p class="mt-2"><?= lang('label_loading_cv') ?>...</p>
-            </div>
-        `);
-
-        // Load CV preview
-        $.get('<?= site_url("recruiter/candidates_resume_listings/preview_cv/") ?>' + candidateId)
-            .done(function(response) {
-                // For PDF files, we'll use an iframe
-                const cvUrl =
-                    '<?= site_url("recruiter/candidates_resume_listings/preview_cv/") ?>' +
-                    candidateId;
-                $('#cv-preview-container').html(`
-                    <iframe src="${cvUrl}" width="100%" height="600px" frameborder="0">
-                        <p><?= lang('label_browser_no_support') ?></p>
-                    </iframe>
-                `);
-            })
-            .fail(function() {
-                $('#cv-preview-container').html(`
-                    <div class="alert alert-danger text-center">
-                        <i class="fa fa-exclamation-triangle"></i>
-                        <?= lang('error_loading_cv') ?>
-                    </div>
-                `);
-            });
-
-        $('#cvPreviewModal').modal('show');
-    });
-
     // Download CV with progress indicator
-    $('.download-cv').on('click', function(e) {
+    $('.download-cv-btn').on('click', function(e) {
         const $btn = $(this);
         const originalHtml = $btn.html();
 
-        $btn.prop('disabled', true).html(
-            '<i class="fa fa-spinner fa-spin"></i> <?= lang('label_downloading') ?>...');
+        // Show loading state immediately
+        $btn.html(`
+            <i class="fa fa-spinner fa-spin"></i>
+            Downloading...
+        `);
+        $btn.prop('disabled', true);
 
+        // Let the browser handle the download naturally
+        // The page will navigate to the download URL
+
+        // Restore original content after 3 seconds (in case download is quick)
         setTimeout(function() {
-            $btn.prop('disabled', false).html(originalHtml);
+            $btn.html(originalHtml);
+            $btn.prop('disabled', false);
         }, 3000);
     });
 
@@ -253,61 +215,72 @@ $(document).ready(function() {
     line-height: 1.3;
 }
 
-.resume-listing-container .cv-info {
-    font-size: 0.875rem;
+.cv-file-section {
+    padding: 8px 0;
 }
 
-.resume-listing-container .file-type {
-    font-weight: bold;
+.cv-info-container {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
 }
 
-.resume-listing-container .file-size {
-    color: #6c757d;
+.cv-file-details {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex: 1;
 }
 
-.resume-listing-container .file-name {
-    margin-top: 2px;
+.file-icon {
+    flex-shrink: 0;
 }
 
-.badge-new {
-    background-color: #007bff;
+.file-meta {
+    flex: 1;
+    min-width: 0;
+    /* Allow text truncation */
 }
 
-.badge-reviewed {
-    background-color: #17a2b8;
+.file-name {
+    margin-bottom: 4px;
 }
 
-.badge-shortlisted {
-    background-color: #28a745;
+.file-name strong {
+    font-size: 0.9rem;
+    color: #333;
 }
 
-.badge-interviewed {
-    background-color: #ffc107;
-    color: #212529;
+.file-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.8rem;
 }
 
-.badge-rejected {
-    background-color: #dc3545;
+.file-type {
+    font-size: 0.7rem;
+    padding: 2px 6px;
 }
 
-.badge-hired {
-    background-color: #6610f2;
+.download-action {
+    flex-shrink: 0;
 }
 
-.badge-on_hold {
-    background-color: #6c757d;
+.download-cv-btn {
+    white-space: nowrap;
+    transition: all 0.2s ease;
 }
 
-.btn-group .btn {
-    margin-right: 2px;
+.download-cv-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 }
 
-.btn-group .btn:last-child {
-    margin-right: 0;
-}
-
-#cvPreviewModal .modal-xl {
-    max-width: 90%;
+/* Make the entire CV section slightly interactive */
+.cv-info-container:hover .file-name strong {
+    color: #007bff;
 }
 
 @media (max-width: 768px) {
@@ -315,9 +288,19 @@ $(document).ready(function() {
         font-size: 0.875rem;
     }
 
-    .btn-group .btn {
-        padding: 0.25rem 0.5rem;
-        font-size: 0.75rem;
+    .cv-info-container {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+    }
+
+    .download-action {
+        align-self: stretch;
+    }
+
+    .download-cv-btn {
+        width: 100%;
+        text-align: center;
     }
 }
 </style>

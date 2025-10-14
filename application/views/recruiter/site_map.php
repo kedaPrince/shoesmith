@@ -43,7 +43,7 @@ $this->siteMap = array(
                 'show'          => true,
             ],
             (object) [
-                'page'          => 'candidates_resume_listings',
+                'page'          => 'Candidates_resume_listings',
                 'view'          => 'listing',
                 'label'         => lang('candidates_resume_listings_heading'),
                 'icon'          => 'fa-file-text',
