@@ -60,6 +60,19 @@ class Jobs extends CRUD_Controller
                 'label' => lang('label_agency'),
                 'sort' => true,
             ),
+            'candidate_count' => array(
+                'label' => 'Candidates',
+                'sort' => true,
+                'function' => function($str, $row) {
+                    $count = isset($row->candidate_count) ? $row->candidate_count : 0;
+                    $url = site_url('recruiter/candidates?job_id=' . $row->id);
+                    if ($count > 0) {
+                        return '<a href="' . $url . '" class="btn btn-sm btn-info" title="View ' . $count . ' Candidates">' . $count . '</a>';
+                    } else {
+                        return '<span class="text-muted">0</span>';
+                    }
+                }
+            ),
         );
 
         $this->listActions = array(
@@ -68,6 +81,13 @@ class Jobs extends CRUD_Controller
                 'url'       => url($this->pageName . '/view/{id}'),
                 'icon'      => 'fa-eye',
                 'class'     => 'view-row btn-info',
+            ),
+            'add_candidate' => array(
+                'label'     => 'Add Candidate',
+                'url'       => site_url('recruiter/candidates/add/{id}'),
+                'icon'      => 'fa-user-plus',
+                'class'     => 'add-candidate-row btn-success',
+                'title'     => 'Add candidate to this job',
             ),
         );
 
@@ -161,79 +181,6 @@ class Jobs extends CRUD_Controller
         return $this->{$this->model}->is_unique_reference($reference, $id);
     }
 
-    
-
-  public function update($id = null) {
-        $this->load->model('Model_notifications');
-        
-        // Get original job data before update
-        $original_job = $this->Model_jobs->get($id);
-        
-        // Your existing update logic
-        $data = $this->input->post();
-        
-        // Track changed fields
-        $changed_fields = [];
-        foreach ($data as $field => $value) {
-            if (isset($original_job->$field) && $original_job->$field != $value) {
-                $changed_fields[] = $field;
-            }
-        }
-        
-        // Update the job
-        $result = $this->Model_jobs->update($id, $data);
-        
-        if ($result) {
-            // Send notification if fields were changed
-            if (!empty($changed_fields)) {
-                $agency_id = $original_job->agency_id;
-                $sender_id = $this->session->userdata('user_id'); // or agency user ID
-                
-                $this->Model_notifications->create_job_notification(
-                    $id, 
-                    $agency_id, 
-                    $sender_id, 
-                    'job_updated', 
-                    $changed_fields
-                );
-            }
-            
-            // Return success response
-            echo json_encode(['success' => true, 'message' => 'Job updated successfully']);
-        } else {
-            echo json_encode(['success' => false, 'message' => 'Failed to update job']);
-        }
-    }
-    
-    /**
-     * Create new job
-     */
-    public function create() {
-        $this->load->model('Model_notifications');
-        
-        $data = $this->input->post();
-        $result = $this->Model_jobs->insert($data);
-        
-        if ($result) {
-            // Send new job notification
-            $agency_id = $data['agency_id'];
-            $sender_id = $this->session->userdata('user_id');
-            
-            $this->Model_notifications->create_job_notification(
-                $result, 
-                $agency_id, 
-                $sender_id, 
-                'job_added'
-            );
-            
-            echo json_encode(['success' => true, 'message' => 'Job created successfully']);
-        } else {
-            echo json_encode(['success' => false, 'message' => 'Failed to create job']);
-        }
-    }
-
-   
-
     public function edit($id)
     {
         show_404(); // Block access to edit
@@ -252,109 +199,108 @@ class Jobs extends CRUD_Controller
     /**
      * View job details - Only method recruiters can access
      */
-public function view($id)
-{
-    $user_agency_id = $this->get_user_agency_id();
-    
-    // Get the job with agency filtering and proper joins
-    $this->db->select('mod_jobs.*, agencies.name as agency_name, mod_industries.name as industry_name');
-    $this->db->from('mod_jobs');
-    $this->db->join('agencies', 'agencies.id = mod_jobs.agency_id', 'left');
-    $this->db->join('mod_industries', 'mod_industries.id = mod_jobs.industry_id', 'left');
-    $this->db->where('mod_jobs.id', $id);
-    
-    if ($user_agency_id) {
-        $this->db->where('mod_jobs.agency_id', $user_agency_id);
+    public function view($id)
+    {
+        $user_agency_id = $this->get_user_agency_id();
+        
+        // Get the job with agency filtering and proper joins
+        $this->db->select('mod_jobs.*, agencies.name as agency_name, mod_industries.name as industry_name');
+        $this->db->from('mod_jobs');
+        $this->db->join('agencies', 'agencies.id = mod_jobs.agency_id', 'left');
+        $this->db->join('mod_industries', 'mod_industries.id = mod_jobs.industry_id', 'left');
+        $this->db->where('mod_jobs.id', $id);
+        
+        if ($user_agency_id) {
+            $this->db->where('mod_jobs.agency_id', $user_agency_id);
+        }
+        
+        $job = $this->db->get()->row();
+        
+        if (!$job) {
+            show_404();
+        }
+
+        // Load additional data
+        $data['job'] = $job;
+        $data['skills'] = $this->{$this->model}->get_job_skills((int)$id);
+        $data['qualifications'] = $this->{$this->model}->get_job_qualifications((int)$id);
+        $data['skill_options'] = $this->{$this->model}->get_skill_options();
+        $data['qualification_options'] = $this->{$this->model}->get_qualification_options();
+        
+        // Get updated fields for badges
+        $data['updated_fields'] = $this->get_updated_fields_for_job($id);
+
+        // Set breadcrumbs
+        $this->breadcrumbs = array(
+            array(
+                'title' => lang($this->pageName . '_heading'),
+                'url' => redir($this->pageName, true),
+            ),
+            array(
+                'title' => $job->name,
+                'url' => '#',
+            ),
+        );
+
+        // Load the view
+        $this->load->view($this->folder . '/view_header');
+        $this->load->view('recruiter/jobs/view_job', $data);
+        $this->load->view($this->folder . '/view_footer');
     }
-    
-    $job = $this->db->get()->row();
-    
-    if (!$job) {
-        show_404();
-    }
 
-    // Load additional data
-    $data['job'] = $job;
-    $data['skills'] = $this->{$this->model}->get_job_skills((int)$id);
-    $data['qualifications'] = $this->{$this->model}->get_job_qualifications((int)$id);
-    $data['skill_options'] = $this->{$this->model}->get_skill_options();
-    $data['qualification_options'] = $this->{$this->model}->get_qualification_options();
-    
-    // Get updated fields for badges
-    $data['updated_fields'] = $this->get_updated_fields_for_job($id);
+    /**
+     * Get updated fields from notifications for this job
+     */
+    private function get_updated_fields_for_job($job_id) {
+        $recruiter_id = $this->get_current_recruiter_id();
+        
+        if (!$recruiter_id) {
+            log_message('debug', 'No recruiter ID found');
+            return [];
+        }
 
-    // Set breadcrumbs
-    $this->breadcrumbs = array(
-        array(
-            'title' => lang($this->pageName . '_heading'),
-            'url' => redir($this->pageName, true),
-        ),
-        array(
-            'title' => $job->name,
-            'url' => '#',
-        ),
-    );
+        log_message('debug', 'Looking for update notifications for job: ' . $job_id . ', recruiter: ' . $recruiter_id);
 
-    // Load the view
-    $this->load->view($this->folder . '/view_header');
-    $this->load->view('recruiter/jobs/view_job', $data);
-    $this->load->view($this->folder . '/view_footer');
-}
+        // Get the latest unread update notification for this job
+        $this->db->select('updated_fields, id, created_at, type');
+        $this->db->from('notifications');
+        $this->db->where('receiver_type', 'recruiter');
+        $this->db->where('receiver_id', $recruiter_id);
+        $this->db->where('related_entity', 'job');
+        $this->db->where('related_entity_id', $job_id);
+        $this->db->where("(type = 'job_updated' OR type = '')");
+        $this->db->where('is_read', 0);
+        $this->db->order_by('created_at', 'DESC');
+        $this->db->limit(1);
+        
+        $query = $this->db->get();
+        
+        log_message('debug', 'Notifications query: ' . $this->db->last_query());
+        log_message('debug', 'Found notifications: ' . $query->num_rows());
 
-/**
- * Get updated fields from notifications for this job
- */
-private function get_updated_fields_for_job($job_id) {
-    $recruiter_id = $this->get_current_recruiter_id();
-    
-    if (!$recruiter_id) {
-        log_message('debug', 'No recruiter ID found');
+        if ($query->num_rows() > 0) {
+            $notification = $query->row();
+            log_message('debug', 'Found notification ID: ' . $notification->id . ' with updated_fields: ' . $notification->updated_fields);
+            
+            if (!empty($notification->updated_fields)) {
+                $updated_fields = json_decode($notification->updated_fields, true);
+                log_message('debug', 'Decoded updated fields: ' . print_r($updated_fields, true));
+                return is_array($updated_fields) ? $updated_fields : [];
+            }
+        } else {
+            log_message('debug', 'No unread update notifications found for this job');
+        }
+
         return [];
     }
 
-    log_message('debug', 'Looking for update notifications for job: ' . $job_id . ', recruiter: ' . $recruiter_id);
-
-    // Get the latest unread update notification for this job
-    $this->db->select('updated_fields, id, created_at, type');
-    $this->db->from('notifications');
-    $this->db->where('receiver_type', 'recruiter');
-    $this->db->where('receiver_id', $recruiter_id);
-    $this->db->where('related_entity', 'job');
-    $this->db->where('related_entity_id', $job_id);
-    $this->db->where("(type = 'job_updated' OR type = '')");
-    $this->db->where('is_read', 0);
-    $this->db->order_by('created_at', 'DESC');
-    $this->db->limit(1);
-    
-    $query = $this->db->get();
-    
-    log_message('debug', 'Notifications query: ' . $this->db->last_query());
-    log_message('debug', 'Found notifications: ' . $query->num_rows());
-
-    if ($query->num_rows() > 0) {
-        $notification = $query->row();
-        log_message('debug', 'Found notification ID: ' . $notification->id . ' with updated_fields: ' . $notification->updated_fields);
-        
-        if (!empty($notification->updated_fields)) {
-            $updated_fields = json_decode($notification->updated_fields, true);
-            log_message('debug', 'Decoded updated fields: ' . print_r($updated_fields, true));
-            return is_array($updated_fields) ? $updated_fields : [];
-        }
-    } else {
-        log_message('debug', 'No unread update notifications found for this job');
+    /**
+     * Get current recruiter ID from session
+     */
+    private function get_current_recruiter_id() {
+        $login_data = $this->session->userdata('login');
+        $recruiter_id = !empty($login_data['recruiter']['id']) ? $login_data['recruiter']['id'] : null;
+        log_message('debug', 'Current recruiter ID from session: ' . $recruiter_id);
+        return $recruiter_id;
     }
-
-    return [];
-}
-
-/**
- * Get current recruiter ID from session
- */
-private function get_current_recruiter_id() {
-    $login_data = $this->session->userdata('login');
-    $recruiter_id = !empty($login_data['recruiter']['id']) ? $login_data['recruiter']['id'] : null;
-    log_message('debug', 'Current recruiter ID from session: ' . $recruiter_id);
-    return $recruiter_id;
-}
-
 }

@@ -24,6 +24,9 @@
         <?= form_open(); ?>
         <?= form_hidden('id', !empty($row->id) ? $row->id : 0); ?>
 
+        <?= form_hidden('agency_id', !empty($row->agency_id) ? $row->agency_id : ''); ?>
+        <?= form_hidden('job_id', !empty($row->job_id) ? $row->job_id : ''); ?>
+
         <?php
         // Set default agency_id from the first selected additional agency (if any)
         $default_agency_id = '';
@@ -31,7 +34,7 @@
             $default_agency_id = $additional_agency_ids[0];
         }
         ?>
-        <?= form_hidden('agency_id', !empty($row->agency_id) ? $row->agency_id : $default_agency_id); ?>
+
 
         <!-- Tab 1: Personal -->
         <div rel="1" class="qm-tabs-tab active">
@@ -98,28 +101,35 @@
         <div rel="4" class="qm-tabs-tab">
             <div class="row">
                 <div class="col-lg-6">
-                    <?= field_multi_select('additional_agency_ids|label_additional_agencies', 
-                        $additional_agency_options, 
-                        $additional_agency_ids,
-                        'Select additional agencies'
-                    ); ?>
+                    <?= field_multi_select('additional_agency_ids|label_agencies', 
+                $additional_agency_options, 
+                $additional_agency_ids,
+                'Select agencies (first selected becomes primary)',
+                [], // empty array for attributes instead of true
+                true // required - moved to the correct parameter position
+            ); ?>
+                    <small class="text-muted">First selected agency will be set as primary</small>
                 </div>
                 <div class="col-lg-6">
-                    <?= field_multi_select('additional_job_ids|label_additional_jobs', 
-                        $additional_job_options, 
-                        $additional_job_ids,
-                        'Select additional jobs'
-                    ); ?>
+                    <?= field_multi_select('additional_job_ids|label_jobs', 
+                $additional_job_options, 
+                $additional_job_ids,
+                'Select jobs (first selected becomes primary)'
+            ); ?>
+                    <small class="text-muted">First selected job will be set as primary</small>
                 </div>
             </div>
 
             <div class="row">
                 <div class="col-lg-6">
                     <?= field_dropdown('assigned_agent_id|label_assigned_agent', 
-                        !empty($agents_all) ? array_column($agents_all, 'first_name', 'id') : ['' => '-- Select Agency First --'], 
-                        $row, 
-                        ''
-                    ); ?>
+                !empty($agents_all) ? array_reduce($agents_all, function($carry, $agent) {
+                    $carry[$agent->id] = $agent->first_name . ' ' . $agent->last_name;
+                    return $carry;
+                }, ['' => '-- Select Agent --']) : ['' => '-- Select Agency First --'], 
+                $row, 
+                ''
+            ); ?>
                 </div>
             </div>
         </div>
@@ -153,31 +163,52 @@ $(document).ready(function() {
         $('input[name="application_date"]').val(new Date().toISOString().split('T')[0]);
     }
 
-    // Update hidden agency_id when additional agencies change
+    // Update hidden agency_id and job_id when multi-selects change
     $('select[name="additional_agency_ids[]"]').on('change', function() {
         const selectedAgencies = $(this).val();
         if (selectedAgencies && selectedAgencies.length > 0) {
             // Use the first selected agency as primary
-            $('input[name="agency_id"]').val(selectedAgencies[0]);
-        }
-    });
+            const primaryAgencyId = selectedAgencies[0];
+            $('input[name="agency_id"]').val(primaryAgencyId);
 
-    // Dynamic agent loading when agency changes
-    $('#agency_id').on('change', function() {
-        const agencyId = $(this).val();
-        if (agencyId) {
-            $.get('<?= site_url("recruiter/candidates/get_agents/") ?>' + agencyId, function(data) {
+            // Load agents for the primary agency
+            $.get('<?= site_url("recruiter/candidates/get_agents/") ?>' + primaryAgencyId, function(
+                data) {
                 let options = '<option value="">-- Select Agent --</option>';
-                data.forEach(agent => {
+                $.each(data, function(index, agent) {
                     options +=
                         `<option value="${agent.id}">${agent.first_name} ${agent.last_name}</option>`;
                 });
                 $('#assigned_agent_id').html(options);
             });
         } else {
+            $('input[name="agency_id"]').val('');
             $('#assigned_agent_id').html('<option value="">-- Select Agency First --</option>');
         }
     });
+
+    // Update hidden job_id when jobs multi-select changes
+    $('select[name="additional_job_ids[]"]').on('change', function() {
+        const selectedJobs = $(this).val();
+        if (selectedJobs && selectedJobs.length > 0) {
+            // Use the first selected job as primary
+            const primaryJobId = selectedJobs[0];
+            $('input[name="job_id"]').val(primaryJobId);
+        } else {
+            $('input[name="job_id"]').val('');
+        }
+    });
+
+    // Initialize with current values (in case of edit)
+    const currentAgencies = $('select[name="additional_agency_ids[]"]').val();
+    if (currentAgencies && currentAgencies.length > 0) {
+        $('input[name="agency_id"]').val(currentAgencies[0]);
+    }
+
+    const currentJobs = $('select[name="additional_job_ids[]"]').val();
+    if (currentJobs && currentJobs.length > 0) {
+        $('input[name="job_id"]').val(currentJobs[0]);
+    }
 
     // Initialize multi-select styles
     $('select[multiple]').each(function() {

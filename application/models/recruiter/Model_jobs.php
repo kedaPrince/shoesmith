@@ -5,8 +5,8 @@ class Model_jobs extends CRUD_Model
 {
     protected $table = 'mod_jobs';
 
-    public function main_selects() {
-        // Completely override parent selection to avoid non-existent fields
+       public function main_selects() {
+        // Include candidate_count in the selection
         $this->db->select([
             'mod_jobs.id',
             'mod_jobs.enabled', 
@@ -15,6 +15,7 @@ class Model_jobs extends CRUD_Model
             'mod_jobs.employment_type',
             'mod_jobs.industry_id',
             'mod_jobs.agency_id',
+            'mod_jobs.candidate_count', // Add this line
             'agencies.name AS agency_name',
             'mod_industries.name AS industry_name'
         ]);
@@ -25,6 +26,7 @@ class Model_jobs extends CRUD_Model
         $this->db->join('agencies', 'agencies.id = mod_jobs.agency_id', 'left');
         $this->db->join('mod_industries', 'mod_industries.id = mod_jobs.industry_id', 'left');
     }
+
 
     public function get_agency_options($user_agency_id = null)
     {

@@ -167,5 +167,17 @@ public function get_by_id($id, $table = false)
                     ->row();
 }
 
+// Add this method to your Model_candidates
+public function get_job_by_id($job_id)
+{
+    return $this->db->select('mj.*, a.name as agency_name')
+                    ->from('mod_jobs mj')
+                    ->join('agencies a', 'a.id = mj.agency_id', 'left')
+                    ->where('mj.id', $job_id)
+                    ->where('mj.enabled', 1)
+                    ->where('mj.removed', 0)
+                    ->get()
+                    ->row();
+}
 
 }

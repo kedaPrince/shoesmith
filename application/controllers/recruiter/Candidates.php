@@ -130,7 +130,7 @@ class Candidates extends CRUD_Controller
             ),
             'multi_selects' => array(
                 'additional_agency_ids' => array(
-                    'validation' => 'trim',
+                      'validation' => 'trim|required',
                     'pivot_table' => 'candidate_agencies',
                     'main_field' => 'candidate_id',
                     'link_field' => 'agency_id',
@@ -176,6 +176,30 @@ class Candidates extends CRUD_Controller
 
 public function quick_manage_extra($id, $row): array
 {
+    // Handle the case where $row might be a string (empty) for new records
+    if (is_string($row) || $row === null) {
+        $row = new stdClass();
+        $row->id = 0;
+        $row->job_id = null;
+        $row->agency_id = null;
+    }
+
+    // Check for pre-selected job from session (only for new candidates)
+    $pre_selected_job_id = $this->session->userdata('pre_selected_job_id');
+    
+    if (empty($id) && $pre_selected_job_id) {
+        // We're creating a new candidate with a pre-selected job
+        $job = $this->{$this->model}->get_job_by_id($pre_selected_job_id);
+        if ($job) {
+            // Update the row object with pre-selected values
+            $row->job_id = $job->id;
+            $row->agency_id = $job->agency_id;
+            
+            // Clear the session after use
+            $this->session->unset_userdata('pre_selected_job_id');
+        }
+    }
+
     // Get ALL agencies and jobs (no filtering)
     $agencies = $this->{$this->model}->get_agencies_all();
     $jobs = $this->{$this->model}->get_jobs_all();
@@ -186,13 +210,21 @@ public function quick_manage_extra($id, $row): array
         $agents = $this->{$this->model}->get_agency_agents_by_agency($row->agency_id);
     }
 
-    // Exclude primary agency/job from additional lists
-    $exclude_agency_id = !empty($row->agency_id) ? $row->agency_id : null;
-    $exclude_job_id = !empty($row->job_id) ? $row->job_id : null;
+    // Get ALL selected agencies and jobs (including primary)
+    $all_additional_agency_ids = !empty($id) ? $this->{$this->model}->get_candidate_additional_agencies($id) : [];
+    $all_additional_job_ids = !empty($id) ? $this->{$this->model}->get_candidate_additional_jobs($id) : [];
+    
+    // If no existing data but we have row data (like from job pre-selection), use that
+    if (empty($all_additional_agency_ids) && !empty($row->agency_id)) {
+        $all_additional_agency_ids[] = $row->agency_id;
+    }
+    if (empty($all_additional_job_ids) && !empty($row->job_id)) {
+        $all_additional_job_ids[] = $row->job_id;
+    }
 
-    // Get options for multi-selects (excluding primary selections)
-    $additional_agency_options = $this->{$this->model}->get_additional_agency_options($exclude_agency_id);
-    $additional_job_options = $this->{$this->model}->get_additional_job_options($exclude_job_id);
+    // Get options for multi-selects (all agencies/jobs)
+    $additional_agency_options = $this->{$this->model}->get_additional_agency_options();
+    $additional_job_options = $this->{$this->model}->get_additional_job_options();
 
     // Convert objects to arrays for the helper
     $agency_options_array = [];
@@ -210,14 +242,10 @@ public function quick_manage_extra($id, $row): array
         foreach ($additional_job_options as $job) {
             $job_options_array[] = [
                 'id' => $job->id,
-                'name' => $job->name
+                'name' => $job->name . ' (' . $job->reference_number . ')'
             ];
         }
     }
-
-    // Get currently selected additional values
-    $additional_agency_ids = !empty($id) ? $this->{$this->model}->get_candidate_additional_agencies($id) : [];
-    $additional_job_ids = !empty($id) ? $this->{$this->model}->get_candidate_additional_jobs($id) : [];
 
     return [
         'agencies_all' => $agencies,
@@ -225,8 +253,10 @@ public function quick_manage_extra($id, $row): array
         'agents_all' => $agents,
         'additional_agency_options' => $agency_options_array,
         'additional_job_options' => $job_options_array,
-        'additional_agency_ids' => $additional_agency_ids,
-        'additional_job_ids' => $additional_job_ids,
+        'additional_agency_ids' => $all_additional_agency_ids,
+        'additional_job_ids' => $all_additional_job_ids,
+        'primary_agency_id' => $row->agency_id ?? null,
+        'primary_job_id' => $row->job_id ?? null,
     ];
 }
 
@@ -237,16 +267,21 @@ public function quick_manage_extra($id, $row): array
         return $this->{$this->model}->is_unique_email($email, $id);
     }
 
-   public function create_extra_params(): array
+public function create_extra_params(): array
 {
     $additional_agencies = $this->input->post('additional_agency_ids') ?: [];
     $additional_jobs = $this->input->post('additional_job_ids') ?: [];
+    
+    // First selected becomes primary
+    $primary_agency_id = !empty($additional_agencies) ? $additional_agencies[0] : null;
+    $primary_job_id = !empty($additional_jobs) ? $additional_jobs[0] : null;
 
     return [
         'application_date' => $this->input->post('application_date') ?: date('Y-m-d H:i:s'),
         'enabled' => 1,
-        'agency_id' => !empty($additional_agencies) ? $additional_agencies[0] : null,
-        'job_id' => !empty($additional_jobs) ? $additional_jobs[0] : null,
+        'agency_id' => $primary_agency_id,  // First agency becomes primary
+        'job_id' => $primary_job_id,        // First job becomes primary
+        // REMOVE the multi-select arrays from here - they're handled by pivot tables
     ];
 }
 
@@ -254,13 +289,89 @@ public function update_extra_params($id): array
 {
     $additional_agencies = $this->input->post('additional_agency_ids') ?: [];
     $additional_jobs = $this->input->post('additional_job_ids') ?: [];
+    
+    // First selected becomes primary
+    $primary_agency_id = !empty($additional_agencies) ? $additional_agencies[0] : null;
+    $primary_job_id = !empty($additional_jobs) ? $additional_jobs[0] : null;
 
     return [
-        'agency_id' => !empty($additional_agencies) ? $additional_agencies[0] : null,
-        'job_id' => !empty($additional_jobs) ? $additional_jobs[0] : null,
+        'agency_id' => $primary_agency_id,  // Update primary agency
+        'job_id' => $primary_job_id,        // Update primary job
+        // REMOVE the multi-select arrays from here - they're handled by pivot tables
     ];
 }
 
+
+public function after_create($id, $data)
+{
+    // Handle multi-select pivot tables after main record is created
+    $this->handle_pivot_tables($id);
+    return parent::after_create($id, $data);
+}
+
+public function after_update($id, $data)
+{
+    // Handle multi-select pivot tables after main record is updated
+    $this->handle_pivot_tables($id);
+    return parent::after_update($id, $data);
+}
+
+private function handle_pivot_tables($candidate_id)
+{
+    // Handle agency pivot table
+    $additional_agencies = $this->input->post('additional_agency_ids') ?: [];
+    
+    // Clear existing agency associations
+    $this->db->where('candidate_id', $candidate_id)->delete('candidate_agencies');
+    
+    // Insert new agency associations
+    if (!empty($additional_agencies)) {
+        $agency_data = [];
+        foreach ($additional_agencies as $agency_id) {
+            $agency_data[] = [
+                'candidate_id' => $candidate_id,
+                'agency_id' => $agency_id,
+                'created_at' => date('Y-m-d H:i:s')
+            ];
+        }
+        $this->db->insert_batch('candidate_agencies', $agency_data);
+    }
+
+    // Handle job pivot table
+    $additional_jobs = $this->input->post('additional_job_ids') ?: [];
+    
+    // Clear existing job associations
+    $this->db->where('candidate_id', $candidate_id)->delete('candidate_jobs');
+    
+    // Insert new job associations
+    if (!empty($additional_jobs)) {
+        $job_data = [];
+        foreach ($additional_jobs as $job_id) {
+            $job_data[] = [
+                'candidate_id' => $candidate_id,
+                'job_id' => $job_id,
+                'created_at' => date('Y-m-d H:i:s')
+            ];
+        }
+        $this->db->insert_batch('candidate_jobs', $job_data);
+    }
+}
+// Add this method to your Candidates controller
+public function add($job_id = null)
+{
+    // Check if we have a job_id from URL or from query string
+    if (empty($job_id)) {
+        $job_id = $this->input->get('job_id');
+    }
+    
+    // Store the pre-selected job ID in session
+    if ($job_id && is_numeric($job_id)) {
+        $this->session->set_userdata('pre_selected_job_id', $job_id);
+    }
+    
+    // Call parent add method which will handle the quick manage display
+    parent::add();
+}
     public function get_agents($agency_id)
     {
         $agents = $this->{$this->model}->get_agency_agents_by_agency((int)$agency_id);
