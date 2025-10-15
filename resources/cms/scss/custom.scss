@@ -28,10 +28,7 @@
 }
 
 
-#left-sidebar {
-    background: linear-gradient(165deg, #1C352D 25%, #010016 75%) !important;
-    padding: 20px 20px 0;
-}
+
 
 body {
  	background: #222426;
@@ -515,6 +512,10 @@ hr {
     text-transform: uppercase;
     letter-spacing: .5px;
 }
+body .dropdown-menu {
+    background-color: #000;
+    color: var(--font-color);
+}
 
 .card {
     -webkit-transition: all .3s;
@@ -522,8 +523,7 @@ hr {
     -ms-transition: all .3s;
     -o-transition: all .3s;
     transition: all .3s;
-    background: #222426;
-    /* border: 1px dashed #2f4f75; */
+   
     margin-bottom: 30px;
     position: relative;
     width: 100%;
