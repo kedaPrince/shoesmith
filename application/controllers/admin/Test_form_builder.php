@@ -522,22 +522,24 @@ public function generate_from_db_table() {
 
         $counter = 1;
         foreach ($from_db->form_schema[0]['fields'] as $name => $field) {
-    $df['form-rows']['new_' . time()]['df-sub'][$counter] = [
-        'field_name' => $name,
-        'field_type' => $field['type'],
-        'field_label' => $field['label'],
-        'field_required' => match($name) {
-            'schema_id', 'code' => '', // Not required
-            default => !empty($field['required']) ? '1' : ''
-        },
-        'field_col_sm' => $field['col']['sm'] ?? '12',
-        'field_col_md' => $field['col']['md'] ?? '6',
-        'field_col_lg' => $field['col']['lg'] ?? '6',
-        'field_attr' => $field['attr'] ?? '',
-        'field_input_options' => $field['options'] ?? ''
-    ];
-    $counter++;
-}
+            $df['form-rows']['new_' . time()]['df-sub'][$counter] = [
+                'field_name' => $name,
+                'field_type' => $field['type'],
+                'field_label' => $field['label'],
+                'field_required' => match($name) {
+                    'schema_id', 'code' => '', // Not required
+                    default => !empty($field['required']) ? '1' : ''
+                },
+                'field_col_sm' => $field['col']['sm'] ?? '12',
+                'field_col_md' => $field['col']['md'] ?? '6',
+                'field_col_lg' => $field['col']['lg'] ?? '6',
+                'field_attr' => $field['attr'] ?? '',
+                'field_input_options' => $field['options'] ?? ''
+            ];
+            $counter++;
+        }
+
+        log_message('debug', 'Generated schema: ' . print_r($from_db->form_schema, true));
 
         $this->output_json([
             'success' => true,
@@ -555,15 +557,17 @@ public function generate_from_db_table() {
         ]);
     }
 }
-
-    public function schema_to_html($schema) {
+    
+public function schema_to_html($schema, $show_buttons = true) {
     if (empty($schema)) {
         return '<pre><em>No schema data</em></pre>';
     }
 
     $html = '<style>.schema-html textarea{height:500px;}</style>';
     $html .= '<div class="schema-html">';
-    $html .= '<button class="btn btn-primary" onclick="copySchemaToClipboard(this)">Copy Schema</button>';
+    if ($show_buttons) {
+        $html .= '<button class="btn btn-primary" onclick="copySchemaToClipboard(this)">Copy Schema</button>';
+    }
     $html .= field_textarea(
         'schema_array|label_form_scripts',
         htmlspecialchars(print_r($schema, true)),
@@ -572,12 +576,8 @@ public function generate_from_db_table() {
     );
     $html .= '</div>';
 
-    //$html .= '<script>function copySchemaToClipboard(el){...}</script>';
-
     return $html;
 }
-
-
 
 
     private function output_json($data) {

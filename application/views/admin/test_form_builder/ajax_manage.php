@@ -798,8 +798,11 @@ function generate_from_table(table) {
         dataType: 'json',
         success: function(response) {
             if (response.success) {
-                // Show preview
+                // ✅ CORRECT: Tab 5 = rendered HTML form
                 $('.qm-tabs-tab[rel="5"] .form-display').html(response.form_view);
+
+                // ✅ CORRECT: Tab 6 = raw schema preview
+                $('.qm-tabs-tab[rel="6"] .form-sample').html(response.from_db_schema);
 
                 // Auto-fill name & ID
                 let id = response.form_schema?.form?.id || table;
@@ -808,22 +811,20 @@ function generate_from_table(table) {
                 $("input[name='name']").val(nameVal);
                 $("input[name='form_element_id']").val(id);
 
-                // ✅ ADD THE CONSOLE.LOG HERE
-                console.log('Fields to populate:', response.form_schema[0].fields);
-
-                // Populate layout only if fields exist
+                // Populate layout builder (Tab 2)
                 if (response.form_schema && response.form_schema[0] && response.form_schema[0].fields) {
                     populate_form_layout(response.form_schema[0].fields);
                 }
-
             } else {
                 $('.qm-tabs-tab[rel="5"] .form-display').html('<div class="error">Failed: ' + (response
                     .message || 'Unknown error') + '</div>');
+                $('.qm-tabs-tab[rel="6"] .form-sample').html('<em>No preview available.</em>');
             }
         },
         error: function(xhr) {
             $('.qm-tabs-tab[rel="5"] .form-display').html(
-                '<div class="error">AJAX Error. Open console.</div>');
+                '<div class="error">AJAX Error. Check console.</div>');
+            $('.qm-tabs-tab[rel="6"] .form-sample').html('<em>No preview available.</em>');
             console.error('generate_from_table error:', xhr);
         }
     });
