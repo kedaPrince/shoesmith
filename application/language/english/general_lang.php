@@ -880,8 +880,123 @@ $lang['label_notes'] = 'Notes';
 $lang['label_reference_number'] = 'Reference Number';
 
 
+$lang['templates_heading'] = 'Templates';
+$lang['templates_no_rows'] = 'No templates found';
+$lang['label_form_schema'] = 'Form Schema';
+$lang['label_preview'] = 'Preview';
+$lang['label_preview_image'] = 'Preview Image';
+// Add these to your existing language file
+$lang['test_form_builder_update_success_description'] = 'Form "{name}" has successfully been updated.';
+$lang['test_form_builder_create_success_description'] = 'Form "{name}" has successfully been added.';
+$lang['label_schema'] = 'Schema';
+$lang['label_scripts'] = 'Scripts';
+$lang['label_styling'] = 'Styling';
+$lang['label_form_action'] = 'Form Action';
+$lang['label_form_name'] = 'Form Name';
+$lang['label_form_element_id'] = 'Element ID';
+$lang['label_form_classes'] = 'CSS Classes';
+$lang['label_form_custom_function'] = 'Custom Function';
 
+// In your language file
+$lang['label_section_type'] = 'Section Type';
+$lang['label_form_schema'] = 'Form Schema';
+$lang['label_category'] = 'Category';
+$lang['label_sort_order'] = 'Sort Order';
+$lang['label_enabled'] = 'Enabled';
+$lang['label_description'] = 'Description';
 
+// Template Sections
+general_labels($lang, 'template_sections', 'template_section', 'template sections');
+$lang['template_sections_heading'] = 'Template Sections';
+$lang['template_sections_no_rows'] = 'No template sections found';
+
+// Template Section specific labels
+$lang['label_template_section'] = 'Template Section';
+$lang['label_template_sections'] = 'Template Sections';
+$lang['label_section_type'] = 'Section Type';
+$lang['label_form_schema'] = 'Form Schema';
+$lang['label_category'] = 'Category';
+$lang['label_sort_order'] = 'Sort Order';
+$lang['label_enabled'] = 'Enabled';
+$lang['label_description'] = 'Description';
+$lang['label_code'] = 'Code';
+
+// Form Builder specific labels
+general_labels($lang, 'test_form_builder', 'test_form', 'test forms');
+$lang['test_form_builder_heading'] = 'Form Builder';
+$lang['test_form_builder_no_rows'] = 'No forms found';
+
+$lang['test_form_builder_update_success_description'] = 'Form "{name}" has successfully been updated.';
+$lang['test_form_builder_create_success_description'] = 'Form "{name}" has successfully been added.';
+$lang['label_schema'] = 'Schema';
+$lang['label_scripts'] = 'Scripts';
+$lang['label_styling'] = 'Styling';
+$lang['label_form_action'] = 'Form Action';
+$lang['label_form_name'] = 'Form Name';
+$lang['label_form_element_id'] = 'Element ID';
+$lang['label_form_classes'] = 'CSS Classes';
+$lang['label_form_custom_function'] = 'Custom Function';
+
+// Form Builder Field Labels
+$lang['label_form_row_header'] = 'Row Header';
+$lang['label_form_row_custom_class'] = 'Row Custom Class';
+$lang['label_field_name'] = 'Field Name';
+$lang['label_field_type'] = 'Field Type';
+$lang['label_field_label'] = 'Field Label';
+$lang['label_field_required'] = 'Required Field';
+$lang['label_field_col_sm'] = 'Small Screen Columns';
+$lang['label_field_col_md'] = 'Medium Screen Columns';
+$lang['label_field_col_lg'] = 'Large Screen Columns';
+$lang['label_field_attr'] = 'Field Attributes';
+$lang['label_field_input_options'] = 'Input Options';
+
+// Section Types for Dropdown
+$lang['section_type_about'] = 'About Section';
+$lang['section_type_skills'] = 'Skills & Competencies';
+$lang['section_type_experience'] = 'Work Experience';
+$lang['section_type_education'] = 'Education & Qualifications';
+$lang['section_type_contact'] = 'Contact Information';
+$lang['section_type_services'] = 'Services Offered';
+$lang['section_type_portfolio'] = 'Portfolio & Projects';
+$lang['section_type_testimonials'] = 'Testimonials & Reviews';
+$lang['section_type_pricing'] = 'Pricing & Packages';
+$lang['section_type_custom'] = 'Custom Section';
+
+// Context-specific headings
+$lang['heading_create_custom_section_form'] = 'Create Custom Section Form';
+$lang['heading_build_new_form'] = 'Build New Form';
+$lang['heading_edit_form'] = 'Edit Form: {name}';
+
+// Instructions and tooltips
+$lang['text_building_form_for_template_section'] = 'Building a custom form for your template section';
+$lang['text_create_reusable_form'] = 'Create a reusable form that can be used in templates and sections';
+$lang['text_form_will_be_available'] = 'This form will be available for selection when creating template sections';
+
+// Buttons and Actions
+$lang['button_create_custom_form'] = 'Create Custom Form';
+$lang['button_save_section'] = 'Save Section';
+$lang['button_save_and_close'] = 'Save and Close';
+
+// Success Messages
+$lang['template_sections_create_success_description'] = 'Template section "{name}" has successfully been added.';
+$lang['template_sections_update_success_description'] = 'Template section "{name}" has successfully been updated.';
+
+// Add these after your existing general_labels calls
+general_labels($lang, 'template_sections', 'template_section', 'template sections');
+general_labels($lang, 'test_form_builder', 'test_form', 'test forms');
+// Context switching variables
+$lang['context_template_sections'] = 'template_sections';
+$lang['context_form_builder'] = 'form_builder';
+
+// Source detection
+$lang['source_template_sections'] = 'template_sections';
+$lang['source_form_builder'] = 'form_builder';
+
+// Headings based on context
+$lang['heading_custom_section_form'] = 'Create Custom Section Form';
+$lang['heading_regular_form'] = 'Build New Form';
+$lang['subheading_custom_section'] = 'Building form for template section';
+$lang['subheading_regular_form'] = 'Create a reusable form';
 function general_labels(&$lang, $module, $singular, $plural="") {
 
 	//Set plural word if not set

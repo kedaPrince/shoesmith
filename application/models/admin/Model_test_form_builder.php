@@ -2,8 +2,27 @@
 class Model_test_form_builder extends CRUD_Model {
     protected $table = 'sys_form_schemas';
 
+    // ✅ OVERRIDE THE UPDATE METHOD TO PREVENT NULL ERROR
+    public function update(array $data, $whereValue, $whereField = 'id', $table = false) {
+        $table = $table ? $table : $this->table;
+
+        $data['updated_at'] = date('Y-m-d H:i:s');
+
+        $result = $this->db->update($table, $data, array($whereField => $whereValue));
+        
+        if (!$result) {
+            log_message('error', 'Update failed: ' . $this->db->last_query());
+            Anomalies::log('Failed to update from CRUD', $this->db->last_query());
+            return false;
+        }
+
+        // ✅ SIMPLE FIX: Return the ID we're updating instead of querying for it
+        // This prevents the "Attempt to read property 'id' on null" error
+        return $whereValue;
+    }
+
     // Required by CRUD_Controller for listing
-     public function get_all($section = '') {
+    public function get_all($section = '') {
         return $this->db
             ->from($this->table)
             ->where('removed IS NULL OR removed = 0', null, false)
@@ -38,8 +57,6 @@ class Model_test_form_builder extends CRUD_Model {
             ->get_where($this->table, ['id' => $id])
             ->result_array();
     }
-
-
 
     // For input types dropdown in quick manage
     public function get_input_types() {

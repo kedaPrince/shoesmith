@@ -91,18 +91,52 @@ $this->siteMap = array(
             ),
         )
     ),
-     (object)array(
-        
-            'group' => 'Test Form Builder',
+   (object)array(
+    'group' => 'Templates',
+    'page' => 'templates',
+    'label' => 'Templates',
+    'icon' => 'fa-paint-brush',
+    'url' => url('templates'),
+    'class' => '',
+    'show' => true,
+    'active_by' => 'view',
+    'items' => array(
+        (object)array(
+            'page' => 'templates',
+            'view' => 'listing',
+            'label' => 'Templates',
+            'icon' => 'fa-file',
+            'url' => url('templates'),
+            'show' => true,
+        ),
+        (object)array(
+            'page' => 'template_sections',
+            'view' => 'listing', 
+            'label' => 'Template Sections',
+            'icon' => 'fa-puzzle-piece',
+            'url' => url('template_sections'),
+            'show' => true,
+        ),
+        (object)array(
+            'page' => 'agency_templates',
+            'view' => 'build',
+            'label' => 'Template Builder',
+            'icon' => 'fa-wrench',
+            'url' => url('agency_templates/build'),
+            'show' => true,
+        ),
+        // ADD TEST FORM BUILDER HERE
+        (object)array(
             'page' => 'test_form_builder',
+            'view' => 'listing',
             'label' => 'Test Form Builder',
             'icon' => 'fa-edit',
             'url' => url('test_form_builder'),
-            'class' => '',
             'show' => true,
-            'active_by' => 'view',
-
-     ),
+        ),
+        
+    ),
+),
     
    
 );
