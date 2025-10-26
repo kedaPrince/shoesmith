@@ -130,25 +130,7 @@ class Templates extends CRUD_Controller
                         '<span class="badge badge-secondary">Disabled</span>';
                 }
             ),
-            'preview' => array(
-                'label' => 'Preview',
-                'sort' => false,
-                'function' => function($value, $row) {
-                    $template_type = isset($row->template_type) ? $row->template_type : 'single';
-                    if ($template_type === 'composite') {
-                        $template_name = isset($row->template_name) ? htmlspecialchars($row->template_name) : 'Composite Template';
-                        return '<button type="button" class="btn btn-sm btn-warning preview-composite-template" 
-                                data-id="' . $row->id . '" data-name="' . $template_name . '">
-                                <i class="fa fa-eye"></i> Preview
-                            </button>';
-                    } else {
-                        $name = isset($row->name) ? htmlspecialchars($row->name) : 'Template';
-                        return '<a href="' . site_url('admin/templates/preview/' . $row->id) . '" class="btn btn-sm btn-info">
-                                <i class="fa fa-eye"></i> Preview
-                            </a>';
-                    }
-                }
-            ),
+          
         );
 
         $this->listActions = array(
@@ -689,377 +671,389 @@ class Templates extends CRUD_Controller
         return TRUE;
     }
 
-public function quick_manage_extra($id, $row) 
-{
-    log_message('debug', '=== QUICK_MANAGE_EXTRA CALLED FOR TEMPLATE: ' . $id . ' ===');
-    
-    // ADD CACHE PREVENTION HEADERS
-    header("Cache-Control: no-cache, no-store, must-revalidate");
-    header("Pragma: no-cache"); 
-    header("Expires: 0");
-    
-    if (!empty($row->template_type) && $row->template_type === 'composite') {
-        $result = $this->quick_manage_composite($id, $row);
-    } else {
-        $result = $this->quick_manage_single($id, $row);
+    public function quick_manage_extra($id, $row) 
+    {
+        log_message('debug', '=== QUICK_MANAGE_EXTRA CALLED FOR TEMPLATE: ' . $id . ' ===');
+        
+        // ADD CACHE PREVENTION HEADERS
+        header("Cache-Control: no-cache, no-store, must-revalidate");
+        header("Pragma: no-cache"); 
+        header("Expires: 0");
+        
+        if (!empty($row->template_type) && $row->template_type === 'composite') {
+            $result = $this->quick_manage_composite($id, $row);
+            $result['is_composite'] = true;
+        } else {
+            $result = $this->quick_manage_single($id, $row);
+            $result['is_composite'] = false;
+        }
+
+        // DEBUG: Log what data is actually being returned
+        log_message('debug', '=== RETURNING DATA FOR TEMPLATE: ' . $id . ' ===');
+        log_message('debug', 'Template ID in result: ' . $id);
+        log_message('debug', 'Form data count: ' . count($result['debug_form_data'] ?? []));
+        if (isset($result['debug_form_data']['about_job'])) {
+            log_message('debug', 'About Job content: ' . substr($result['debug_form_data']['about_job'], 0, 50));
+        }
+        
+        return $result;
     }
 
-    // DEBUG: Log what data is actually being returned
-    log_message('debug', '=== RETURNING DATA FOR TEMPLATE: ' . $id . ' ===');
-    log_message('debug', 'Template ID in result: ' . $id);
-    log_message('debug', 'Form data count: ' . count($result['debug_form_data'] ?? []));
-    if (isset($result['debug_form_data']['about_job'])) {
-        log_message('debug', 'About Job content: ' . substr($result['debug_form_data']['about_job'], 0, 50));
-    }
-    
-    return $result;
-}
-
- private function quick_manage_single($id, $row) 
-{
-    log_message('debug', '=== QUICK_MANAGE_SINGLE START for Template ID: ' . $id . ' ===');
-    log_message('debug', 'Row ID: ' . ($row->id ?? 'NULL'));
-    log_message('debug', 'Row Name: ' . ($row->name ?? 'NULL'));
-    log_message('debug', 'Row Schema ID: ' . ($row->schema_id ?? 'NULL'));
-    
-    $current_schema_data = null;
-    $current_schema_name = null;
-    $form_data = [];
-    
-    if (!empty($id) && !empty($row->schema_id) && $row->schema_id != 0) {
-        log_message('debug', 'Schema ID found: ' . $row->schema_id);
+    private function quick_manage_single($id, $row) 
+    {
+        log_message('debug', '=== QUICK_MANAGE_SINGLE START for Template ID: ' . $id . ' ===');
+        log_message('debug', 'Row ID: ' . ($row->id ?? 'NULL'));
+        log_message('debug', 'Row Name: ' . ($row->name ?? 'NULL'));
+        log_message('debug', 'Row Schema ID: ' . ($row->schema_id ?? 'NULL'));
         
-        $current_schema = $this->db->select('name, schema, scripts, styling, enabled')
-                                 ->from('sys_form_schemas')
-                                 ->where('id', $row->schema_id)
-                                 ->get()
-                                 ->row();
+        $current_schema_data = null;
+        $current_schema_name = null;
+        $form_data = [];
         
-        if ($current_schema) {
-            log_message('debug', 'Schema found: ' . $current_schema->name);
+        if (!empty($id) && !empty($row->schema_id) && $row->schema_id != 0) {
+            log_message('debug', 'Schema ID found: ' . $row->schema_id);
             
-            $current_schema_name = $current_schema->name;
-            try {
-                $schema_data = json_decode($current_schema->schema, true);
-                $styling = json_decode($current_schema->styling ?? '{}', true);
-                $scripts = json_decode($current_schema->scripts ?? '[]', true);
+            $current_schema = $this->db->select('name, schema, scripts, styling, enabled')
+                                     ->from('sys_form_schemas')
+                                     ->where('id', $row->schema_id)
+                                     ->get()
+                                     ->row();
+            
+            if ($current_schema) {
+                log_message('debug', 'Schema found: ' . $current_schema->name);
                 
-                log_message('debug', 'Looking for template instances for ACTUAL template ID: ' . $id);
-                
-                $instance = $this->db->select('id, template_id, name, form_data')
-                                   ->from('template_instances')
-                                   ->where('template_id', $id)
-                                   ->where('removed', 0)
-                                   ->order_by('id', 'DESC')
-                                   ->limit(1)
-                                   ->get()
-                                   ->row();
-                
-                if ($instance) {
-                    log_message('debug', 'Instance FOUND for template ID ' . $id . ': Instance ID=' . $instance->id . ', Name=' . $instance->name);
-                    log_message('debug', 'Instance Template ID: ' . $instance->template_id);
+                $current_schema_name = $current_schema->name;
+                try {
+                    $schema_data = json_decode($current_schema->schema, true);
+                    $styling = json_decode($current_schema->styling ?? '{}', true);
+                    $scripts = json_decode($current_schema->scripts ?? '[]', true);
                     
-                    if (!empty($instance->form_data)) {
-                        $form_data = json_decode($instance->form_data, true);
+                    log_message('debug', 'Looking for template instances for ACTUAL template ID: ' . $id);
+                    
+                    $instance = $this->db->select('id, template_id, name, form_data')
+                                       ->from('template_instances')
+                                       ->where('template_id', $id)
+                                       ->where('removed', 0)
+                                       ->order_by('id', 'DESC')
+                                       ->limit(1)
+                                       ->get()
+                                       ->row();
+                    
+                    if ($instance) {
+                        log_message('debug', 'Instance FOUND for template ID ' . $id . ': Instance ID=' . $instance->id . ', Name=' . $instance->name);
+                        log_message('debug', 'Instance Template ID: ' . $instance->template_id);
                         
-                        if (json_last_error() !== JSON_ERROR_NONE) {
-                            log_message('error', 'JSON decode error: ' . json_last_error_msg());
-                            $form_data = [];
-                        }
-                        
-                        log_message('debug', 'Loaded form data for template ' . $id . ': ' . count($form_data) . ' fields');
-                        foreach ($form_data as $key => $value) {
-                            log_message('debug', 'Field [' . $key . '] = "' . substr($value, 0, 50) . '"');
+                        if (!empty($instance->form_data)) {
+                            $form_data = json_decode($instance->form_data, true);
+                            
+                            if (json_last_error() !== JSON_ERROR_NONE) {
+                                log_message('error', 'JSON decode error: ' . json_last_error_msg());
+                                $form_data = [];
+                            }
+                            
+                            log_message('debug', 'Loaded form data for template ' . $id . ': ' . count($form_data) . ' fields');
+                            foreach ($form_data as $key => $value) {
+                                log_message('debug', 'Field [' . $key . '] = "' . substr($value, 0, 50) . '"');
+                            }
+                        } else {
+                            log_message('debug', 'Instance found but form_data is empty for template ID: ' . $id);
                         }
                     } else {
-                        log_message('debug', 'Instance found but form_data is empty for template ID: ' . $id);
-                    }
-                } else {
-                    log_message('debug', 'NO instance found for template ID: ' . $id);
-                    log_message('debug', 'Checking if any instances exist in database...');
-                    
-                    $all_instances = $this->db->select('id, template_id, name')
-                                            ->from('template_instances')
-                                            ->where('removed', 0)
-                                            ->get()
-                                            ->result();
-                    
-                    log_message('debug', 'All instances in database: ' . count($all_instances));
-                    foreach ($all_instances as $inst) {
-                        log_message('debug', 'Instance: ID=' . $inst->id . ', Template ID=' . $inst->template_id . ', Name=' . $inst->name);
-                    }
-                }
-                
-                try {
-                    log_message('debug', 'Building form with saved data for template ID: ' . $id);
-                    
-                    $form_builder = $this->form_builder::make()
-                        ->set_schema($schema_data)
-                        ->set_styling($styling)
-                        ->set_scripts($scripts);
-                    
-                    $form_result = $form_builder->make_form($form_data);
-                    
-                    if (!empty($form_result->form_view)) {
-                        $form_html = $form_result->form_view;
-                        log_message('debug', 'Form HTML generated successfully for template ID: ' . $id);
+                        log_message('debug', 'NO instance found for template ID: ' . $id);
+                        log_message('debug', 'Checking if any instances exist in database...');
                         
-                        // Pre-populate textareas, inputs, and selects
-                        $pre_pop_count = 0;
-                        foreach ($form_data as $field_name => $field_value) {
-                            log_message('debug', '  Attempting pre-pop for [' . $field_name . '] = "' . substr($field_value, 0, 30) . '"');
+                        $all_instances = $this->db->select('id, template_id, name')
+                                                ->from('template_instances')
+                                                ->where('removed', 0)
+                                                ->get()
+                                                ->result();
+                        
+                        log_message('debug', 'All instances in database: ' . count($all_instances));
+                        foreach ($all_instances as $inst) {
+                            log_message('debug', 'Instance: ID=' . $inst->id . ', Template ID=' . $inst->template_id . ', Name=' . $inst->name);
+                        }
+                    }
+                    
+                    try {
+                        log_message('debug', 'Building form with saved data for template ID: ' . $id);
+                        
+                        $form_builder = $this->form_builder::make()
+                            ->set_schema($schema_data)
+                            ->set_styling($styling)
+                            ->set_scripts($scripts);
+                        
+                        $form_result = $form_builder->make_form($form_data);
+                        
+                        if (!empty($form_result->form_view)) {
+                            $form_html = $form_result->form_view;
+                            log_message('debug', 'Form HTML generated successfully for template ID: ' . $id);
                             
-                            // Textareas
-                            $textarea_pattern = '/(<textarea\s+[^>]*name=["\']' . preg_quote($field_name, '/') . '["\'][^>]*>)(.*?)(<\/textarea>)/is';
-                            if (preg_match($textarea_pattern, $form_html, $matches)) {
-                                log_message('debug', '    ✓ MATCHED textarea for ' . $field_name . ' (old content: "' . substr($matches[2], 0, 30) . '")');
-                                $new_textarea = $matches[1] . htmlspecialchars($field_value, ENT_QUOTES, 'UTF-8') . $matches[3];
-                                $form_html = str_replace($matches[0], $new_textarea, $form_html);
-                                $pre_pop_count++;
-                            } else {
-                                // Inputs (text, email, etc.)
-                                $input_pattern = '/(<input\s+[^>]*name=["\']' . preg_quote($field_name, '/') . '["\'][^>]*)(value=["\'][^"\']*["\'])/i';
-                                if (preg_match($input_pattern, $form_html, $input_matches)) {
-                                    $new_value_attr = 'value="' . htmlspecialchars($field_value, ENT_QUOTES, 'UTF-8') . '"';
-                                    $new_input = str_replace($input_matches[2], $new_value_attr, $input_matches[0]);
-                                    $form_html = str_replace($input_matches[0], $new_input, $form_html);
-                                    log_message('debug', '    ✓ Updated input for ' . $field_name);
+                            // Pre-populate textareas, inputs, and selects
+                            $pre_pop_count = 0;
+                            foreach ($form_data as $field_name => $field_value) {
+                                log_message('debug', '  Attempting pre-pop for [' . $field_name . '] = "' . substr($field_value, 0, 30) . '"');
+                                
+                                // Textareas
+                                $textarea_pattern = '/(<textarea\s+[^>]*name=["\']' . preg_quote($field_name, '/') . '["\'][^>]*>)(.*?)(<\/textarea>)/is';
+                                if (preg_match($textarea_pattern, $form_html, $matches)) {
+                                    log_message('debug', '    ✓ MATCHED textarea for ' . $field_name . ' (old content: "' . substr($matches[2], 0, 30) . '")');
+                                    $new_textarea = $matches[1] . htmlspecialchars($field_value, ENT_QUOTES, 'UTF-8') . $matches[3];
+                                    $form_html = str_replace($matches[0], $new_textarea, $form_html);
                                     $pre_pop_count++;
                                 } else {
-                                    // Selects (basic single-select)
-                                    $select_pattern = '/(<select\s+[^>]*name=["\']' . preg_quote($field_name, '/') . '["\'][^>]*>)(.*?<\/select>)/is';
-                                    if (preg_match($select_pattern, $form_html, $select_matches)) {
-                                        $options_html = $select_matches[2];
-                                        $new_options = preg_replace('/<option\s+[^>]*value=["\']' . preg_quote($field_value, '/') . '["\'][^>]*>/i', '$0 selected="selected"', $options_html);
-                                        $new_select = $select_matches[1] . $new_options . '</select>';
-                                        $form_html = str_replace($select_matches[0], $new_select, $form_html);
-                                        log_message('debug', '    ✓ Updated select for ' . $field_name);
+                                    // Inputs (text, email, etc.)
+                                    $input_pattern = '/(<input\s+[^>]*name=["\']' . preg_quote($field_name, '/') . '["\'][^>]*)(value=["\'][^"\']*["\'])/i';
+                                    if (preg_match($input_pattern, $form_html, $input_matches)) {
+                                        $new_value_attr = 'value="' . htmlspecialchars($field_value, ENT_QUOTES, 'UTF-8') . '"';
+                                        $new_input = str_replace($input_matches[2], $new_value_attr, $input_matches[0]);
+                                        $form_html = str_replace($input_matches[0], $new_input, $form_html);
+                                        log_message('debug', '    ✓ Updated input for ' . $field_name);
                                         $pre_pop_count++;
                                     } else {
-                                        log_message('debug', '    ✗ NO MATCH for ' . $field_name . ' - check form_builder output');
+                                        // Selects (basic single-select)
+$select_pattern = '/(<select\s+[^>]*name=["\']' . preg_quote($field_name, '/') . '["\'][^>]*>)(.*?<\/select>)/is';
+if (preg_match($select_pattern, $form_html, $select_matches)) {
+    $options_html = $select_matches[2];
+    // Fixed regex: Capture attributes before > and insert selected attr inside tag
+    $option_pattern = '/(<option\s+[^>]*?value=["\']' . preg_quote($field_value, '/') . '["\'][^>]*?)>/i';
+    $new_options = preg_replace($option_pattern, '$1 selected="selected">', $options_html);
+    $new_select = $select_matches[1] . $new_options . '</select>';
+    $form_html = str_replace($select_matches[0], $new_select, $form_html);
+    log_message('debug', '    ✓ Updated select for ' . $field_name);
+    $pre_pop_count++;
+} else {
+    log_message('debug', '    ✗ NO MATCH for ' . $field_name . ' - check form_builder output');
+}
+                                    }
+                                }
+                            }
+                            log_message('debug', '  Pre-populated ' . $pre_pop_count . '/' . count($form_data) . ' fields for single template ' . $id);
+                            
+                            $form_html = preg_replace('/action="[^"]*"/', 'action="#"', $form_html);
+                            $form_html = preg_replace('/<style><\/style>/', '', $form_html);
+                            
+                            // Remove inline scripts to prevent double CKEditor initialization (matching composite behavior)
+                            $form_html = preg_replace('/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/is', '', $form_html);
+                            
+                            $current_schema_data = $form_html;
+                        } else {
+                            log_message('error', 'Form builder returned empty form view for template ID: ' . $id);
+                            $current_schema_data = '<div class="alert alert-danger">Form builder returned empty form</div>';
+                        }
+                    } catch (Exception $e) {
+                        log_message('error', 'Form builder exception for template ID ' . $id . ': ' . $e->getMessage());
+                        $current_schema_data = '<div class="alert alert-danger">Form builder error: ' . $e->getMessage() . '</div>';
+                    }
+                        
+                } catch (Exception $e) {
+                    log_message('error', 'Template schema error for template ID ' . $id . ': ' . $e->getMessage());
+                    $current_schema_data = '<div class="alert alert-danger">Error loading form: ' . $e->getMessage() . '</div>';
+                }
+            } else {
+                log_message('debug', 'Schema not found for ID: ' . $row->schema_id);
+                $current_schema_data = '<div class="alert alert-warning">Form schema not found</div>';
+            }
+        } else {
+            log_message('debug', 'Missing or invalid schema_id: ' . ($row->schema_id ?? 'NULL'));
+            $current_schema_data = '<div class="alert alert-warning">No form schema assigned to this template</div>';
+        }
+
+        log_message('debug', '=== QUICK_MANAGE_SINGLE END - Template ID: ' . $id . ' - Form data count: ' . count($form_data) . ' ===');
+
+        return [
+            'row' => $row,
+            'current_form_preview' => $current_schema_data,
+            'current_schema_name' => $current_schema_name,
+            'identifier' => !empty($row->name) ? $row->name : 'Template',
+            'debug_form_data' => $form_data,
+            'template_id' => $id,
+            'is_composite' => false
+        ];
+    }
+
+    private function quick_manage_composite($id, $row) 
+    {
+        log_message('debug', '=== QUICK_MANAGE_COMPOSITE START for Template ID: ' . $id . ' ===');
+        
+        $all_sections_html = '';
+        $all_form_data = [];
+        
+        $instance = $this->db->select('id, template_id, name, form_data')
+                           ->from('template_instances')
+                           ->where('template_id', $id)
+                           ->where('removed', 0)
+                           ->order_by('id', 'DESC')
+                           ->limit(1)
+                           ->get()
+                           ->row();
+        
+        log_message('debug', 'Looking for template instance for SPECIFIC composite template ID: ' . $id);
+        
+        if ($instance) {
+            log_message('debug', 'Instance FOUND for composite template ID ' . $id . ': Instance ID=' . $instance->id . ', Name=' . $instance->name);
+            
+            if (!empty($instance->form_data)) {
+                $all_form_data = json_decode($instance->form_data, true);
+                if (json_last_error() !== JSON_ERROR_NONE) {
+                    log_message('error', 'JSON decode error in composite template: ' . json_last_error_msg());
+                    $all_form_data = [];
+                } else {
+                    log_message('debug', 'Loaded composite template form data for template ID ' . $id . ': ' . count($all_form_data) . ' fields');
+                    log_message('debug', 'Form data keys: ' . implode(', ', array_keys($all_form_data)));
+                    // DEBUG: Log the actual values
+                    foreach ($all_form_data as $key => $value) {
+                        log_message('debug', 'Form data [' . $key . '] = "' . $value . '"');
+                    }
+                }
+            } else {
+                log_message('debug', 'Instance found but form_data is empty for composite template ID: ' . $id);
+            }
+        } else {
+            log_message('debug', 'NO instance found for composite template ID: ' . $id);
+        }
+        
+            
+            $template_with_sections = $this->Model_agency_templates->get_template_with_sections($id);
+            
+            if ($template_with_sections && !empty($template_with_sections->sections)) {
+                log_message('debug', 'Found ' . count($template_with_sections->sections) . ' sections for composite template ID: ' . $id);
+                
+                foreach ($template_with_sections->sections as $section) {
+                    log_message('debug', 'Processing section: ' . $section->name . ' (Schema ID: ' . $section->schema_id . ')');
+                    
+                    if (!empty($section->schema_id)) {
+                        $section_data = [];
+                        $schema = $this->db->select('schema')
+                                         ->from('sys_form_schemas')
+                                         ->where('id', $section->schema_id)
+                                         ->get()
+                                         ->row();
+                        
+                        if ($schema) {
+                            $schema_fields = json_decode($schema->schema, true);
+                            if (isset($schema_fields[0]['fields'])) {
+                                $field_names = array_keys($schema_fields[0]['fields']);
+                                foreach ($field_names as $field_name) {
+                                    if (isset($all_form_data[$field_name])) {
+                                        $section_data[$field_name] = $all_form_data[$field_name];
+                                        log_message('debug', 'Setting field [' . $field_name . '] = "' . substr($all_form_data[$field_name], 0, 50) . '"');
                                     }
                                 }
                             }
                         }
-                        log_message('debug', '  Pre-populated ' . $pre_pop_count . '/' . count($form_data) . ' fields for single template ' . $id);
                         
-                        $form_html = preg_replace('/action="[^"]*"/', 'action="#"', $form_html);
-                        $form_html = preg_replace('/<style><\/style>/', '', $form_html);
-                        
-                        $current_schema_data = $form_html;
+                        $section_form = $this->get_section_form_preview($section->schema_id, $id, $section_data);
+                        $all_sections_html .= $this->wrap_section_form($section, $section_form);
                     } else {
-                        log_message('error', 'Form builder returned empty form view for template ID: ' . $id);
-                        $current_schema_data = '<div class="alert alert-danger">Form builder returned empty form</div>';
+                        log_message('debug', 'Section has no schema_id: ' . $section->name);
+                        $all_sections_html .= $this->wrap_section_form($section, '<div class="alert alert-warning">No form schema assigned to this section</div>');
                     }
-                } catch (Exception $e) {
-                    log_message('error', 'Form builder exception for template ID ' . $id . ': ' . $e->getMessage());
-                    $current_schema_data = '<div class="alert alert-danger">Form builder error: ' . $e->getMessage() . '</div>';
                 }
-                    
-            } catch (Exception $e) {
-                log_message('error', 'Template schema error for template ID ' . $id . ': ' . $e->getMessage());
-                $current_schema_data = '<div class="alert alert-danger">Error loading form: ' . $e->getMessage() . '</div>';
-            }
-        } else {
-            log_message('debug', 'Schema not found for ID: ' . $row->schema_id);
-            $current_schema_data = '<div class="alert alert-warning">Form schema not found</div>';
-        }
-    } else {
-        log_message('debug', 'Missing or invalid schema_id: ' . ($row->schema_id ?? 'NULL'));
-        $current_schema_data = '<div class="alert alert-warning">No form schema assigned to this template</div>';
-    }
-
-    log_message('debug', '=== QUICK_MANAGE_SINGLE END - Template ID: ' . $id . ' - Form data count: ' . count($form_data) . ' ===');
-
-    return [
-        'row' => $row,
-        'current_form_preview' => $current_schema_data,
-        'current_schema_name' => $current_schema_name,
-        'identifier' => !empty($row->name) ? $row->name : 'Template',
-        'debug_form_data' => $form_data,
-        'template_id' => $id
-    ];
-}
-
-    private function quick_manage_composite($id, $row) 
-{
-    log_message('debug', '=== QUICK_MANAGE_COMPOSITE START for Template ID: ' . $id . ' ===');
-    
-    $all_sections_html = '';
-    $all_form_data = [];
-    
-    $instance = $this->db->select('id, template_id, name, form_data')
-                       ->from('template_instances')
-                       ->where('template_id', $id)
-                       ->where('removed', 0)
-                       ->order_by('id', 'DESC')
-                       ->limit(1)
-                       ->get()
-                       ->row();
-    
-    log_message('debug', 'Looking for template instance for SPECIFIC composite template ID: ' . $id);
-    
-    if ($instance) {
-        log_message('debug', 'Instance FOUND for composite template ID ' . $id . ': Instance ID=' . $instance->id . ', Name=' . $instance->name);
-        
-        if (!empty($instance->form_data)) {
-            $all_form_data = json_decode($instance->form_data, true);
-            if (json_last_error() !== JSON_ERROR_NONE) {
-                log_message('error', 'JSON decode error in composite template: ' . json_last_error_msg());
-                $all_form_data = [];
             } else {
-                log_message('debug', 'Loaded composite template form data for template ID ' . $id . ': ' . count($all_form_data) . ' fields');
-                log_message('debug', 'Form data keys: ' . implode(', ', array_keys($all_form_data)));
-                // DEBUG: Log the actual values
-                foreach ($all_form_data as $key => $value) {
-                    log_message('debug', 'Form data [' . $key . '] = "' . $value . '"');
-                }
+                $all_sections_html = '<div class="alert alert-warning">No sections found in this composite template</div>';
             }
-        } else {
-            log_message('debug', 'Instance found but form_data is empty for composite template ID: ' . $id);
-        }
-    } else {
-        log_message('debug', 'NO instance found for composite template ID: ' . $id);
+
+            log_message('debug', '=== QUICK_MANAGE_COMPOSITE END - Template ID: ' . $id . ' - Form data count: ' . count($all_form_data) . ' ===');
+
+            return [
+                'row' => $row,
+                'current_form_preview' => $all_sections_html,
+                'current_schema_name' => 'Composite Template',
+                'identifier' => !empty($row->template_name) ? $row->template_name : 'Composite Template',
+                'debug_form_data' => $all_form_data,
+                'is_composite' => true
+            ];
     }
-    
-        
-        $template_with_sections = $this->Model_agency_templates->get_template_with_sections($id);
-        
-        if ($template_with_sections && !empty($template_with_sections->sections)) {
-            log_message('debug', 'Found ' . count($template_with_sections->sections) . ' sections for composite template ID: ' . $id);
+
+    private function get_section_form_preview($schema_id, $template_id, $form_data = [])
+    {
+        try {
+            log_message('debug', 'Getting section form preview for schema_id: ' . $schema_id . ', template_id: ' . $template_id);
             
-            foreach ($template_with_sections->sections as $section) {
-                log_message('debug', 'Processing section: ' . $section->name . ' (Schema ID: ' . $section->schema_id . ')');
+            $schema_data = $this->db->select('schema, scripts, styling, name as schema_name')
+                                   ->from('sys_form_schemas')
+                                   ->where('id', $schema_id)
+                                   ->where('enabled', 1)
+                                   ->get()
+                                   ->row();
+
+            if (!$schema_data) {
+                return '<div class="alert alert-danger">Schema not found</div>';
+            }
+
+            $schema = json_decode($schema_data->schema, true);
+            $styling = json_decode($schema_data->styling ?? '{}', true);
+            $scripts = json_decode($schema_data->scripts ?? '[]', true);
+
+            $form_builder = $this->form_builder::make()
+                ->set_schema($schema)
+                ->set_styling($styling)
+                ->set_scripts($scripts);
+
+            $form_result = $form_builder->make_form($form_data);
+            $form_html = $form_result->form_view;
+
+            // Pre-populate textareas, inputs, and selects
+            $pre_pop_count = 0;
+            foreach ($form_data as $field_name => $field_value) {
+                log_message('debug', '  Attempting pre-pop for [' . $field_name . '] = "' . substr($field_value, 0, 30) . '"');
                 
-                if (!empty($section->schema_id)) {
-                    $section_data = [];
-                    $schema = $this->db->select('schema')
-                                     ->from('sys_form_schemas')
-                                     ->where('id', $section->schema_id)
-                                     ->get()
-                                     ->row();
-                    
-                    if ($schema) {
-                        $schema_fields = json_decode($schema->schema, true);
-                        if (isset($schema_fields[0]['fields'])) {
-                            $field_names = array_keys($schema_fields[0]['fields']);
-                            foreach ($field_names as $field_name) {
-                                if (isset($all_form_data[$field_name])) {
-                                    $section_data[$field_name] = $all_form_data[$field_name];
-                                    log_message('debug', 'Setting field [' . $field_name . '] = "' . substr($all_form_data[$field_name], 0, 50) . '"');
-                                }
-                            }
-                        }
-                    }
-                    
-                    $section_form = $this->get_section_form_preview($section->schema_id, $id, $section_data);
-                    $all_sections_html .= $this->wrap_section_form($section, $section_form);
-                } else {
-                    log_message('debug', 'Section has no schema_id: ' . $section->name);
-                    $all_sections_html .= $this->wrap_section_form($section, '<div class="alert alert-warning">No form schema assigned to this section</div>');
-                }
-            }
-        } else {
-            $all_sections_html = '<div class="alert alert-warning">No sections found in this composite template</div>';
-        }
-
-        log_message('debug', '=== QUICK_MANAGE_COMPOSITE END - Template ID: ' . $id . ' - Form data count: ' . count($all_form_data) . ' ===');
-
-        return [
-            'row' => $row,
-            'current_form_preview' => $all_sections_html,
-            'current_schema_name' => 'Composite Template',
-            'identifier' => !empty($row->template_name) ? $row->template_name : 'Composite Template',
-            'debug_form_data' => $all_form_data
-        ];
-    }
-
-private function get_section_form_preview($schema_id, $template_id, $form_data = [])
-{
-    try {
-        log_message('debug', 'Getting section form preview for schema_id: ' . $schema_id . ', template_id: ' . $template_id);
-        
-        $schema_data = $this->db->select('schema, scripts, styling, name as schema_name')
-                               ->from('sys_form_schemas')
-                               ->where('id', $schema_id)
-                               ->where('enabled', 1)
-                               ->get()
-                               ->row();
-
-        if (!$schema_data) {
-            return '<div class="alert alert-danger">Schema not found</div>';
-        }
-
-        $schema = json_decode($schema_data->schema, true);
-        $styling = json_decode($schema_data->styling ?? '{}', true);
-        $scripts = json_decode($schema_data->scripts ?? '[]', true);
-
-        $form_builder = $this->form_builder::make()
-            ->set_schema($schema)
-            ->set_styling($styling)
-            ->set_scripts($scripts);
-
-        $form_result = $form_builder->make_form($form_data);
-        $form_html = $form_result->form_view;
-
-        // Pre-populate textareas, inputs, and selects
-        $pre_pop_count = 0;
-        foreach ($form_data as $field_name => $field_value) {
-            log_message('debug', '  Attempting pre-pop for [' . $field_name . '] = "' . substr($field_value, 0, 30) . '"');
-            
-            // Textareas
-            $textarea_pattern = '/(<textarea\s+[^>]*name=["\']' . preg_quote($field_name, '/') . '["\'][^>]*>)(.*?)(<\/textarea>)/is';
-            if (preg_match($textarea_pattern, $form_html, $matches)) {
-                log_message('debug', '    ✓ MATCHED textarea for ' . $field_name . ' (old content: "' . substr($matches[2], 0, 30) . '")');
-                $new_textarea = $matches[1] . htmlspecialchars($field_value, ENT_QUOTES, 'UTF-8') . $matches[3];
-                $form_html = str_replace($matches[0], $new_textarea, $form_html);
-                $pre_pop_count++;
-            } else {
-                // Inputs (text, email, etc.)
-                $input_pattern = '/(<input\s+[^>]*name=["\']' . preg_quote($field_name, '/') . '["\'][^>]*)(value=["\'][^"\']*["\'])/i';
-                if (preg_match($input_pattern, $form_html, $input_matches)) {
-                    $new_value_attr = 'value="' . htmlspecialchars($field_value, ENT_QUOTES, 'UTF-8') . '"';
-                    $new_input = str_replace($input_matches[2], $new_value_attr, $input_matches[0]);
-                    $form_html = str_replace($input_matches[0], $new_input, $form_html);
-                    log_message('debug', '    ✓ Updated input for ' . $field_name);
+                // Textareas
+                $textarea_pattern = '/(<textarea\s+[^>]*name=["\']' . preg_quote($field_name, '/') . '["\'][^>]*>)(.*?)(<\/textarea>)/is';
+                if (preg_match($textarea_pattern, $form_html, $matches)) {
+                    log_message('debug', '    ✓ MATCHED textarea for ' . $field_name . ' (old content: "' . substr($matches[2], 0, 30) . '")');
+                    $new_textarea = $matches[1] . htmlspecialchars($field_value, ENT_QUOTES, 'UTF-8') . $matches[3];
+                    $form_html = str_replace($matches[0], $new_textarea, $form_html);
                     $pre_pop_count++;
                 } else {
-                    // Selects (basic single-select)
-                    $select_pattern = '/(<select\s+[^>]*name=["\']' . preg_quote($field_name, '/') . '["\'][^>]*>)(.*?<\/select>)/is';
-                    if (preg_match($select_pattern, $form_html, $select_matches)) {
-                        $options_html = $select_matches[2];
-                        $new_options = preg_replace('/<option\s+[^>]*value=["\']' . preg_quote($field_value, '/') . '["\'][^>]*>/i', '$0 selected="selected"', $options_html);
-                        $new_select = $select_matches[1] . $new_options . '</select>';
-                        $form_html = str_replace($select_matches[0], $new_select, $form_html);
-                        log_message('debug', '    ✓ Updated select for ' . $field_name);
+                    // Inputs (text, email, etc.)
+                    $input_pattern = '/(<input\s+[^>]*name=["\']' . preg_quote($field_name, '/') . '["\'][^>]*)(value=["\'][^"\']*["\'])/i';
+                    if (preg_match($input_pattern, $form_html, $input_matches)) {
+                        $new_value_attr = 'value="' . htmlspecialchars($field_value, ENT_QUOTES, 'UTF-8') . '"';
+                        $new_input = str_replace($input_matches[2], $new_value_attr, $input_matches[0]);
+                        $form_html = str_replace($input_matches[0], $new_input, $form_html);
+                        log_message('debug', '    ✓ Updated input for ' . $field_name);
                         $pre_pop_count++;
                     } else {
-                        log_message('debug', '    ✗ NO MATCH for ' . $field_name . ' - check form_builder output');
+                        // Selects (basic single-select)
+$select_pattern = '/(<select\s+[^>]*name=["\']' . preg_quote($field_name, '/') . '["\'][^>]*>)(.*?<\/select>)/is';
+if (preg_match($select_pattern, $form_html, $select_matches)) {
+    $options_html = $select_matches[2];
+    // Fixed regex: Capture attributes before > and insert selected attr inside tag
+    $option_pattern = '/(<option\s+[^>]*?value=["\']' . preg_quote($field_value, '/') . '["\'][^>]*?)>/i';
+    $new_options = preg_replace($option_pattern, '$1 selected="selected">', $options_html);
+    $new_select = $select_matches[1] . $new_options . '</select>';
+    $form_html = str_replace($select_matches[0], $new_select, $form_html);
+    log_message('debug', '    ✓ Updated select for ' . $field_name);
+    $pre_pop_count++;
+} else {
+    log_message('debug', '    ✗ NO MATCH for ' . $field_name . ' - check form_builder output');
+}
                     }
                 }
             }
-        }
-        log_message('debug', '  Pre-populated ' . $pre_pop_count . '/' . count($form_data) . ' fields for section in template ' . $template_id);
+            log_message('debug', '  Pre-populated ' . $pre_pop_count . '/' . count($form_data) . ' fields for section in template ' . $template_id);
 
-        // FINAL HTML SNIPPET LOG (for key field, e.g., about_job)
-        if (isset($form_data['about_job'])) {
-            if (preg_match('/name=["\']about_job["\'][^>]*>(.*?)<\/textarea>/is', $form_html, $snippet)) {
-                log_message('debug', '  FINAL HTML about_job value: "' . substr(trim(strip_tags($snippet[1])), 0, 50) . '"');
+            // FINAL HTML SNIPPET LOG (for key field, e.g., about_job)
+            if (isset($form_data['about_job'])) {
+                if (preg_match('/name=["\']about_job["\'][^>]*>(.*?)<\/textarea>/is', $form_html, $snippet)) {
+                    log_message('debug', '  FINAL HTML about_job value: "' . substr(trim(strip_tags($snippet[1])), 0, 50) . '"');
+                }
             }
+
+            $form_html = preg_replace('/<form[^>]*>/', '<div class="section-form">', $form_html);
+            $form_html = str_replace('</form>', '</div>', $form_html);
+            $form_html = preg_replace('/<div class="btn-container"[^>]*>.*?<\/div>/s', '', $form_html);
+            $form_html = preg_replace('/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/is', '', $form_html);
+
+            return $form_html;
+
+        } catch (Exception $e) {
+            log_message('error', 'Section form error: ' . $e->getMessage());
+            return '<div class="alert alert-danger">Error loading section form</div>';
         }
-
-        $form_html = preg_replace('/<form[^>]*>/', '<div class="section-form">', $form_html);
-        $form_html = str_replace('</form>', '</div>', $form_html);
-        $form_html = preg_replace('/<div class="btn-container"[^>]*>.*?<\/div>/s', '', $form_html);
-        $form_html = preg_replace('/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/is', '', $form_html);
-
-        return $form_html;
-
-    } catch (Exception $e) {
-        log_message('error', 'Section form error: ' . $e->getMessage());
-        return '<div class="alert alert-danger">Error loading section form</div>';
     }
-}
+
     public function preview($template_id)
     {
         log_message('debug', '=== PREVIEW TEMPLATE CALLED: ' . $template_id . ' ===');
@@ -1081,17 +1075,23 @@ private function get_section_form_preview($schema_id, $template_id, $form_data =
         $this->load->view($this->folder . '/view_footer');
     }
 
-    private function wrap_section_form($section, $form_html)
-    {
-        return '
-        <div class="composite-section mb-4" data-section-id="' . $section->id . '">
-            <div class="section-header bg-light p-3 mb-3 border rounded">
+    // Also, update the wrap_section_form method to include the delete button:
+private function wrap_section_form($section, $form_html)
+{
+    return '
+    <div class="composite-section mb-4" data-section-id="' . $section->id . '">
+        <div class="section-header bg-light p-3 mb-3 border rounded d-flex justify-content-between align-items-center">
+            <div>
                 <h5>' . htmlspecialchars($section->name) . '</h5>
                 <small class="text-muted">' . ($section->section_type ?? 'Section') . '</small>
             </div>
-            ' . $form_html . '
-        </div>';
-    }
+            <button type="button" class="btn btn-sm btn-danger delete-section" data-section-id="' . $section->id . '" title="Delete this section">
+                <i class="fa fa-trash"></i> Delete
+            </button>
+        </div>
+        ' . $form_html . '
+    </div>';
+}
 
     public function ajax_listing()
     {
@@ -1199,105 +1199,66 @@ private function get_section_form_preview($schema_id, $template_id, $form_data =
         return TRUE;
     }
 
-  public function update_ajax($template_id)
-{
-    log_message('debug', '=== UPDATE_AJAX CALLED FOR TEMPLATE: ' . $template_id . ' ===');
-    
-    if (!$this->input->is_ajax_request()) {
-        show_404();
-    }
-
-
-
-    try {
-        $post_data = $this->input->post();
+    public function update_ajax($template_id)
+    {
+        log_message('debug', '=== UPDATE_AJAX CALLED FOR TEMPLATE: ' . $template_id . ' ===');
         
-        $system_fields = ['id', 'name', 'code', 'schema_id', 'description', 'preview_image', 'enabled', 'is_preview'];
-        $form_data = array_diff_key($post_data, array_flip($system_fields));
-        
-        log_message('debug', 'Form data to save for template ' . $template_id . ': ' . print_r($form_data, true));
+        if (!$this->input->is_ajax_request()) {
+            show_404();
+        }
 
-        if (empty($form_data)) {
+        try {
+            $post_data = $this->input->post();
+            
+            $system_fields = ['id', 'name', 'code', 'schema_id', 'description', 'preview_image', 'enabled', 'is_preview'];
+            $form_data = array_diff_key($post_data, array_flip($system_fields));
+            
+            log_message('debug', 'Form data to save for template ' . $template_id . ': ' . print_r($form_data, true));
+
+            if (empty($form_data)) {
+                $this->output_json([
+                    'success' => false,
+                    'error' => 'No form data to save'
+                ]);
+                return;
+            }
+
+            $this->db->trans_start();
+
+            $template = $this->{$this->model}->get_by_id($template_id);
+            if (!$template) {
+                throw new Exception('Template not found');
+            }
+
+            $template_type = $template->template_type ?? 'single';
+            
+            if ($template_type === 'composite') {
+                $result = $this->save_composite_template_data($template_id, $form_data, $template);
+            } else {
+                $result = $this->save_single_template_data($template_id, $form_data, $template);
+            }
+
+            $this->db->trans_complete();
+
+            if ($this->db->trans_status() === FALSE) {
+                throw new Exception('Database transaction failed');
+            }
+
+            $this->output_json([
+                'success' => true,
+                'message' => 'Template data saved successfully',
+                'data' => $result
+            ]);
+
+        } catch (Exception $e) {
+            log_message('error', 'Template save error: ' . $e->getMessage());
+            $this->db->trans_rollback();
+            
             $this->output_json([
                 'success' => false,
-                'error' => 'No form data to save'
+                'error' => $e->getMessage()
             ]);
-            return;
         }
-
-        $this->db->trans_start();
-
-        $template = $this->{$this->model}->get_by_id($template_id);
-        if (!$template) {
-            throw new Exception('Template not found');
-        }
-
-        $template_type = $template->template_type ?? 'single';
-        
-        if ($template_type === 'composite') {
-            $result = $this->save_composite_template_data($template_id, $form_data, $template);
-        } else {
-            $result = $this->save_single_template_data($template_id, $form_data, $template);
-        }
-
-        $this->db->trans_complete();
-
-        if ($this->db->trans_status() === FALSE) {
-            throw new Exception('Database transaction failed');
-        }
-
-        $this->output_json([
-            'success' => true,
-            'message' => 'Template data saved successfully',
-            'data' => $result
-        ]);
-
-    } catch (Exception $e) {
-        log_message('error', 'Template save error: ' . $e->getMessage());
-        $this->db->trans_rollback();
-        
-        $this->output_json([
-            'success' => false,
-            'error' => $e->getMessage()
-        ]);
-    }
-}
-
-    private function save_single_template_data($template_id, $form_data, $template)
-    {
-        log_message('debug', 'Saving single template data for template ID: ' . $template_id);
-        
-        $existing_instance = $this->db->where('template_id', $template_id)
-                                     ->where('removed', 0)
-                                     ->get('template_instances')
-                                     ->row();
-
-        $instance_data = [
-            'template_id' => $template_id,
-            'name' => $template->name ?? 'Template Instance',
-            'form_data' => json_encode($form_data, JSON_UNESCAPED_UNICODE),
-            'updated_at' => date('Y-m-d H:i:s')
-        ];
-
-        if ($existing_instance) {
-            $this->db->where('id', $existing_instance->id)
-                    ->update('template_instances', $instance_data);
-            $instance_id = $existing_instance->id;
-            log_message('debug', 'Updated existing template instance: ' . $instance_id . ' for template: ' . $template_id);
-        } else {
-            $instance_data['created_at'] = date('Y-m-d H:i:s');
-            $this->db->insert('template_instances', $instance_data);
-            $instance_id = $this->db->insert_id();
-            log_message('debug', 'Created new template instance: ' . $instance_id . ' for template: ' . $template_id);
-        }
-
-        $this->add_missing_columns('mod_layouts', $form_data);
-
-        return [
-            'instance_id' => $instance_id,
-            'template_type' => 'single',
-            'fields_saved' => count($form_data)
-        ];
     }
 
     private function save_composite_template_data($template_id, $form_data, $template)
@@ -1337,11 +1298,84 @@ private function get_section_form_preview($schema_id, $template_id, $form_data =
 
         $this->add_missing_columns('agency_custom_templates', $form_data);
 
+        // NEW: Update agency_custom_templates with individual form_data fields
+        $update_data = [];
+        foreach ($form_data as $key => $value) {
+            $update_data[$key] = $value;
+        }
+        $this->db->where('id', $template_id)
+                 ->update('agency_custom_templates', $update_data);
+        $affected = $this->db->affected_rows();
+        if ($affected === 0) {
+            log_message('warning', 'No rows updated in agency_custom_templates for template ' . $template_id . ' - check if base record exists');
+            // Optional: INSERT base if missing (adjust fields as needed)
+            $base_data = ['id' => $template_id, 'agency_id' => $template->agency_id ?? 1, 'template_name' => $template->template_name ?? 'Composite', 'enabled' => 1, 'created_at' => date('Y-m-d H:i:s'), 'updated_at' => date('Y-m-d H:i:s')];
+            $base_data = array_merge($base_data, $update_data);
+            $this->db->insert('agency_custom_templates', $base_data);
+        } else {
+            log_message('debug', 'Updated ' . $affected . ' row(s) in agency_custom_templates for template ' . $template_id . ' with ' . count($form_data) . ' fields');
+        }
+
         return [
             'instance_id' => $instance_id,
             'template_type' => 'composite',
             'fields_saved' => count($form_data),
             'sections_count' => count($composite_template->sections)
+        ];
+    }
+
+    private function save_single_template_data($template_id, $form_data, $template)
+    {
+        log_message('debug', 'Saving single template data for template ID: ' . $template_id);
+        
+        $existing_instance = $this->db->where('template_id', $template_id)
+                                     ->where('removed', 0)
+                                     ->get('template_instances')
+                                     ->row();
+
+        $instance_data = [
+            'template_id' => $template_id,
+            'name' => $template->name ?? 'Template Instance',
+            'form_data' => json_encode($form_data, JSON_UNESCAPED_UNICODE),
+            'updated_at' => date('Y-m-d H:i:s')
+        ];
+
+        if ($existing_instance) {
+            $this->db->where('id', $existing_instance->id)
+                    ->update('template_instances', $instance_data);
+            $instance_id = $existing_instance->id;
+            log_message('debug', 'Updated existing template instance: ' . $instance_id . ' for template: ' . $template_id);
+        } else {
+            $instance_data['created_at'] = date('Y-m-d H:i:s');
+            $this->db->insert('template_instances', $instance_data);
+            $instance_id = $this->db->insert_id();
+            log_message('debug', 'Created new template instance: ' . $instance_id . ' for template: ' . $template_id);
+        }
+
+        $this->add_missing_columns('mod_layouts', $form_data);
+
+        // NEW: Update mod_layouts with individual form_data fields (assuming mod_layouts has id matching template_id)
+        $update_data = [];
+        foreach ($form_data as $key => $value) {
+            $update_data[$key] = $value;
+        }
+        $this->db->where('id', $template_id)
+                 ->update('mod_layouts', $update_data);
+        $affected = $this->db->affected_rows();
+        if ($affected === 0) {
+            log_message('warning', 'No rows updated in mod_layouts for template ' . $template_id . ' - check if base record exists');
+            // Optional: INSERT base if missing (adjust fields as needed for mod_layouts)
+            $base_data = ['id' => $template_id, 'name' => $template->name ?? 'Single', 'enabled' => 1, /* other base fields */ 'created_at' => date('Y-m-d H:i:s'), 'updated_at' => date('Y-m-d H:i:s')];
+            $base_data = array_merge($base_data, $update_data);
+            $this->db->insert('mod_layouts', $base_data);
+        } else {
+            log_message('debug', 'Updated ' . $affected . ' row(s) in mod_layouts for template ' . $template_id . ' with ' . count($form_data) . ' fields');
+        }
+
+        return [
+            'instance_id' => $instance_id,
+            'template_type' => 'single',
+            'fields_saved' => count($form_data)
         ];
     }
 
@@ -1425,4 +1459,114 @@ private function get_section_form_preview($schema_id, $template_id, $form_data =
     {
         return preg_match('/^[a-zA-Z_][a-zA-Z0-9_]*$/', $field_name);
     }
+
+    public function get_available_sections_for_template($template_id) {
+        if (!$this->input->is_ajax_request()) {
+            show_404();
+        }
+
+        $this->load->model('admin/Model_template_sections');
+        $all_sections = $this->Model_template_sections->get_all()->result();
+
+        // Exclude already added sections
+        $added_sections = $this->db->select('section_id')
+                                   ->from('agency_template_sections')
+                                   ->where('agency_template_id', $template_id)
+                                   ->get()
+                                   ->result_array();
+        $added_ids = array_column($added_sections, 'section_id');
+
+        $available = [];
+        foreach ($all_sections as $section) {
+            if (!in_array($section->id, $added_ids)) {
+                $available[] = $section;
+            }
+        }
+
+        $this->output_json([
+            'success' => true,
+            'sections' => $available
+        ]);
+    }
+
+    public function add_section_to_template($template_id) {
+        if (!$this->input->is_ajax_request()) {
+            show_404();
+        }
+
+        $section_id = $this->input->post('section_id');
+        if (empty($section_id) || !is_numeric($section_id)) {
+            $this->output_json(['success' => false, 'error' => 'Invalid section ID']);
+            return;
+        }
+
+        $this->load->model('admin/Model_agency_templates');
+        $result = $this->Model_agency_templates->add_section_to_template($template_id, $section_id);
+
+        if ($result) {
+            log_message('debug', 'Added section ' . $section_id . ' to composite template ' . $template_id);
+            $this->output_json(['success' => true, 'message' => 'Section added successfully']);
+        } else {
+            log_message('error', 'Failed to add section ' . $section_id . ' to template ' . $template_id);
+            $this->output_json(['success' => false, 'error' => 'Failed to add section']);
+        }
+    }
+
+    // In the Templates controller, add this new method:
+public function remove_section_from_template($template_id) {
+    if (!$this->input->is_ajax_request()) {
+        show_404();
+    }
+
+    $section_id = $this->input->post('section_id');
+    if (empty($section_id) || !is_numeric($section_id)) {
+        $this->output_json(['success' => false, 'error' => 'Invalid section ID']);
+        return;
+    }
+
+    // Verify the section belongs to this template
+    $exists = $this->db->where([
+        'agency_template_id' => $template_id,
+        'section_id' => $section_id
+    ])->count_all_results('agency_template_sections');
+    if ($exists === 0) {
+        $this->output_json(['success' => false, 'error' => 'Section not found in this template']);
+        return;
+    }
+
+    $result = $this->db->delete('agency_template_sections', [
+        'agency_template_id' => $template_id,
+        'section_id' => $section_id
+    ]);
+
+    if ($result) {
+        // Reorder remaining sections
+        $this->reorder_sections_after_delete($template_id);
+        log_message('debug', 'Removed section ' . $section_id . ' from composite template ' . $template_id);
+        $this->output_json(['success' => true, 'message' => 'Section removed successfully']);
+    } else {
+        log_message('error', 'Failed to remove section ' . $section_id . ' from template ' . $template_id);
+        $this->output_json(['success' => false, 'error' => 'Failed to remove section']);
+    }
+}
+
+private function reorder_sections_after_delete($template_id) {
+    $sections = $this->db->select('ats.id, ats.sort_order')
+                         ->from('agency_template_sections as ats')
+                         ->where('ats.agency_template_id', $template_id)
+                         ->order_by('ats.sort_order', 'ASC')
+                         ->get()
+                         ->result();
+
+    $order = 1;
+    foreach ($sections as $sec) {
+        $this->db->where('id', $sec->id)
+                 ->update('agency_template_sections', ['sort_order' => $order]);
+        $order++;
+    }
+}
+
+
+
+
 }

@@ -1,5 +1,7 @@
 <?php
-class Model_agency_templates extends CRUD_Model 
+defined('BASEPATH') or exit('No direct script access allowed');
+
+class Model_agency_templates extends CI_Model 
 {
     protected $table = 'agency_custom_templates';
 
@@ -9,9 +11,6 @@ class Model_agency_templates extends CRUD_Model
         $this->load->model('admin/Model_template_sections');
     }
 
-    /**
-     * Save or update agency template with sections
-     */
    public function save_agency_template($agency_id, $template_name, $description, $sections = []) 
     {
         // Start transaction
@@ -91,10 +90,7 @@ class Model_agency_templates extends CRUD_Model
         }
     }
 
-    /**
-     * Get agency template by agency ID
-     */
-     public function get_agency_template($agency_id) 
+    public function get_agency_template($agency_id) 
     {
         return $this->db->where('agency_id', $agency_id)
                        ->where('enabled', 1)
@@ -103,6 +99,7 @@ class Model_agency_templates extends CRUD_Model
                        ->get($this->table)
                        ->row();
     }
+
     public function get_agency_templates($agency_id) 
     {
         return $this->db->where('agency_id', $agency_id)
@@ -118,10 +115,8 @@ class Model_agency_templates extends CRUD_Model
                        ->get($this->table)
                        ->row();
     }
-    /**
-     * Get template with all sections - COMPLETELY FIXED VERSION
-     */
-   public function get_template_with_sections($template_id) 
+
+    public function get_template_with_sections($template_id) 
     {
         error_log("=== GET TEMPLATE WITH SECTIONS DEBUG ===");
         error_log("Looking for template ID: " . $template_id);
@@ -184,10 +179,7 @@ class Model_agency_templates extends CRUD_Model
         return $template;
     }
 
-    /**
-     * Get template with sections by agency ID
-     */
-      public function get_template_with_sections_by_agency($agency_id) 
+    public function get_template_with_sections_by_agency($agency_id) 
     {
         $template = $this->get_agency_template($agency_id);
         if (!$template) return null;
@@ -195,7 +187,7 @@ class Model_agency_templates extends CRUD_Model
         return $this->get_template_with_sections($template->id);
     }
 
-public function update_agency_template($template_id, $template_name, $description, $sections = []) 
+    public function update_agency_template($template_id, $template_name, $description, $sections = []) 
     {
         // Start transaction
         $this->db->trans_start();
@@ -250,9 +242,6 @@ public function update_agency_template($template_id, $template_name, $descriptio
         }
     }
 
-    /**
-     * Render agency template as HTML
-     */
     public function render_agency_template($agency_id) 
     {
         $template = $this->get_template_with_sections_by_agency($agency_id);
@@ -301,10 +290,6 @@ public function update_agency_template($template_id, $template_name, $descriptio
 
         return $html;
     }
-
-    /**
-     * Render form schema for section
-     */
     private function render_section_form($schema_id) 
     {
         if (!$schema_id) return '';
@@ -379,10 +364,7 @@ public function update_agency_template($template_id, $template_name, $descriptio
         return $this->db->trans_status();
     }
 
-    // Required CRUD methods
-    /**
- * Get all agency templates (override CRUD method)
- */
+
 public function get_all($section = '') 
 {
     return $this->db->where('enabled', 1)
@@ -442,7 +424,23 @@ public function get_count()
     {
         return $this->db->get_where($this->table, ['template_id' => $template_id])->result();
     }
+    
+    public function add_section_to_template($template_id, $section_id) {
+        // Get next position
+        $this->db->select_max('sort_order');
+        $this->db->from('agency_template_sections');
+        $this->db->where('agency_template_id', $template_id);
+        $query = $this->db->get();
+        $max_position = $query->row()->sort_order ?? 0;
 
+        $data = [
+            'agency_template_id' => $template_id,
+            'section_id' => $section_id,
+            'sort_order' => $max_position + 1,
+            'created_at' => date('Y-m-d H:i:s')
+        ];
 
+        return $this->db->insert('agency_template_sections', $data);
+    }
 
 }

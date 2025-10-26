@@ -48,6 +48,43 @@
                 <?php endif; ?>
             </div>
 
+            <?php if (!empty($is_composite) && $is_composite): ?>
+            <div class="section-manager mt-4 p-3 border rounded bg-light">
+                <h5><i class="fa fa-cogs"></i> Manage Sections</h5>
+                <button type="button" class="btn btn-primary mb-2" id="add-section-btn">
+                    <i class="fa fa-plus"></i> Add Section
+                </button>
+                <p class="text-muted small mb-0">Add more sections to this composite template.</p>
+
+                <!-- Add Section Modal -->
+                <div class="modal fade" id="addSectionModal" tabindex="-1" aria-labelledby="addSectionModalLabel"
+                    aria-hidden="true">
+                    <div class="modal-dialog">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title" id="addSectionModalLabel">Add New Section</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal"
+                                    aria-label="Close"></button>
+                            </div>
+                            <div class="modal-body">
+                                <div class="mb-3">
+                                    <label for="section-select" class="form-label">Select a Section</label>
+                                    <select class="form-select" id="section-select">
+                                        <option value="">Loading available sections...</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                <button type="button" class="btn btn-primary" id="confirm-add-section" disabled>Add
+                                    Section</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <?php endif; ?>
+
             <div class="form-group mt-4">
                 <button type="button" class="btn btn-success" id="save-button">
                     <i class="fa fa-save"></i> Save Template Data
@@ -76,7 +113,27 @@
     </ul>
     <div><strong>Editor Status:</strong> <span id="editor-status">Initializing...</span></div>
 </div>
-
+<!-- Delete Section Modal -->
+<div class="modal fade" id="deleteSectionModal" tabindex="-1" aria-labelledby="deleteSectionModalLabel"
+    aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="deleteSectionModalLabel">Confirm Delete</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p id="delete-section-message">Are you sure you want to delete this section? This action cannot be
+                    undone and will remove all associated form data for this section.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-danger" id="confirm-delete-section" disabled>Delete
+                    Section</button>
+            </div>
+        </div>
+    </div>
+</div>
 <style>
 body .form-control {
     color: #000000 !important;
@@ -131,6 +188,104 @@ body .form-control {
 .toolbar-separator {
     margin: 0 10px;
     color: #6c757d;
+}
+
+.section-manager {
+    background-color: #f8f9fa;
+}
+
+.composite-section {
+    border: 1px solid #dee2e6;
+    margin-bottom: 20px;
+    border-radius: 5px;
+}
+
+.section-header {
+    background-color: #e9ecef;
+    padding: 10px;
+    border-radius: 5px 5px 0 0;
+}
+
+#addSectionModal .modal-body {
+    pointer-events: auto !important;
+}
+
+#addSectionModal {
+    z-index: 1060 !important;
+}
+
+.modal-backdrop {
+    z-index: 1055 !important;
+}
+
+.modal-backdrop.show {
+    opacity: 0.5 !important;
+}
+
+.quick-manage-overlay {
+    z-index: 1040 !important;
+    /* Ensure overlay is below modal */
+}
+
+body.qm-full-page .quick-manage-overlay {
+    pointer-events: none;
+    /* Allow clicks through to modal */
+}
+
+#dynamic-form-content {
+    pointer-events: auto !important;
+    /* Ensure form remains clickable */
+}
+
+/* Add to your <style> block in the view for better delete button styling */
+.delete-section {
+    white-space: nowrap;
+}
+
+.composite-section:hover .delete-section {
+    opacity: 1;
+}
+
+.delete-section:hover {
+    background-color: #c82333 !important;
+}
+
+/* Add to your <style> block in the view - ensures delete buttons are always clickable and visible */
+.composite-section .section-header {
+    position: relative;
+    z-index: 10;
+}
+
+.delete-section {
+    pointer-events: auto !important;
+    opacity: 1 !important;
+    cursor: pointer !important;
+    white-space: nowrap;
+}
+
+.delete-section:disabled {
+    opacity: 0.65 !important;
+    /* Only gray if actually disabled */
+}
+
+.quick-manage-overlay {
+    pointer-events: none !important;
+    /* Allow clicks through overlay to buttons */
+}
+
+#dynamic-form-content {
+    pointer-events: auto !important;
+}
+
+.composite-section:hover .section-header .delete-section {
+    opacity: 1 !important;
+    transform: none;
+    /* Prevent any hover transforms blocking */
+}
+
+#deleteSectionModal .modal-footer button {
+    pointer-events: auto !important;
+    z-index: 1070 !important;
 }
 </style>
 
@@ -258,6 +413,7 @@ if (typeof window.QuickManageForm === 'undefined') {
             this.fallbackEditors = new Map();
             this.editorPromises = [];
             this.currentTemplateData = <?= json_encode($debug_form_data ?? []) ?>;
+            this.isComposite = <?= json_encode($is_composite ?? false) ?>;
             this.init();
         }
 
@@ -267,6 +423,7 @@ if (typeof window.QuickManageForm === 'undefined') {
 
             console.log('=== QUICK MANAGE FORM LOADED FOR TEMPLATE:', this.templateId, '===');
             console.log('Template data count:', Object.keys(this.currentTemplateData).length);
+            console.log('Is Composite:', this.isComposite);
 
             window.quickManageInitialized = true;
 
@@ -284,6 +441,9 @@ if (typeof window.QuickManageForm === 'undefined') {
                 this.cleanupForm();
                 this.styleSectionHeaders();
                 this.setupEventHandlers();
+                if (this.isComposite) {
+                    this.setupSectionManager();
+                }
                 await this.initializeWithCKEditor();
             } catch (error) {
                 console.error('CKEditor v5 initialization failed:', error);
@@ -294,6 +454,263 @@ if (typeof window.QuickManageForm === 'undefined') {
             $('#editor-status').text('Ready - Template: ' + this.templateId);
             this.isInitialized = true;
             this.debugFormState('FINAL INIT COMPLETE');
+        }
+
+        setupSectionManager() {
+            console.log('Setting up section manager for composite template:', this.templateId);
+
+            // Handle Add Section button
+            $('#add-section-btn').off('click.sectionmgr').on('click.sectionmgr', () => {
+                console.log('Add section button clicked');
+                $('#addSectionModal').appendTo('body').css('z-index', '1060').modal('show');
+                this.loadAvailableSections();
+            });
+
+            // Handle confirm add
+            $('#confirm-add-section').off('click.sectionmgr').on('click.sectionmgr', () => {
+                const sectionId = $('#section-select').val();
+                if (!sectionId) {
+                    this.showMessage('Please select a section', 'error');
+                    return;
+                }
+                this.addSection(sectionId);
+            });
+
+            // Enable/disable confirm button based on selection
+            $('#section-select').off('change.sectionmgr').on('change.sectionmgr', (e) => {
+                const val = $(e.target).val();
+                $('#confirm-add-section').prop('disabled', !val);
+            });
+
+            // In setupSectionManager(), update the delete button click handler:
+            $(document).off('click', '.delete-section').on('click', '.delete-section', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                e.stopImmediatePropagation(); // Prevent any other handlers
+
+                const $btn = $(e.currentTarget);
+                if ($btn.prop('disabled')) {
+                    console.log('Delete button disabled - skipping');
+                    return;
+                }
+
+                const sectionId = $btn.data('section-id');
+                const sectionName = $btn.closest('.composite-section').find('h5').text().trim();
+
+                // Populate modal message with section name
+                $('#delete-section-message').html(
+                    `Are you sure you want to delete the section "<strong>${sectionName}</strong>"? This action cannot be
+        undone and will remove all associated form data for this section.`
+                );
+                $('#confirm-delete-section').data('section-id', sectionId).prop('disabled',
+                    false); // ENABLE THE BUTTON HERE
+
+                // Show modal (append to body for z-index, similar to CRUD_Controller AJAX handling)
+                $('#deleteSectionModal').appendTo('body').css({
+                    'z-index': '1060',
+                    'pointer-events': 'auto'
+                }).modal('show');
+
+                // Force focus to modal for accessibility (avoids aria-hidden issues)
+                $('#deleteSectionModal').on('shown.bs.modal', () => {
+                    $('#deleteSectionModal .btn-secondary').focus();
+                });
+            });
+
+            // Handle confirm delete (unchanged)
+            $('#confirm-delete-section').off('click.deletemgr').on('click.deletemgr', (e) => {
+                const sectionId = $(e.currentTarget).data('section-id');
+                if (!sectionId) {
+                    this.showMessage('No section selected for deletion', 'error');
+                    return;
+                }
+                $('#deleteSectionModal').modal('hide');
+                this.removeSection(sectionId);
+            });
+
+            // Close modal handlers (update to ensure re-disable)
+            $('#deleteSectionModal').off('hidden.bs.modal').on('hidden.bs.modal', () => {
+                $('#confirm-delete-section').removeData('section-id').prop('disabled', true);
+                // Re-append to original container if desired (or leave in body)
+                $('#deleteSectionModal').appendTo('.section-manager');
+            });
+
+            // Handle confirm delete
+            $('#confirm-delete-section').off('click.deletemgr').on('click.deletemgr', (e) => {
+                const sectionId = $(e.currentTarget).data('section-id');
+                if (!sectionId) {
+                    this.showMessage('No section selected for deletion', 'error');
+                    return;
+                }
+                $('#deleteSectionModal').modal('hide');
+                this.removeSection(sectionId);
+            });
+
+            // Close modal handlers
+            $('#addSectionModal').off('hidden.bs.modal').on('hidden.bs.modal', () => {
+                $('#section-select').val('');
+                $('#confirm-add-section').prop('disabled', true);
+                // Re-append to original container if desired (or leave in body)
+                $('#addSectionModal').appendTo('.section-manager');
+            });
+
+            $('#deleteSectionModal').off('hidden.bs.modal').on('hidden.bs.modal', () => {
+                $('#confirm-delete-section').removeData('section-id').prop('disabled', true);
+                // Re-append to original container if desired (or leave in body)
+                $('#deleteSectionModal').appendTo('.section-manager');
+            });
+
+            // After setup, ensure all delete buttons are enabled and clickable
+            this.enableDeleteButtons();
+        }
+
+        async loadAvailableSections() {
+            console.log('Loading available sections for template:', this.templateId);
+            try {
+                const response = await fetch(
+                    `<?= site_url('admin/templates/get_available_sections_for_template/') ?>${this.templateId}`, {
+                        headers: {
+                            'X-Requested-With': 'XMLHttpRequest'
+                        }
+                    });
+                if (!response.ok) throw new Error('Failed to fetch sections');
+                const data = await response.json();
+                if (!data.success) throw new Error(data.error || 'Unknown error');
+
+                const select = $('#section-select');
+                select.empty().append('<option value="">Select a section...</option>');
+                data.sections.forEach(section => {
+                    select.append(
+                        `<option value="${section.id}">${section.name || 'Unnamed Section'} (${section.section_type || 'General'})</option>`
+                    );
+                });
+
+                // Enable button immediately if sections loaded (user can still change selection)
+                if (data.sections.length > 0) {
+                    $('#confirm-add-section').prop('disabled', false);
+                } else {
+                    $('#confirm-add-section').prop('disabled', true);
+                }
+
+                console.log(`Loaded ${data.sections.length} available sections`);
+            } catch (error) {
+                console.error('Failed to load available sections:', error);
+                this.showMessage('Failed to load sections: ' + error.message, 'error');
+                $('#section-select').html('<option value="">Error loading sections</option>');
+                $('#confirm-add-section').prop('disabled', true);
+            }
+        }
+
+        async addSection(sectionId) {
+            console.log('Adding section ID', sectionId, 'to template:', this.templateId);
+            try {
+                const formData = new FormData();
+                formData.append('section_id', sectionId);
+
+                const response = await fetch(
+                    `<?= site_url('admin/templates/add_section_to_template/') ?>${this.templateId}`, {
+                        method: 'POST',
+                        body: formData,
+                        headers: {
+                            'X-Requested-With': 'XMLHttpRequest'
+                        }
+                    });
+
+                if (!response.ok) throw new Error('HTTP ' + response.status);
+                const data = await response.json();
+
+                if (data.success) {
+                    console.log('Section added successfully');
+                    $('#addSectionModal').modal('hide');
+                    this.showMessage(data.message || 'Section added successfully', 'success');
+                    await this.refreshQuickManage();
+                } else {
+                    throw new Error(data.error || 'Unknown error');
+                }
+            } catch (error) {
+                console.error('Failed to add section:', error);
+                this.showMessage('Failed to add section: ' + error.message, 'error');
+            }
+        }
+
+        async removeSection(sectionId) {
+            console.log('Removing section ID', sectionId, 'from template:', this.templateId);
+            try {
+                const formData = new FormData();
+                formData.append('section_id', sectionId);
+
+                const response = await fetch(
+                    `<?= site_url('admin/templates/remove_section_from_template/') ?>${this.templateId}`, {
+                        method: 'POST',
+                        body: formData,
+                        headers: {
+                            'X-Requested-With': 'XMLHttpRequest'
+                        }
+                    });
+
+                if (!response.ok) throw new Error('HTTP ' + response.status);
+                const data = await response.json();
+
+                if (data.success) {
+                    console.log('Section removed successfully');
+                    this.showMessage(data.message || 'Section removed successfully', 'success');
+                    await this.refreshQuickManage();
+                } else {
+                    throw new Error(data.error || 'Unknown error');
+                }
+            } catch (error) {
+                console.error('Failed to remove section:', error);
+                this.showMessage('Failed to remove section: ' + error.message, 'error');
+            }
+        }
+
+        async refreshQuickManage() {
+            console.log('Refreshing quick manage for template:', this.templateId);
+            try {
+                const cacheBuster = 't=' + new Date().getTime();
+                const url =
+                    `<?= site_url('admin/templates/ajax_quick_manage/') ?>${this.templateId}?${cacheBuster}`;
+                const response = await fetch(url);
+                if (!response.ok) throw new Error('Failed to fetch updated content');
+                const html = await response.text();
+
+                // Parse new HTML and replace the form container
+                const $newDoc = $('<div>').html(html);
+                const $newFormContainer = $newDoc.find('.quick-manage-form-container');
+                $('.quick-manage-form-container').html($newFormContainer.html());
+
+                // Re-initialize the form (destroy old, create new)
+                if (window.quickManageApp) {
+                    window.quickManageApp.destroy();
+                }
+                window.quickManageApp = new window.QuickManageForm();
+
+                // Wait a tick for DOM updates, then enable buttons
+                setTimeout(() => {
+                    if (window.quickManageApp && window.quickManageApp.enableDeleteButtons) {
+                        window.quickManageApp.enableDeleteButtons();
+                    }
+                }, 500); // Adjust if needed based on CKEditor load time
+
+                console.log('Quick manage refreshed successfully');
+            } catch (error) {
+                console.error('Failed to refresh quick manage:', error);
+                this.showMessage('Failed to refresh form. Please reload.', 'error');
+            }
+        }
+
+        enableDeleteButtons() {
+            $('.delete-section').each((i, btn) => {
+                const $btn = $(btn);
+                $btn.prop('disabled', false)
+                    .css({
+                        'pointer-events': 'auto',
+                        'opacity': '1',
+                        'cursor': 'pointer'
+                    })
+                    .removeAttr('aria-disabled');
+                console.log(`Enabled delete button for section: ${$btn.data('section-id')}`);
+            });
         }
 
         async initializeWithCKEditor() {
@@ -603,6 +1020,17 @@ if (typeof window.QuickManageForm === 'undefined') {
             $('.close-quick-manage').off('click.quickmanage');
             $(document).off('keyup.quickmanage');
             $('#main-form').off('keypress.quickmanage');
+
+            // Clean up section manager
+            if (this.isComposite) {
+                $('#add-section-btn').off('click.sectionmgr');
+                $('#confirm-add-section').off('click.sectionmgr');
+                $('#section-select').off('change.sectionmgr');
+                $('#addSectionModal').off('hidden.bs.modal');
+                $(document).off('click', '.delete-section');
+                $('#confirm-delete-section').off('click.deletemgr');
+                $('#deleteSectionModal').off('hidden.bs.modal');
+            }
 
             this.currentTemplateData = {};
             this.isInitialized = false;
