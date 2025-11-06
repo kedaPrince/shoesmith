@@ -21,7 +21,7 @@ $this->siteMap = array(
         'show_heading'  => false,
         'active_by'     => 'view',
     ),
-      (object)array(
+    (object)array(
         'group'         => 'Agency Staff',
         'page'          => 'agency_staff',
         'label'         => lang('agency_staff_heading'),
@@ -62,54 +62,60 @@ $this->siteMap = array(
                 'url'           => url('candidates'),
                 'show'          => true,
             ],
-        
+            // ADD ONBOARDING SUBMENU ITEM HERE
+            (object) [
+                'page'          => 'candidates_onboarding',
+                'view'          => 'onboarding_listing',
+                'label'         => 'Onboarding Management',
+                'icon'          => 'fa-tasks',
+                'url'           => url('candidates/onboarding_listing'),
+                'show'          => true,
+            ],
         ),
     ],
-       (object)array(
-    'group' => 'Templates',
-    'page' => 'templates',
-    'label' => 'Templates',
-    'icon' => 'fa-paint-brush',
-    'url' => url('templates'),
-    'class' => '',
-    'show' => true,
-    'active_by' => 'view',
-    'items' => array(
-        (object)array(
-            'page' => 'templates',
-            'view' => 'listing',
-            'label' => 'Templates',
-            'icon' => 'fa-file',
-            'url' => url('templates'),
-            'show' => true,
+    (object)array(
+        'group' => 'Templates',
+        'page' => 'templates',
+        'label' => 'Templates',
+        'icon' => 'fa-paint-brush',
+        'url' => url('templates'),
+        'class' => '',
+        'show' => true,
+        'active_by' => 'view',
+        'items' => array(
+            (object)array(
+                'page' => 'templates',
+                'view' => 'listing',
+                'label' => 'Templates',
+                'icon' => 'fa-file',
+                'url' => url('templates'),
+                'show' => true,
+            ),
+            (object)array(
+                'page' => 'template_sections',
+                'view' => 'listing', 
+                'label' => 'Template Sections',
+                'icon' => 'fa-puzzle-piece',
+                'url' => url('template_sections'),
+                'show' => true,
+            ),
+            (object)array(
+                'page' => 'agency_templates',
+                'view' => 'build',
+                'label' => 'Template Builder',
+                'icon' => 'fa-wrench',
+                'url' => url('agency_templates/build'),
+                'show' => true,
+            ),
+            // ADD TEST FORM BUILDER HERE
+            (object)array(
+                'page' => 'test_form_builder',
+                'view' => 'listing',
+                'label' => 'Test Form Builder',
+                'icon' => 'fa-edit',
+                'url' => url('test_form_builder'),
+                'show' => true,
+            ),
         ),
-        (object)array(
-            'page' => 'template_sections',
-            'view' => 'listing', 
-            'label' => 'Template Sections',
-            'icon' => 'fa-puzzle-piece',
-            'url' => url('template_sections'),
-            'show' => true,
-        ),
-        (object)array(
-            'page' => 'agency_templates',
-            'view' => 'build',
-            'label' => 'Template Builder',
-            'icon' => 'fa-wrench',
-            'url' => url('agency_templates/build'),
-            'show' => true,
-        ),
-        // ADD TEST FORM BUILDER HERE
-        (object)array(
-            'page' => 'test_form_builder',
-            'view' => 'listing',
-            'label' => 'Test Form Builder',
-            'icon' => 'fa-edit',
-            'url' => url('test_form_builder'),
-            'show' => true,
-        ),
-        
     ),
-),
-    
 );

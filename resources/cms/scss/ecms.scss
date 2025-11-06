@@ -3617,3 +3617,15 @@ body {
         text-align: center;
     }
 }
+
+.ecms-field .c_dropdown .btn-group>.btn {
+    text-align: left;
+    background-color: var(--body-color);
+     border-color:none !important;
+}
+.btn-default {
+    color: var(--bg-hc-color);
+    background-color: var(--font-xlight);
+    border-color:none !important;
+    padding: 6px 18px;
+}

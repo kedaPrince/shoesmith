@@ -22,7 +22,9 @@ $route['agency/jobs_listings/(:any)'] = 'agency/jobs_listings/$1';
 $route['recruiter/login'] = 'login';
 $route['recruiter/login/(:any)'] = 'login/$1';
 $route['recruiter/logout'] = 'login/logout/recruiter';
-
+// ADD THIS NEW ROUTE FOR ONBOARDING LISTING
+$route['agency/candidates/onboarding_listing'] = 'agency/candidates/onboarding_listing';
+$route['agency/candidates/onboarding_listing/(:any)'] = 'agency/candidates/onboarding_listing/$1';
 // Template sections - THESE MUST BE ABOVE GENERIC ROUTES
 $route['admin/template_sections'] = 'admin/template_sections';
 $route['admin/template_sections/(:any)'] = 'admin/template_sections/$1';

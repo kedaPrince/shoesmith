@@ -101,6 +101,20 @@
     display: inline-block;
 }
 
+
+
+.btn-default {
+
+    border-color: none !important;
+
+}
+
+.ecms-field .c_dropdown .btn-group>.btn {
+    text-align: left;
+    background-color: var(--body-color);
+    border-color: none !important;
+}
+
 .section-type-about {
     background: #007bff;
     color: white;

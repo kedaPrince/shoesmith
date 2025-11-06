@@ -165,7 +165,58 @@ class Candidates extends CRUD_Controller{
             ],
         );
     }
+/**
+ * Onboarding Listing Page - Shows all candidates with onboarding status - FIXED
+ */
+public function onboarding_listing() 
+{
+    $agency_id = $this->get_user_agency_id();
+    
+    if (!$agency_id) {
+        show_error('Access denied', 403);
+    }
 
+    $this->breadcrumbs = array(
+        array(
+            'title' => lang($this->pageName . '_heading'),
+            'url'   => redir($this->pageName, true)
+        ),
+        array(
+            'title' => 'Onboarding Management',
+            'url'   => redir($this->pageName . '/onboarding_listing', true)
+        ),
+    );
+
+    // Get onboarding statistics - FIXED: Pass agency_id
+    $stats = $this->{$this->model}->get_onboarding_stats($agency_id);
+    
+    // Get candidates with onboarding progress - FIXED: Use ONLY pivot table for filtering
+    $this->db->select('c.*, j.name as job_name, ca.agency_id as pivot_agency_id');
+    $this->db->from('candidates c');
+    $this->db->join('candidate_agencies ca', 'ca.candidate_id = c.id', 'inner');
+    $this->db->join('mod_jobs j', 'j.id = c.job_id', 'left');
+    
+    // ✅ CRITICAL: Filter ONLY by pivot table, ignore primary agency_id
+    $this->db->where('ca.agency_id', $agency_id);
+    $this->db->where('c.removed', 0);
+    $this->db->group_by('c.id'); // Important: avoid duplicates
+    $this->db->order_by('c.onboarding_progress', 'DESC');
+    
+    $candidates = $this->db->get()->result();
+
+    // Debug: Log the query and results
+    log_message('debug', "Onboarding listing query: " . $this->db->last_query());
+    log_message('debug', "Onboarding listing - Agency ID: {$agency_id}, Candidates found: " . count($candidates));
+
+    $this->load->view($this->folder . '/view_header');
+    $this->load->view('agency/candidates/onboarding_listing', array(
+        'candidates' => $candidates,
+        'stats' => $stats,
+        'heading' => 'Onboarding Management',
+        'current_agency_id' => $agency_id
+    ));
+    $this->load->view($this->folder . '/view_footer');
+}
     /**
      * Get onboarding stage display for listing
      */
@@ -196,8 +247,8 @@ class Candidates extends CRUD_Controller{
         return '<span class="label label-info">' . $current_stage . '</span>';
     }
 
-   /**
- * Onboarding management page - FIXED ACCESS CONTROL
+ /**
+ * Onboarding management page - FIXED with job information
  */
 public function onboarding($id) {
     $agency_id = $this->get_user_agency_id();
@@ -206,10 +257,11 @@ public function onboarding($id) {
         show_error('Access denied', 403);
     }
 
-    // ✅ FIXED: Verify candidate is assigned to this agency via pivot table
-    $this->db->select('c.*');
+    // ✅ FIXED: Include job information in the query
+    $this->db->select('c.*, j.name as job_name, j.reference_number as job_ref');
     $this->db->from('candidates c');
     $this->db->join('candidate_agencies ca', 'ca.candidate_id = c.id', 'inner');
+    $this->db->join('mod_jobs j', 'j.id = c.job_id', 'left'); // LEFT join to include job info
     $this->db->where('c.id', $id);
     $this->db->where('ca.agency_id', $agency_id);
     $this->db->where('c.removed', 0);
@@ -219,6 +271,11 @@ public function onboarding($id) {
     if (!$candidate) {
         show_error('Candidate not found or you do not have permission to access it.', 404);
     }
+
+    // Debug: Check what data we're getting
+    log_message('debug', "Onboarding candidate data - Job ID: " . ($candidate->job_id ?? 'NULL') . 
+               ", Job Name: " . ($candidate->job_name ?? 'NULL') . 
+               ", Job Ref: " . ($candidate->job_ref ?? 'NULL'));
 
     $this->breadcrumbs = array(
         array(

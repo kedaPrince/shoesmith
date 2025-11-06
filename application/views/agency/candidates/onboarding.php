@@ -380,7 +380,6 @@
     text-decoration: underline;
 }
 
-/* Loading states */
 .loading {
     position: relative;
     pointer-events: none;
@@ -400,7 +399,6 @@
     justify-content: center;
 }
 
-/* Responsive design */
 @media (max-width: 768px) {
     .onboarding-content {
         padding: 20px;
@@ -419,6 +417,64 @@
         gap: 15px;
         text-align: center;
     }
+}
+
+.disabled-stage {
+    opacity: 0.6;
+    pointer-events: none;
+    position: relative;
+}
+
+.disabled-stage::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(255, 255, 255, 0.8);
+    border-radius: 12px;
+}
+
+.waiting-assignment-message {
+    background: linear-gradient(135deg, #ffc107, #ff9800);
+    color: white;
+    padding: 20px;
+    border-radius: 12px;
+    text-align: center;
+    margin-bottom: 25px;
+    animation: pulse 2s infinite;
+}
+
+.waiting-assignment-message h4 {
+    margin: 0 0 10px 0;
+    font-size: 20px;
+    font-weight: 700;
+}
+
+.waiting-assignment-message p {
+    margin: 0;
+    font-size: 14px;
+    opacity: 0.9;
+}
+
+.job-assignment-info {
+    background: #e3f2fd;
+    border: 1px solid #2196f3;
+    border-radius: 8px;
+    padding: 15px;
+    margin-bottom: 20px;
+}
+
+.job-assignment-info h5 {
+    margin: 0 0 10px 0;
+    color: #1976d2;
+    font-weight: 600;
+}
+
+.job-assignment-info p {
+    margin: 5px 0;
+    font-size: 14px;
 }
 </style>
 
@@ -461,7 +517,6 @@
         <div class="row clearfix">
             <div class="col-lg-12">
                 <div class="onboarding-container">
-                    <!-- Header Section -->
                     <div class="onboarding-header">
                         <h1 class="onboarding-title">Candidate Onboarding</h1>
                         <p class="onboarding-subtitle">Track and manage the onboarding progress for
@@ -469,53 +524,28 @@
                     </div>
 
                     <div class="onboarding-content">
-                        <!-- Candidate Information -->
-                        <div class="candidate-info-card">
-                            <h5 style="margin-bottom: 20px; color: #495057; font-weight: 600;">Candidate Information
-                            </h5>
-                            <div class="candidate-info-grid">
-                                <div class="info-item">
-                                    <span class="info-label">Reference Number</span>
-                                    <span class="info-value"><?= $candidate->reference_number ?></span>
-                                </div>
-                                <div class="info-item">
-                                    <span class="info-label">Full Name</span>
-                                    <span
-                                        class="info-value"><?= $candidate->first_name . ' ' . $candidate->last_name ?></span>
-                                </div>
-                                <div class="info-item">
-                                    <span class="info-label">Email</span>
-                                    <span class="info-value"><?= $candidate->email ?></span>
-                                </div>
-                                <div class="info-item">
-                                    <span class="info-label">Phone</span>
-                                    <span class="info-value"><?= $candidate->phone ?: 'Not provided' ?></span>
-                                </div>
-                                <div class="info-item">
-                                    <span class="info-label">Application Status</span>
-                                    <span class="info-value">
-                                        <span
-                                            class="badge badge-<?= $candidate->status === 'hired' ? 'success' : ($candidate->status === 'rejected' ? 'danger' : 'info') ?>">
-                                            <?= ucfirst(str_replace('_', ' ', $candidate->status)) ?>
-                                        </span>
-                                    </span>
-                                </div>
-                                <div class="info-item">
-                                    <span class="info-label">Application Date</span>
-                                    <span
-                                        class="info-value"><?= date('M j, Y', strtotime($candidate->application_date)) ?></span>
-                                </div>
-                            </div>
+                        <?php if (empty($candidate->job_id)): ?>
+                        <div class="waiting-assignment-message">
+                            <h4>⏳ Waiting for Job Assignment</h4>
+                            <p>This candidate needs to be assigned to a job before onboarding can begin.<br>
+                                Please contact a recruiter to assign this candidate to a job.</p>
+                        </div>
+                        <?php else: ?>
+                        <div class="job-assignment-info">
+                            <h5>📋 Job Assignment</h5>
+                            <p><strong>Job:</strong> <?= $candidate->job_name ?? 'Not specified' ?></p>
+                            <p><strong>Reference:</strong> <?= $candidate->job_ref ?? 'N/A' ?></p>
                         </div>
 
-                        <!-- Progress Section -->
+                        <!-- ADD THE ONBOARDING PROGRESS AND STAGES HERE -->
                         <div class="onboarding-progress-section">
                             <div class="progress-header">
                                 <h3 class="progress-title">Onboarding Progress</h3>
                                 <div class="progress-percentage"><?= round($candidate->onboarding_progress) ?>%</div>
                             </div>
                             <div class="progress-bar-container">
-                                <div class="progress-fill" id="animated-progress" style="width: 0%"></div>
+                                <div id="animated-progress" class="progress-fill"
+                                    style="width: <?= $candidate->onboarding_progress ?>%"></div>
                             </div>
                             <div class="progress-stats">
                                 <span>Started</span>
@@ -524,315 +554,311 @@
                             </div>
                         </div>
 
-                        <!-- Onboarding Stages -->
-                        <h4 style="margin-bottom: 20px; color: #495057; font-weight: 600;">Onboarding Stages</h4>
                         <div class="onboarding-stages">
-                            <!-- Stage 1: Under Review -->
+                            <!-- STAGE 1: UNDER REVIEW -->
                             <div
-                                class="stage-card <?= $candidate->stage_under_review ? 'completed' : ($candidate->onboarding_stage === 'stage_under_review' ? 'active' : '') ?>">
+                                class="stage-card <?= $candidate->stage_under_review ? 'completed' : ($candidate->onboarding_stage == 'stage_under_review' ? 'active' : '') ?>">
                                 <div class="stage-header">
                                     <div class="stage-number">1</div>
                                     <?php if ($candidate->stage_under_review): ?>
-                                    <span class="completion-badge">Completed</span>
+                                    <div class="completion-badge">Completed</div>
                                     <?php endif; ?>
                                 </div>
                                 <div class="stage-content">
-                                    <div class="stage-title">Under Review</div>
-                                    <div class="stage-description">
-                                        Initial screening and review of candidate application, qualifications, and
-                                        experience.
-                                    </div>
+                                    <h4 class="stage-title">Under Review</h4>
+                                    <p class="stage-description">Initial candidate review and assessment</p>
                                     <?php if ($candidate->stage_under_review_at): ?>
-                                    <div class="stage-date">
-                                        Completed:
-                                        <?= date('M j, Y g:i A', strtotime($candidate->stage_under_review_at)) ?>
-                                    </div>
+                                    <div class="stage-date">Completed:
+                                        <?= date('M j, Y', strtotime($candidate->stage_under_review_at)) ?></div>
                                     <?php endif; ?>
                                 </div>
                                 <div class="stage-actions">
-                                    <button
-                                        class="btn btn-<?= $candidate->stage_under_review ? 'warning' : 'success' ?> btn-toggle-stage"
-                                        data-stage="stage_under_review"
-                                        data-value="<?= $candidate->stage_under_review ? 0 : 1 ?>"
-                                        data-stage-name="Under Review"
-                                        data-action="<?= $candidate->stage_under_review ? 'reopen' : 'complete' ?>">
-                                        <?= $candidate->stage_under_review ? '↶ Reopen Stage' : '✓ Mark Complete' ?>
+                                    <?php if (!$candidate->stage_under_review): ?>
+                                    <button class="btn btn-success btn-toggle-stage" data-stage="stage_under_review"
+                                        data-value="1" data-action="complete" data-stage-name="Under Review">
+                                        <i class="fa fa-check"></i> Mark Complete
                                     </button>
+                                    <?php else: ?>
+                                    <button class="btn btn-warning btn-toggle-stage" data-stage="stage_under_review"
+                                        data-value="0" data-action="reopen" data-stage-name="Under Review">
+                                        <i class="fa fa-undo"></i> Reopen Stage
+                                    </button>
+                                    <?php endif; ?>
                                 </div>
                             </div>
 
-                            <!-- Stage 2: Submitted to Hiring Manager -->
+                            <!-- STAGE 2: SUBMITTED TO HM -->
                             <div
-                                class="stage-card <?= $candidate->stage_submitted_to_hm ? 'completed' : ($candidate->onboarding_stage === 'stage_submitted_to_hm' ? 'active' : '') ?>">
+                                class="stage-card <?= $candidate->stage_submitted_to_hm ? 'completed' : ($candidate->onboarding_stage == 'stage_submitted_to_hm' ? 'active' : '') ?> <?= !$candidate->stage_under_review ? 'disabled-stage' : '' ?>">
                                 <div class="stage-header">
                                     <div class="stage-number">2</div>
                                     <?php if ($candidate->stage_submitted_to_hm): ?>
-                                    <span class="completion-badge">Completed</span>
+                                    <div class="completion-badge">Completed</div>
                                     <?php endif; ?>
                                 </div>
                                 <div class="stage-content">
-                                    <div class="stage-title">Submitted to Hiring Manager</div>
-                                    <div class="stage-description">
-                                        Candidate profile has been submitted to the hiring manager for consideration and
-                                        feedback.
-                                    </div>
+                                    <h4 class="stage-title">Submitted to Hiring Manager</h4>
+                                    <p class="stage-description">Candidate profile submitted for HM review</p>
                                     <?php if ($candidate->stage_submitted_to_hm_at): ?>
-                                    <div class="stage-date">
-                                        Completed:
-                                        <?= date('M j, Y g:i A', strtotime($candidate->stage_submitted_to_hm_at)) ?>
-                                    </div>
+                                    <div class="stage-date">Completed:
+                                        <?= date('M j, Y', strtotime($candidate->stage_submitted_to_hm_at)) ?></div>
                                     <?php endif; ?>
                                 </div>
                                 <div class="stage-actions">
-                                    <button
-                                        class="btn btn-<?= $candidate->stage_submitted_to_hm ? 'warning' : 'success' ?> btn-toggle-stage"
-                                        data-stage="stage_submitted_to_hm"
-                                        data-value="<?= $candidate->stage_submitted_to_hm ? 0 : 1 ?>"
-                                        data-stage-name="Submitted to Hiring Manager"
-                                        data-action="<?= $candidate->stage_submitted_to_hm ? 'reopen' : 'complete' ?>"
-                                        <?= !$candidate->stage_under_review ? 'disabled' : '' ?>>
-                                        <?= $candidate->stage_submitted_to_hm ? '↶ Reopen Stage' : '✓ Mark Complete' ?>
+                                    <?php if (!$candidate->stage_submitted_to_hm && $candidate->stage_under_review): ?>
+                                    <button class="btn btn-success btn-toggle-stage" data-stage="stage_submitted_to_hm"
+                                        data-value="1" data-action="complete"
+                                        data-stage-name="Submitted to Hiring Manager">
+                                        <i class="fa fa-check"></i> Mark Complete
                                     </button>
+                                    <?php elseif ($candidate->stage_submitted_to_hm): ?>
+                                    <button class="btn btn-warning btn-toggle-stage" data-stage="stage_submitted_to_hm"
+                                        data-value="0" data-action="reopen"
+                                        data-stage-name="Submitted to Hiring Manager">
+                                        <i class="fa fa-undo"></i> Reopen Stage
+                                    </button>
+                                    <?php else: ?>
+                                    <button class="btn btn-secondary" disabled title="Complete previous stage first">
+                                        <i class="fa fa-lock"></i> Locked
+                                    </button>
+                                    <?php endif; ?>
                                 </div>
                             </div>
 
-                            <!-- Stage 3: Requested Further Documents -->
+                            <!-- STAGE 3: REQUESTED DOCS -->
                             <div
-                                class="stage-card <?= $candidate->stage_requested_docs ? 'completed' : ($candidate->onboarding_stage === 'stage_requested_docs' ? 'active' : '') ?>">
+                                class="stage-card <?= $candidate->stage_requested_docs ? 'completed' : ($candidate->onboarding_stage == 'stage_requested_docs' ? 'active' : '') ?> <?= !$candidate->stage_submitted_to_hm ? 'disabled-stage' : '' ?>">
                                 <div class="stage-header">
                                     <div class="stage-number">3</div>
                                     <?php if ($candidate->stage_requested_docs): ?>
-                                    <span class="completion-badge">Completed</span>
+                                    <div class="completion-badge">Completed</div>
                                     <?php endif; ?>
                                 </div>
                                 <div class="stage-content">
-                                    <div class="stage-title">Requested Further Documents</div>
-                                    <div class="stage-description">
-                                        Additional verification documents have been requested from the candidate for
-                                        background checks.
-                                    </div>
+                                    <h4 class="stage-title">Requested Further Documents</h4>
+                                    <p class="stage-description">Additional documentation requested from candidate</p>
                                     <?php if ($candidate->stage_requested_docs_at): ?>
-                                    <div class="stage-date">
-                                        Completed:
-                                        <?= date('M j, Y g:i A', strtotime($candidate->stage_requested_docs_at)) ?>
-                                    </div>
+                                    <div class="stage-date">Completed:
+                                        <?= date('M j, Y', strtotime($candidate->stage_requested_docs_at)) ?></div>
                                     <?php endif; ?>
                                 </div>
                                 <div class="stage-actions">
-                                    <button
-                                        class="btn btn-<?= $candidate->stage_requested_docs ? 'warning' : 'success' ?> btn-toggle-stage"
-                                        data-stage="stage_requested_docs"
-                                        data-value="<?= $candidate->stage_requested_docs ? 0 : 1 ?>"
-                                        data-stage-name="Requested Further Documents"
-                                        data-action="<?= $candidate->stage_requested_docs ? 'reopen' : 'complete' ?>"
-                                        <?= !$candidate->stage_submitted_to_hm ? 'disabled' : '' ?>>
-                                        <?= $candidate->stage_requested_docs ? '↶ Reopen Stage' : '✓ Mark Complete' ?>
+                                    <?php if (!$candidate->stage_requested_docs && $candidate->stage_submitted_to_hm): ?>
+                                    <button class="btn btn-success btn-toggle-stage" data-stage="stage_requested_docs"
+                                        data-value="1" data-action="complete"
+                                        data-stage-name="Requested Further Documents">
+                                        <i class="fa fa-check"></i> Mark Complete
                                     </button>
+                                    <?php elseif ($candidate->stage_requested_docs): ?>
+                                    <button class="btn btn-warning btn-toggle-stage" data-stage="stage_requested_docs"
+                                        data-value="0" data-action="reopen"
+                                        data-stage-name="Requested Further Documents">
+                                        <i class="fa fa-undo"></i> Reopen Stage
+                                    </button>
+                                    <?php else: ?>
+                                    <button class="btn btn-secondary" disabled title="Complete previous stage first">
+                                        <i class="fa fa-lock"></i> Locked
+                                    </button>
+                                    <?php endif; ?>
                                 </div>
                             </div>
 
-                            <!-- Stage 4: Position Offered -->
+                            <!-- STAGE 4: POSITION OFFERED -->
                             <div
-                                class="stage-card <?= $candidate->stage_position_offered ? 'completed' : ($candidate->onboarding_stage === 'stage_position_offered' ? 'active' : '') ?>">
+                                class="stage-card <?= $candidate->stage_position_offered ? 'completed' : ($candidate->onboarding_stage == 'stage_position_offered' ? 'active' : '') ?> <?= !$candidate->stage_requested_docs ? 'disabled-stage' : '' ?>">
                                 <div class="stage-header">
                                     <div class="stage-number">4</div>
                                     <?php if ($candidate->stage_position_offered): ?>
-                                    <span class="completion-badge">Completed</span>
+                                    <div class="completion-badge">Completed</div>
                                     <?php endif; ?>
                                 </div>
                                 <div class="stage-content">
-                                    <div class="stage-title">Position Offered</div>
-                                    <div class="stage-description">
-                                        Formal job offer has been extended to the candidate with terms and conditions.
-                                    </div>
+                                    <h4 class="stage-title">Position Offered</h4>
+                                    <p class="stage-description">Formal job offer extended to candidate</p>
                                     <?php if ($candidate->stage_position_offered_at): ?>
-                                    <div class="stage-date">
-                                        Completed:
-                                        <?= date('M j, Y g:i A', strtotime($candidate->stage_position_offered_at)) ?>
-                                    </div>
+                                    <div class="stage-date">Completed:
+                                        <?= date('M j, Y', strtotime($candidate->stage_position_offered_at)) ?></div>
                                     <?php endif; ?>
                                 </div>
                                 <div class="stage-actions">
-                                    <button
-                                        class="btn btn-<?= $candidate->stage_position_offered ? 'warning' : 'success' ?> btn-toggle-stage"
-                                        data-stage="stage_position_offered"
-                                        data-value="<?= $candidate->stage_position_offered ? 0 : 1 ?>"
-                                        data-stage-name="Position Offered"
-                                        data-action="<?= $candidate->stage_position_offered ? 'reopen' : 'complete' ?>"
-                                        <?= !$candidate->stage_requested_docs ? 'disabled' : '' ?>>
-                                        <?= $candidate->stage_position_offered ? '↶ Reopen Stage' : '✓ Mark Complete' ?>
+                                    <?php if (!$candidate->stage_position_offered && $candidate->stage_requested_docs): ?>
+                                    <button class="btn btn-success btn-toggle-stage" data-stage="stage_position_offered"
+                                        data-value="1" data-action="complete" data-stage-name="Position Offered">
+                                        <i class="fa fa-check"></i> Mark Complete
                                     </button>
+                                    <?php elseif ($candidate->stage_position_offered): ?>
+                                    <button class="btn btn-warning btn-toggle-stage" data-stage="stage_position_offered"
+                                        data-value="0" data-action="reopen" data-stage-name="Position Offered">
+                                        <i class="fa fa-undo"></i> Reopen Stage
+                                    </button>
+                                    <?php else: ?>
+                                    <button class="btn btn-secondary" disabled title="Complete previous stage first">
+                                        <i class="fa fa-lock"></i> Locked
+                                    </button>
+                                    <?php endif; ?>
                                 </div>
                             </div>
                         </div>
 
-                        <!-- Completion Celebration -->
-                        <?php if ($candidate->onboarding_completed_at): ?>
+                        <?php if ($candidate->onboarding_stage === 'completed'): ?>
                         <div class="completion-celebration">
-                            <h4>🎉 Onboarding Completed Successfully! 🎉</h4>
-                            <p>All onboarding stages were completed on
+                            <h4>🎉 Onboarding Completed!</h4>
+                            <p>All stages have been successfully completed. Candidate is ready for the next steps.</p>
+                            <?php if ($candidate->onboarding_completed_at): ?>
+                            <p><strong>Completed on:</strong>
                                 <?= date('F j, Y \a\t g:i A', strtotime($candidate->onboarding_completed_at)) ?></p>
+                            <?php endif; ?>
                         </div>
                         <?php endif; ?>
 
-                        <!-- Navigation -->
-                        <div class="navigation-actions">
-                            <div class="breadcrumb-nav">
-                                <a href="<?= redir('candidates', true) ?>"><i class="fa fa-arrow-left"></i> Back to
-                                    Candidates List</a>
-                            </div>
-                            <div>
-                                <a href="<?= redir('candidates/view/' . $candidate->id, true) ?>"
-                                    class="btn btn-outline-primary">
-                                    <i class="fa fa-user"></i> View Candidate Profile
-                                </a>
-                                <a href="<?= redir('candidates/edit/' . $candidate->id, true) ?>"
-                                    class="btn btn-primary">
-                                    <i class="fa fa-edit"></i> Edit Candidate
-                                </a>
-                            </div>
-                        </div>
+                        <?php endif; ?>
                     </div>
                 </div>
             </div>
         </div>
     </div>
-</div>
 
-<!-- Confirmation Modal -->
-<div class="modal fade" id="confirmationModal" tabindex="-1" role="dialog" aria-labelledby="confirmationModalLabel"
-    aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered" role="document">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="confirmationModalLabel">Confirm Stage Update</h5>
-                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                    <span aria-hidden="true">&times;</span>
-                </button>
-            </div>
-            <div class="modal-body">
-                <p id="confirmationMessage">Are you sure you want to update this stage?</p>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
-                <button type="button" class="btn btn-primary" id="confirmAction">Confirm</button>
+    <div class="modal fade" id="confirmationModal" tabindex="-1" role="dialog" aria-labelledby="confirmationModalLabel"
+        aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="confirmationModalLabel">Confirm Stage Update</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <p id="confirmationMessage">Are you sure you want to update this stage?</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" id="confirmAction">Confirm</button>
+                </div>
             </div>
         </div>
     </div>
-</div>
 
-<script>
-// Use the existing on_script_load function from your template
-on_script_load('jQuery', function() {
-    jQuery(document).ready(function($) {
-        console.log('Onboarding script initialized');
+    <script>
+    on_script_load('jQuery', function() {
+        jQuery(document).ready(function($) {
+            console.log('Onboarding script initialized');
 
-        // Animate progress bar on load
-        setTimeout(function() {
-            $('#animated-progress').css('width', '<?= $candidate->onboarding_progress ?>%');
-        }, 500);
+            setTimeout(function() {
+                $('#animated-progress').css('width', '<?= $candidate->onboarding_progress ?>%');
+            }, 500);
 
-        // Stage update handler with confirmation modal
-        $('.btn-toggle-stage').on('click', function(e) {
-            e.preventDefault();
-            console.log('Stage button clicked');
+            $('.btn-toggle-stage:not(:disabled)').on('click', function(e) {
+                e.preventDefault();
+                console.log('Stage button clicked');
 
-            const button = $(this);
-            const stage = button.data('stage');
-            const value = button.data('value');
-            const stageName = button.data('stage-name');
-            const action = button.data('action');
-            const candidateId = <?= $candidate->id ?>;
+                const hasJobAssignment = <?= !empty($candidate->job_id) ? 'true' : 'false' ?>;
 
-            // Set confirmation message based on action
-            let message = '';
-            if (action === 'complete') {
-                message = `Are you sure you want to mark the "${stageName}" stage as complete?`;
-            } else {
-                message =
-                    `Are you sure you want to reopen the "${stageName}" stage? This will reset progress for subsequent stages.`;
-            }
+                if (!hasJobAssignment) {
+                    if (typeof toastr !== 'undefined') {
+                        toastr.warning(
+                            'This candidate needs to be assigned to a job before onboarding can begin. Please contact a recruiter.'
+                        );
+                    } else {
+                        alert(
+                            'This candidate needs to be assigned to a job before onboarding can begin. Please contact a recruiter.'
+                        );
+                    }
+                    return false;
+                }
 
-            // Show confirmation modal
-            $('#confirmationMessage').text(message);
-            $('#confirmationModal').modal('show');
+                const button = $(this);
+                const stage = button.data('stage');
+                const value = button.data('value');
+                const stageName = button.data('stage-name');
+                const action = button.data('action');
+                const candidateId = <?= $candidate->id ?>;
 
-            // Handle confirmation
-            $('#confirmAction').off('click').on('click', function() {
-                $('#confirmationModal').modal('hide');
+                let message = '';
+                if (action === 'complete') {
+                    message =
+                        `Are you sure you want to mark the "${stageName}" stage as complete?`;
+                } else {
+                    message =
+                        `Are you sure you want to reopen the "${stageName}" stage? This will reset progress for subsequent stages.`;
+                }
 
-                // Show loading state
-                const originalText = button.html();
-                button.prop('disabled', true).html(
-                    '<i class="fa fa-spinner fa-spin"></i> Processing...');
-                button.closest('.stage-card').addClass('loading');
+                $('#confirmationMessage').text(message);
+                $('#confirmationModal').modal('show');
 
-                $.ajax({
-                    url: '<?= site_url("agency/candidates/update_onboarding_stage") ?>',
-                    type: 'POST',
-                    data: {
-                        candidate_id: candidateId,
-                        stage: stage,
-                        value: value
-                    },
-                    success: function(response) {
-                        if (response.success) {
-                            // Show success message using your existing notification system
-                            if (typeof toastr !== 'undefined') {
-                                toastr.success(
-                                    'Stage updated successfully!');
+                $('#confirmAction').off('click').on('click', function() {
+                    $('#confirmationModal').modal('hide');
+
+                    const originalText = button.html();
+                    button.prop('disabled', true).html(
+                        '<i class="fa fa-spinner fa-spin"></i> Processing...');
+                    button.closest('.stage-card').addClass('loading');
+
+                    $.ajax({
+                        url: '<?= site_url("agency/candidates/update_onboarding_stage") ?>',
+                        type: 'POST',
+                        data: {
+                            candidate_id: candidateId,
+                            stage: stage,
+                            value: value
+                        },
+                        success: function(response) {
+                            if (response.success) {
+                                if (typeof toastr !== 'undefined') {
+                                    toastr.success(
+                                        'Stage updated successfully!');
+                                } else {
+                                    alert('Stage updated successfully!');
+                                }
+
+                                setTimeout(function() {
+                                    location.reload();
+                                }, 1500);
                             } else {
-                                alert('Stage updated successfully!');
+                                if (typeof toastr !== 'undefined') {
+                                    toastr.error('Error: ' + response
+                                        .message);
+                                } else {
+                                    alert('Error: ' + response.message);
+                                }
+                                button.prop('disabled', false).html(
+                                    originalText);
+                                button.closest('.stage-card').removeClass(
+                                    'loading');
                             }
-
-                            // Reload the page after a short delay to show the updated state
-                            setTimeout(function() {
-                                location.reload();
-                            }, 1500);
-                        } else {
+                        },
+                        error: function(xhr, status, error) {
                             if (typeof toastr !== 'undefined') {
-                                toastr.error('Error: ' + response.message);
+                                toastr.error(
+                                    'An error occurred while updating the stage. Please try again.'
+                                );
                             } else {
-                                alert('Error: ' + response.message);
+                                alert(
+                                    'An error occurred while updating the stage. Please try again.'
+                                );
                             }
                             button.prop('disabled', false).html(
                                 originalText);
                             button.closest('.stage-card').removeClass(
                                 'loading');
+                            console.error('AJAX Error:', error);
                         }
-                    },
-                    error: function(xhr, status, error) {
-                        if (typeof toastr !== 'undefined') {
-                            toastr.error(
-                                'An error occurred while updating the stage. Please try again.'
-                            );
-                        } else {
-                            alert(
-                                'An error occurred while updating the stage. Please try again.'
-                            );
-                        }
-                        button.prop('disabled', false).html(originalText);
-                        button.closest('.stage-card').removeClass(
-                            'loading');
-                        console.error('AJAX Error:', error);
-                    }
+                    });
                 });
             });
-        });
 
-        // Add hover effects
-        $('.stage-card').hover(
-            function() {
-                if (!$(this).hasClass('completed') && !$(this).hasClass('active')) {
-                    $(this).css('transform', 'translateY(-2px)');
+            $('.stage-card:not(.disabled-stage)').hover(
+                function() {
+                    if (!$(this).hasClass('completed') && !$(this).hasClass('active')) {
+                        $(this).css('transform', 'translateY(-2px)');
+                    }
+                },
+                function() {
+                    if (!$(this).hasClass('completed') && !$(this).hasClass('active')) {
+                        $(this).css('transform', 'translateY(0)');
+                    }
                 }
-            },
-            function() {
-                if (!$(this).hasClass('completed') && !$(this).hasClass('active')) {
-                    $(this).css('transform', 'translateY(0)');
-                }
-            }
-        );
+            );
+        });
     });
-});
-</script>
+    </script>

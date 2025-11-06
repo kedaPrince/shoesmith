@@ -285,12 +285,56 @@ function save_form(el) {
             dataType: 'json',
             beforeSend: function() {
                 $(el).prop('disabled', true).html(
-                '<i class="fa fa-spinner fa-spin"></i> Saving...');
+                    '<i class="fa fa-spinner fa-spin"></i> Saving...');
             },
             success: function(response) {
-                if (response.success) {
+                // Handle different response formats
+                let success = false;
+                let message = '';
+                let error = '';
+
+                // Check for different response formats
+                if (typeof response === 'object') {
+                    // Format 1: {success: true, message: '...'}
+                    if (response.hasOwnProperty('success')) {
+                        success = response.success;
+                        message = response.message || '';
+                        error = response.error || '';
+                    }
+                    // Format 2: {s: 1, m: '...'} - CRUD format
+                    else if (response.hasOwnProperty('s')) {
+                        success = response.s === 1 || response.s === true;
+                        message = response.m || '';
+                        error = response.e || '';
+                    }
+                    // Format 3: Direct boolean or other
+                    else {
+                        success = !!response;
+                        message = 'Operation completed';
+                    }
+                } else if (typeof response === 'string') {
+                    // Try to parse string as JSON
+                    try {
+                        const parsed = JSON.parse(response);
+                        if (parsed.hasOwnProperty('success')) {
+                            success = parsed.success;
+                            message = parsed.message || '';
+                            error = parsed.error || '';
+                        } else if (parsed.hasOwnProperty('s')) {
+                            success = parsed.s === 1 || parsed.s === true;
+                            message = parsed.m || '';
+                            error = parsed.e || '';
+                        }
+                    } catch (e) {
+                        // If it's a plain string, treat as error
+                        success = false;
+                        error = response;
+                    }
+                }
+
+                if (success) {
                     // Show success message
-                    show_message(response.message || 'Candidate saved successfully!', 'success');
+                    show_message(message || 'Candidate saved successfully!', 'success');
 
                     // Refresh the listing or close the quick manage
                     setTimeout(function() {
@@ -304,11 +348,11 @@ function save_form(el) {
                     }, 1000);
                 } else {
                     // Show error message
-                    show_message(response.error || 'Error saving candidate', 'error');
+                    show_message(error || message || 'Error saving candidate', 'error');
                     $(el).prop('disabled', false).html('Save Candidate');
 
-                    // Highlight error fields
-                    if (response.fields) {
+                    // Highlight error fields if provided
+                    if (response && response.fields) {
                         $.each(response.fields, function(field, error) {
                             let fieldElement = $('[name="' + field + '"]');
                             fieldElement.addClass('parsley-error');
@@ -321,11 +365,34 @@ function save_form(el) {
                 }
             },
             error: function(xhr, status, error) {
-                show_message('Error saving candidate: ' + error, 'error');
-                $(el).prop('disabled', false).html('Save Candidate');
                 console.error('AJAX Error:', xhr.responseText);
+
+                let errorMessage = 'Error saving candidate: ' + error;
+
+                // Try to parse the response for more specific error
+                if (xhr.responseText) {
+                    try {
+                        const response = JSON.parse(xhr.responseText);
+                        if (response.error) {
+                            errorMessage = response.error;
+                        } else if (response.message) {
+                            errorMessage = response.message;
+                        }
+                    } catch (e) {
+                        // If not JSON, use the response text as is
+                        if (xhr.responseText.length < 100) {
+                            errorMessage = xhr.responseText;
+                        }
+                    }
+                }
+
+                show_message(errorMessage, 'error');
+                $(el).prop('disabled', false).html('Save Candidate');
             }
         });
+    }).fail(function() {
+        $(el).prop('disabled', false).html('Save Candidate');
+        show_message('Form validation failed. Please check the required fields.', 'error');
     });
 }
 
@@ -356,9 +423,21 @@ $(document).ready(function() {
             // Load agents for the primary agency
             $.get('<?= site_url("recruiter/candidates/get_agents/") ?>' + primaryAgencyId, function(
                 data) {
+                // Handle the response format correctly
+                let agents = [];
+                if (Array.isArray(data)) {
+                    agents = data;
+                } else if (typeof data === 'string') {
+                    try {
+                        agents = JSON.parse(data);
+                    } catch (e) {
+                        console.error('Error parsing agents response:', e);
+                    }
+                }
+
                 let options = '<option value="">-- Select Agent --</option>';
-                if (data && data.length > 0) {
-                    $.each(data, function(index, agent) {
+                if (agents && agents.length > 0) {
+                    $.each(agents, function(index, agent) {
                         options +=
                             `<option value="${agent.id}">${agent.first_name} ${agent.last_name}</option>`;
                     });
@@ -369,8 +448,10 @@ $(document).ready(function() {
                 <?php if (!empty($row->assigned_agent_id)): ?>
                 $('#assigned_agent_id').val('<?= $row->assigned_agent_id ?>');
                 <?php endif; ?>
-            }).fail(function() {
-                $('#assigned_agent_id').html('<option value="">-- No agents found --</option>');
+            }).fail(function(xhr, status, error) {
+                console.error('Error loading agents:', error);
+                $('#assigned_agent_id').html(
+                    '<option value="">-- Error loading agents --</option>');
             });
         } else {
             $('input[name="agency_id"]').val('');
@@ -397,9 +478,21 @@ $(document).ready(function() {
 
         // Trigger agent loading for current agency
         $.get('<?= site_url("recruiter/candidates/get_agents/") ?>' + currentAgencies[0], function(data) {
+            // Handle the response format correctly
+            let agents = [];
+            if (Array.isArray(data)) {
+                agents = data;
+            } else if (typeof data === 'string') {
+                try {
+                    agents = JSON.parse(data);
+                } catch (e) {
+                    console.error('Error parsing agents response:', e);
+                }
+            }
+
             let options = '<option value="">-- Select Agent --</option>';
-            if (data && data.length > 0) {
-                $.each(data, function(index, agent) {
+            if (agents && agents.length > 0) {
+                $.each(agents, function(index, agent) {
                     options +=
                         `<option value="${agent.id}">${agent.first_name} ${agent.last_name}</option>`;
                 });
@@ -410,8 +503,9 @@ $(document).ready(function() {
             <?php if (!empty($row->assigned_agent_id)): ?>
             $('#assigned_agent_id').val('<?= $row->assigned_agent_id ?>');
             <?php endif; ?>
-        }).fail(function() {
-            $('#assigned_agent_id').html('<option value="">-- No agents found --</option>');
+        }).fail(function(xhr, status, error) {
+            console.error('Error loading agents:', error);
+            $('#assigned_agent_id').html('<option value="">-- Error loading agents --</option>');
         });
     }
 
@@ -474,16 +568,29 @@ $(document).ready(function() {
         // Load agents for the pre-selected agency
         $.get('<?= site_url("recruiter/candidates/get_agents/") ?>' + <?= $primary_agency_id ?>, function(
         data) {
+            // Handle the response format correctly
+            let agents = [];
+            if (Array.isArray(data)) {
+                agents = data;
+            } else if (typeof data === 'string') {
+                try {
+                    agents = JSON.parse(data);
+                } catch (e) {
+                    console.error('Error parsing agents response:', e);
+                }
+            }
+
             let options = '<option value="">-- Select Agent --</option>';
-            if (data && data.length > 0) {
-                $.each(data, function(index, agent) {
+            if (agents && agents.length > 0) {
+                $.each(agents, function(index, agent) {
                     options +=
                         `<option value="${agent.id}">${agent.first_name} ${agent.last_name}</option>`;
                 });
             }
             $('#assigned_agent_id').html(options);
-        }).fail(function() {
-            $('#assigned_agent_id').html('<option value="">-- No agents found --</option>');
+        }).fail(function(xhr, status, error) {
+            console.error('Error loading agents:', error);
+            $('#assigned_agent_id').html('<option value="">-- Error loading agents --</option>');
         });
     }
     <?php endif; ?>

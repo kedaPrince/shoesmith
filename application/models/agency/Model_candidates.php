@@ -52,98 +52,167 @@ public function selects()
     }
 
 
+/**
+ * Update onboarding stage - ENHANCED VERSION
+ */
+public function update_onboarding_stage($candidate_id, $stage, $value)
+{
+    $update_data = array(
+        $stage => $value,
+        'updated_at' => date('Y-m-d H:i:s')
+    );
 
-    /**
-     * Update onboarding stage
-     */
-    public function update_onboarding_stage($candidate_id, $stage, $value)
-    {
-        $update_data = array(
-            $stage => $value,
-            'updated_at' => date('Y-m-d H:i:s')
-        );
-
-        // If marking a stage as completed, update the timestamp
-        if ($value == 1) {
-            $stage_timestamp_field = $stage . '_at';
-            $update_data[$stage_timestamp_field] = date('Y-m-d H:i:s');
-        }
-
-        // Update onboarding stage based on progress
-        $this->update_onboarding_progress($candidate_id);
-
-        return $this->db->where('id', $candidate_id)->update($this->table, $update_data);
+    // If marking a stage as completed, update the timestamp
+    if ($value == 1) {
+        $stage_timestamp_field = $stage . '_at';
+        $update_data[$stage_timestamp_field] = date('Y-m-d H:i:s');
+    } else {
+        // If reopening a stage, clear the timestamp
+        $stage_timestamp_field = $stage . '_at';
+        $update_data[$stage_timestamp_field] = null;
     }
 
-    /**
-     * Calculate and update overall onboarding progress
-     */
-    private function update_onboarding_progress($candidate_id)
-    {
-        $candidate = $this->get_candidate_details($candidate_id);
-        
-        if (!$candidate) return;
+    $result = $this->db->where('id', $candidate_id)->update($this->table, $update_data);
 
-        $stages = [
-            'stage_under_review',
-            'stage_submitted_to_hm', 
-            'stage_requested_docs',
-            'stage_position_offered'
-        ];
+    // ✅ CRITICAL: Always update onboarding progress after stage change
+    if ($result) {
+        $this->update_onboarding_progress($candidate_id);
+    }
 
-        $completed_stages = 0;
-        $current_stage = 'not_started';
+    return $result;
+}
 
-        foreach ($stages as $index => $stage) {
-            if ($candidate->$stage == 1) {
-                $completed_stages++;
-                $current_stage = $stage;
-            } else {
-                // Found the first incomplete stage
+   /**
+ * Calculate and update overall onboarding progress - FIXED VERSION
+ */
+private function update_onboarding_progress($candidate_id)
+{
+    $candidate = $this->get_candidate_details($candidate_id);
+    
+    if (!$candidate) {
+        log_message('error', "Candidate {$candidate_id} not found for progress update");
+        return;
+    }
+
+    $stages = [
+        'stage_under_review',
+        'stage_submitted_to_hm', 
+        'stage_requested_docs',
+        'stage_position_offered'
+    ];
+
+    $completed_stages = 0;
+    
+    // Count completed stages
+    foreach ($stages as $stage) {
+        if (!empty($candidate->$stage) && $candidate->$stage == 1) {
+            $completed_stages++;
+        }
+    }
+
+    // Determine current stage
+    $current_stage = 'not_started';
+    
+    if ($completed_stages == count($stages)) {
+        $current_stage = 'completed';
+    } elseif ($completed_stages > 0) {
+        // Find the current active stage (first incomplete stage)
+        foreach ($stages as $stage) {
+            if (empty($candidate->$stage) || $candidate->$stage == 0) {
                 $current_stage = $stage;
                 break;
             }
         }
+    }
 
-        // If all stages are completed
-        if ($completed_stages == 4) {
-            $current_stage = 'completed';
-            $this->db->where('id', $candidate_id)->update($this->table, [
-                'onboarding_completed_at' => date('Y-m-d H:i:s')
-            ]);
-        }
-
-        $progress_percentage = ($completed_stages / 4) * 100;
-
+    // Update completion timestamp if all stages are done
+    if ($completed_stages == count($stages)) {
         $this->db->where('id', $candidate_id)->update($this->table, [
-            'onboarding_stage' => $current_stage,
-            'onboarding_progress' => $progress_percentage
+            'onboarding_completed_at' => date('Y-m-d H:i:s')
+        ]);
+    } else {
+        // Clear completion timestamp if not all stages are complete
+        $this->db->where('id', $candidate_id)->update($this->table, [
+            'onboarding_completed_at' => null
         ]);
     }
 
-    /**
-     * Get onboarding statistics for dashboard
-     */
-    public function get_onboarding_stats($agency_id = null)
-    {
-        if ($agency_id) {
-            $this->db->where('agency_id', $agency_id);
-        }
+    $progress_percentage = ($completed_stages / count($stages)) * 100;
 
+    $update_data = [
+        'onboarding_stage' => $current_stage,
+        'onboarding_progress' => $progress_percentage,
+        'updated_at' => date('Y-m-d H:i:s')
+    ];
+
+    $result = $this->db->where('id', $candidate_id)->update($this->table, $update_data);
+
+    // Debug logging
+    log_message('debug', "Progress update - Candidate: {$candidate_id}");
+    log_message('debug', "Stages completed: {$completed_stages}/" . count($stages));
+    log_message('debug', "Progress: {$progress_percentage}%");
+    log_message('debug', "Current stage: {$current_stage}");
+    
+    return $result;
+}
+/**
+ * Get onboarding statistics for dashboard - FIXED VERSION (Pivot Table Only)
+ */
+public function get_onboarding_stats($agency_id = null)
+{
+    $agency_id = $agency_id ?: $this->get_current_agency_id();
+    
+    if (!$agency_id) {
+        log_message('error', 'No agency_id provided for onboarding stats');
+        return $this->get_empty_stats_object();
+    }
+
+    try {
+        // Build query using ONLY pivot table for filtering
         $this->db->select('
-            COUNT(*) as total_candidates,
-            SUM(stage_under_review) as under_review_count,
-            SUM(stage_submitted_to_hm) as submitted_hm_count,
-            SUM(stage_requested_docs) as requested_docs_count,
-            SUM(stage_position_offered) as position_offered_count,
-            SUM(onboarding_stage = "completed") as completed_count
+            COUNT(DISTINCT c.id) as total_candidates,
+            COUNT(DISTINCT CASE WHEN c.stage_under_review = 1 THEN c.id END) as under_review_count,
+            COUNT(DISTINCT CASE WHEN c.stage_submitted_to_hm = 1 THEN c.id END) as submitted_hm_count,
+            COUNT(DISTINCT CASE WHEN c.stage_requested_docs = 1 THEN c.id END) as requested_docs_count,
+            COUNT(DISTINCT CASE WHEN c.stage_position_offered = 1 THEN c.id END) as position_offered_count,
+            COUNT(DISTINCT CASE WHEN c.onboarding_stage = "completed" THEN c.id END) as completed_count
         ');
         
-        $this->db->where('enabled', 1);
-        $this->db->where('removed', 0);
+        $this->db->from('candidates c');
+        $this->db->join('candidate_agencies ca', 'ca.candidate_id = c.id', 'inner');
         
-        return $this->db->get($this->table)->row();
+        // ✅ CRITICAL: Filter ONLY by pivot table agency_id
+        $this->db->where('ca.agency_id', $agency_id);
+        $this->db->where('c.removed', 0);
+
+        $result = $this->db->get()->row();
+
+        // Debug logging
+        log_message('debug', "Onboarding stats query for agency {$agency_id}: " . $this->db->last_query());
+        log_message('debug', "Onboarding stats result: " . json_encode($result));
+
+        return $result;
+
+    } catch (Exception $e) {
+        log_message('error', 'Error getting onboarding stats: ' . $e->getMessage());
+        return $this->get_empty_stats_object();
     }
+}
+
+/**
+ * Get empty stats object
+ */
+private function get_empty_stats_object()
+{
+    return (object)[
+        'total_candidates' => 0,
+        'under_review_count' => 0,
+        'submitted_hm_count' => 0,
+        'requested_docs_count' => 0,
+        'position_offered_count' => 0,
+        'completed_count' => 0
+    ];
+}
 
     /**
      * Get agency by ID (for dropdown)
