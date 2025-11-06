@@ -222,73 +222,60 @@ its great that everything is showing as expected by the css is broken
                     </div>
 
                     <!-- Requirements Tab -->
-                    <div class="tab-pane fade" id="requirements" role="tabpanel">
-                        <div class="requirements-grid">
-                            <div
-                                class="requirement-column <?php echo in_array('skills', $updated_fields ?? []) ? 'recently-updated' : ''; ?>">
-                                <div class="d-flex justify-content-between align-items-center mb-3">
-                                    <h6><i class="fa fa-cogs text-primary"></i> Skills Required</h6>
-                                    <?php if (in_array('skills', $updated_fields ?? [])): ?>
-                                    <span class="badge badge-warning update-field-badge">
-                                        <i class="fa fa-pencil-alt"></i> Updated
-                                    </span>
-                                    <?php endif; ?>
-                                </div>
-                                <?php if (!empty($skills) && $skill_options && $skill_options->num_rows() > 0): ?>
-                                <?php
-                        $skill_names = [];
-                        foreach ($skill_options->result() as $skill) {
-                            $skill_names[$skill->id] = $skill->name;
-                        }
-                        ?>
-                                <div class="skills-list">
-                                    <?php foreach ($skills as $skill_id): ?>
-                                    <?php if (isset($skill_names[$skill_id])): ?>
-                                    <span class="skill-tag">
-                                        <i class="fa fa-check"></i>
-                                        <?php echo htmlspecialchars($skill_names[$skill_id]); ?>
-                                    </span>
-                                    <?php endif; ?>
-                                    <?php endforeach; ?>
-                                </div>
-                                <?php else: ?>
-                                <p class="text-muted">No specific skills required</p>
-                                <?php endif; ?>
-                            </div>
+                   <!-- Requirements Tab -->
+<div class="tab-pane fade" id="requirements" role="tabpanel">
+    <div class="requirements-grid">
+        <div class="requirement-column <?php echo in_array('skills', $updated_fields ?? []) ? 'recently-updated' : ''; ?>">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h6><i class="fa fa-cogs text-primary"></i> Skills Required</h6>
+                <?php if (in_array('skills', $updated_fields ?? [])): ?>
+                <span class="badge badge-warning update-field-badge">
+                    <i class="fa fa-pencil-alt"></i> Updated
+                </span>
+                <?php endif; ?>
+            </div>
+            <?php if (!empty($skills)): ?>
+                <div class="skills-list">
+                    <?php foreach ($skills as $skill): ?>
+                        <?php if (!empty(trim($skill))): ?>
+                        <span class="skill-tag">
+                            <i class="fa fa-check"></i>
+                            <?php echo htmlspecialchars(trim($skill)); ?>
+                        </span>
+                        <?php endif; ?>
+                    <?php endforeach; ?>
+                </div>
+            <?php else: ?>
+                <p class="text-muted">No specific skills required</p>
+            <?php endif; ?>
+        </div>
 
-                            <div
-                                class="requirement-column <?php echo in_array('qualifications', $updated_fields ?? []) ? 'recently-updated' : ''; ?>">
-                                <div class="d-flex justify-content-between align-items-center mb-3">
-                                    <h6><i class="fa fa-graduation-cap text-success"></i> Qualifications</h6>
-                                    <?php if (in_array('qualifications', $updated_fields ?? [])): ?>
-                                    <span class="badge badge-warning update-field-badge">
-                                        <i class="fa fa-pencil-alt"></i> Updated
-                                    </span>
-                                    <?php endif; ?>
-                                </div>
-                                <?php if (!empty($qualifications) && $qualification_options && $qualification_options->num_rows() > 0): ?>
-                                <?php
-                        $qualification_names = [];
-                        foreach ($qualification_options->result() as $qualification) {
-                            $qualification_names[$qualification->id] = $qualification->name;
-                        }
-                        ?>
-                                <div class="qualifications-list">
-                                    <?php foreach ($qualifications as $qualification_id): ?>
-                                    <?php if (isset($qualification_names[$qualification_id])): ?>
-                                    <span class="qualification-tag">
-                                        <i class="fa fa-award"></i>
-                                        <?php echo htmlspecialchars($qualification_names[$qualification_id]); ?>
-                                    </span>
-                                    <?php endif; ?>
-                                    <?php endforeach; ?>
-                                </div>
-                                <?php else: ?>
-                                <p class="text-muted">No specific qualifications required</p>
-                                <?php endif; ?>
-                            </div>
-                        </div>
-                    </div>
+        <div class="requirement-column <?php echo in_array('qualifications', $updated_fields ?? []) ? 'recently-updated' : ''; ?>">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h6><i class="fa fa-graduation-cap text-success"></i> Qualifications</h6>
+                <?php if (in_array('qualifications', $updated_fields ?? [])): ?>
+                <span class="badge badge-warning update-field-badge">
+                    <i class="fa fa-pencil-alt"></i> Updated
+                </span>
+                <?php endif; ?>
+            </div>
+            <?php if (!empty($qualifications)): ?>
+                <div class="qualifications-list">
+                    <?php foreach ($qualifications as $qualification): ?>
+                        <?php if (!empty(trim($qualification))): ?>
+                        <span class="qualification-tag">
+                            <i class="fa fa-award"></i>
+                            <?php echo htmlspecialchars(trim($qualification)); ?>
+                        </span>
+                        <?php endif; ?>
+                    <?php endforeach; ?>
+                </div>
+            <?php else: ?>
+                <p class="text-muted">No specific qualifications required</p>
+            <?php endif; ?>
+        </div>
+    </div>
+</div>
 
                     <!-- Application Tab -->
                     <div class="tab-pane fade" id="application" role="tabpanel">

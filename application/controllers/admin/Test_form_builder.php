@@ -199,8 +199,26 @@ public function quick_manage_extra($id, $row) {
         log_message('debug', 'Form builder opened from template sections');
     }
 
+     // Get field suggestions from database tables
+    $field_suggestions = $this->{$this->model}->get_field_suggestions();
+    $db_fields = $this->{$this->model}->get_table_fields();
+    $field_type_mapping = $this->{$this->model}->get_db_field_type_mapping();
+    $medical_recommendations = $this->{$this->model}->get_medical_field_recommendations(); // ✅ ADD MEDICAL RECOMMENDATIONS
+
+     log_message('debug', 'Field suggestions count: ' . count($field_suggestions));
+    log_message('debug', 'DB fields count: ' . count($db_fields));
+    log_message('debug', 'Medical recommendations: ' . count($medical_recommendations));
+
+    // Get field suggestions from database tables
+    $field_suggestions = $this->{$this->model}->get_field_suggestions();
+    $db_fields = $this->{$this->model}->get_table_fields();
+    $field_type_mapping = $this->{$this->model}->get_db_field_type_mapping();
+
+    log_message('debug', 'Field suggestions count: ' . count($field_suggestions));
+    log_message('debug', 'DB fields count: ' . count($db_fields));
+
     // Default return data
-    $default = [
+   $default = [
         'form' => '',
         'schema' => [],
         'styling' => [],
@@ -212,7 +230,11 @@ public function quick_manage_extra($id, $row) {
         'row' => $row,
         'df' => [],
         'current_fields' => [],
-        'source' => $source // ✅ Use source instead of is_custom_section
+        'source' => $source,
+        'field_suggestions' => $field_suggestions,
+        'db_fields' => $db_fields,
+        'field_type_mapping' => $field_type_mapping,
+        'medical_recommendations' => $medical_recommendations // ✅ ADD MEDICAL RECOMMENDATIONS
     ];
 
     if (empty($id)) {
@@ -315,10 +337,16 @@ public function quick_manage_extra($id, $row) {
             'row' => $merged_row,
             'df' => [],
             'current_fields' => $current_fields,
-            'source' => $source // ✅ Include the source
+            'source' => $source,
+            'field_suggestions' => $field_suggestions, // ✅ Include field suggestions
+            'db_fields' => $db_fields, // ✅ Include detailed field info
+            'field_type_mapping' => $field_type_mapping // ✅ Include type mapping
         ];
 
         log_message('debug', 'Returning data with source: ' . $source);
+        log_message('debug', 'Field suggestions included: ' . count($field_suggestions) . ' groups');
+        log_message('debug', 'DB fields included: ' . count($db_fields) . ' fields');
+
         return $result;
 
     } catch (Exception $e) {
@@ -795,16 +823,16 @@ public function create_modify_params($params){
 
     public function get_all_dynamic_field_data($rowID = 0){        
         $df = array();
-		if ( ! empty($this->formFields['dynamic_fields']) && $this->input->post('df')) {
+        if ( ! empty($this->formFields['dynamic_fields']) && $this->input->post('df')) {
             $df = $this->input->post('df');
-		} elseif ( ! empty($this->formFields['dynamic_fields']) && ! empty($rowID)) {
+        } elseif ( ! empty($this->formFields['dynamic_fields']) && ! empty($rowID)) {
             
             $df = $this->{$this->model}->get_form_data($rowID)[0];
             $df = json_decode($df['schema'], true);
             $df = $df['meta_data']['df'] ?? [];
-		}
+        }
 
-		return $df;
+        return $df;
     }
 
  
@@ -1022,33 +1050,132 @@ public function schema_to_html($schema, $show_buttons = true) {
     {
         return ;
     }
+// Add this method to Test_form_builder.php (around line 100, after __construct)
 public function render_schema() {
     $schema_json = $this->input->post('schema');
-    if (!$schema_json) {
-        return $this->output_json(['success' => false, 'message' => 'No schema provided']);
+    if (empty($schema_json)) {
+        $this->output->set_output(json_encode(['success' => false, 'message' => 'No schema provided']));
+        return;
     }
 
     $schema = json_decode($schema_json, true);
-    if (!$schema) {
-        return $this->output_json(['success' => false, 'message' => 'Invalid schema']);
+    if (json_last_error() !== JSON_ERROR_NONE) {
+        $this->output->set_output(json_encode(['success' => false, 'message' => 'Invalid schema JSON']));
+        return;
     }
 
-    try {
-        $form = $this->form_builder::make()
-            ->set_schema($schema)
-            ->make_form();
+    $this->load->model('admin/Model_test_form_builder'); // Ensure model is loaded
+    $html = $this->build_form_html($schema);
 
-        $this->output_json([
-            'success' => true,
-            'form_view' => $form->form_view
-        ]);
-    } catch (Exception $e) {
-        log_message('error', 'Render schema error: ' . $e->getMessage());
-        $this->output_json([
-            'success' => false,
-            'message' => 'Error rendering form'
-        ]);
+    $this->output->set_content_type('application/json');
+    $this->output->set_output(json_encode([
+        'success' => true,
+        'form_view' => $html
+    ]));
+}
+
+// Add this helper method to generate HTML from schema
+private function build_form_html($schema) {
+    $html = '<form method="post" action="" class="dynamic-form">';
+    foreach ($schema as $row_key => $row_data) {
+        if (isset($row_data['row']) && $row_data['row'] === true) {
+            $html .= $this->build_row_html($row_data);
+        }
     }
+    $html .= '</form>';
+    return $html;
+}
+
+private function build_row_html($row_data) {
+    $header = htmlspecialchars($row_data['header'] ?? '');
+    $custom_class = $row_data['custom_class'] ?? '';
+    $html = '<div class="row ' . $custom_class . '">';
+    if (!empty($header)) {
+        $html .= '<div class="col-12"><h5>' . $header . '</h5></div>';
+    }
+
+    foreach ($row_data['fields'] ?? [] as $field_key => $field) {
+        $col_sm = $field['col']['sm'] ?? '12';
+        $col_md = $field['col']['md'] ?? '6';
+        $col_lg = $field['col']['lg'] ?? '4';
+        $label = htmlspecialchars($field['label'] ?? $field_key);
+        $required = $field['required'] ? ' required' : '';
+        $attr = $this->build_attributes($field['attr'] ?? []);
+        $name = $field_key; // Use field_key as name (e.g., "skills[]")
+
+        $field_html = '<div class="col-sm-' . $col_sm . ' col-md-' . $col_md . ' col-lg-' . $col_lg . '">';
+        $field_html .= '<label for="' . $name . '">' . $label . ($required ? ' <span class="text-danger">*</span>' : '') . '</label>';
+
+        switch ($field['type']) {
+            case 'multiselect':
+                $field_html .= $this->build_multiselect_html($name, $field);
+                break;
+            // Add other types as needed (text, textarea, etc.)
+            case 'text':
+                $field_html .= '<input type="text" name="' . $name . '" id="' . $name . '" class="form-control"' . $required . $attr . '>';
+                break;
+            case 'textarea':
+                $field_html .= '<textarea name="' . $name . '" id="' . $name . '" class="form-control"' . $required . $attr . '></textarea>';
+                break;
+            // ... other cases
+            default:
+                $field_html .= '<input type="' . htmlspecialchars($field['type']) . '" name="' . $name . '" id="' . $name . '" class="form-control"' . $required . $attr . '>';
+        }
+
+        $field_html .= '</div>';
+        $html .= $field_html;
+    }
+
+    $html .= '</div>';
+    return $html;
+}
+
+private function build_multiselect_html($name, $field) {
+    $options = $this->get_multiselect_options($name, $field['options'] ?? []);
+    $html = '<select name="' . $name . '[]" id="' . $name . '" multiple class="form-control multiselect-target"' . $this->build_attributes($field['attr'] ?? []) . ' data-placeholder="' . htmlspecialchars($field['label'] ?? 'Select options') . '">';
+    
+    foreach ($options as $value => $label) {
+        $html .= '<option value="' . htmlspecialchars($value) . '">' . htmlspecialchars($label) . '</option>';
+    }
+    
+    $html .= '</select>';
+    return $html;
+}
+
+private function get_multiselect_options($name, $static_options) {
+    // If static options provided in schema, use them
+    if (!empty($static_options)) {
+        return $static_options;
+    }
+
+    // Dynamic: Detect field name and fetch from DB
+    $this->load->model('admin/Model_test_form_builder');
+    if (strpos($name, 'qualifications') !== false) {
+        $qualifications = $this->Model_test_form_builder->db->select('id, name')
+            ->from('mod_job_qualifications')
+            ->where('removed', 0)
+            ->get()
+            ->result_array();
+        return array_column($qualifications, 'name', 'id');
+    } elseif (strpos($name, 'skills') !== false) {
+        $skills = $this->Model_test_form_builder->db->select('id, name')
+            ->from('mod_job_skills')
+            ->where('removed', 0)
+            ->get()
+            ->result_array();
+        return array_column($skills, 'name', 'id');
+    }
+
+    return []; // Empty if no match
+}
+
+private function build_attributes($attr_array) {
+    if (empty($attr_array)) return '';
+    $attrs = [];
+    foreach ($attr_array as $key => $val) {
+        $attrs[] = htmlspecialchars($key) . '="' . htmlspecialchars($val) . '"';
+    }
+    return ' ' . implode(' ', $attrs);
 }
 
 

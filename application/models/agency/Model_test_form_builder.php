@@ -2,72 +2,114 @@
 class Model_test_form_builder extends CRUD_Model {
     protected $table = 'sys_form_schemas';
 
-    // ✅ OVERRIDE THE UPDATE METHOD TO PREVENT NULL ERROR
     public function update(array $data, $whereValue, $whereField = 'id', $table = false) {
-        $table = $table ? $table : $this->table;
+    $table = $table ? $table : $this->table;
 
-        $data['updated_at'] = date('Y-m-d H:i:s');
-        // In update method, after $data['updated_at'] = ...
-        if (isset($data['schema'])) {
-            $schema = json_decode($data['schema'], true);
-            // Ensure multi-select has options if dynamic
-            foreach ($schema as &$row) {
-                if (isset($row['fields'])) {
-                    foreach ($row['fields'] as &$field) {
-                        if ($field['type'] === 'multiselect' && empty($field['options'])) {
-                            // Auto-populate from suggestions if name matches
-                            $suggestions = $this->get_field_suggestions();
-                            // Logic to match and set options (simplified)
-                            $field['options'] = $suggestions['Qualification Fields'] ?? [];
-                        }
+    $data['updated_at'] = date('Y-m-d H:i:s');
+    
+    // ✅ FIXED: Use proper session checking
+    if ($this->session->userdata('agency_id')) {
+        $data['agency_id'] = $this->session->userdata('agency_id');
+        $data['is_public'] = 0; // Agency-specific forms are not public by default
+    }
+    
+    // Rest of your update logic...
+    if (isset($data['schema'])) {
+        $schema = json_decode($data['schema'], true);
+        // Ensure multi-select has options if dynamic
+        foreach ($schema as &$row) {
+            if (isset($row['fields'])) {
+                foreach ($row['fields'] as &$field) {
+                    if ($field['type'] === 'multiselect' && empty($field['options'])) {
+                        // Auto-populate from suggestions if name matches
+                        $suggestions = $this->get_field_suggestions();
+                        // Logic to match and set options (simplified)
+                        $field['options'] = $suggestions['Qualification Fields'] ?? [];
                     }
                 }
             }
-            $data['schema'] = json_encode($schema);
         }
+        $data['schema'] = json_encode($schema);
+    }
 
-        $result = $this->db->update($table, $data, array($whereField => $whereValue));
+    $result = $this->db->update($table, $data, array($whereField => $whereValue));
+    
+    if (!$result) {
+        log_message('error', 'Update failed: ' . $this->db->last_query());
+        Anomalies::log('Failed to update from CRUD', $this->db->last_query());
+        return false;
+    }
+
+    // ✅ SIMPLE FIX: Return the ID we're updating instead of querying for it
+    // This prevents the "Attempt to read property 'id' on null" error
+    return $whereValue;
+}
+
+
+
+    public function get_count() 
+    {
+        log_message('debug', '=== MODEL_TEST_FORM_BUILDER GET_COUNT WITH AGENCY FILTER ===');
         
-        if (!$result) {
-            log_message('error', 'Update failed: ' . $this->db->last_query());
-            Anomalies::log('Failed to update from CRUD', $this->db->last_query());
-            return false;
+        $agency_id = $this->session->userdata('agency_id');
+        
+        $this->db->from($this->table)
+                 ->where('removed', 0)
+                 ->where('deleted_at IS NULL');
+
+        // ✅ AGENCY FILTERING
+        if ($agency_id) {
+            $this->db->where("(agency_id = $agency_id OR is_public = 1)");
+        } else {
+            $this->db->where('is_public', 1);
         }
 
-        // ✅ SIMPLE FIX: Return the ID we're updating instead of querying for it
-        // This prevents the "Attempt to read property 'id' on null" error
-        return $whereValue;
+        return $this->db->count_all_results();
     }
 
-    // Required by CRUD_Controller for listing
-    public function get_all($section = '') {
-        return $this->db
-            ->from($this->table)
-            ->where('removed IS NULL OR removed = 0', null, false)
-            ->where('deleted_at IS NULL')
-            ->order_by('id', 'DESC')
-            ->get(); // ← DO NOT call ->result() here!
+    public function get_all($section = '') 
+    {
+        log_message('debug', '=== MODEL_TEST_FORM_BUILDER GET_ALL WITH AGENCY FILTER ===');
+        
+        $agency_id = $this->session->userdata('agency_id');
+        
+        $this->db->from($this->table)
+                 ->where('removed', 0)
+                 ->where('deleted_at IS NULL');
+
+        // ✅ AGENCY FILTERING
+        if ($agency_id) {
+            $this->db->where("(agency_id = $agency_id OR is_public = 1)");
+        } else {
+            $this->db->where('is_public', 1);
+        }
+
+        $this->db->order_by('name', 'ASC');
+        
+        return $this->db->get();
     }
 
-    // Also required: total count
-    public function get_count() {
-        return $this->db
-            ->from($this->table)
-            ->where('removed IS NULL OR removed = 0', null, false)
-            ->where('deleted_at IS NULL')
-            ->count_all_results();
-    }
-
-    // For editing/loading single item
-    public function get_by_id($id, $table = false) {
+    public function get_by_id($id, $table = false) 
+    {
         if ($table === false) {
             $table = $this->table;
         }
-        return $this->db
-            ->where('id', $id)
-            ->get($table)
-            ->row();
+        
+        $this->db->where('removed', 0)
+                 ->where('deleted_at IS NULL');
+                 
+        // ✅ ADD AGENCY CHECK FOR SECURITY
+        $agency_id = $this->session->userdata('agency_id');
+        if ($agency_id) {
+            $this->db->where("(agency_id = $agency_id OR is_public = 1)");
+        } else {
+            $this->db->where('is_public', 1);
+        }
+        
+        return $this->db->where('id', $id)->get($table)->row();
     }
+
+
 
     // Keep if used elsewhere
     public function get_form_data($id) {

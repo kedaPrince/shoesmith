@@ -679,6 +679,7 @@ class Login extends MY_Controller {
                     $login[$group]['contact_person'] = $row->contact_person;
                     $login[$group]['first_name'] = $row->name;
                     $login[$group]['last_name'] = '';
+                    $login[$group]['agency_id'] = $row->id;  // ← This sets agency_id INSIDE login[agency]
                 } elseif ($group == 'agency_staff') {
                     $login[$group]['email'] = $row->email;
                     $login[$group]['first_name'] = $row->first_name;
@@ -766,6 +767,14 @@ class Login extends MY_Controller {
                 'redirect'  => site_url().$defaultUrl,
                 'enabled'   => $row->enabled
             );
+            // ✅ CRITICAL FIX: Add agency_id to session
+            if ($group == 'agency') {
+                $login[$group]['agency_id'] = $row->id;
+                   $this->session->set_userdata('agency_id', $row->id);
+            } elseif ($group == 'agency_staff') {
+                $login[$group]['agency_id'] = $row->agency_id;
+                $this->session->set_userdata('agency_id', $row->agency_id);
+            }
 
             if (!empty($loginGroups[$group]['session_fields'])) {
                 foreach ($loginGroups[$group]['session_fields'] as $field) {
@@ -778,4 +787,7 @@ class Login extends MY_Controller {
             redirect(site_url().$defaultUrl);
         }
     }
+
+
+    
 }

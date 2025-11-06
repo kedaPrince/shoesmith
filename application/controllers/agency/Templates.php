@@ -46,92 +46,95 @@ class Templates extends CRUD_Controller
     public $quickManage = true;
     public $quickManageSize = 5;
 
-    public function __construct() 
-    {
-        parent::__construct();
+   public function __construct() 
+{
+    parent::__construct();
+    
+     // ✅ FIX: Ensure agency_id matches the login data
+    $login_data = $this->session->userdata('login');
+    if (!empty($login_data['agency']['agency_id'])) {
+        $correct_agency_id = $login_data['agency']['agency_id'];
+        $current_agency_id = $this->session->userdata('agency_id');
         
-        $this->load->model($this->folder . '/' . $this->model);
-        $this->load->model('admin/Model_template_instances');
-        $this->load->model('admin/Model_agency_templates');
-        
-        $this->zone = array(
-            'title' => lang($this->pageName . '_heading'),
-            'url' => redir($this->pageName, true)
-        );
-        $this->load->library('Form_builder');
-        
-        $this->setup_listing();
-        $this->setup_fields();
+        if ($current_agency_id != $correct_agency_id) {
+            log_message('debug', "Fixing agency_id mismatch: $current_agency_id -> $correct_agency_id");
+            $this->session->set_userdata('agency_id', $correct_agency_id);
+        }
     }
+    
+    $this->load->model($this->folder . '/' . $this->model);
+    $this->load->model('admin/Model_template_instances');
+    $this->load->model('admin/Model_agency_templates');
+    
+    $this->zone = array(
+        'title' => lang($this->pageName . '_heading'),
+        'url' => redir($this->pageName, true)
+    );
+    $this->load->library('Form_builder');
+    
+    $this->setup_listing();
+    $this->setup_fields();
+}
 
     public function setup_listing() 
     {
         $this->listFields = array(
-            'id' => array(
-                'label' => 'ID',
-                'sort' => true
-            ),
-            'template_name' => array(
-                'label' => 'Template Name',
-                'sort' => true,
-                'function' => function($value, $row) {
-                    $template_type = isset($row->template_type) ? $row->template_type : 'single';
-                    if ($template_type === 'composite') {
-                        return isset($row->template_name) ? $row->template_name : 'Unnamed Composite Template';
-                    }
-                    return isset($row->name) ? $row->name : 'Unnamed Template';
+        'id' => array(
+            'label' => 'ID',
+            'sort' => true
+        ),
+        'template_type' => array(
+            'label' => 'Type',
+            'sort' => true,
+            'function' => function($value, $row) {
+                $template_type = isset($row->template_type) ? $row->template_type : 'single';
+                $badge = $template_type === 'composite' ? 'warning' : 'info';
+                $label = $template_type === 'composite' ? 'Composite' : 'Single';
+                return '<span class="badge badge-' . $badge . '">' . $label . '</span>';
+            }
+        ),
+        'schema_name' => array(
+            'label' => 'Form Schema',
+            'sort' => true,
+            'function' => function($value, $row) {
+                $template_type = isset($row->template_type) ? $row->template_type : 'single';
+                if ($template_type === 'composite') {
+                    return '<span class="text-muted">Multiple Sections</span>';
                 }
-            ),
-            'template_type' => array(
-                'label' => 'Type',
-                'sort' => true,
-                'function' => function($value, $row) {
-                    $template_type = isset($row->template_type) ? $row->template_type : 'single';
-                    $badge = $template_type === 'composite' ? 'warning' : 'info';
-                    $label = $template_type === 'composite' ? 'Composite' : 'Single';
-                    return '<span class="badge badge-' . $badge . '">' . $label . '</span>';
+                return isset($value) ? $value : 'No schema';
+            }
+        ),
+        'section_count' => array(
+            'label' => 'Sections',
+            'sort' => true,
+            'function' => function($value, $row) {
+                $template_type = isset($row->template_type) ? $row->template_type : 'single';
+                if ($template_type === 'composite') {
+                    return isset($value) ? $value : '0';
                 }
-            ),
-            'schema_name' => array(
-                'label' => 'Form Schema',
-                'sort' => true,
-                'function' => function($value, $row) {
-                    $template_type = isset($row->template_type) ? $row->template_type : 'single';
-                    if ($template_type === 'composite') {
-                        return '<span class="text-muted">Multiple Sections</span>';
-                    }
-                    return isset($value) ? $value : 'No schema';
-                }
-            ),
-            'section_count' => array(
-                'label' => 'Sections',
-                'sort' => true,
-                'function' => function($value, $row) {
-                    $template_type = isset($row->template_type) ? $row->template_type : 'single';
-                    if ($template_type === 'composite') {
-                        return isset($value) ? $value : '0';
-                    }
-                    return '<span class="text-muted">-</span>';
-                }
-            ),
-            'agency_id' => array(
-                'label' => 'Agency ID',
-                'sort' => true,
-                'function' => function($value, $row) {
-                    return isset($value) ? $value : '-';
-                }
-            ),
-            'enabled' => array(
-                'label' => 'Status',
-                'sort' => true,
-                'function' => function($value, $row) {
-                    return $value ? 
-                        '<span class="badge badge-success">Enabled</span>' : 
-                        '<span class="badge badge-secondary">Disabled</span>';
-                }
-            ),
-          
-        );
+                return '<span class="text-muted">-</span>';
+            }
+        ),
+        'agency_id' => array(
+            'label' => 'Agency ID',
+            'sort' => true,
+            'function' => function($value, $row) {
+                $agency_id = isset($value) ? $value : (isset($row->agency_id) ? $row->agency_id : '-');
+                $current_agency_id = $this->session->userdata('agency_id');
+                $badge_class = ($agency_id == $current_agency_id) ? 'badge-success' : 'badge-secondary';
+                return '<span class="badge ' . $badge_class . '">' . $agency_id . '</span>';
+            }
+        ),
+        'enabled' => array(
+            'label' => 'Status',
+            'sort' => true,
+            'function' => function($value, $row) {
+                return $value ? 
+                    '<span class="badge badge-success">Enabled</span>' : 
+                    '<span class="badge badge-secondary">Disabled</span>';
+            }
+        ),
+    );
 
         $this->listActions = array(
             'edit' => array(
@@ -328,25 +331,25 @@ class Templates extends CRUD_Controller
 
     public function ajax_results() 
     {
-        log_message('debug', '=== AJAX RESULTS USING MODEL HYBRID METHOD ===');
+         log_message('debug', '=== AJAX RESULTS USING MODEL HYBRID METHOD ===');
 
-        $page   = max(1, (int) $this->input->get('page'));
-        $limit  = min(100, max(1, (int) $this->input->get('limit')));
-        $offset = ($page - 1) * $limit;
-        $search = $this->input->get('search');
-        $template_type = $this->input->get('template_type');
-        $sort_field = $this->input->get('sort_field') ?: 'id';
-        $sort_order = strtoupper($this->input->get('sort_order') ?: 'DESC');
+    $page   = max(1, (int) $this->input->get('page'));
+    $limit  = min(100, max(1, (int) $this->input->get('limit')));
+    $offset = ($page - 1) * $limit;
+    $search = $this->input->get('search');
+    $template_type = $this->input->get('template_type');
+    $sort_field = $this->input->get('sort_field') ?: 'id';
+    $sort_order = strtoupper($this->input->get('sort_order') ?: 'DESC');
 
-        $filters = [];
-        if ($search) $filters['search'] = $search;
-        if ($template_type) $filters['template_type'] = $template_type;
+    $filters = [];
+    if ($search) $filters['search'] = $search;
+    if ($template_type) $filters['template_type'] = $template_type;
 
-        log_message('debug', 'Filters: ' . print_r($filters, true));
+    log_message('debug', 'Filters: ' . print_r($filters, true));
 
-        $all_templates = $this->{$this->model}->get_hybrid_templates($filters);
+    $all_templates = $this->{$this->model}->get_hybrid_templates($filters);
 
-        log_message('debug', 'Raw hybrid templates count: ' . count($all_templates));
+    log_message('debug', 'Raw hybrid templates count: ' . count($all_templates));
 
         $valid_sort_fields = ['id', 'name', 'template_name', 'template_type', 'schema_name', 'section_count', 'agency_id', 'created_at', 'enabled'];
         if (in_array($sort_field, $valid_sort_fields)) {
@@ -1056,33 +1059,51 @@ private function quick_manage_composite($id, $row)
     ];
 }
 
-/**
- * Convert stored field names to form field name format
- * mod_jobs_name -> mod_jobs.name
- * mod_jobs_description -> mod_jobs.description  
- * mod_jobs_salary_min -> mod_jobs.salary_min
- * usr_medical_emergency_details_next_of_kin_first_name -> usr_medical_emergency_details.next_of_kin_first_name
- */
 private function convert_to_form_field_name($stored_name)
 {
     // Handle special cases first
     if ($stored_name === 'template_cache_id') {
-        return 'template_cache_id'; // This one stays the same
+        return 'template_cache_id';
+    }
+    
+    // ✅ FIX: Convert mod_job_medical_requirements_* to mod_job_medical_requirements.*
+    if (strpos($stored_name, 'mod_job_medical_requirements_') === 0) {
+        $field_part = substr($stored_name, 29); // Remove "mod_job_medical_requirements_"
+        return 'mod_job_medical_requirements.' . $field_part;
     }
     
     // Convert mod_jobs_name to mod_jobs.name
-    // Convert mod_jobs_description to mod_jobs.description
-    // Convert mod_jobs_salary_min to mod_jobs.salary_min
-    
     if (strpos($stored_name, 'mod_jobs_') === 0) {
         $field_part = substr($stored_name, 9); // Remove "mod_jobs_"
+        
+        // ✅ FIX: Handle employment_type specifically
+        if ($field_part === 'employment_type') {
+            return 'mod_jobs.employment_type';
+        }
+        
         return 'mod_jobs.' . $field_part;
     }
     
-    // ✅ NEW: Convert medical fields
+    // Convert usr_medical_emergency_details_ to usr_medical_emergency_details.
     if (strpos($stored_name, 'usr_medical_emergency_details_') === 0) {
         $field_part = substr($stored_name, 30); // Remove "usr_medical_emergency_details_"
         return 'usr_medical_emergency_details.' . $field_part;
+    }
+    
+    // ✅ IMPROVED: Handle employment type fields more broadly
+    if ($stored_name === 'employment_type' || $stored_name === 'job_type') {
+        return 'mod_jobs.employment_type';
+    }
+    
+    // ✅ IMPROVED: Handle industry fields
+    if (strpos($stored_name, 'industry') !== false) {
+        if (strpos($stored_name, 'mod_industries_') === 0) {
+            return 'mod_industries.id';
+        }
+        if (strpos($stored_name, 'mod_jobs_industry') === 0) {
+            return 'mod_jobs.industry_id';
+        }
+        return 'industry_id';
     }
     
     // For other fields, return as is
@@ -1381,22 +1402,28 @@ private function wrap_section_form($section, $form_html)
         return TRUE;
     }
 
-   public function update_ajax($template_id)
+public function update_ajax($template_id)
 {
-    log_message('debug', '=== UPDATE_AJAX CALLED FOR TEMPLATE: ' . $template_id . ' ===');
-    
-    // Set JSON header first
+    // ✅ FIX: Set proper headers first
     header('Content-Type: application/json');
     
-    if (!$this->input->is_ajax_request()) {
-        echo json_encode([
-            'success' => false,
-            'error' => 'Not an AJAX request'
-        ]);
-        return;
-    }
-
+    // ✅ FIX: Completely suppress all output and errors
+    ob_start();
+    $old_error_level = error_reporting(0);
+    ini_set('display_errors', 0);
+    
     try {
+        log_message('debug', '=== UPDATE_AJAX STARTED FOR TEMPLATE: ' . $template_id . ' ===');
+        
+        // Session validation
+        if (!$this->session->userdata('is_logged_in') || empty($this->session->userdata('agency_id'))) {
+            throw new Exception('Session expired. Please log in again.');
+        }
+
+        if (!$this->input->is_ajax_request()) {
+            throw new Exception('Not an AJAX request');
+        }
+
         $post_data = $this->input->post();
         
         // ✅ DEBUG: Log all POST data
@@ -1404,7 +1431,7 @@ private function wrap_section_form($section, $form_html)
         log_message('debug', 'POST keys: ' . implode(', ', array_keys($post_data)));
         foreach ($post_data as $key => $value) {
             if (is_array($value)) {
-                log_message('debug', 'POST[' . $key . '] = ARRAY: ' . implode(', ', $value));
+                log_message('debug', 'POST[' . $key . '] = ARRAY: ' . json_encode($value));
             } else {
                 log_message('debug', 'POST[' . $key . '] = ' . substr($value, 0, 100));
             }
@@ -1417,25 +1444,31 @@ private function wrap_section_form($section, $form_html)
         log_message('debug', 'Form data keys: ' . implode(', ', array_keys($form_data)));
 
         if (empty($form_data)) {
-            echo json_encode([
-                'success' => false,
-                'error' => 'No form data to save'
-            ]);
-            return;
+            throw new Exception('No form data to save');
+        }
+
+        // ✅ FIX: Test database connection first
+        if (!$this->db->conn_id) {
+            throw new Exception('Database connection failed');
         }
 
         $this->db->trans_start();
 
         $template = $this->{$this->model}->get_by_id($template_id);
         if (!$template) {
-            throw new Exception('Template not found');
+            throw new Exception('Template not found with ID: ' . $template_id);
         }
+
+        log_message('debug', 'Template found: ' . ($template->name ?? $template->template_name ?? 'Unknown'));
+        log_message('debug', 'Template type: ' . ($template->template_type ?? 'single'));
 
         $template_type = $template->template_type ?? 'single';
         
         if ($template_type === 'composite') {
+            log_message('debug', 'Processing as COMPOSITE template');
             $result = $this->save_composite_template_data($template_id, $form_data, $template);
         } else {
+            log_message('debug', 'Processing as SINGLE template');
             $result = $this->save_single_template_data($template_id, $form_data, $template);
         }
 
@@ -1445,31 +1478,78 @@ private function wrap_section_form($section, $form_html)
             throw new Exception('Database transaction failed');
         }
 
-        // ✅ SUCCESS: Return proper JSON
+        // ✅ FIX: Clear ALL output buffers completely
+        while (ob_get_level() > 0) {
+            ob_end_clean();
+        }
+        
         $response = [
             'success' => true,
             'message' => 'Template data saved successfully',
             'data' => $result
         ];
         
-        log_message('debug', 'UPDATE_AJAX SUCCESS: ' . json_encode($response));
-        echo json_encode($response);
-        return;
+        log_message('debug', 'UPDATE_AJAX SUCCESS: Template ' . $template_id . ' saved successfully');
+        
+        // ✅ FIX: Use CI output class instead of echo
+        $this->output
+            ->set_content_type('application/json')
+            ->set_output(json_encode($response))
+            ->_display();
+        
+        exit; // ✅ FIX: Stop execution after sending response
 
     } catch (Exception $e) {
-        log_message('error', 'Template save error: ' . $e->getMessage());
-        $this->db->trans_rollback();
+        // ✅ FIX: Clear ALL output buffers completely
+        while (ob_get_level() > 0) {
+            ob_end_clean();
+        }
         
-        // ✅ ERROR: Return proper JSON error
+        log_message('error', 'Template save error: ' . $e->getMessage());
+        log_message('error', 'Error trace: ' . $e->getTraceAsString());
+        
+        if (isset($this->db) && method_exists($this->db, 'trans_rollback')) {
+            @$this->db->trans_rollback();
+        }
+        
         $error_response = [
             'success' => false,
-            'error' => $e->getMessage()
+            'error' => $e->getMessage(),
+            'template_id' => $template_id
         ];
         
-        log_message('debug', 'UPDATE_AJAX ERROR: ' . json_encode($error_response));
-        echo json_encode($error_response);
-        return;
+        // ✅ FIX: Use CI output class instead of echo
+        $this->output
+            ->set_content_type('application/json')
+            ->set_output(json_encode($error_response))
+            ->_display();
+        
+        exit; // ✅ FIX: Stop execution after sending response
+        
+    } finally {
+        // ✅ FIX: Restore error reporting
+        error_reporting($old_error_level);
+        ini_set('display_errors', 1);
+        log_message('debug', '=== UPDATE_AJAX COMPLETED ===');
     }
+}
+
+private function debug_form_data_processing($form_data)
+{
+    log_message('debug', '=== DEBUG FORM DATA PROCESSING ===');
+    log_message('debug', 'Total form fields: ' . count($form_data));
+    
+    foreach ($form_data as $key => $value) {
+        if (is_array($value)) {
+            log_message('debug', "Array field [{$key}] with " . count($value) . " elements");
+            foreach ($value as $subkey => $subvalue) {
+                log_message('debug', "  [{$subkey}] => " . (is_array($subvalue) ? 'ARRAY' : substr($subvalue, 0, 100)));
+            }
+        } else {
+            log_message('debug', "Field [{$key}] => " . substr($value, 0, 100));
+        }
+    }
+    log_message('debug', '=== END FORM DATA DEBUG ===');
 }
 
 private function save_composite_template_data($template_id, $form_data, $template)
@@ -1478,12 +1558,29 @@ private function save_composite_template_data($template_id, $form_data, $templat
     log_message('debug', 'Form data keys to save: ' . implode(', ', array_keys($form_data)));
     
     try {
-        $this->load->model('admin/Model_agency_templates');
+        // ✅ FIX: Load agency model instead of admin model
+        $this->load->model('agency/Model_agency_templates');
         $composite_template = $this->Model_agency_templates->get_template_with_sections($template_id);
         
         if (!$composite_template || empty($composite_template->sections)) {
             throw new Exception('No sections found for composite template');
         }
+
+        // ✅ FIX: Get current agency ID properly
+        $agency_id = $this->session->userdata('agency_id');
+        if (!$agency_id) {
+            $login_data = $this->session->userdata('login');
+            if (!empty($login_data['agency']['agency_id'])) {
+                $agency_id = $login_data['agency']['agency_id'];
+            } elseif (!empty($login_data['agency']['id'])) {
+                $agency_id = $login_data['agency']['id'];
+            }
+        }
+        
+        log_message('debug', 'Current agency ID for saving: ' . $agency_id);
+
+        // ✅ FIX: Debug form data processing
+        $this->debug_form_data_processing($form_data);
 
         $existing_instance = $this->db->where('template_id', $template_id)
                                      ->where('removed', 0)
@@ -1509,7 +1606,7 @@ private function save_composite_template_data($template_id, $form_data, $templat
         $instance_data = [
             'template_id' => $template_id,
             'name' => $template->template_name ?? 'Composite Template Instance',
-            'form_data' => json_encode($form_data_for_storage, JSON_UNESCAPED_UNICODE), // Store with underscores
+            'form_data' => !empty($form_data_for_storage) ? json_encode($form_data_for_storage, JSON_UNESCAPED_UNICODE) : '{}',
             'updated_at' => date('Y-m-d H:i:s')
         ];
 
@@ -1528,6 +1625,11 @@ private function save_composite_template_data($template_id, $form_data, $templat
         // Add missing columns to agency_custom_templates table (using underscore format)
         $this->add_missing_columns('agency_custom_templates', $form_data_for_storage);
 
+        // ✅ FIX: Check if agency_custom_templates record exists before updating/inserting
+        $existing_agency_template = $this->db->where('id', $template_id)
+                                            ->get('agency_custom_templates')
+                                            ->row();
+
         // ✅ FIX: Update agency_custom_templates with individual form_data fields
         $update_data = [];
         foreach ($form_data_for_storage as $key => $value) {
@@ -1540,38 +1642,50 @@ private function save_composite_template_data($template_id, $form_data, $templat
             log_message('debug', 'Setting agency_custom_templates field: ' . $key . ' = "' . (is_array($value) ? 'ARRAY_CONVERTED_TO_JSON' : $value) . '"');
         }
         
-        // ✅ FIX: Only update if we have data to update
-        if (!empty($update_data)) {
+        // ✅ FIX: Proper handling of agency_custom_templates record
+        if ($existing_agency_template) {
+            // Update existing record
             $this->db->where('id', $template_id)
                      ->update('agency_custom_templates', $update_data);
             $affected = $this->db->affected_rows();
-            
-            if ($affected === 0) {
-                log_message('warning', 'No rows updated in agency_custom_templates for template ' . $template_id . ' - check if base record exists');
-                // Insert base record if missing
-                $base_data = [
-                    'id' => $template_id, 
-                    'agency_id' => $template->agency_id ?? 1, 
-                    'template_name' => $template->template_name ?? 'Composite', 
-                    'enabled' => 1, 
-                    'created_at' => date('Y-m-d H:i:s'), 
-                    'updated_at' => date('Y-m-d H:i:s')
-                ];
-                $base_data = array_merge($base_data, $update_data);
-                $this->db->insert('agency_custom_templates', $base_data);
-                log_message('debug', 'Inserted new agency_custom_templates record for template: ' . $template_id);
-            } else {
-                log_message('debug', 'Updated ' . $affected . ' row(s) in agency_custom_templates for template ' . $template_id . ' with ' . count($update_data) . ' fields');
-            }
+            log_message('debug', 'Updated existing agency_custom_templates record for template: ' . $template_id . ' - Affected rows: ' . $affected);
         } else {
-            log_message('debug', 'No fields to update in agency_custom_templates for template: ' . $template_id);
+            // Insert new record only if it doesn't exist
+            if (!$agency_id) {
+                throw new Exception('Agency ID not found for creating new template record');
+            }
+            
+            $base_data = [
+                'id' => $template_id,
+                'agency_id' => $agency_id,
+                'template_name' => $template->template_name ?? 'Composite Template',
+                'enabled' => 1,
+                'created_at' => date('Y-m-d H:i:s'),
+                'updated_at' => date('Y-m-d H:i:s')
+            ];
+            
+            $insert_data = array_merge($base_data, $update_data);
+            
+            try {
+                $this->db->insert('agency_custom_templates', $insert_data);
+                log_message('debug', 'Inserted new agency_custom_templates record for template: ' . $template_id . ' with agency_id: ' . $agency_id);
+            } catch (Exception $e) {
+                // If insert fails due to duplicate, try update instead
+                log_message('warning', 'Insert failed, trying update: ' . $e->getMessage());
+                $this->db->where('id', $template_id)
+                         ->update('agency_custom_templates', $update_data);
+                $affected = $this->db->affected_rows();
+                log_message('debug', 'Updated agency_custom_templates after failed insert - Affected rows: ' . $affected);
+            }
         }
 
         return [
             'instance_id' => $instance_id,
             'template_type' => 'composite',
             'fields_saved' => count($form_data),
-            'sections_count' => count($composite_template->sections)
+            'sections_count' => count($composite_template->sections),
+            'agency_id' => $agency_id,
+            'agency_template_updated' => true
         ];
         
     } catch (Exception $e) {
@@ -1716,57 +1830,59 @@ private function save_composite_template_data($template_id, $form_data, $templat
         return preg_match('/^[a-zA-Z_][a-zA-Z0-9_]*$/', $field_name);
     }
 
-    public function get_available_sections_for_template($template_id) {
-        if (!$this->input->is_ajax_request()) {
-            show_404();
-        }
-
-        $this->load->model('admin/Model_template_sections');
-        $all_sections = $this->Model_template_sections->get_all()->result();
-
-        // Exclude already added sections
-        $added_sections = $this->db->select('section_id')
-                                   ->from('agency_template_sections')
-                                   ->where('agency_template_id', $template_id)
-                                   ->get()
-                                   ->result_array();
-        $added_ids = array_column($added_sections, 'section_id');
-
-        $available = [];
-        foreach ($all_sections as $section) {
-            if (!in_array($section->id, $added_ids)) {
-                $available[] = $section;
-            }
-        }
-
-        $this->output_json([
-            'success' => true,
-            'sections' => $available
-        ]);
+   public function get_available_sections_for_template($template_id) {
+    if (!$this->input->is_ajax_request()) {
+        show_404();
     }
 
-    public function add_section_to_template($template_id) {
-        if (!$this->input->is_ajax_request()) {
-            show_404();
-        }
+    $this->load->model('admin/Model_template_sections');
+    
+    // Get ALL sections (with agency filtering built into get_all())
+    $all_sections = $this->Model_template_sections->get_all()->result();
 
-        $section_id = $this->input->post('section_id');
-        if (empty($section_id) || !is_numeric($section_id)) {
-            $this->output_json(['success' => false, 'error' => 'Invalid section ID']);
-            return;
-        }
+    // Exclude already added sections
+    $added_sections = $this->db->select('section_id')
+                               ->from('agency_template_sections')
+                               ->where('agency_template_id', $template_id)
+                               ->get()
+                               ->result_array();
+    $added_ids = array_column($added_sections, 'section_id');
 
-        $this->load->model('admin/Model_agency_templates');
-        $result = $this->Model_agency_templates->add_section_to_template($template_id, $section_id);
-
-        if ($result) {
-            log_message('debug', 'Added section ' . $section_id . ' to composite template ' . $template_id);
-            $this->output_json(['success' => true, 'message' => 'Section added successfully']);
-        } else {
-            log_message('error', 'Failed to add section ' . $section_id . ' to template ' . $template_id);
-            $this->output_json(['success' => false, 'error' => 'Failed to add section']);
+    $available = [];
+    foreach ($all_sections as $section) {
+        if (!in_array($section->id, $added_ids)) {
+            $available[] = $section;
         }
     }
+
+    $this->output_json([
+        'success' => true,
+        'sections' => $available
+    ]);
+}
+public function add_section_to_template($template_id) {
+    if (!$this->input->is_ajax_request()) {
+        show_404();
+    }
+
+    $section_id = $this->input->post('section_id');
+    if (empty($section_id) || !is_numeric($section_id)) {
+        $this->output_json(['success' => false, 'error' => 'Invalid section ID']);
+        return;
+    }
+
+    // ✅ FIX: Load agency model instead of admin model
+    $this->load->model('agency/Model_agency_templates');
+    $result = $this->Model_agency_templates->add_section_to_template($template_id, $section_id);
+
+    if ($result) {
+        log_message('debug', 'Added section ' . $section_id . ' to composite template ' . $template_id);
+        $this->output_json(['success' => true, 'message' => 'Section added successfully']);
+    } else {
+        log_message('error', 'Failed to add section ' . $section_id . ' to template ' . $template_id);
+        $this->output_json(['success' => false, 'error' => 'Failed to add section']);
+    }
+}
 
     // In the Templates controller, add this new method:
 public function remove_section_from_template($template_id) {
@@ -1822,9 +1938,110 @@ private function reorder_sections_after_delete($template_id) {
     }
 }
 
+/**
+ * Send notification to recruiters when a job is created from template
+ * This replicates the functionality from manual job creation
+ */
+private function send_template_job_notification($job_id, $job_data) {
+    log_message('debug', '🔔 === TEMPLATE JOB NOTIFICATION START ===');
+    
+    try {
+        // Load the same notification model used in manual job creation
+        $this->load->model('recruiter/Model_notifications');
+        
+        // Get agency_id and sender_id (same logic as manual creation)
+        $agency_id = $job_data['agency_id'];
+        $sender_id = $this->get_user_agency_id();
+        
+        log_message('debug', 'Template Job Notification Details:');
+        log_message('debug', ' - Job ID: ' . $job_id);
+        log_message('debug', ' - Job Agency ID: ' . $agency_id);
+        log_message('debug', ' - Sender Agency ID: ' . $sender_id);
+        log_message('debug', ' - Job Title: ' . $job_data['name']);
+        
+        // Use the correct agency ID - prefer the one from the user session
+        $effective_agency_id = !empty($sender_id) ? $sender_id : $agency_id;
+        log_message('debug', ' - Effective agency_id for notifications: ' . $effective_agency_id);
+        
+        // Double-check the job was created with the correct agency
+        $job_check = $this->db->get_where('mod_jobs', ['id' => $job_id])->row();
+        if ($job_check) {
+            log_message('debug', ' - Job agency_id in database: ' . $job_check->agency_id);
+        }
+        
+        // Create notifications for ALL recruiters (same as manual creation)
+        $result = $this->Model_notifications->create_job_notification(
+            $job_id, 
+            $effective_agency_id, 
+            $sender_id, 
+            'job_added' // Use the same type as manual creation
+        );
+        
+        log_message('debug', 'Template job notification creation result: ' . ($result ? 'SUCCESS' : 'FAILED'));
+        
+        if ($result) {
+            log_message('debug', '✅ Template job notification sent successfully for job ID: ' . $job_id);
+        } else {
+            log_message('error', '❌ Failed to send template job notification for job ID: ' . $job_id);
+        }
+        
+        log_message('debug', '🔔 === TEMPLATE JOB NOTIFICATION END ===');
+        return $result;
+        
+    } catch (Exception $e) {
+        log_message('error', '🔔 Error in template job notification: ' . $e->getMessage());
+        log_message('debug', '🔔 === TEMPLATE JOB NOTIFICATION END WITH ERROR ===');
+        return false;
+    }
+}
+/**
+ * Get the logged-in user's agency ID - Works for both agency staff and recruiters
+ * Same method as in Jobs_listings controller
+ */
+private function get_user_agency_id() {
+    // Get the login data from session
+    $login_data = $this->session->userdata('login');
+    
+    log_message('debug', 'Login data: ' . print_r($login_data, true));
+    
+    // Check for agency staff login
+    if (!empty($login_data['agency'])) {
+        $agency_user = $login_data['agency'];
+        
+        if (!empty($agency_user['agency_id'])) {
+            $agency_id = $agency_user['agency_id'];
+            log_message('debug', 'Found agency_id in login[agency] data: ' . $agency_id);
+            return $agency_id;
+        } elseif (!empty($agency_user['id'])) {
+            // Sometimes the agency ID might be stored in the user ID field
+            $agency_id = $agency_user['id'];
+            log_message('debug', 'Found agency_id in login[agency] id field: ' . $agency_id);
+            return $agency_id;
+        }
+    }
+    
+    // Check for recruiter login
+    if (!empty($login_data['recruiter'])) {
+        $recruiter_user = $login_data['recruiter'];
+        
+        if (!empty($recruiter_user['agency_id'])) {
+            $agency_id = $recruiter_user['agency_id'];
+            log_message('debug', 'Found agency_id in login[recruiter] data: ' . $agency_id);
+            return $agency_id;
+        }
+    }
+    
+    // Fallback: check if we have direct agency_id in session
+    $agency_id = $this->session->userdata('agency_id');
+    if (!empty($agency_id)) {
+        log_message('debug', 'Found agency_id directly in session: ' . $agency_id);
+        return $agency_id;
+    }
+    
+    log_message('debug', 'No agency_id found in session');
+    return null;
+}
 
-
-// Update the save_as_job method to handle medical requirements
 public function save_as_job($template_id) 
 {
     if (!$this->input->is_ajax_request()) {
@@ -1846,15 +2063,6 @@ public function save_as_job($template_id)
         $all_post_data = $this->input->post();
         log_message('debug', '📋 ALL POST DATA KEYS: ' . implode(', ', array_keys($all_post_data)));
         
-        // Log medical requirement fields specifically
-        foreach ($all_post_data as $key => $value) {
-            if (strpos($key, 'medical_requirements') !== false || 
-                strpos($key, 'fitness_level') !== false || 
-                strpos($key, 'health_screening') !== false) {
-                log_message('debug', '🏥 MEDICAL REQUIREMENT FIELD [' . $key . '] = ' . $value);
-            }
-        }
-
         $form_data = $this->input->post();
         unset($form_data[$this->security->get_csrf_token_name()]);
 
@@ -1862,11 +2070,31 @@ public function save_as_job($template_id)
             throw new Exception('No form data provided');
         }
 
-        // Extract skills and qualifications (existing code)
-        $skills = [];
-        $qualifications = [];
+        // ✅ FIX: Better field mapping for employment type and industry
+        $employment_type = $this->get_field_value($form_data, [
+            'mod_jobs.employment_type', 
+            'mod_jobs_employment_type', 
+            'employment_type',
+            'job_type',
+            'mod_job_type'
+        ], 'full-time');
         
-        // Check ALL possible field names for skills
+        $industry_id = $this->get_field_value($form_data, [
+            'mod_industries.id',
+            'mod_industries_id',
+            'industry_id',
+            'mod_jobs.industry_id',
+            'mod_jobs_industry_id'
+        ], null);
+
+        log_message('debug', '✅ Employment Type Found: ' . $employment_type);
+        log_message('debug', '✅ Industry ID Found: ' . $industry_id);
+
+        // Extract skills and qualifications as comma-separated strings
+        $skills_text = '';
+        $qualifications_text = '';
+        
+        // Look for skills fields (existing code...)
         $possible_skill_fields = [
             'mod_job_skills.name',
             'mod_job_skills_name', 
@@ -1876,22 +2104,15 @@ public function save_as_job($template_id)
         ];
         
         foreach ($possible_skill_fields as $field) {
-            if (isset($form_data[$field])) {
-                log_message('debug', '🔍 Found skills field: ' . $field);
-                if (is_array($form_data[$field])) {
-                    $skills = $form_data[$field];
-                    log_message('debug', '✅ Skills from array: ' . implode(', ', $skills));
-                } else {
-                    $skills = array_filter(explode(',', $form_data[$field]));
-                    log_message('debug', '✅ Skills from string: ' . implode(', ', $skills));
-                }
+            if (isset($form_data[$field]) && !empty(trim($form_data[$field]))) {
+                $skills_text = trim($form_data[$field]);
+                log_message('debug', '✅ Found skills: ' . $skills_text);
                 break;
             }
         }
         
-        // Check ALL possible field names for qualifications
+        // Look for qualifications fields (existing code...)
         $possible_qualification_fields = [
-            'mod_job_qualifications.name[]',
             'mod_job_qualifications.name',
             'mod_job_qualifications_name',
             'qualifications',
@@ -1900,55 +2121,23 @@ public function save_as_job($template_id)
         ];
         
         foreach ($possible_qualification_fields as $field) {
-            if (isset($form_data[$field])) {
-                log_message('debug', '🔍 Found qualifications field: ' . $field);
-                if (is_array($form_data[$field])) {
-                    $qualifications = $form_data[$field];
-                    log_message('debug', '✅ Qualifications from array: ' . implode(', ', $qualifications));
-                } else {
-                    $qualifications = array_filter(explode(',', $form_data[$field]));
-                    log_message('debug', '✅ Qualifications from string: ' . implode(', ', $qualifications));
-                }
+            if (isset($form_data[$field]) && !empty(trim($form_data[$field]))) {
+                $qualifications_text = trim($form_data[$field]);
+                log_message('debug', '✅ Found qualifications: ' . $qualifications_text);
                 break;
             }
         }
 
-        // ✅ UPDATED: Extract medical requirements data with proper field names
-        log_message('debug', '🏥 === MEDICAL REQUIREMENTS DATA EXTRACTION DEBUG ===');
-        $medical_requirements_data = [];
-        $medical_requirement_fields = [
-            'mod_job_medical_requirements.medical_requirements' => 'medical_requirements',
-            'mod_job_medical_requirements.fitness_level' => 'fitness_level',
-            'mod_job_medical_requirements.physical_demands' => 'physical_demands',
-            'mod_job_medical_requirements.health_screening_required' => 'health_screening_required',
-            'mod_job_medical_requirements.drug_test_required' => 'drug_test_required',
-            'mod_job_medical_requirements.vaccination_required' => 'vaccination_required',
-            'mod_job_medical_requirements.specific_vaccinations' => 'specific_vaccinations',
-            'mod_job_medical_requirements.medical_certificate_required' => 'medical_certificate_required',
-            'mod_job_medical_requirements.work_environment' => 'work_environment',
-            'mod_job_medical_requirements.hazard_exposures' => 'hazard_exposures',
-            'mod_job_medical_requirements.ppe_requirements' => 'ppe_requirements'
-        ];
-        
-        foreach ($medical_requirement_fields as $form_field => $db_field) {
-            if (isset($form_data[$form_field])) {
-                $medical_requirements_data[$db_field] = $form_data[$form_field];
-                log_message('debug', '🏥 Medical requirement field [' . $form_field . '] -> [' . $db_field . '] = "' . $form_data[$form_field] . '"');
-            }
-        }
-        
-        log_message('debug', '📊 FINAL EXTRACTED - Skills: ' . count($skills) . ', Qualifications: ' . count($qualifications) . ', Medical requirement fields: ' . count($medical_requirements_data));
-
-        // Complete job data with ALL fields (existing code)
+        // Complete job data with proper field mapping
         $job_data = [
             'name' => $this->get_field_value($form_data, ['mod_jobs.name', 'mod_jobs_name', 'name'], 'Unnamed Job'),
             'agency_id' => $template->agency_id ?? 1,
-            'industry_id' => $this->get_field_value($form_data, ['mod_industries.name', 'mod_industries_name'], null),
+            'industry_id' => $industry_id,
+            'employment_type' => $employment_type,
             'location' => $this->get_field_value($form_data, ['mod_jobs.location', 'mod_jobs_location', 'location'], ''),
             'site' => $this->get_field_value($form_data, ['mod_jobs.site', 'mod_jobs_site', 'site'], ''),
             'pay_cycle' => $this->get_field_value($form_data, ['mod_jobs.pay_cycle', 'mod_jobs_pay_cycle', 'pay_cycle'], ''),
             'description' => $this->get_field_value($form_data, ['mod_jobs.description', 'mod_jobs_description', 'description'], ''),
-            'employment_type' => $this->get_field_value($form_data, ['mod_jobs.employment_type', 'mod_jobs_employment_type', 'employment_type'], 'full-time'),
             'contract_type' => $this->get_field_value($form_data, ['mod_jobs.contract_type', 'mod_jobs_contract_type', 'contract_type'], 'permanent'),
             'pay_type' => $this->get_field_value($form_data, ['mod_jobs.pay_type', 'mod_jobs_pay_type', 'pay_type'], 'salary'),
             'pay_rate' => $this->get_field_value($form_data, ['mod_jobs.pay_rate', 'mod_jobs_pay_rate', 'pay_rate'], ''),
@@ -1963,6 +2152,9 @@ public function save_as_job($template_id)
             'application_email' => $this->get_field_value($form_data, ['mod_jobs.application_email', 'mod_jobs_application_email', 'application_email'], ''),
             'application_url' => $this->get_field_value($form_data, ['mod_jobs.application_url', 'mod_jobs_application_url', 'application_url'], ''),
             'closing_date' => $this->get_field_value($form_data, ['mod_jobs.closing_date', 'mod_jobs_closing_date', 'closing_date'], ''),
+            'position_quantity' => $this->get_field_value($form_data, ['mod_jobs.position_quantity', 'mod_jobs_position_quantity', 'position_quantity'], ''),
+            'skills' => $skills_text,
+            'qualifications' => $qualifications_text,
             'reference_number' => $this->generate_job_reference(),
             'enabled' => 1,
             'removed' => 0,
@@ -1970,8 +2162,11 @@ public function save_as_job($template_id)
             'updated_at' => date('Y-m-d H:i:s')
         ];
 
-        log_message('debug', '📦 Job data prepared with ALL fields');
-        log_message('debug', '📦 Job name: "' . $job_data['name'] . '"');
+        log_message('debug', '📦 Job data prepared:');
+        log_message('debug', '📦 - Employment Type: ' . $job_data['employment_type']);
+        log_message('debug', '📦 - Industry ID: ' . $job_data['industry_id']);
+        log_message('debug', '📦 - Skills: "' . $skills_text . '"');
+        log_message('debug', '📦 - Qualifications: "' . $qualifications_text . '"');
 
         // Validate required fields
         if (empty($job_data['name']) || empty(trim($job_data['name']))) {
@@ -1985,53 +2180,23 @@ public function save_as_job($template_id)
         // Load Model_jobs
         $this->load->model('admin/Model_jobs');
         
-        // 🔍 DEBUG: What we're passing to Model_jobs
-        $form_data_for_model = [
-            'skills' => $skills,
-            'qualifications' => $qualifications,
-            'medical_requirements_data' => $medical_requirements_data // ✅ UPDATED: Medical requirements data
-        ];
-        
-        log_message('debug', '🚀 Passing to Model_jobs->save_from_template():');
-        log_message('debug', '🚀 Template ID: ' . $template_id);
-        log_message('debug', '🚀 Job data keys: ' . implode(', ', array_keys($job_data)));
-        log_message('debug', '🚀 Form data keys: ' . implode(', ', array_keys($form_data_for_model)));
-        log_message('debug', '🚀 Skills being passed: ' . implode(', ', $form_data_for_model['skills']));
-        log_message('debug', '🚀 Qualifications being passed: ' . implode(', ', $form_data_for_model['qualifications']));
-        log_message('debug', '🚀 Medical requirement fields being passed: ' . count($form_data_for_model['medical_requirements_data']));
-        log_message('debug', '🚀 Medical requirements data: ' . print_r($form_data_for_model['medical_requirements_data'], true));
-
-        $job_id = $this->Model_jobs->save_from_template($template_id, $job_data, $form_data_for_model);
+        $job_id = $this->Model_jobs->save_from_template($template_id, $job_data, $form_data);
 
         if ($job_id) {
             log_message('debug', '✅ JOB SAVED WITH ID: ' . $job_id);
             
-            // 🔍 DEBUG: Verify what was actually saved in all tables
-            $saved_skills = $this->db->where('job_id', $job_id)->get('pivot_job_skills')->result();
-            $saved_qualifications = $this->db->where('job_id', $job_id)->get('pivot_job_qualifications')->result();
-            $saved_medical_requirements = $this->db->where('job_id', $job_id)->get('mod_job_medical_requirements')->row();
-            
-            log_message('debug', '📊 ACTUALLY SAVED IN DATABASE:');
-            log_message('debug', '📊 Skills count: ' . count($saved_skills));
-            log_message('debug', '📊 Qualifications count: ' . count($saved_qualifications));
-            log_message('debug', '📊 Medical requirements: ' . ($saved_medical_requirements ? 'YES' : 'NO'));
-            
-            if ($saved_medical_requirements) {
-                log_message('debug', '💾 Saved medical requirements - ID: ' . $saved_medical_requirements->id);
-                log_message('debug', '💾 Medical requirements data: ' . print_r($saved_medical_requirements, true));
-            }
+            // ✅ NEW: SEND NOTIFICATION TO RECRUITERS (same as manual job creation)
+            $this->send_template_job_notification($job_id, $job_data);
             
             $this->output->set_output(json_encode([
                 'success' => true,
                 'message' => 'Job saved! ID: ' . $job_id,
                 'job_id' => $job_id,
                 'debug' => [
-                    'skills_passed' => $skills,
-                    'qualifications_passed' => $qualifications,
-                    'medical_requirement_fields_passed' => count($medical_requirements_data),
-                    'skills_saved' => count($saved_skills),
-                    'qualifications_saved' => count($saved_qualifications),
-                    'medical_requirements_saved' => ($saved_medical_requirements ? true : false)
+                    'employment_type' => $employment_type,
+                    'industry_id' => $industry_id,
+                    'skills_saved' => $skills_text,
+                    'qualifications_saved' => $qualifications_text
                 ]
             ]));
         } else {
@@ -2091,6 +2256,106 @@ private function slugify($text) {
     return strtolower($text);
 }
 
+public function force_agency_1_test() 
+{
+    echo "<h1>FORCE AGENCY 1 TEST</h1>";
+    
+    // Force agency_id = 1 in session
+    $this->session->set_userdata('agency_id', 1);
+    
+    echo "Forced session agency_id to: " . $this->session->userdata('agency_id') . "<br>";
+    
+    // Now test the model
+    $this->load->model('agency/Model_templates');
+    $templates = $this->Model_templates->get_hybrid_templates([]);
+    
+    echo "Templates returned: " . count($templates) . "<br>";
+    
+    foreach ($templates as $template) {
+        $agency = isset($template->agency_id) ? $template->agency_id : 'N/A';
+        $type = isset($template->template_type) ? $template->template_type : 'single';
+        $name = isset($template->name) ? $template->name : (isset($template->template_name) ? $template->template_name : 'Unnamed');
+        
+        $color = $agency == 1 ? 'green' : 'red';
+        echo "<div style='color: $color;'>Type: $type, Name: $name, Agency ID: $agency</div>";
+    }
+    
+    // Test the actual templates page
+    echo "<h2>Test Actual Page:</h2>";
+    echo "<a href='" . site_url('agency/templates') . "' target='_blank'>Go to Templates Page</a><br>";
+    echo "Check if you now see only agency 1 templates.";
+}
+
+public function fix_agency_session() 
+{
+    echo "<h1>FIXING AGENCY SESSION</h1>";
+    
+    $login_data = $this->session->userdata('login');
+    $current_agency_id = $this->session->userdata('agency_id');
+    
+    echo "Current session agency_id: $current_agency_id<br>";
+    echo "Login data agency_id: " . ($login_data['agency']['agency_id'] ?? 'NOT SET') . "<br>";
+    
+    if (!empty($login_data['agency']['agency_id'])) {
+        $correct_agency_id = $login_data['agency']['agency_id'];
+        
+        if ($current_agency_id != $correct_agency_id) {
+            echo "⚠️ MISMATCH DETECTED! Fixing: $current_agency_id -> $correct_agency_id<br>";
+            $this->session->set_userdata('agency_id', $correct_agency_id);
+            echo "✅ Fixed! New session agency_id: " . $this->session->userdata('agency_id') . "<br>";
+        } else {
+            echo "✅ Session agency_id is correct<br>";
+        }
+    }
+    
+    // Test the model now
+    echo "<h2>Testing Model After Fix:</h2>";
+    $this->load->model('admin/Model_templates');
+    $templates = $this->Model_templates->get_hybrid_templates([]);
+    echo "Templates returned: " . count($templates) . "<br>";
+    
+    foreach ($templates as $template) {
+        $agency = $template->agency_id ?? 'N/A';
+        $color = $agency == $correct_agency_id ? 'green' : 'red';
+        echo "<div style='color: $color;'>";
+        echo "Type: {$template->template_type}, Name: {$template->name}, Agency ID: $agency";
+        echo "</div>";
+    }
+    
+    echo "<br><a href='" . site_url('agency/templates') . "'>Go to Templates Page</a>";
+}
+
+public function test_simple_ajax($template_id)
+{
+    header('Content-Type: application/json');
+    
+    try {
+        // Clear any existing output
+        if (ob_get_length()) ob_clean();
+        
+        $response = [
+            'success' => true,
+            'message' => 'Simple test successful',
+            'template_id' => $template_id,
+            'session_ok' => $this->session->userdata('is_logged_in') ? 'YES' : 'NO',
+            'agency_id' => $this->session->userdata('agency_id'),
+            'timestamp' => date('Y-m-d H:i:s')
+        ];
+        
+        echo json_encode($response);
+        exit;
+        
+    } catch (Exception $e) {
+        // Clear any existing output
+        if (ob_get_length()) ob_clean();
+        
+        echo json_encode([
+            'success' => false,
+            'error' => $e->getMessage()
+        ]);
+        exit;
+    }
+}
 
 
 }

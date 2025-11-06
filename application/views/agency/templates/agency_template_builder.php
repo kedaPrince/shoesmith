@@ -105,7 +105,46 @@
     background: #f0fff4 !important;
 }
 
-/* New styles for template management */
+/* Section filtering styles */
+.quick-filter-buttons {
+    margin-bottom: 15px;
+}
+
+.section-stats {
+    font-size: 0.9em;
+    color: #6c757d;
+    margin-bottom: 10px;
+    padding: 5px 10px;
+    background: #e9ecef;
+    border-radius: 3px;
+}
+
+.section-type-badge {
+    font-size: 0.75em;
+    background: #6c757d;
+    color: white;
+    padding: 2px 6px;
+    border-radius: 3px;
+    margin-left: 5px;
+}
+
+.quick-filter-buttons .btn-group {
+    flex-wrap: wrap;
+}
+
+.quick-filter-buttons .btn {
+    margin: 2px;
+    font-size: 0.8em;
+}
+
+.no-sections-message {
+    text-align: center;
+    padding: 20px;
+    color: #6c757d;
+    font-style: italic;
+}
+
+/* Template management styles */
 .template-management {
     background: #e9ecef;
     border-radius: 5px;
@@ -133,7 +172,6 @@
     flex-wrap: wrap;
 }
 
-/* Template Selector Styles */
 .template-selector {
     background: #f8f9fa;
     border: 1px solid #dee2e6;
@@ -173,46 +211,6 @@
 
 .template-item.active .template-meta {
     color: #e9ecef;
-}
-
-/* Section filtering styles */
-.quick-filter-buttons {
-    margin-bottom: 15px;
-}
-
-.section-stats {
-    font-size: 0.9em;
-    color: #6c757d;
-    margin-bottom: 10px;
-    padding: 5px 10px;
-    background: #e9ecef;
-    border-radius: 3px;
-}
-
-.section-type-badge {
-    font-size: 0.75em;
-    background: #6c757d;
-    color: white;
-    padding: 2px 6px;
-    border-radius: 3px;
-    margin-left: 5px;
-}
-
-/* Quick filter button styles */
-.quick-filter-buttons .btn-group {
-    flex-wrap: wrap;
-}
-
-.quick-filter-buttons .btn {
-    margin: 2px;
-    font-size: 0.8em;
-}
-
-.no-sections-message {
-    text-align: center;
-    padding: 20px;
-    color: #6c757d;
-    font-style: italic;
 }
 </style>
 
@@ -298,12 +296,13 @@
             <!-- Available Sections Panel -->
             <div class="available-sections">
                 <h4>Available Sections</h4>
-                
+
                 <!-- Section Filtering Controls -->
                 <div class="filter-controls">
                     <div class="row">
                         <div class="col-md-12">
-                            <input type="text" id="sectionSearch" class="form-control" placeholder="Search sections by name...">
+                            <input type="text" id="sectionSearch" class="form-control"
+                                placeholder="Search sections by name...">
                         </div>
                     </div>
                     <div class="row mt-2">
@@ -323,7 +322,8 @@
                     <small class="text-muted d-block mb-2">Quick filters:</small>
                     <div class="btn-group btn-group-sm" role="group">
                         <button type="button" class="btn btn-outline-secondary" data-type="about">About</button>
-                        <button type="button" class="btn btn-outline-secondary" data-type="experience">Experience</button>
+                        <button type="button" class="btn btn-outline-secondary"
+                            data-type="experience">Experience</button>
                         <button type="button" class="btn btn-outline-secondary" data-type="education">Education</button>
                         <button type="button" class="btn btn-outline-secondary" data-type="contact">Contact</button>
                         <button type="button" class="btn btn-outline-secondary" data-type="portfolio">Portfolio</button>
@@ -339,8 +339,8 @@
                 <!-- Available Sections List -->
                 <div id="availableSectionsList">
                     <?php foreach ($sections as $section): ?>
-                    <div class="section-item" data-section-id="<?= $section->id ?>" 
-                         data-section-type="<?= $section->section_type ?>" draggable="true">
+                    <div class="section-item" data-section-id="<?= $section->id ?>"
+                        data-section-type="<?= $section->section_type ?>" draggable="true">
                         <h5><?= htmlspecialchars($section->name) ?></h5>
                         <div class="section-type">
                             <?= $section_types[$section->section_type] ?? $section->section_type ?>
@@ -487,19 +487,19 @@ function initializeSectionFilters() {
     sectionTypeFilter.addEventListener('change', function() {
         filterSections();
     });
-    
+
     // Search filter
     sectionSearch.addEventListener('input', function() {
         filterSections();
     });
-    
+
     // Quick filter buttons
     document.querySelectorAll('.quick-filter-buttons button').forEach(button => {
         button.addEventListener('click', function() {
             const type = this.dataset.type;
             sectionTypeFilter.value = type;
             filterSections();
-            
+
             // Update active state
             document.querySelectorAll('.quick-filter-buttons button').forEach(btn => {
                 btn.classList.remove('active');
@@ -512,19 +512,19 @@ function initializeSectionFilters() {
 function filterSections() {
     const typeFilter = sectionTypeFilter.value;
     const searchFilter = sectionSearch.value.toLowerCase();
-    
+
     let visibleCount = 0;
-    
+
     document.querySelectorAll('#availableSectionsList .section-item').forEach(section => {
         const sectionType = section.dataset.sectionType;
         const sectionName = section.querySelector('h5').textContent.toLowerCase();
         const sectionDesc = section.querySelector('.text-muted')?.textContent.toLowerCase() || '';
-        
+
         const typeMatch = !typeFilter || sectionType === typeFilter;
-        const searchMatch = !searchFilter || 
-                           sectionName.includes(searchFilter) || 
-                           sectionDesc.includes(searchFilter);
-        
+        const searchMatch = !searchFilter ||
+            sectionName.includes(searchFilter) ||
+            sectionDesc.includes(searchFilter);
+
         if (typeMatch && searchMatch) {
             section.style.display = 'block';
             visibleCount++;
@@ -532,7 +532,7 @@ function filterSections() {
             section.style.display = 'none';
         }
     });
-    
+
     // Show/hide no results message
     let noResultsMsg = document.querySelector('.no-sections-message');
     if (visibleCount === 0) {
@@ -545,33 +545,37 @@ function filterSections() {
     } else if (noResultsMsg) {
         noResultsMsg.remove();
     }
-    
+
     updateSectionStats();
 }
 
 function updateSectionStats() {
     const totalSections = document.querySelectorAll('#availableSectionsList .section-item').length;
-    const visibleSections = document.querySelectorAll('#availableSectionsList .section-item[style="display: block"]').length;
+    const visibleSections = document.querySelectorAll('#availableSectionsList .section-item[style="display: block"]')
+        .length;
     const selectedType = sectionTypeFilter.value;
     const searchTerm = sectionSearch.value;
-    
+
     let statsText = `Showing ${visibleSections} of ${totalSections} sections`;
-    
+
     if (selectedType) {
         const typeName = sectionTypeFilter.options[sectionTypeFilter.selectedIndex].text;
         statsText += ` • Type: ${typeName}`;
     }
-    
+
     if (searchTerm) {
         statsText += ` • Search: "${searchTerm}"`;
     }
-    
+
     sectionStats.textContent = statsText;
 }
 
+// ... rest of your existing JavaScript functions (initializeEventListeners, initializeDragAndDrop, etc.)
+// Keep all your existing JavaScript functions from the previous implementation
+
 function initializeEventListeners() {
     // Section type filter and search are handled in initializeSectionFilters()
-    
+
     // Form submission
     templateForm.addEventListener('submit', function(e) {
         e.preventDefault();
@@ -775,7 +779,7 @@ function addSectionToTemplate(sectionId) {
     // Add drag events
     newSection.addEventListener('dragstart', handleDragStart);
     newSection.addEventListener('dragend', handleDragEnd);
-    
+
     console.log('Added section to template:', sectionId, sectionName);
 }
 
@@ -802,7 +806,7 @@ function removeSection(button) {
         `;
         templateSections.appendChild(placeholder);
     }
-    
+
     console.log('Removed section from template:', sectionId);
 }
 
@@ -824,7 +828,7 @@ function resetTemplate() {
     sectionTypeFilter.value = '';
     sectionSearch.value = '';
     filterSections();
-    
+
     // Remove active state from quick filter buttons
     document.querySelectorAll('.quick-filter-buttons button').forEach(btn => {
         btn.classList.remove('active');
@@ -843,20 +847,5 @@ function resetTemplate() {
     templateSections.appendChild(placeholder);
 
     console.log('Template reset - ready for new template creation');
-}
-
-// AJAX function to load sections by type (if needed)
-function loadSectionsByType(type) {
-    fetch(`<?= site_url('agency/template_sections/get_sections_by_type/') ?>${type}`)
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                console.log(`Loaded ${data.count} sections of type: ${type}`);
-                // You could update the sections list here if needed
-            }
-        })
-        .catch(error => {
-            console.error('Error loading sections by type:', error);
-        });
 }
 </script>

@@ -101,43 +101,32 @@ class Jobs extends CRUD_Controller
     }
 
     public function setup_fields()
-    {
-        $this->formFields = array(
-            'main' => array(
-                'name' => 'trim|required|strip_tags',
-                'reference_number' => 'trim|required|strip_tags|callback_is_unique_reference',
-                'description' => 'trim',
-                'department' => 'trim|strip_tags',
-                'agency_id' => 'trim|required|numeric',
-                'industry_id' => 'trim|numeric',
-                'employment_type' => 'trim|required',
-                'salary_min' => 'trim|numeric',
-                'salary_max' => 'trim|numeric',
-                'pay_rate' => 'trim|strip_tags',
-                'is_remote' => 'trim|numeric',
-                'roster' => 'trim|strip_tags',
-                'accommodation' => 'trim|strip_tags',
-                'transport' => 'trim|strip_tags',
-                'application_email' => 'trim|valid_email',
-                'application_url' => 'trim|valid_url',
-                'closing_date' => 'trim',
-            ),
-            'multi_selects' => array(
-                'skills' => array(
-                    'validation' => 'trim',
-                    'pivot_table' => 'pivot_job_skills',
-                    'main_field' => 'job_id',
-                    'link_field' => 'skill_id',
-                ),
-                'qualifications' => array(
-                    'validation' => 'trim',
-                    'pivot_table' => 'pivot_job_qualifications',
-                    'main_field' => 'job_id',
-                    'link_field' => 'qualification_id',
-                ),
-            ),
-        );
-    }
+{
+    $this->formFields = array(
+        'main' => array(
+            'name' => 'trim|required|strip_tags',
+            'reference_number' => 'trim|required|strip_tags|callback_is_unique_reference',
+            'description' => 'trim',
+            'department' => 'trim|strip_tags',
+            'agency_id' => 'trim|required|numeric',
+            'industry_id' => 'trim|numeric',
+            'employment_type' => 'trim|required',
+            'salary_min' => 'trim|numeric',
+            'salary_max' => 'trim|numeric',
+            'pay_rate' => 'trim|strip_tags',
+            'is_remote' => 'trim|numeric',
+            'roster' => 'trim|strip_tags',
+            'accommodation' => 'trim|strip_tags',
+            'transport' => 'trim|strip_tags',
+            'application_email' => 'trim|valid_email',
+            'application_url' => 'trim|valid_url',
+            'closing_date' => 'trim',
+            'skills' => 'trim', // Skills as direct column
+            'qualifications' => 'trim', // Qualifications as direct column
+        ),
+        // Remove the multi_selects section since we're using direct columns now
+    );
+}
 
     public function index()
     {
@@ -199,54 +188,61 @@ class Jobs extends CRUD_Controller
     /**
      * View job details - Only method recruiters can access
      */
-    public function view($id)
-    {
-        $user_agency_id = $this->get_user_agency_id();
-        
-        // Get the job with agency filtering and proper joins
-        $this->db->select('mod_jobs.*, agencies.name as agency_name, mod_industries.name as industry_name');
-        $this->db->from('mod_jobs');
-        $this->db->join('agencies', 'agencies.id = mod_jobs.agency_id', 'left');
-        $this->db->join('mod_industries', 'mod_industries.id = mod_jobs.industry_id', 'left');
-        $this->db->where('mod_jobs.id', $id);
-        
-        if ($user_agency_id) {
-            $this->db->where('mod_jobs.agency_id', $user_agency_id);
-        }
-        
-        $job = $this->db->get()->row();
-        
-        if (!$job) {
-            show_404();
-        }
-
-        // Load additional data
-        $data['job'] = $job;
-        $data['skills'] = $this->{$this->model}->get_job_skills((int)$id);
-        $data['qualifications'] = $this->{$this->model}->get_job_qualifications((int)$id);
-        $data['skill_options'] = $this->{$this->model}->get_skill_options();
-        $data['qualification_options'] = $this->{$this->model}->get_qualification_options();
-        
-        // Get updated fields for badges
-        $data['updated_fields'] = $this->get_updated_fields_for_job($id);
-
-        // Set breadcrumbs
-        $this->breadcrumbs = array(
-            array(
-                'title' => lang($this->pageName . '_heading'),
-                'url' => redir($this->pageName, true),
-            ),
-            array(
-                'title' => $job->name,
-                'url' => '#',
-            ),
-        );
-
-        // Load the view
-        $this->load->view($this->folder . '/view_header');
-        $this->load->view('recruiter/jobs/view_job', $data);
-        $this->load->view($this->folder . '/view_footer');
+   /**
+ * View job details - Only method recruiters can access
+ */
+public function view($id)
+{
+    $user_agency_id = $this->get_user_agency_id();
+    
+    // Get the job with agency filtering and proper joins
+    $this->db->select('mod_jobs.*, agencies.name as agency_name, mod_industries.name as industry_name');
+    $this->db->from('mod_jobs');
+    $this->db->join('agencies', 'agencies.id = mod_jobs.agency_id', 'left');
+    $this->db->join('mod_industries', 'mod_industries.id = mod_jobs.industry_id', 'left');
+    $this->db->where('mod_jobs.id', $id);
+    
+    if ($user_agency_id) {
+        $this->db->where('mod_jobs.agency_id', $user_agency_id);
     }
+    
+    $job = $this->db->get()->row();
+    
+    if (!$job) {
+        show_404();
+    }
+
+    // Load additional data - skills and qualifications are now direct columns
+    $data['job'] = $job;
+    
+    // Parse skills and qualifications from the direct columns
+    $data['skills'] = !empty($job->skills) ? explode(',', $job->skills) : [];
+    $data['qualifications'] = !empty($job->qualifications) ? explode(',', $job->qualifications) : [];
+    
+    // Remove these as they're no longer needed from database
+    $data['skill_options'] = null;
+    $data['qualification_options'] = null;
+    
+    // Get updated fields for badges
+    $data['updated_fields'] = $this->get_updated_fields_for_job($id);
+
+    // Set breadcrumbs
+    $this->breadcrumbs = array(
+        array(
+            'title' => lang($this->pageName . '_heading'),
+            'url' => redir($this->pageName, true),
+        ),
+        array(
+            'title' => $job->name,
+            'url' => '#',
+        ),
+    );
+
+    // Load the view
+    $this->load->view($this->folder . '/view_header');
+    $this->load->view('recruiter/jobs/view_job', $data);
+    $this->load->view($this->folder . '/view_footer');
+}
 
     /**
      * Get updated fields from notifications for this job

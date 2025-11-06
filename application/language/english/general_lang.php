@@ -897,6 +897,53 @@ $lang['label_form_element_id'] = 'Element ID';
 $lang['label_form_classes'] = 'CSS Classes';
 $lang['label_form_custom_function'] = 'Custom Function';
 
+// Add these to your language file
+$lang['label_pay_type'] = 'Pay Type';
+$lang['label_contract_type'] = 'Contract Type';
+
+// Optional: You might also want these for the dropdown placeholders
+$lang['select_pay_type'] = 'Select Pay Type';
+$lang['select_contract_type'] = 'Select Contract Type';
+
+// If you want specific labels for the pay type options:
+$lang['pay_type_salary'] = 'Salary';
+$lang['pay_type_hourly'] = 'Hourly';
+$lang['pay_type_commission'] = 'Commission';
+$lang['pay_type_bonus'] = 'Bonus';
+$lang['pay_type_piece_rate'] = 'Piece Rate';
+$lang['pay_type_tips'] = 'Tips';
+$lang['pay_type_daily_rate'] = 'Daily Rate';
+$lang['pay_type_weekly_rate'] = 'Weekly Rate';
+$lang['pay_type_monthly_rate'] = 'Monthly Rate';
+$lang['pay_type_annual_salary'] = 'Annual Salary';
+// Add this with the other job listing specific fields
+$lang['label_site'] = 'Site';
+
+// Add with other job listing specific fields
+$lang['label_pay_cycle'] = 'Pay Cycle';
+
+// Pay cycle options
+$lang['pay_cycle_hourly'] = 'Hourly';
+$lang['pay_cycle_daily'] = 'Daily';
+$lang['pay_cycle_weekly'] = 'Weekly';
+$lang['pay_cycle_bi-weekly'] = 'Bi-Weekly';
+$lang['pay_cycle_monthly'] = 'Monthly';
+$lang['pay_cycle_quarterly'] = 'Quarterly';
+$lang['pay_cycle_annually'] = 'Annually';
+$lang['pay_cycle_project'] = 'Per Project';
+$lang['pay_cycle_milestone'] = 'Per Milestone';
+
+// Optional placeholder text
+$lang['select_pay_cycle'] = 'Select Pay Cycle';
+// If you want specific labels for the contract type options:
+$lang['contract_type_permanent'] = 'Permanent';
+$lang['contract_type_fixed_term'] = 'Fixed Term';
+$lang['contract_type_casual'] = 'Casual';
+$lang['contract_type_seasonal'] = 'Seasonal';
+$lang['contract_type_project_based'] = 'Project Based';
+$lang['contract_type_consultancy'] = 'Consultancy';
+$lang['contract_type_internship'] = 'Internship';
+$lang['contract_type_probation'] = 'Probation';
 // In your language file
 $lang['label_section_type'] = 'Section Type';
 $lang['label_form_schema'] = 'Form Schema';

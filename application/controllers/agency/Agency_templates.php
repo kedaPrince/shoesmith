@@ -16,9 +16,9 @@ class Agency_templates extends CRUD_Controller
     public function __construct() 
     {
         parent::__construct();
-        $this->load->model('admin/Model_agency_templates');
-        $this->load->model('admin/Model_template_sections');
-        
+        $this->load->model('agency/Model_agency_templates');
+        $this->load->model('agency/Model_template_sections');
+
         // Setup basic listing for CRUD compatibility
         $this->setup_listing();
     }
@@ -69,7 +69,7 @@ public function build($agency_id = null)
         $all_templates = $this->{$this->model}->get_agency_templates($agency_id);
 
         $this->load->view($this->folder . '/view_header');
-        $this->load->view('admin/templates/agency_template_builder', [
+        $this->load->view('agency/templates/agency_template_builder', [
             'agency_id' => $agency_id,
             'template_id' => $template_id,
             'sections' => $sections,
@@ -123,14 +123,14 @@ public function build($agency_id = null)
 
             if ($template_id) {
                 $this->session->set_flashdata('success', $message);
-                redirect('admin/templates'); // Redirect to templates listing
+                redirect('agency/templates'); // Redirect to templates listing
             } else {
                 throw new Exception('Failed to save template');
             }
                 
         } catch (Exception $e) {
             $this->session->set_flashdata('error', 'Error saving template: ' . $e->getMessage());
-            redirect('admin/agency_templates/build/' . ($agency_id ?? 1));
+            redirect('agency/agency_templates/build/' . ($agency_id ?? 1));
         }
     }
 
@@ -138,17 +138,17 @@ public function build($agency_id = null)
     {
         $template = $this->{$this->model}->get_template_by_id($template_id);
         if ($template && $template->agency_id == $agency_id) {
-            redirect('admin/agency_templates/build/' . $agency_id . '?template_id=' . $template_id);
+            redirect('agency/agency_templates/build/' . $agency_id . '?template_id=' . $template_id);
         } else {
             $this->session->set_flashdata('error', 'Template not found');
-            redirect('admin/agency_templates/build/' . $agency_id);
+            redirect('agency/agency_templates/build/' . $agency_id);
         }
     }
 
     // Add method to create new template
     public function create_new($agency_id)
     {
-        redirect('admin/agency_templates/build/' . $agency_id . '?new=true');
+        redirect('agency/agency_templates/build/' . $agency_id . '?new=true');
     }
     public function debug_template_status($agency_id = null) 
 {
@@ -231,7 +231,7 @@ public function build($agency_id = null)
         // Load template instance if editing
         $instance_data = [];
         if ($template_instance_id) {
-            $this->load->model('admin/Model_template_instances');
+            $this->load->model('agency/Model_template_instances');
             $instance = $this->Model_template_instances->get_instance($template_instance_id);
             if ($instance) {
                 $instance_data = json_decode($instance->form_data, true) ?: [];
@@ -239,7 +239,7 @@ public function build($agency_id = null)
         }
 
         $this->load->view($this->folder . '/view_header');
-        $this->load->view('admin/templates/agency_template_instance', [
+        $this->load->view('agency/templates/agency_template_instance', [
             'agency_id' => $agency_id,
             'template' => $template_with_sections,
             'template_instance_id' => $template_instance_id,
@@ -269,7 +269,7 @@ public function build($agency_id = null)
                 throw new Exception('Agency ID and instance name are required');
             }
 
-            $this->load->model('admin/Model_template_instances');
+            $this->load->model('agency/Model_template_instances');
             
             if ($template_instance_id) {
                 // Update existing instance
@@ -326,7 +326,7 @@ public function build($agency_id = null)
         }
 
         // Get existing instance data or create new
-        $this->load->model('admin/Model_template_instances');
+        $this->load->model('agency/Model_template_instances');
         $instance = $this->Model_template_instances->get_instances_by_template($current_template->id);
         $instance_data = [];
         
@@ -335,7 +335,7 @@ public function build($agency_id = null)
         }
 
         $this->load->view($this->folder . '/view_header');
-        $this->load->view('admin/templates/agency_template_editor', [
+        $this->load->view('agency/templates/agency_template_editor', [
             'agency_id' => $agency_id,
             'template' => $template_with_sections,
             'instance_data' => $instance_data,
@@ -387,7 +387,7 @@ public function build($agency_id = null)
         }
         
         // Redirect back to builder
-        redirect('admin/agency_templates/build/' . $agency_id);
+        redirect('agency/agency_templates/build/' . $agency_id);
     }
 
 

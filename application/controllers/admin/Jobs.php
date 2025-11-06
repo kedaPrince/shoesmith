@@ -153,46 +153,7 @@ class Jobs extends CRUD_Controller
         return $options;
     }
 
-    public function setup_fields()
-    {
-        $this->formFields = array(
-            'main' => array(
-                'name' => 'trim|required|strip_tags',
-                'reference_number' => 'trim|required|strip_tags|callback_is_unique_reference',
-                'description' => 'trim',
-                'project_overview' => 'trim',
-                'department' => 'trim|strip_tags',
-                'agency_id' => 'trim|required|numeric',
-                'industry_id' => 'trim|numeric',
-                'employment_type' => 'trim|required',
-                'salary_min' => 'trim|numeric',
-                'salary_max' => 'trim|numeric',
-                'salary_currency' => 'trim|strip_tags',
-                'pay_rate' => 'trim|strip_tags',
-                'is_remote' => 'trim|numeric',
-                'roster' => 'trim|strip_tags',
-                'accommodation' => 'trim|strip_tags',
-                'transport' => 'trim|strip_tags',
-                'application_email' => 'trim|valid_email',
-                'application_url' => 'trim|valid_url',
-                'closing_date' => 'trim',
-            ),
-            'multi_selects' => array(
-                'skills' => array(
-                    'validation' => 'trim',
-                    'pivot_table' => 'pivot_job_skills',
-                    'main_field' => 'job_id',
-                    'link_field' => 'skill_id',
-                ),
-                'qualifications' => array(
-                    'validation' => 'trim',
-                    'pivot_table' => 'pivot_job_qualifications',
-                    'main_field' => 'job_id',
-                    'link_field' => 'qualification_id',
-                ),
-            ),
-        );
-    }
+  
 
     public function index()
     {
@@ -211,17 +172,73 @@ class Jobs extends CRUD_Controller
         $this->load->view($this->folder . '/' . 'view_footer');
     }
 
-    public function quick_manage_extra($id, $row): array
-    {
-        return array(
-            'agency_options' => $this->{$this->model}->get_agency_options(),
-            'industry_options' => $this->{$this->model}->get_industry_options(),
-            'skill_options' => $this->{$this->model}->get_skill_options(),
-            'qualification_options' => $this->{$this->model}->get_qualification_options(),
-            'skills' => $id ? $this->{$this->model}->get_job_skills((int)$id) : [],
-            'qualifications' => $id ? $this->{$this->model}->get_job_qualifications((int)$id) : [],
-        );
-    }
+// Update the quick_manage_extra method
+public function quick_manage_extra($id, $row): array
+{
+    $medical_requirements = $id ? $this->{$this->model}->get_job_medical_requirements((int)$id) : null;
+    
+    log_message('debug', '🔍 Loading medical requirements for job ID: ' . $id);
+    log_message('debug', '🔍 Medical requirements found: ' . ($medical_requirements ? 'YES' : 'NO'));
+    
+    return array(
+        'agency_options' => $this->{$this->model}->get_agency_options(),
+        'industry_options' => $this->{$this->model}->get_industry_options(),
+        'skill_options' => $this->{$this->model}->get_skill_options(),
+        'qualification_options' => $this->{$this->model}->get_qualification_options(),
+        'skills' => $id ? $this->{$this->model}->get_job_skills((int)$id) : [],
+        'qualifications' => $id ? $this->{$this->model}->get_job_qualifications((int)$id) : [],
+        'medical_requirements' => $medical_requirements, // ✅ Changed from medical_details to medical_requirements
+    );
+}
+
+// Update the formFields to include medical requirements
+public function setup_fields()
+{
+    $this->formFields = array(
+        'main' => array(
+            'name' => 'trim|required|strip_tags',
+            'reference_number' => 'trim|required|strip_tags|callback_is_unique_reference',
+            'description' => 'trim',
+            'project_overview' => 'trim',
+            'department' => 'trim|strip_tags',
+            'agency_id' => 'trim|required|numeric',
+            'industry_id' => 'trim|numeric',
+            'employment_type' => 'trim|required',
+            'salary_min' => 'trim|numeric',
+            'salary_max' => 'trim|numeric',
+            'salary_currency' => 'trim|strip_tags',
+            'pay_rate' => 'trim|strip_tags',
+            'pay_cycle' => 'trim|strip_tags', 
+            'is_remote' => 'trim|numeric',
+            'roster' => 'trim|strip_tags',
+            'accommodation' => 'trim|strip_tags',
+            'transport' => 'trim|strip_tags',
+            'site' => 'trim|strip_tags', 
+            'application_email' => 'trim|valid_email',
+            'application_url' => 'trim|valid_url',
+            'closing_date' => 'trim',
+        ),
+        'multi_selects' => array(
+            'skills' => array(
+                'validation' => 'trim',
+                'pivot_table' => 'pivot_job_skills',
+                'main_field' => 'job_id',
+                'link_field' => 'skill_id',
+            ),
+            'qualifications' => array(
+                'validation' => 'trim',
+                'pivot_table' => 'pivot_job_qualifications',
+                'main_field' => 'job_id',
+                'link_field' => 'qualification_id',
+            ),
+        ),
+        'medical_requirements' => array( // ✅ UPDATED: Medical requirements section
+            'validation' => 'trim',
+            'table' => 'mod_job_medical_requirements',
+            'main_field' => 'job_id',
+        ),
+    );
+}
 
     public function is_unique_reference($reference)
     {

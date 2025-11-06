@@ -350,7 +350,7 @@ $(document).ready(function() {
 
         // Use aggressive cache buster
         var cacheBuster = 't=' + new Date().getTime();
-        var url = 'http://localhost/shoesmith/admin/templates/ajax_quick_manage/' + templateId + '?' +
+        var url = 'http://localhost/shoesmith/agency/templates/ajax_quick_manage/' + templateId + '?' +
             cacheBuster;
 
         console.log('Fetching from URL:', url);
@@ -557,7 +557,7 @@ if (typeof window.QuickManageForm === 'undefined') {
             console.log('Loading available sections for template:', this.templateId);
             try {
                 const response = await fetch(
-                    `<?= site_url('admin/templates/get_available_sections_for_template/') ?>${this.templateId}`, {
+                    `<?= site_url('agency/templates/get_available_sections_for_template/') ?>${this.templateId}`, {
                         headers: {
                             'X-Requested-With': 'XMLHttpRequest'
                         }
@@ -597,7 +597,7 @@ if (typeof window.QuickManageForm === 'undefined') {
                 formData.append('section_id', sectionId);
 
                 const response = await fetch(
-                    `<?= site_url('admin/templates/add_section_to_template/') ?>${this.templateId}`, {
+                    `<?= site_url('agency/templates/add_section_to_template/') ?>${this.templateId}`, {
                         method: 'POST',
                         body: formData,
                         headers: {
@@ -629,7 +629,7 @@ if (typeof window.QuickManageForm === 'undefined') {
                 formData.append('section_id', sectionId);
 
                 const response = await fetch(
-                    `<?= site_url('admin/templates/remove_section_from_template/') ?>${this.templateId}`, {
+                    `<?= site_url('agency/templates/remove_section_from_template/') ?>${this.templateId}`, {
                         method: 'POST',
                         body: formData,
                         headers: {
@@ -658,7 +658,7 @@ if (typeof window.QuickManageForm === 'undefined') {
             try {
                 const cacheBuster = 't=' + new Date().getTime();
                 const url =
-                    `<?= site_url('admin/templates/ajax_quick_manage/') ?>${this.templateId}?${cacheBuster}`;
+                    `<?= site_url('agency/templates/ajax_quick_manage/') ?>${this.templateId}?${cacheBuster}`;
                 const response = await fetch(url);
                 if (!response.ok) throw new Error('Failed to fetch updated content');
                 const html = await response.text();
@@ -1195,22 +1195,62 @@ if (typeof window.QuickManageForm === 'undefined') {
             }, 500);
         }
 
+        // ✅ UPDATED: Field name conversion method
+        convert_to_form_field_name(stored_name) {
+            // Handle special cases first
+            if (stored_name === 'template_cache_id') {
+                return 'template_cache_id';
+            }
+
+            // ✅ FIX: Convert mod_job_medical_requirements_* to mod_job_medical_requirements.*
+            if (stored_name.startsWith('mod_job_medical_requirements_')) {
+                const field_part = stored_name.substring('mod_job_medical_requirements_'.length);
+                return 'mod_job_medical_requirements.' + field_part;
+            }
+
+            // Convert mod_jobs_name to mod_jobs.name
+            if (stored_name.startsWith('mod_jobs_')) {
+                const field_part = stored_name.substring('mod_jobs_'.length);
+                return 'mod_jobs.' + field_part;
+            }
+
+            // Convert usr_medical_emergency_details_ to usr_medical_emergency_details.
+            if (stored_name.startsWith('usr_medical_emergency_details_')) {
+                const field_part = stored_name.substring('usr_medical_emergency_details_'.length);
+                return 'usr_medical_emergency_details.' + field_part;
+            }
+
+            // For other fields, return as is
+            return stored_name;
+        }
+
+        // ✅ UPDATED: setFieldValue with field name conversion
         setFieldValue(fieldName, fieldValue) {
-            // ✅ IMPROVED: Try multiple selector patterns
-            let $field = $(`[name="${fieldName}"]`);
+            // ✅ FIX: Convert stored field names to form field names
+            let convertedFieldName = this.convert_to_form_field_name(fieldName);
+
+            console.log('  Converting field: ' + fieldName + ' -> ' + convertedFieldName);
+
+            let $field = $(`[name="${convertedFieldName}"]`);
 
             // If not found, try with escaped dots (for mod_jobs.name format)
-            if ($field.length === 0 && fieldName.includes('.')) {
-                const escapedName = fieldName.replace(/\./g, '\\.');
+            if ($field.length === 0 && convertedFieldName.includes('.')) {
+                const escapedName = convertedFieldName.replace(/\./g, '\\.');
                 $field = $(`[name="${escapedName}"]`);
+            }
+
+            // If still not found, try the original field name as fallback
+            if ($field.length === 0) {
+                $field = $(`[name="${fieldName}"]`);
+                console.log('  Trying original field name as fallback: ' + fieldName);
             }
 
             // If still not found, try by data attribute
             if ($field.length === 0) {
-                $field = $(`[data-field="${fieldName}"]`);
+                $field = $(`[data-field="${convertedFieldName}"]`);
             }
 
-            console.log('  Targeting field for ' + fieldName + ': found ' + $field.length + ' elements');
+            console.log('  Targeting field: found ' + $field.length + ' elements');
 
             if ($field.length > 0) {
                 let currentVal = $field.val() || '';
@@ -1228,7 +1268,8 @@ if (typeof window.QuickManageForm === 'undefined') {
                     }
 
                     $field.val(valuesToSet).trigger('change');
-                    console.log('  Setting multi-select for ' + fieldName + ' = ' + valuesToSet.join(', '));
+                    console.log('  Setting multi-select for ' + convertedFieldName + ' = ' + valuesToSet.join(
+                        ', '));
 
                 } else {
                     // Handle single value fields
@@ -1238,7 +1279,8 @@ if (typeof window.QuickManageForm === 'undefined') {
                     // Only skip if current value is different AND not empty
                     if (currentVal && typeof currentVal === 'string' && currentVal.trim() !== '' &&
                         currentVal.trim() !== String(fieldValue).trim()) {
-                        console.warn('Skipping set for ' + fieldName + ': DOM has "' + currentDisplay.substring(
+                        console.warn('Skipping set for ' + convertedFieldName + ': DOM has "' + currentDisplay
+                            .substring(
                                 0, 30) +
                             '", JS has "' + (typeof fieldDisplay === 'string' ? fieldDisplay.substring(0,
                                     30) :
@@ -1247,15 +1289,24 @@ if (typeof window.QuickManageForm === 'undefined') {
                     }
 
                     // If current value is empty or same as what we want to set, proceed
-                    console.log('  Setting plain val for ' + fieldName + ' = ' + (typeof fieldValue ===
+                    console.log('  Setting plain val for ' + convertedFieldName + ' = ' + (typeof fieldValue ===
                         'string' ? fieldValue.substring(0, 30) : fieldValue));
                     $field.val(fieldValue).trigger('change');
                 }
             } else {
-                console.warn('Field not found:', fieldName);
+                console.warn('Field not found:', convertedFieldName);
                 // FALLBACK SEARCH: Log all names for debugging
                 console.log('  All form names:', $('#dynamic-form-content [name]').map((i, el) => $(el).attr(
                     'name')).get());
+            }
+        }
+
+        // Add this helper method for direct field setting
+        setFieldValueDirect(fieldName, fieldValue) {
+            let $field = $(`[name="${fieldName}"]`);
+            if ($field.length > 0) {
+                $field.val(fieldValue).trigger('change');
+                console.log('  ✅ Set value directly for ' + fieldName);
             }
         }
 
@@ -1352,11 +1403,18 @@ if (typeof window.QuickManageForm === 'undefined') {
 
         saveForm() {
             console.log('SAVE BUTTON CLICKED FOR TEMPLATE:', this.templateId);
+            console.log('=== SAVE FORM DEBUG ===');
+            console.log('Template ID:', this.templateId);
+            console.log('Current URL:', window.location.href);
+            console.log('Session check URL:', '<?= site_url("agency/templates/debug_session") ?>');
+            // Check if we have a session cookie
+            console.log('Cookies:', document.cookie);
 
             this.syncAllEditors();
 
             const formData = new FormData();
             let fieldCount = 0;
+
 
             $('#dynamic-form-content input, #dynamic-form-content select, #dynamic-form-content textarea').each(
                 (index, element) => {
@@ -1386,22 +1444,28 @@ if (typeof window.QuickManageForm === 'undefined') {
                 this.showMessage('No data to save!', 'error');
                 return;
             }
-
+            console.log('Fields to save:', fieldCount);
+            console.log('=== SAVE FORM DEBUG END ===');
             $('#save-button').prop('disabled', true).html('<i class="fa fa-spinner fa-spin"></i> Saving...');
 
             const templateId = $('input[name="id"]').val();
             const cacheBuster = 't=' + new Date().getTime();
-            const url = '<?= site_url("admin/templates/update_ajax/") ?>' + templateId + '?' + cacheBuster;
+            const url = '<?= site_url("agency/templates/update_ajax/") ?>' + templateId + '?' + cacheBuster;
+
+            console.log('Making request to:', url);
 
             fetch(url, {
                     method: 'POST',
                     body: formData,
                     headers: {
                         'X-Requested-With': 'XMLHttpRequest'
-                    }
+                    },
+                    credentials: 'include' // ✅ IMPORTANT: Include cookies/session
                 })
                 .then(response => {
                     // ✅ FIX: First check if response is OK
+                    console.log('Response status:', response.status);
+                    console.log('Response headers:', response.headers);
                     if (!response.ok) {
                         throw new Error('Network response was not ok: ' + response.status);
                     }
@@ -1561,7 +1625,7 @@ if (typeof window.QuickManageForm === 'undefined') {
                 '<i class="fa fa-spinner fa-spin"></i> Saving as Job...');
 
             const cacheBuster = 't=' + new Date().getTime();
-            const url = `<?= site_url("admin/templates/save_as_job/") ?>${templateId}?${cacheBuster}`;
+            const url = `<?= site_url("agency/templates/save_as_job/") ?>${templateId}?${cacheBuster}`;
 
             fetch(url, {
                     method: 'POST',
@@ -1667,6 +1731,40 @@ function closeQuickManageSimple() {
 $(document).on('click', '.preview-composite-template', function() {
     const templateId = $(this).data('id');
     const templateName = $(this).data('name');
-    window.open('<?= site_url("admin/templates/preview/") ?>' + templateId, '_blank');
+    window.open('<?= site_url("agency/templates/preview/") ?>' + templateId, '_blank');
+});
+
+// Add this to your template JavaScript
+console.log('=== DEBUG FORM SUBMISSION ===');
+
+// Check multi-select fields before submission
+$('form').on('submit', function(e) {
+    console.log('Form submission intercepted');
+
+    // Check all select elements
+    $('select').each(function() {
+        var $select = $(this);
+        console.log('Select field:', $select.attr('name'), 'Values:', $select.val(), 'Multiple:',
+            $select.prop('multiple'));
+    });
+
+    // Specifically check skills and qualifications
+    var skillsValues = $('select[name*="skills"]').val();
+    var qualificationsValues = $('select[name*="qualifications"]').val();
+
+    console.log('Skills values:', skillsValues);
+    console.log('Qualifications values:', qualificationsValues);
+
+    // Continue with form submission
+    return true;
+});
+
+// Also log on page load
+$(document).ready(function() {
+    console.log('=== PAGE LOAD DEBUG ===');
+    $('select[name*="skills"], select[name*="qualifications"]').each(function() {
+        console.log('Multi-select field found:', $(this).attr('name'), 'Current values:', $(this)
+    .val());
+    });
 });
 </script>

@@ -446,7 +446,20 @@ defined('BASEPATH') || exit('No direct script access allowed');  ?>
         </div>
     </div>
 </div>
-
+<!-- Add this to your form builder view -->
+<div class="form-group">
+    <label for="is_public">Form Visibility</label>
+    <select name="is_public" id="is_public" class="form-control">
+        <option value="0">Private (Only my agency)</option>
+        <option value="1">Public (All agencies can see)</option>
+    </select>
+    <small class="form-text text-muted">Private forms are only visible to your agency. Public forms can be seen by all agencies.</small>
+</div>
+<?php if (!empty($agency_id)): ?>
+<div class="alert alert-info">
+    <i class="fa fa-building"></i> This form will be saved for your agency only.
+</div>
+<?php endif; ?>
 <script>
 /** START Dynamic sub fields standard functions **/
 function make_df_sub_row(container, con, rowID) {
@@ -783,7 +796,7 @@ function clearDynamicFieldRows() {
 }
 
 function generate_from_table(table) {
-    let url = '<?= site_url("admin/test_form_builder/generate_from_db_table"); ?>';
+    let url = '<?= site_url("agency/test_form_builder/generate_from_db_table"); ?>';
     $.ajax({
         url: url,
         type: 'POST',
@@ -1109,7 +1122,7 @@ function updateFormResultPreview() {
 
     // Send to server to render HTML
     $.ajax({
-        url: '<?= site_url("admin/test_form_builder/render_schema"); ?>',
+        url: '<?= site_url("agency/test_form_builder/render_schema"); ?>',
         type: 'POST',
         data: {
             schema: JSON.stringify(schema)

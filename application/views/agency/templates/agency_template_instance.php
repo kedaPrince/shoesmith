@@ -65,7 +65,7 @@
             </div>
         </div>
 
-        <?= form_open('admin/agency_templates/save_template_instance', ['class' => 'template-instance-form', 'id' => 'templateInstanceForm']) ?>
+        <?= form_open('agency/agency_templates/save_template_instance', ['class' => 'template-instance-form', 'id' => 'templateInstanceForm']) ?>
 
         <?= form_hidden('agency_id', $agency_id) ?>
         <?= form_hidden('template_instance_id', $template_instance_id) ?>
@@ -101,7 +101,7 @@
             <button type="submit" class="btn btn-success btn-lg">
                 <i class="fa fa-save"></i> Save Template Instance
             </button>
-            <a href="<?= site_url('admin/agency_templates/build/' . $agency_id) ?>" class="btn btn-secondary btn-lg">
+            <a href="<?= site_url('agency/agency_templates/build/' . $agency_id) ?>" class="btn btn-secondary btn-lg">
                 <i class="fa fa-arrow-left"></i> Back to Template Builder
             </a>
         </div>
@@ -152,7 +152,7 @@ function loadFormForSection(sectionId, schemaId) {
     console.log('Loading form for section:', sectionId, 'schema:', schemaId);
 
     // Load form via AJAX
-    fetch('<?= site_url("admin/test_form_builder/get_form_by_schema_id") ?>', {
+    fetch('<?= site_url("agency/test_form_builder/get_form_by_schema_id") ?>', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/x-www-form-urlencoded',

@@ -5,7 +5,7 @@ class Model_jobs extends CRUD_Model
 {
     protected $table = 'mod_jobs';
 
-       public function main_selects() {
+    public function main_selects() {
         // Include candidate_count in the selection
         $this->db->select([
             'mod_jobs.id',
@@ -15,7 +15,9 @@ class Model_jobs extends CRUD_Model
             'mod_jobs.employment_type',
             'mod_jobs.industry_id',
             'mod_jobs.agency_id',
-            'mod_jobs.candidate_count', // Add this line
+            'mod_jobs.candidate_count',
+            'mod_jobs.skills', // Add skills column
+            'mod_jobs.qualifications', // Add qualifications column
             'agencies.name AS agency_name',
             'mod_industries.name AS industry_name'
         ]);
@@ -26,7 +28,6 @@ class Model_jobs extends CRUD_Model
         $this->db->join('agencies', 'agencies.id = mod_jobs.agency_id', 'left');
         $this->db->join('mod_industries', 'mod_industries.id = mod_jobs.industry_id', 'left');
     }
-
 
     public function get_agency_options($user_agency_id = null)
     {
@@ -52,43 +53,11 @@ class Model_jobs extends CRUD_Model
         return $this->db->get();
     }
 
-    public function get_skill_options()
-    {
-        $this->db->select('id, name');
-        $this->db->from('mod_job_skills');
-        $this->db->where('enabled', 1);
-        $this->db->where('removed', 0);
-        $this->db->order_by('name', 'ASC');
-        return $this->db->get();
-    }
-
-    public function get_qualification_options()
-    {
-        $this->db->select('id, name');
-        $this->db->from('mod_job_qualifications');
-        $this->db->where('enabled', 1);
-        $this->db->where('removed', 0);
-        $this->db->order_by('name', 'ASC');
-        return $this->db->get();
-    }
-
-    public function get_job_skills($job_id)
-    {
-        if (empty($job_id)) return [];
-        $this->db->select('skill_id');
-        $this->db->from('pivot_job_skills');
-        $this->db->where('job_id', $job_id);
-        return array_column($this->db->get()->result_array(), 'skill_id');
-    }
-
-    public function get_job_qualifications($job_id)
-    {
-        if (empty($job_id)) return [];
-        $this->db->select('qualification_id');
-        $this->db->from('pivot_job_qualifications');
-        $this->db->where('job_id', $job_id);
-        return array_column($this->db->get()->result_array(), 'qualification_id');
-    }
+    // Remove get_skill_options() method since skills are now stored directly
+    // Remove get_qualification_options() method since qualifications are now stored directly
+    
+    // Remove get_job_skills() method - skills are now in mod_jobs.skills column
+    // Remove get_job_qualifications() method - qualifications are now in mod_jobs.qualifications column
 
     public function is_unique_reference($reference, $id = "")
     {

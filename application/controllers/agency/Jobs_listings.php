@@ -133,44 +133,46 @@ private function setup_listing(){
     }
 
     public function setup_fields(){
-        $this->formFields = array(
-            'main' => array(
-                'name' => 'trim|required|strip_tags',
-                'reference_number' => 'trim|required|strip_tags|callback_is_unique_reference',
-                'description' => 'trim',
-                'project_overview' => 'trim',
-                'department' => 'trim|strip_tags',
-                'agency_id' => 'trim|required|numeric',
-                'industry_id' => 'trim|numeric', // SOLUTION 1: Remove 'required' and make it numeric only
-                'employment_type' => 'trim|required',
-                'salary_min' => 'trim|numeric',
-                'salary_max' => 'trim|numeric',
-                'salary_currency' => 'trim|strip_tags',
-                'pay_rate' => 'trim|strip_tags',
-                'is_remote' => 'trim|numeric',
-                'roster' => 'trim|strip_tags',
-                'accommodation' => 'trim|strip_tags',
-                'transport' => 'trim|strip_tags',
-                'application_email' => 'trim|valid_email',
-                'application_url' => 'trim|valid_url',
-                'closing_date' => 'trim',
+    $this->formFields = array(
+        'main' => array(
+            'name' => 'trim|required|strip_tags',
+            'reference_number' => 'trim|required|strip_tags|callback_is_unique_reference',
+            'description' => 'trim|strip_tags', // Add strip_tags here
+            'project_overview' => 'trim|strip_tags', // Add strip_tags here
+            'department' => 'trim|strip_tags',
+            'agency_id' => 'trim|required|numeric',
+            'industry_id' => 'trim|numeric',
+            'employment_type' => 'trim|required',
+            'salary_min' => 'trim|numeric',
+            'salary_max' => 'trim|numeric',
+            'salary_currency' => 'trim|strip_tags',
+            'pay_rate' => 'trim|strip_tags',
+            'is_remote' => 'trim|numeric',
+            'roster' => 'trim|strip_tags',
+            'accommodation' => 'trim|strip_tags',
+            'transport' => 'trim|strip_tags',
+            'application_email' => 'trim|valid_email',
+            'application_url' => 'trim|valid_url',
+            'closing_date' => 'trim',
+            'skills' => 'trim|strip_tags', // Add strip_tags for skills
+            'qualifications' => 'trim|strip_tags', // Add strip_tags for qualifications
+        ),
+        'multi_selects' => array(
+            'skills' => array(
+                'validation' => 'trim|strip_tags', // Add strip_tags here too
+                'pivot_table' => 'pivot_job_skills',
+                'main_field' => 'job_id',
+                'link_field' => 'skill_id',
             ),
-            'multi_selects' => array(
-                'skills' => array(
-                    'validation' => 'trim',
-                    'pivot_table' => 'pivot_job_skills',
-                    'main_field' => 'job_id',
-                    'link_field' => 'skill_id',
-                ),
-                'qualifications' => array(
-                    'validation' => 'trim',
-                    'pivot_table' => 'pivot_job_qualifications',
-                    'main_field' => 'job_id',
-                    'link_field' => 'qualification_id',
-                ),
+            'qualifications' => array(
+                'validation' => 'trim|strip_tags', // Add strip_tags here too
+                'pivot_table' => 'pivot_job_qualifications',
+                'main_field' => 'job_id',
+                'link_field' => 'qualification_id',
             ),
-        );
-    }
+        ),
+    );
+}
 /**
  * Override field selection to exclude calculated fields
  */
@@ -215,43 +217,46 @@ public function generate_reference() {
         ));
     }
 }
-    public function create(){
-        log_message('debug', '=== JOB CREATION START ===');
-        log_message('debug', 'POST data: ' . print_r($this->input->post(), true));
-        
-        // SIMPLIFIED SOLUTION: Handle industry_id safely without extra DB connection
-        $industry_id = $this->input->post('industry_id');
-        log_message('debug', 'Raw Industry ID from POST: ' . $industry_id);
-        
-        // Safe industry_id handling - just ensure it's valid numeric or null
-        if (!empty($industry_id) && is_numeric($industry_id)) {
-            $industry_id = (int)$industry_id;
-            // Let the database foreign key handle validation
-            $_POST['industry_id'] = $industry_id;
-            log_message('debug', 'Setting industry_id to: ' . $industry_id);
-        } else {
-            // No industry_id or invalid, set to null
-            $_POST['industry_id'] = null;
-            log_message('debug', 'No valid industry_id provided, setting to null');
-        }
-        
-        // Auto-set agency_id if not provided
-        if (!$this->input->post('agency_id')) {
-            $user_agency_id = $this->get_user_agency_id();
-            if (!empty($user_agency_id)) {
-                $_POST['agency_id'] = $user_agency_id;
-                log_message('debug', 'Auto-setting agency_id to: ' . $user_agency_id);
-            }
-        }
-        
-        // Final validation before parent::create()
-        log_message('debug', 'Final industry_id before create: ' . $_POST['industry_id']);
-        log_message('debug', 'Final agency_id before create: ' . $_POST['agency_id']);
-        
-        log_message('debug', '=== JOB CREATION END ===');
-        
-        parent::create();
+ public function create(){
+    log_message('debug', '=== JOB CREATION START ===');
+    log_message('debug', 'POST data: ' . print_r($this->input->post(), true));
+    
+    // PRE-PROCESS DATA TO REMOVE HTML TAGS
+    $this->pre_process_job_data();
+    
+    // SIMPLIFIED SOLUTION: Handle industry_id safely without extra DB connection
+    $industry_id = $this->input->post('industry_id');
+    log_message('debug', 'Raw Industry ID from POST: ' . $industry_id);
+    
+    // Safe industry_id handling - just ensure it's valid numeric or null
+    if (!empty($industry_id) && is_numeric($industry_id)) {
+        $industry_id = (int)$industry_id;
+        // Let the database foreign key handle validation
+        $_POST['industry_id'] = $industry_id;
+        log_message('debug', 'Setting industry_id to: ' . $industry_id);
+    } else {
+        // No industry_id or invalid, set to null
+        $_POST['industry_id'] = null;
+        log_message('debug', 'No valid industry_id provided, setting to null');
     }
+    
+    // Auto-set agency_id if not provided
+    if (!$this->input->post('agency_id')) {
+        $user_agency_id = $this->get_user_agency_id();
+        if (!empty($user_agency_id)) {
+            $_POST['agency_id'] = $user_agency_id;
+            log_message('debug', 'Auto-setting agency_id to: ' . $user_agency_id);
+        }
+    }
+    
+    // Final validation before parent::create()
+    log_message('debug', 'Final industry_id before create: ' . $_POST['industry_id']);
+    log_message('debug', 'Final agency_id before create: ' . $_POST['agency_id']);
+    
+    log_message('debug', '=== JOB CREATION END ===');
+    
+    parent::create();
+}
 
     /**
      * Override the index method to ensure agency filtering
@@ -299,7 +304,8 @@ public function generate_reference() {
     }
 
    
-    public function quick_manage_extra($id, $row): array{
+public function quick_manage_extra($id, $row): array
+{
     $submodules = $this->session->submodules;
     $agency_id = !empty($submodules['job_listings']) ? $submodules['job_listings']->id : null;
 
@@ -318,10 +324,7 @@ public function generate_reference() {
         }
     }
     
-    // FIX: Safe way to get current agency_id from row
-    $current_agency_id = $user_agency_id; // Default to user's agency
-    
-    // FIX: Safe way to get current agency_id from row
+    // ✅ FIX: Better data extraction from row
     $current_agency_id = $user_agency_id; // Default to user's agency
 
     if (!empty($row) && is_object($row)) {
@@ -343,6 +346,13 @@ public function generate_reference() {
                 log_message('debug', 'No ID provided, using user agency ID: ' . $user_agency_id);
             }
         }
+        
+        // ✅ DEBUG: Log employment type and industry data
+        log_message('debug', 'Job Row Data for Quick Manage:');
+        log_message('debug', ' - Employment Type: ' . ($row->employment_type ?? 'NOT SET'));
+        log_message('debug', ' - Industry ID: ' . ($row->industry_id ?? 'NOT SET'));
+        log_message('debug', ' - Agency ID: ' . ($row->agency_id ?? 'NOT SET'));
+        log_message('debug', ' - Job Name: ' . ($row->name ?? 'NOT SET'));
     } else {
         log_message('debug', 'No row object provided, using user agency ID: ' . $user_agency_id);
     }
@@ -350,16 +360,18 @@ public function generate_reference() {
     return [
         'agency_id' => $agency_id,
         'user_agency_id' => $user_agency_id,
-        'current_agency_id' => $current_agency_id, // Use this in the view
-        'user_agencies' => $user_agency_id, // For compatibility with view
+        'current_agency_id' => $current_agency_id,
+        'user_agencies' => $user_agency_id,
         'agency_options' => $agency_options,
         'industry_options' => $this->{$this->model}->get_industry_options(),
         'skill_options' => $this->{$this->model}->get_skill_options(),
         'qualification_options' => $this->{$this->model}->get_qualification_options(),
         'skills' => $id ? $this->{$this->model}->get_job_skills((int)$id) : [],
         'qualifications' => $id ? $this->{$this->model}->get_job_qualifications((int)$id) : [],
+        // ✅ FIX: Ensure row data is passed correctly
+        'row' => $row
     ];
-    }
+}
 
     /**
      * Get the logged-in user's agency ID - Works for both agency staff and recruiters
@@ -424,15 +436,17 @@ public function generate_reference() {
         log_message('debug', '=== JOB UPDATE START ===');
         log_message('debug', 'Updating job ID: ' . $id);
         log_message('debug', 'POST data: ' . print_r($this->input->post(), true));
+        // PRE-PROCESS DATA TO REMOVE HTML TAGS
+        $this->pre_process_job_data();
         
-        // Get original job data before update for change tracking - FIXED METHOD CALL
-        $original_job = $this->{$this->model}->get_by_id($id);
-        if (!$original_job) {
-            log_message('error', 'Original job not found for ID: ' . $id);
-            return parent::update($id);
-        }
-        
-        log_message('debug', 'Original job data - Name: ' . $original_job->name . ', Agency: ' . $original_job->agency_id);
+          // Get original job data before update for change tracking - FIXED METHOD CALL
+    $original_job = $this->{$this->model}->get_by_id($id);
+    if (!$original_job) {
+        log_message('error', 'Original job not found for ID: ' . $id);
+        return parent::update($id);
+    }
+    
+    log_message('debug', 'Original job data - Name: ' . $original_job->name . ', Agency: ' . $original_job->agency_id);
         
         // Track changed fields
         $changed_fields = $this->track_changed_fields($original_job);
@@ -691,5 +705,30 @@ public function debug_candidates_count() {
     echo "</ul>";
     
     log_message('debug', '=== DEBUG CANDIDATES COUNT END ===');
+}
+/**
+ * Pre-process job data to remove HTML tags and clean input
+ */
+private function pre_process_job_data() {
+    $text_fields = [
+        'name', 'reference_number', 'description', 'project_overview', 
+        'department', 'pay_rate', 'roster', 'accommodation', 'transport',
+        'application_email', 'application_url', 'skills', 'qualifications'
+    ];
+    
+    foreach ($text_fields as $field) {
+        if ($this->input->post($field)) {
+            $clean_value = strip_tags($this->input->post($field));
+            $_POST[$field] = $clean_value;
+            log_message('debug', "Cleaned field {$field}: " . substr($clean_value, 0, 50) . '...');
+        }
+    }
+    
+    // Also handle employment_type to ensure it's valid
+    $employment_types = ['full-time', 'part-time', 'contract', 'internship', 'temporary'];
+    $current_type = $this->input->post('employment_type');
+    if (!in_array($current_type, $employment_types)) {
+        $_POST['employment_type'] = 'full-time'; // default value
+    }
 }
 }
