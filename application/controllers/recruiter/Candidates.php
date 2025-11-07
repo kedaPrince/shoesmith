@@ -50,7 +50,7 @@ class Candidates extends CRUD_Controller
 
         $this->listActions = array(
             'edit' => array('label' => lang('label_edit'), 'url' => url($this->pageName . '/edit/{id}'), 'icon' => 'fa-edit', 'class' => 'edit-row'),
-             'enable' => array(
+            'enable' => array(
                 'label'     => lang('label_enable'),
                 'url'       => url($this->pageName . '/enable/{id}'),
                 'icon'      => 'fa-eye',
@@ -130,7 +130,7 @@ class Candidates extends CRUD_Controller
             ),
             'multi_selects' => array(
                 'additional_agency_ids' => array(
-                      'validation' => 'trim|required',
+                    'validation' => 'trim|required',
                     'pivot_table' => 'candidate_agencies',
                     'main_field' => 'candidate_id',
                     'link_field' => 'agency_id',
@@ -156,208 +156,264 @@ class Candidates extends CRUD_Controller
             ],
         );
     }
-public function validate_form($action = 'create')
-{
-    $this->load->library('form_validation');
-    
-    // Set validation rules based on formFields
-    if (isset($this->formFields['main'])) {
-        foreach ($this->formFields['main'] as $field => $rules) {
-            $this->form_validation->set_rules($field, $this->get_field_label($field), $rules);
-        }
-    }
-    
-    // Validate multi-select fields
-    if (isset($this->formFields['multi_selects'])) {
-        foreach ($this->formFields['multi_selects'] as $field => $config) {
-            if (isset($config['validation'])) {
-                $this->form_validation->set_rules($field . '[]', $this->get_field_label($field), $config['validation']);
-            }
-        }
-    }
-    
-    return $this->form_validation->run();
-}
 
-public function get_post_data()
-{
-    $data = array();
-    
-    // Process main fields
-    if (isset($this->formFields['main'])) {
-        foreach (array_keys($this->formFields['main']) as $field) {
-            // Skip fields that are handled separately
-            if (in_array($field, array('cv_file'))) {
-                continue;
-            }
+    /**
+     * Generate reference number via AJAX
+     */
+    public function generate_reference()
+    {
+        try {
+            $reference = $this->{$this->model}->generate_reference_number();
+            $this->output
+                ->set_content_type('application/json')
+                ->set_output(json_encode([
+                    'success' => true,
+                    'reference' => $reference
+                ]));
+        } catch (Exception $e) {
+            error_log('Error generating reference: ' . $e->getMessage());
+            // Fallback
+            $prefix = 'CAND';
+            $year = date('Y');
+            $count = $this->db->where('YEAR(created_at)', $year)
+                             ->count_all_results('candidates');
+            $sequence = $count + 1;
+            $fallbackReference = $prefix . '-' . $year . '-' . str_pad($sequence, 4, '0', STR_PAD_LEFT);
             
-            $value = $this->input->post($field);
-            
-            // Handle date fields
-            if (in_array($field, array('date_of_birth', 'application_date')) && !empty($value)) {
-                $data[$field] = date('Y-m-d', strtotime($value));
-            }
-            // Handle decimal fields
-            elseif (in_array($field, array('current_salary', 'expected_salary')) && !empty($value)) {
-                $data[$field] = (float) $value;
-            }
-            // Handle numeric fields
-            elseif (in_array($field, array('years_experience', 'notice_period', 'rating')) && !empty($value)) {
-                $data[$field] = (int) $value;
-            }
-            // Handle empty strings for optional fields
-            elseif ($value === '') {
-                $data[$field] = null;
-            }
-            else {
-                $data[$field] = $value;
-            }
+            $this->output
+                ->set_content_type('application/json')
+                ->set_output(json_encode([
+                    'success' => true,
+                    'reference' => $fallbackReference
+                ]));
         }
     }
-    
-    // Handle file upload field separately
-    if (!empty($_FILES['cv_file']['name'])) {
-        // File upload will be handled in handle_file_upload_manual method
-        // We don't set cv_file here as it will be updated after successful upload
-    }
-    
-    return $data;
-}
 
-private function get_field_label($field)
-{
-    // Remove everything after | for field names like 'reference_number|label_reference_number'
-    $clean_field = preg_replace('/\|.*$/', '', $field);
-    
-    if (isset($this->formLabels[$clean_field])) {
-        return $this->formLabels[$clean_field];
-    }
-    
-    // Check if we have a custom label in the field name
-    if (strpos($field, '|') !== false) {
-        $parts = explode('|', $field);
-        if (count($parts) > 1) {
-            return lang($parts[1]);
-        }
-    }
-    
-    // Fallback to field name
-    return ucfirst(str_replace('_', ' ', $clean_field));
-}
-public function create()
-{
-    if ($this->input->post()) {
-        // First validate the form
-        $validation_passed = false;
+    /**
+     * Validate form - FIXED version
+     */
+    public function validate_form($action = 'create')
+    {
+        $this->load->library('form_validation');
         
-        if (method_exists($this, 'validate_form')) {
-            $validation_passed = $this->validate_form('create');
-        } elseif (method_exists(get_parent_class($this), 'validate_form')) {
-            $validation_passed = parent::validate_form('create');
-        } else {
-            // Fallback validation
-            $validation_passed = $this->fallback_validate_form();
+        // Set validation rules based on formFields
+        if (isset($this->formFields['main'])) {
+            foreach ($this->formFields['main'] as $field => $rules) {
+                $clean_field = preg_replace('/\|.*$/', '', $field);
+                $this->form_validation->set_rules($clean_field, $this->get_field_label($field), $rules);
+            }
         }
         
-        if ($validation_passed) {
-            // Get post data
-            if (method_exists($this, 'get_post_data')) {
-                $data = $this->get_post_data();
-            } elseif (method_exists(get_parent_class($this), 'get_post_data')) {
-                $data = parent::get_post_data();
-            } else {
-                $data = $this->fallback_get_post_data();
-            }
-            
-            // Add extra parameters
-            $extra_params = $this->create_extra_params();
-            $data = array_merge($data, $extra_params);
-            
-            // Add created_at timestamp
-            $data['created_at'] = date('Y-m-d H:i:s');
-            
-            // Insert the main record - use create method instead of insert
-            $id = $this->{$this->model}->create($data);
-            
-            if ($id) {
-                // Handle file upload manually
-                $this->handle_file_upload_manual($id);
-                
-                // Handle pivot tables
-                $this->handle_pivot_tables($id);
-                
-                // Set success message
-                $this->session->set_flashdata('success', lang('record_created'));
-                
-                if ($this->input->is_ajax_request()) {
-                    echo json_encode(['success' => true, 'message' => lang('record_created'), 'id' => $id]);
-                    return;
-                } else {
-                    redirect(redir($this->pageName, true));
+        // Validate multi-select fields
+        if (isset($this->formFields['multi_selects'])) {
+            foreach ($this->formFields['multi_selects'] as $field => $config) {
+                if (isset($config['validation'])) {
+                    $this->form_validation->set_rules($field . '[]', $this->get_field_label($field), $config['validation']);
                 }
             }
         }
         
-        // If we get here, there was an error
-        if ($this->input->is_ajax_request()) {
-            echo json_encode(['success' => false, 'error' => validation_errors()]);
-            return;
-        }
+        return $this->form_validation->run();
     }
-    
-    // Show the form
-    $this->add();
-}
 
+    /**
+     * Get post data - FIXED version
+     */
+   public function get_post_data()
+    {
+        log_message('debug', '=== GET_POST_DATA STARTED ===');
+        $data = array();
+        
+        // Process main fields
+        if (isset($this->formFields['main'])) {
+            foreach (array_keys($this->formFields['main']) as $field) {
+                $clean_field = preg_replace('/\|.*$/', '', $field);
+                
+                // Skip fields that are handled separately
+                if (in_array($clean_field, array('cv_file'))) {
+                    continue;
+                }
+                
+                $value = $this->input->post($clean_field);
+                log_message('debug', "Field: {$clean_field}, Value: " . ($value === null ? 'NULL' : $value));
+                
+                if ($value !== null && $value !== '') {
+                    // Handle date fields
+                    if (in_array($clean_field, array('date_of_birth', 'application_date'))) {
+                        $data[$clean_field] = date('Y-m-d', strtotime($value));
+                    }
+                    // Handle decimal fields
+                    elseif (in_array($clean_field, array('current_salary', 'expected_salary'))) {
+                        $data[$clean_field] = (float) $value;
+                    }
+                    // Handle numeric fields
+                    elseif (in_array($clean_field, array('years_experience', 'notice_period', 'rating', 'agency_id', 'job_id', 'assigned_agent_id'))) {
+                        $data[$clean_field] = (int) $value;
+                    }
+                    // Handle all other fields
+                    else {
+                        $data[$clean_field] = $value;
+                    }
+                } else {
+                    // Set empty values to null
+                    $data[$clean_field] = null;
+                }
+            }
+        }
+        
+        log_message('debug', 'Final post data array: ' . print_r($data, true));
+        log_message('debug', '=== GET_POST_DATA ENDED ===');
+        return $data;
+    }
+
+
+    private function get_field_label($field)
+    {
+        // Remove everything after | for field names like 'reference_number|label_reference_number'
+        $clean_field = preg_replace('/\|.*$/', '', $field);
+        
+        if (isset($this->formLabels[$clean_field])) {
+            return $this->formLabels[$clean_field];
+        }
+        
+        // Check if we have a custom label in the field name
+        if (strpos($field, '|') !== false) {
+            $parts = explode('|', $field);
+            if (count($parts) > 1) {
+                return lang($parts[1]);
+            }
+        }
+        
+        // Fallback to field name
+        return ucfirst(str_replace('_', ' ', $clean_field));
+    }
+
+    /**
+     * Create candidate - FIXED version
+     */
+    public function create()
+    {
+        if ($this->input->post()) {
+            // Validate form
+            if ($this->validate_form('create')) {
+                // Get post data
+                $data = $this->get_post_data();
+                
+                // Add extra parameters
+                $extra_params = $this->create_extra_params();
+                $data = array_merge($data, $extra_params);
+                
+                // Add created_at timestamp
+                $data['created_at'] = date('Y-m-d H:i:s');
+                
+                // Insert the main record
+               $id = $this->{$this->model}->create($data);
+                
+                if ($id) {
+                    // Handle file upload
+                    $this->handle_file_upload_manual($id);
+                    
+                    // Handle pivot tables
+                    $this->handle_pivot_tables($id);
+                    
+                    // Send notifications to agencies
+                    $this->send_agency_notifications($id);
+                    
+                    // Set success message
+                    $this->session->set_flashdata('success', lang('record_created'));
+                    
+                    if ($this->input->is_ajax_request()) {
+                        echo json_encode(['success' => true, 'message' => lang('record_created'), 'id' => $id]);
+                        return;
+                    } else {
+                        redirect(redir($this->pageName, true));
+                    }
+                }
+            }
+            
+            // If we get here, there was an error
+            if ($this->input->is_ajax_request()) {
+                echo json_encode(['success' => false, 'error' => validation_errors()]);
+                return;
+            }
+        }
+        
+        // Show the form
+        $this->add();
+    }
+
+    /**
+ * Update candidate - FIXED version
+ */
 public function update($id = null)
 {
+    log_message('debug', '=== UPDATE METHOD STARTED ===');
+    log_message('debug', 'Candidate ID: ' . $id);
+    log_message('debug', 'POST data: ' . print_r($this->input->post(), true));
+    
     if ($this->input->post()) {
-        // First validate the form
-        $validation_passed = false;
+        log_message('debug', 'POST request detected');
         
-        if (method_exists($this, 'validate_form')) {
-            $validation_passed = $this->validate_form('update');
-        } elseif (method_exists(get_parent_class($this), 'validate_form')) {
-            $validation_passed = parent::validate_form('update');
-        } else {
-            // Fallback validation
-            $validation_passed = $this->fallback_validate_form();
-        }
-        
-        if ($validation_passed) {
+        // Validate form
+        if ($this->validate_form('update')) {
+            log_message('debug', 'Form validation passed');
+            
             // Get post data
-            if (method_exists($this, 'get_post_data')) {
-                $data = $this->get_post_data();
-            } elseif (method_exists(get_parent_class($this), 'get_post_data')) {
-                $data = parent::get_post_data();
-            } else {
-                $data = $this->fallback_get_post_data();
-            }
+            $data = $this->get_post_data();
+            log_message('debug', 'Post data array: ' . print_r($data, true));
+            log_message('debug', 'Data type: ' . gettype($data));
+            log_message('debug', 'Is array: ' . (is_array($data) ? 'YES' : 'NO'));
             
             // Add extra parameters
             $extra_params = $this->update_extra_params($id);
+            log_message('debug', 'Extra params: ' . print_r($extra_params, true));
+            
             $data = array_merge($data, $extra_params);
+            log_message('debug', 'Merged data: ' . print_r($data, true));
             
-            // Update the main record - CORRECTED PARAMETER ORDER
-            $result = $this->{$this->model}->update($data, $id);
+            // Add updated_at timestamp
+            $data['updated_at'] = date('Y-m-d H:i:s');
             
-            if ($result) {
-                // Handle file upload manually
-                $this->handle_file_upload_manual($id);
+            // CRITICAL: Ensure data is an array
+            if (!is_array($data)) {
+                log_message('error', 'DATA IS NOT AN ARRAY! Type: ' . gettype($data));
+                $data = array(); // Force to empty array
+            }
+            
+            log_message('debug', 'Final data before update: ' . print_r($data, true));
+            
+            // Update the main record - FIXED: Correct parameter order
+            try {
+                // CORRECTED: Pass parameters in the right order (data, id)
+                $result = $this->{$this->model}->update($data, $id);
+                log_message('debug', 'Update result: ' . ($result ? 'SUCCESS' : 'FAILED'));
                 
-                // Handle pivot tables
-                $this->handle_pivot_tables($id);
-                
-                // Set success message
-                $this->session->set_flashdata('success', lang('record_updated'));
-                
+                if ($result) {
+                    // Handle file upload
+                    $this->handle_file_upload_manual($id);
+                    
+                    // Handle pivot tables
+                    $this->handle_pivot_tables($id);
+                    
+                    // Set success message
+                    $this->session->set_flashdata('success', lang('record_updated'));
+                    
+                    if ($this->input->is_ajax_request()) {
+                        echo json_encode(['success' => true, 'message' => lang('record_updated')]);
+                        return;
+                    } else {
+                        redirect(redir($this->pageName, true));
+                    }
+                }
+            } catch (Exception $e) {
+                log_message('error', 'Update exception: ' . $e->getMessage());
                 if ($this->input->is_ajax_request()) {
-                    echo json_encode(['success' => true, 'message' => lang('record_updated')]);
+                    echo json_encode(['success' => false, 'error' => 'Update failed: ' . $e->getMessage()]);
                     return;
-                } else {
-                    redirect(redir($this->pageName, true));
                 }
             }
+        } else {
+            log_message('debug', 'Form validation failed: ' . validation_errors());
         }
         
         // If we get here, there was an error
@@ -365,78 +421,74 @@ public function update($id = null)
             echo json_encode(['success' => false, 'error' => validation_errors()]);
             return;
         }
+    } else {
+        log_message('debug', 'No POST data received');
     }
     
+    log_message('debug', '=== UPDATE METHOD ENDED ===');
     // Show the form
     $this->edit($id);
 }
 
-// Fallback methods
-private function fallback_validate_form()
+    /**
+     * Send notifications to agencies when candidate is submitted
+     */
+   private function send_agency_notifications($candidate_id)
 {
-    $this->load->library('form_validation');
-    if (isset($this->formFields['main'])) {
-        foreach ($this->formFields['main'] as $field => $rules) {
-            $this->form_validation->set_rules($field, ucfirst(str_replace('_', ' ', $field)), $rules);
-        }
+    $this->load->model('agency/Model_notifications');
+    
+    $additional_agencies = $this->input->post('additional_agency_ids') ?: [];
+    $recruiter_id = $this->get_recruiter_id();
+    $job_id = $this->input->post('job_id');
+    
+    foreach ($additional_agencies as $agency_id) {
+        $this->Model_notifications->create_candidate_submission_notification(
+            $candidate_id, 
+            $agency_id, 
+            $recruiter_id,
+            $job_id
+        );
     }
-    return $this->form_validation->run();
 }
 
-private function fallback_get_post_data()
-{
-    $data = array();
-    if (isset($this->formFields['main'])) {
-        foreach (array_keys($this->formFields['main']) as $field) {
-            if ($field !== 'cv_file') { // Skip file fields
-                $data[$field] = $this->input->post($field);
-            }
+    /**
+     * Get the logged-in recruiter's ID
+     */
+    private function get_recruiter_id()
+    {
+        $login_data = $this->session->userdata('login');
+        
+        if (!empty($login_data['recruiter'])) {
+            $recruiter = $login_data['recruiter'];
+            return !empty($recruiter['id']) ? $recruiter['id'] : null;
         }
+        
+        return null;
     }
-    return $data;
-}
 
     private function handle_file_upload_manual($candidate_id)
     {
-        log_message('info', '=== FILE UPLOAD START for candidate: ' . $candidate_id . ' ===');
-        
         if (!empty($_FILES['cv_file']['name']) && $_FILES['cv_file']['error'] == 0) {
-            log_message('info', 'CV file detected: ' . $_FILES['cv_file']['name']);
-            
             $upload_path = FCPATH . 'uploads/candidates/cv/';
+            
+            // Create directory if it doesn't exist
+            if (!is_dir($upload_path)) {
+                mkdir($upload_path, 0755, true);
+            }
+            
             $filename = 'candidate_' . $candidate_id . '_' . time() . '_' . $_FILES['cv_file']['name'];
             $destination = $upload_path . $filename;
             
-            log_message('info', 'Attempting to upload to: ' . $destination);
-            
             if (move_uploaded_file($_FILES['cv_file']['tmp_name'], $destination)) {
-                log_message('info', 'File upload SUCCESS: ' . $filename);
-                
                 // Update the candidate record with the filename
                 $this->db->where('id', $candidate_id)
                          ->update('candidates', ['cv_file' => $filename]);
-                
-                log_message('info', 'Database updated with filename: ' . $filename);
-                
                 return true;
-            } else {
-                $error = error_get_last();
-                log_message('error', 'File upload FAILED: ' . $error['message']);
-                return false;
-            }
-        } else {
-            if (isset($_FILES['cv_file'])) {
-                log_message('info', 'CV file error: ' . $_FILES['cv_file']['error']);
-            } else {
-                log_message('info', 'No CV file in FILES array');
             }
         }
-        
-        log_message('info', '=== FILE UPLOAD END ===');
         return true;
     }
 
-    // Rest of your existing methods remain the same...
     public function index(): void
     {
         $this->breadcrumbs = array(
@@ -564,11 +616,13 @@ private function fallback_get_post_data()
         return [
             'agency_id' => $primary_agency_id,
             'job_id' => $primary_job_id,
+            'updated_at' => date('Y-m-d H:i:s')
         ];
     }
 
     private function handle_pivot_tables($candidate_id)
     {
+        // Handle agencies
         $additional_agencies = $this->input->post('additional_agency_ids') ?: [];
         $this->db->where('candidate_id', $candidate_id)->delete('candidate_agencies');
         
@@ -584,6 +638,7 @@ private function fallback_get_post_data()
             $this->db->insert_batch('candidate_agencies', $agency_data);
         }
 
+        // Handle jobs
         $additional_jobs = $this->input->post('additional_job_ids') ?: [];
         $this->db->where('candidate_id', $candidate_id)->delete('candidate_jobs');
         
@@ -642,8 +697,4 @@ private function fallback_get_post_data()
         ]);
         $this->load->view($this->folder . '/view_footer');
     }
-
-
-
-
 }

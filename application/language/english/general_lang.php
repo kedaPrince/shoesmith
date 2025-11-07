@@ -922,6 +922,20 @@ $lang['label_site'] = 'Site';
 // Add with other job listing specific fields
 $lang['label_pay_cycle'] = 'Pay Cycle';
 
+
+$lang['notifications_heading'] = 'Notifications';
+$lang['notifications_no_rows'] = 'No notifications found';
+$lang['label_title'] = 'Title';
+$lang['label_message'] = 'Message';
+$lang['label_type'] = 'Type';
+$lang['label_status'] = 'Status';
+$lang['label_candidate'] = 'Candidate';
+$lang['label_job'] = 'Job';
+$lang['label_recruiter'] = 'Recruiter';
+$lang['label_created_at'] = 'Created At';
+$lang['label_mark_read'] = 'Mark as Read';
+$lang['label_view_related'] = 'View Related';
+$lang['label_date_range'] = 'Date Range';
 // Pay cycle options
 $lang['pay_cycle_hourly'] = 'Hourly';
 $lang['pay_cycle_daily'] = 'Daily';

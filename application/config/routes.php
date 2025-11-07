@@ -40,7 +40,14 @@ $route['admin/agency_templates/save_custom_template'] = 'admin/agency_templates/
 $route['admin/agency_templates/preview_agency_template'] = 'admin/agency_templates/preview_agency_template';
 $route['admin/agency_templates/preview_agency_template/(:num)'] = 'admin/agency_templates/preview_agency_template/$1';
 $route['admin/agency_templates/get_available_sections'] = 'admin/agency_templates/get_available_sections';
+// Agency Notification Routes
+$route['agency/notifications'] = 'agency/notifications';
+$route['agency/notifications/(:any)'] = 'agency/notifications/$1';
+$route['agency/notifications/(:any)/(:any)'] = 'agency/notifications/$1/$2';
 
+// AJAX routes for notifications
+$route['agency/notifications/ajax_get_unread_count'] = 'agency/notifications/ajax_get_unread_count';
+$route['agency/notifications/ajax_get_recent_notifications'] = 'agency/notifications/ajax_get_recent_notifications';
 // Agency Templates List - FIXED ROUTES
 $route['admin/agency-templates-list'] = 'admin/agency_templates_list';
 $route['admin/agency-templates-list/(:any)'] = 'admin/agency_templates_list/$1';

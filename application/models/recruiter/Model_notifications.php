@@ -1,14 +1,101 @@
 <?php
-defined('BASEPATH') OR exit('No direct script access allowed');
+defined('BASEPATH') || exit('No direct script access allowed');
 
-class Model_notifications extends CRUD_Model {
-    protected $table = 'notifications';
-
-    public function __construct() {
+class Model_notifications extends CRUD_Model
+{
+    public $table = 'notifications';
+    public $pageName = 'notifications';
+    
+    public function __construct()
+    {
         parent::__construct();
-        log_message('debug', 'Model_notifications loaded');
     }
 
+    /**
+     * Get unread notifications for recruiter
+     */
+    public function get_unread_notifications($recruiter_id)
+    {
+        $this->db->select('n.*, a.name as agency_name, j.name as job_name, j.salary_min, j.salary_max, j.employment_type, j.department, j.is_remote');
+        $this->db->from('notifications n');
+        $this->db->join('agencies a', 'a.id = (SELECT agency_id FROM recruiters WHERE id = n.receiver_id)', 'left');
+        $this->db->join('mod_jobs j', 'j.id = n.related_entity_id AND n.related_entity = "job"', 'left');
+        $this->db->where('n.receiver_type', 'recruiter');
+        $this->db->where('n.receiver_id', $recruiter_id);
+        $this->db->where('n.is_read', 0);
+        $this->db->order_by('n.created_at', 'DESC');
+        
+        return $this->db->get()->result();
+    }
+
+    /**
+     * Count unread notifications for recruiter
+     */
+    public function count_unread_notifications($recruiter_id)
+    {
+        $this->db->where('receiver_type', 'recruiter');
+        $this->db->where('receiver_id', $recruiter_id);
+        $this->db->where('is_read', 0);
+        return $this->db->count_all_results('notifications');
+    }
+
+    /**
+     * Get all notifications for recruiter
+     */
+    public function get_all_notifications($recruiter_id, $limit = null, $offset = null)
+    {
+        $this->db->select('n.*, a.name as agency_name, j.name as job_name, j.salary_min, j.salary_max, j.employment_type, j.department, j.is_remote');
+        $this->db->from('notifications n');
+        $this->db->join('agencies a', 'a.id = (SELECT agency_id FROM recruiters WHERE id = n.receiver_id)', 'left');
+        $this->db->join('mod_jobs j', 'j.id = n.related_entity_id AND n.related_entity = "job"', 'left');
+        $this->db->where('n.receiver_type', 'recruiter');
+        $this->db->where('n.receiver_id', $recruiter_id);
+        $this->db->order_by('n.created_at', 'DESC');
+        
+        if ($limit) {
+            $this->db->limit($limit, $offset);
+        }
+        
+        return $this->db->get()->result();
+    }
+
+    /**
+     * Mark notification as read for recruiter
+     */
+    public function mark_as_read($notification_id, $recruiter_id)
+    {
+        $this->db->where('id', $notification_id);
+        $this->db->where('receiver_type', 'recruiter');
+        $this->db->where('receiver_id', $recruiter_id);
+        $this->db->update('notifications', [
+            'is_read' => 1,
+            'read_at' => date('Y-m-d H:i:s'),
+            'updated_at' => date('Y-m-d H:i:s')
+        ]);
+        
+        return $this->db->affected_rows() > 0;
+    }
+
+    /**
+     * Mark all notifications as read for recruiter
+     */
+    public function mark_all_as_read($recruiter_id)
+    {
+        $this->db->where('receiver_type', 'recruiter');
+        $this->db->where('receiver_id', $recruiter_id);
+        $this->db->where('is_read', 0);
+        $this->db->update('notifications', [
+            'is_read' => 1,
+            'read_at' => date('Y-m-d H:i:s'),
+            'updated_at' => date('Y-m-d H:i:s')
+        ]);
+        
+        return $this->db->affected_rows() > 0;
+    }
+
+    /**
+     * Get updated fields for job notifications
+     */
     public function get_updated_fields($job_id, $recruiter_id) {
         $this->db->select('updated_fields');
         $this->db->from('notifications');
@@ -34,15 +121,10 @@ class Model_notifications extends CRUD_Model {
         return [];
     }
 
-
+    /**
+     * Create job notification for recruiters
+     */
     public function create_job_notification($job_id, $agency_id, $sender_id, $type = 'job_added', $updated_fields = []) {
-        log_message('debug', '=== NOTIFICATION CREATION START ===');
-        log_message('debug', 'Creating notifications for Job: ' . $job_id . ', Agency: ' . $agency_id . ', Sender: ' . $sender_id . ', Type: ' . $type);
-        
-        if (!empty($updated_fields)) {
-            log_message('debug', 'Updated fields: ' . implode(', ', $updated_fields));
-        }
-        
         // Get ALL recruiters for this agency
         $this->db->select('id, first_name, last_name, agency_id, usr_type_id');
         $this->db->from('recruiters');
@@ -51,10 +133,7 @@ class Model_notifications extends CRUD_Model {
         $this->db->where('removed', 0);
         $recruiters = $this->db->get()->result();
         
-        log_message('debug', 'Found ' . count($recruiters) . ' recruiters for agency ' . $agency_id);
-        
         if (empty($recruiters)) {
-            log_message('debug', 'No recruiters found for agency: ' . $agency_id);
             return false;
         }
 
@@ -62,11 +141,8 @@ class Model_notifications extends CRUD_Model {
         $job = $this->db->get_where('mod_jobs', ['id' => $job_id])->row();
         
         if (!$job) {
-            log_message('debug', 'Job not found with ID: ' . $job_id);
             return false;
         }
-        
-        log_message('debug', 'Job found: ' . $job->name . ' (ID: ' . $job->id . ', Agency: ' . $job->agency_id . ')');
 
         // Prepare notification content based on type
         $notification_content = $this->prepare_notification_content($type, $job, $updated_fields);
@@ -93,20 +169,9 @@ class Model_notifications extends CRUD_Model {
 
         // Insert all notifications
         if (!empty($notifications)) {
-            $result = $this->db->insert_batch('notifications', $notifications);
-            log_message('debug', 'Inserted ' . count($notifications) . ' notifications. Result: ' . ($result ? 'Success' : 'Failed'));
-            
-            if ($result) {
-                log_message('debug', 'Last insert ID: ' . $this->db->insert_id());
-                log_message('debug', 'Affected rows: ' . $this->db->affected_rows());
-            }
-            
-            log_message('debug', '=== NOTIFICATION CREATION END ===');
-            return $result;
+            return $this->db->insert_batch('notifications', $notifications);
         }
 
-        log_message('debug', 'No notifications to insert');
-        log_message('debug', '=== NOTIFICATION CREATION END ===');
         return false;
     }
 
@@ -170,104 +235,5 @@ class Model_notifications extends CRUD_Model {
             'application_url' => 'Application URL',
             'closing_date' => 'Closing Date'
         ];
-    }
-
-    /**
-     * Get all notifications for a recruiter with agency and job data
-     */
-    public function get_all_notifications($recruiter_id, $limit = null, $offset = null) {
-        log_message('debug', 'Getting all notifications for recruiter: ' . $recruiter_id);
-        
-        $this->db->select('n.*, a.name as agency_name, j.name as job_name, j.salary_min, j.salary_max, j.employment_type, j.department, j.is_remote');
-        $this->db->from('notifications n');
-        $this->db->join('agencies a', 'a.id = (SELECT agency_id FROM recruiters WHERE id = n.receiver_id)', 'left');
-        $this->db->join('mod_jobs j', 'j.id = n.related_entity_id AND n.related_entity = "job"', 'left');
-        $this->db->where('n.receiver_type', 'recruiter');
-        $this->db->where('n.receiver_id', $recruiter_id);
-        $this->db->order_by('n.created_at', 'DESC');
-        
-        if ($limit) {
-            $this->db->limit($limit, $offset);
-        }
-        
-        $query = $this->db->get();
-        $result = $query->result();
-        
-        log_message('debug', 'All notifications query: ' . $this->db->last_query());
-        log_message('debug', 'Found ' . count($result) . ' total notifications for recruiter ' . $recruiter_id);
-        
-        // Debug: Check if we have update notifications
-        foreach ($result as $notification) {
-            if ($notification->type === 'job_updated') {
-                log_message('debug', 'Found update notification ID: ' . $notification->id . ' with updated_fields: ' . $notification->updated_fields);
-            }
-        }
-        
-        return $result;
-    }
-
-    /**
-     * Get unread notifications for a recruiter
-     */
-    public function get_unread_notifications($recruiter_id) {
-        log_message('debug', 'Getting unread notifications for recruiter: ' . $recruiter_id);
-        
-        $this->db->select('n.*, a.name as agency_name, j.name as job_name, j.salary_min, j.salary_max, j.employment_type, j.department, j.is_remote');
-        $this->db->from('notifications n');
-        $this->db->join('agencies a', 'a.id = (SELECT agency_id FROM recruiters WHERE id = n.receiver_id)', 'left');
-        $this->db->join('mod_jobs j', 'j.id = n.related_entity_id AND n.related_entity = "job"', 'left');
-        $this->db->where('n.receiver_type', 'recruiter');
-        $this->db->where('n.receiver_id', $recruiter_id);
-        $this->db->where('n.is_read', 0);
-        $this->db->order_by('n.created_at', 'DESC');
-        
-        $query = $this->db->get();
-        $result = $query->result();
-        
-        log_message('debug', 'Unread notifications found: ' . count($result));
-        return $result;
-    }
-
-    /**
-     * Mark notification as read
-     */
-    public function mark_as_read($notification_id, $recruiter_id) {
-        $this->db->where('id', $notification_id);
-        $this->db->where('receiver_type', 'recruiter');
-        $this->db->where('receiver_id', $recruiter_id);
-        
-        return $this->db->update('notifications', [
-            'is_read' => 1,
-            'read_at' => date('Y-m-d H:i:s'),
-            'updated_at' => date('Y-m-d H:i:s')
-        ]);
-    }
-
-    /**
-     * Mark all notifications as read for a recruiter
-     */
-    public function mark_all_as_read($recruiter_id) {
-        $this->db->where('receiver_type', 'recruiter');
-        $this->db->where('receiver_id', $recruiter_id);
-        $this->db->where('is_read', 0);
-        
-        return $this->db->update('notifications', [
-            'is_read' => 1,
-            'read_at' => date('Y-m-d H:i:s'),
-            'updated_at' => date('Y-m-d H:i:s')
-        ]);
-    }
-
-    /**
-     * Count unread notifications for a recruiter
-     */
-    public function count_unread_notifications($recruiter_id) {
-        $this->db->where('receiver_type', 'recruiter');
-        $this->db->where('receiver_id', $recruiter_id);
-        $this->db->where('is_read', 0);
-        $count = $this->db->count_all_results('notifications');
-        
-        log_message('debug', 'Unread count for recruiter ' . $recruiter_id . ': ' . $count);
-        return $count;
     }
 }

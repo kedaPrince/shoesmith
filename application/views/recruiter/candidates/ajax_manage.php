@@ -31,7 +31,21 @@
         <div rel="1" class="qm-tabs-tab active">
             <div class="row">
                 <div class="col-lg-6">
-                    <?= field_input('reference_number|label_reference_number', $row, 'required', [], 'text', 'e.g., CAND-001'); ?>
+                    <div class="form-group">
+                        <label for="reference_number"><?= lang('label_reference_number') ?> *</label>
+                        <div class="input-group">
+                            <input type="text" name="reference_number" id="reference_number" class="form-control"
+                                value="<?= !empty($row->reference_number) ? htmlspecialchars($row->reference_number, ENT_QUOTES, 'UTF-8') : '' ?>"
+                                required placeholder="e.g., CAND-001" readonly>
+                            <div class="input-group-append">
+                                <button type="button" class="btn btn-outline-secondary" id="refresh-reference"
+                                    title="Generate new reference">
+                                    <i class="fa fa-refresh"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <small class="text-muted">Reference number is auto-generated</small>
+                    </div>
                 </div>
                 <div class="col-lg-6">
                     <?= field_input('email', $row, 'required valid-email', [], 'email', 'candidate@email.com'); ?>
@@ -397,9 +411,68 @@ function save_form(el) {
 }
 
 $(document).ready(function() {
-    // Auto-generate reference if new
-    if ($('input[name="reference_number"]').val() === '') {
-        $('input[name="reference_number"]').val('<?= $this->Model_candidates->generate_reference_number() ?>');
+    // Auto-generate reference number for new candidates
+    const candidateId = $('input[name="id"]').val();
+    const referenceField = $('input[name="reference_number"]');
+
+    // Only generate for new candidates (id = 0 or empty) and if reference field is empty
+    if ((!candidateId || candidateId === '0') && (!referenceField.val() || referenceField.val().trim() ===
+        '')) {
+        generateReferenceNumber();
+    }
+
+    // Refresh reference number button
+    $('#refresh-reference').on('click', function() {
+        generateReferenceNumber();
+    });
+
+    function generateReferenceNumber() {
+        // Show loading state
+        referenceField.prop('disabled', true).val('Generating reference number...');
+        $('#refresh-reference').prop('disabled', true).html('<i class="fa fa-spinner fa-spin"></i>');
+
+        $.ajax({
+            url: '<?= site_url("recruiter/candidates/generate_reference") ?>',
+            type: 'GET',
+            dataType: 'json',
+            success: function(response) {
+                if (response.success && response.reference) {
+                    referenceField.val(response.reference);
+                    console.log('Reference number generated:', response.reference);
+
+                    // Show success feedback
+                    referenceField.addClass('is-valid');
+                    setTimeout(() => referenceField.removeClass('is-valid'), 2000);
+                } else {
+                    // Use fallback if API fails
+                    useFallbackReference();
+                }
+                referenceField.prop('disabled', false);
+                $('#refresh-reference').prop('disabled', false).html(
+                    '<i class="fa fa-refresh"></i>');
+            },
+            error: function(xhr, status, error) {
+                console.error('Error generating reference number:', error);
+                // Use fallback if AJAX fails
+                useFallbackReference();
+                referenceField.prop('disabled', false);
+                $('#refresh-reference').prop('disabled', false).html(
+                    '<i class="fa fa-refresh"></i>');
+            }
+        });
+    }
+
+    function useFallbackReference() {
+        const prefix = 'CAND';
+        const year = new Date().getFullYear();
+        const timestamp = new Date().getTime().toString().slice(-4);
+        const fallbackReference = `${prefix}-${year}-${timestamp}`;
+        referenceField.val(fallbackReference);
+        console.log('Fallback reference generated:', fallbackReference);
+
+        // Show warning feedback
+        referenceField.addClass('is-warning');
+        setTimeout(() => referenceField.removeClass('is-warning'), 2000);
     }
 
     // Set today's date for application date if empty
@@ -567,7 +640,7 @@ $(document).ready(function() {
 
         // Load agents for the pre-selected agency
         $.get('<?= site_url("recruiter/candidates/get_agents/") ?>' + <?= $primary_agency_id ?>, function(
-        data) {
+            data) {
             // Handle the response format correctly
             let agents = [];
             if (Array.isArray(data)) {
@@ -663,5 +736,18 @@ function show_message(message, type) {
 .alert {
     margin: 15px;
     border-radius: 4px;
+}
+
+.input-group .form-control.is-valid {
+    border-color: #28a745;
+}
+
+.input-group .form-control.is-warning {
+    border-color: #ffc107;
+}
+
+#refresh-reference:hover {
+    background-color: #007bff;
+    color: white;
 }
 </style>

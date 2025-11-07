@@ -73,6 +73,18 @@ $this->siteMap = array(
             ],
         ),
     ],
+             (object) [
+        'group'         => 'Notifications',
+        'page'          => 'notifications',
+        'label'         => lang('notifications_heading'),
+        'icon'          => 'fa-bell',
+        'url'           => url('notifications'),
+        'class'         => '',
+        'show'          => true,
+        'show_heading'  => false,
+        'active_by'     => 'notifications',
+        'badge_count'   => true, // This will show unread count
+    ],
     (object)array(
         'group' => 'Templates',
         'page' => 'templates',
@@ -107,6 +119,7 @@ $this->siteMap = array(
                 'url' => url('agency_templates/build'),
                 'show' => true,
             ),
+    
             // ADD TEST FORM BUILDER HERE
             (object)array(
                 'page' => 'test_form_builder',

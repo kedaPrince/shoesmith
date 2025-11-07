@@ -94,14 +94,36 @@ class Model_candidates extends CRUD_Model
                         ->result();
     }
 
+    /**
+     * Generate reference number for new candidates
+     */
     public function generate_reference_number()
     {
-        $prefix = 'CAND';
-        $count = $this->db->where('YEAR(created_at)', date('Y'))
-                          ->where('enabled', 1)
-                          ->count_all_results($this->table);
-        $sequence = $count + 1;
-        return $prefix . '-' . date('Y') . '-' . str_pad($sequence, 4, '0', STR_PAD_LEFT);
+        try {
+            $prefix = 'CAND';
+            $year = date('Y');
+            
+            // Count candidates created this year
+            $this->db->where('YEAR(created_at)', $year);
+            $this->db->where('enabled', 1);
+            $this->db->where('removed', 0);
+            $count = $this->db->count_all_results($this->table);
+            
+            $sequence = $count + 1;
+            $reference = $prefix . '-' . $year . '-' . str_pad($sequence, 4, '0', STR_PAD_LEFT);
+            
+            // Log for debugging
+            log_message('debug', "Generated reference number: {$reference} (count: {$count})");
+            
+            return $reference;
+        } catch (Exception $e) {
+            error_log('Error in generate_reference_number: ' . $e->getMessage());
+            // Fallback reference
+            $prefix = 'CAND';
+            $year = date('Y');
+            $timestamp = time() % 10000;
+            return $prefix . '-' . $year . '-' . str_pad($timestamp, 4, '0', STR_PAD_LEFT);
+        }
     }
 
     // Get additional agencies assigned to candidate
