@@ -296,6 +296,61 @@ public function onboarding($id) {
     $this->load->view($this->folder . '/' . 'view_footer');
 }
 
+/**
+ * Update HM decision via AJAX - FIXED with notification trigger
+ */
+public function update_hm_decision() {
+    $candidate_id = $this->input->post('candidate_id');
+    $decision = $this->input->post('decision');
+    $notes = $this->input->post('notes');
+
+    // Verify the candidate belongs to the current agency via pivot table
+    $agency_id = $this->get_user_agency_id();
+    if ($agency_id) {
+        $exists = $this->db->select('1')
+            ->from('candidate_agencies')
+            ->where('candidate_id', $candidate_id)
+            ->where('agency_id', $agency_id)
+            ->get()
+            ->row();
+        
+        if (!$exists) {
+            ajax_return([
+                'success' => false,
+                'message' => 'Candidate not found or access denied'
+            ]);
+            return;
+        }
+    }
+
+    $result = $this->{$this->model}->update_hm_decision($candidate_id, $decision, $notes);
+
+    if ($result) {
+        // ✅ CRITICAL: Send notification to recruiters
+        $this->send_hm_decision_notification($candidate_id, $decision, $notes);
+
+        // Log the activity
+        $decision_text = $decision === 'accepted' ? 'accepted' : 'rejected';
+        $this->{$this->model}->log_candidate_activity([
+            'candidate_id' => $candidate_id,
+            'action' => 'hm_decision_' . $decision_text,
+            'description' => 'Hiring Manager ' . $decision_text . ' the candidate' . ($notes ? ' with notes' : ''),
+            'created_by' => loginID('agency'),
+            'created_at' => date('Y-m-d H:i:s')
+        ]);
+
+        ajax_return([
+            'success' => true,
+            'message' => 'Hiring Manager decision updated successfully'
+        ]);
+    } else {
+        ajax_return([
+            'success' => false,
+            'message' => 'Failed to update Hiring Manager decision'
+        ]);
+    }
+}
+
     /**
      * OVERRIDE: Update candidate - only allow status and notes updates for agencies
      */
@@ -864,141 +919,87 @@ public function complete_onboarding() {
     }
 }
 
-public function debug_candidate_access($candidate_id)
-{
-    $agency_id = $this->get_user_agency_id();
-    
-    echo "<h2>Debug Candidate Access</h2>";
-    echo "<p>Candidate ID: $candidate_id</p>";
-    echo "<p>Current Agency ID: " . ($agency_id ?: 'NOT SET') . "</p>";
-    
-    if ($agency_id) {
-        // Check primary agency assignment
-        $primary = $this->db->where('id', $candidate_id)
-                           ->where('agency_id', $agency_id)
-                           ->where('removed', 0)
-                           ->get('candidates')
-                           ->row();
+    /**
+     * Send HM Decision notification to recruiters
+     */
+   // In your Agency Candidates controller, update the send_hm_decision_notification method:
+private function send_hm_decision_notification($candidate_id, $decision, $notes = '') {
+    try {
+        // Load the agency notifications model
+        $this->load->model('agency/Model_notifications');
         
-        echo "<h3>Primary Agency Assignment:</h3>";
-        if ($primary) {
-            echo "<p style='color: green;'>✓ Found in primary agency assignment</p>";
-        } else {
-            echo "<p style='color: red;'>✗ NOT found in primary agency assignment</p>";
+        // Get candidate details
+        $candidate = $this->{$this->model}->get_candidate_details($candidate_id);
+        
+        if (!$candidate) {
+            log_message('error', "Candidate {$candidate_id} not found for HM decision notification");
+            return false;
         }
+
+        // Get the agency ID that originally submitted this candidate
+        $submitting_agency_id = $this->get_submitting_agency_id($candidate_id);
         
-        // Check pivot table assignment
-        $pivot = $this->db->select('c.*, ca.agency_id as pivot_agency_id')
-                          ->from('candidates c')
-                          ->join('candidate_agencies ca', 'ca.candidate_id = c.id')
-                          ->where('c.id', $candidate_id)
-                          ->where('ca.agency_id', $agency_id)
-                          ->where('c.removed', 0)
-                          ->get()
-                          ->row();
-        
-        echo "<h3>Pivot Table Assignment:</h3>";
-        if ($pivot) {
-            echo "<p style='color: green;'>✓ Found in pivot table (agency_id: {$pivot->pivot_agency_id})</p>";
-        } else {
-            echo "<p style='color: red;'>✗ NOT found in pivot table</p>";
+        if (!$submitting_agency_id) {
+            log_message('error', "No submitting agency found for candidate {$candidate_id}");
+            return false;
         }
-        
-        // Show all agencies this candidate is assigned to
-        $all_agencies = $this->db->select('a.id, a.name')
-                                ->from('candidate_agencies ca')
-                                ->join('agencies a', 'a.id = ca.agency_id')
-                                ->where('ca.candidate_id', $candidate_id)
-                                ->where('a.removed', 0)
-                                ->get()
-                                ->result();
-        
-        echo "<h3>All Agencies This Candidate Is Assigned To:</h3>";
-        if ($all_agencies) {
-            echo "<ul>";
-            foreach ($all_agencies as $agency) {
-                $current = ($agency->id == $agency_id) ? ' ✅ CURRENT' : '';
-                echo "<li>Agency ID: {$agency->id} - {$agency->name}{$current}</li>";
-            }
-            echo "</ul>";
+
+        // Get current agency ID (hiring manager's agency)
+        $current_agency_id = $this->get_user_agency_id();
+
+        // Send notification to all recruiters in the submitting agency
+        $notification_sent = $this->Model_notifications->create_hm_decision_notification(
+            $candidate_id,
+            $candidate->job_id,
+            $submitting_agency_id,
+            $decision,
+            $notes,
+            $current_agency_id
+        );
+
+        if ($notification_sent) {
+            log_message('debug', "HM decision notification sent for candidate {$candidate_id} to agency {$submitting_agency_id}");
         } else {
-            echo "<p>No agency assignments found</p>";
+            log_message('error', "Failed to send HM decision notification for candidate {$candidate_id}");
         }
+
+        return $notification_sent;
+
+    } catch (Exception $e) {
+        log_message('error', 'Error sending HM decision notification: ' . $e->getMessage());
+        return false;
     }
-    
-    echo "<hr><p><a href='" . site_url('agency/candidates') . "'>Back to Candidates</a></p>";
 }
 
-public function debug_candidates($agency_id = null)
-{
-    if (empty($agency_id)) {
-        echo "<h2>Usage: /agency/candidates/debug_candidates/{agency_id}</h2>";
-        echo "<p>Example: <a href='" . site_url('agency/candidates/debug_candidates/8') . "'>/agency/candidates/debug_candidates/8</a></p>";
-        return;
-    }
-
-    echo "<h2>Debug: Candidates Assigned to Agency ID: $agency_id</h2>";
-
-    // Get agency name
-    $agency = $this->db->select('name')->where('id', $agency_id)->get('agencies')->row();
-    if ($agency) {
-        echo "<h3>Agency: " . htmlspecialchars($agency->name, ENT_QUOTES, 'UTF-8') . "</h3>";
-    }
-
-    echo "<h4>1. Candidates where `candidates.agency_id = $agency_id` (Primary)</h4>";
-    $primary = $this->db->where('agency_id', $agency_id)
-                        ->where('removed', 0)
-                        ->get('candidates')
-                        ->result();
-    if ($primary) {
-        echo "<ul>";
-        foreach ($primary as $c) {
-            echo "<li>ID: {$c->id} | {$c->first_name} {$c->last_name} | Ref: {$c->reference_number}</li>";
+    /**
+     * Get the agency that originally submitted this candidate
+     */
+    private function get_submitting_agency_id($candidate_id) {
+        // Try to get from candidate_agencies pivot table
+        $this->db->select('agency_id')
+                 ->from('candidate_agencies')
+                 ->where('candidate_id', $candidate_id)
+                 ->order_by('created_at', 'ASC') // Get the first agency that submitted
+                 ->limit(1);
+        
+        $result = $this->db->get()->row();
+        
+        if ($result) {
+            return $result->agency_id;
         }
-        echo "</ul>";
-    } else {
-        echo "<p><em>None</em></p>";
+
+        // Fallback: check the primary agency_id in candidates table
+        $this->db->select('agency_id')
+                 ->from('candidates')
+                 ->where('id', $candidate_id);
+        
+        $result = $this->db->get()->row();
+        
+        return $result ? $result->agency_id : null;
     }
 
-    echo "<h4>2. Candidates via `candidate_agencies` (Pivot Table)</h4>";
-    $via_pivot = $this->db->select('c.*')
-                          ->from('candidate_agencies ca')
-                          ->join('candidates c', 'c.id = ca.candidate_id')
-                          ->where('ca.agency_id', $agency_id)
-                          ->where('c.removed', 0)
-                          ->get()
-                          ->result();
 
-    if ($via_pivot) {
-        echo "<ul>";
-        foreach ($via_pivot as $c) {
-            // Get ALL agencies this candidate is assigned to
-            $assigned_agencies = $this->db->select('a.id, a.name')
-                                          ->from('candidate_agencies ca2')
-                                          ->join('agencies a', 'a.id = ca2.agency_id')
-                                          ->where('ca2.candidate_id', $c->id)
-                                          ->where('a.removed', 0)
-                                          ->get()
-                                          ->result();
 
-            $agency_list = [];
-            foreach ($assigned_agencies as $a) {
-                $mark = ($a->id == $agency_id) ? ' ✅' : '';
-                $agency_list[] = $a->name . ' (ID: ' . $a->id . ')' . $mark;
-            }
 
-            echo "<li>";
-            echo "<strong>ID: {$c->id} | {$c->first_name} {$c->last_name} | Ref: {$c->reference_number}</strong><br>";
-            echo "<small>Primary Agency ID: {$c->agency_id}<br>";
-            echo "Assigned to agencies:<br>– " . implode('<br>– ', $agency_list) . "</small>";
-            echo "</li>";
-        }
-        echo "</ul>";
-    } else {
-        echo "<p><em>None</em></p>";
-    }
-
-    echo "<hr><p><em>Debug output generated at " . date('Y-m-d H:i:s') . "</em></p>";
-}
 
 }

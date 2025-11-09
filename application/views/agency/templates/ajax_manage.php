@@ -350,7 +350,7 @@ $(document).ready(function() {
 
         // Use aggressive cache buster
         var cacheBuster = 't=' + new Date().getTime();
-        var url = 'http://localhost/shoesmith/agency/templates/ajax_quick_manage/' + templateId + '?' +
+        var url = 'agency/templates/ajax_quick_manage/' + templateId + '?' +
             cacheBuster;
 
         console.log('Fetching from URL:', url);
@@ -1764,7 +1764,7 @@ $(document).ready(function() {
     console.log('=== PAGE LOAD DEBUG ===');
     $('select[name*="skills"], select[name*="qualifications"]').each(function() {
         console.log('Multi-select field found:', $(this).attr('name'), 'Current values:', $(this)
-    .val());
+            .val());
     });
 });
 </script>

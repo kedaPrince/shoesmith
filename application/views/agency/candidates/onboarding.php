@@ -625,7 +625,59 @@
                                 </div>
                             </div>
 
-                            <!-- STAGE 3: REQUESTED DOCS -->
+                            <!-- Add this stage after "Submitted to HM" and before "Requested Docs" -->
+
+                            <!-- STAGE 3: HM DECISION -->
+                            <div
+                                class="stage-card <?= $candidate->stage_hm_decision ? 'completed' : ($candidate->onboarding_stage == 'stage_hm_decision' ? 'active' : '') ?> <?= !$candidate->stage_submitted_to_hm ? 'disabled-stage' : '' ?>">
+                                <div class="stage-header">
+                                    <div class="stage-number">3</div>
+                                    <?php if ($candidate->stage_hm_decision): ?>
+                                    <div class="completion-badge">Completed</div>
+                                    <?php endif; ?>
+                                </div>
+                                <div class="stage-content">
+                                    <h4 class="stage-title">Hiring Manager Decision</h4>
+                                    <p class="stage-description">Awaiting Hiring Manager acceptance or rejection</p>
+
+                                    <?php if ($candidate->stage_hm_decision): ?>
+                                    <div class="stage-date">
+                                        Decision: <strong
+                                            class="<?= $candidate->hm_decision === 'accepted' ? 'text-success' : 'text-danger' ?>">
+                                            <?= ucfirst($candidate->hm_decision) ?>
+                                        </strong>
+                                        <?php if ($candidate->hm_decision_at): ?>
+                                        <br>Decided: <?= date('M j, Y', strtotime($candidate->hm_decision_at)) ?>
+                                        <?php endif; ?>
+                                    </div>
+                                    <?php if ($candidate->hm_decision_notes): ?>
+                                    <div class="stage-notes mt-2">
+                                        <small><strong>Notes:</strong>
+                                            <?= htmlspecialchars($candidate->hm_decision_notes, ENT_QUOTES, 'UTF-8') ?></small>
+                                    </div>
+                                    <?php endif; ?>
+                                    <?php endif; ?>
+                                </div>
+                                <div class="stage-actions">
+                                    <?php if (!$candidate->stage_hm_decision && $candidate->stage_submitted_to_hm): ?>
+                                    <button type="button" class="btn btn-info btn-sm" data-toggle="modal"
+                                        data-target="#hmDecisionModal">
+                                        <i class="fa fa-clipboard-check"></i> Record Decision
+                                    </button>
+                                    <?php elseif ($candidate->stage_hm_decision): ?>
+                                    <button class="btn btn-warning btn-toggle-stage" data-stage="stage_hm_decision"
+                                        data-value="0" data-action="reopen" data-stage-name="Hiring Manager Decision">
+                                        <i class="fa fa-undo"></i> Reopen Stage
+                                    </button>
+                                    <?php else: ?>
+                                    <button class="btn btn-secondary" disabled title="Complete previous stage first">
+                                        <i class="fa fa-lock"></i> Locked
+                                    </button>
+                                    <?php endif; ?>
+                                </div>
+                            </div>
+
+                            <!-- STAGE 4: REQUESTED DOCS -->
                             <div
                                 class="stage-card <?= $candidate->stage_requested_docs ? 'completed' : ($candidate->onboarding_stage == 'stage_requested_docs' ? 'active' : '') ?> <?= !$candidate->stage_submitted_to_hm ? 'disabled-stage' : '' ?>">
                                 <div class="stage-header">
@@ -663,7 +715,7 @@
                                 </div>
                             </div>
 
-                            <!-- STAGE 4: POSITION OFFERED -->
+                            <!-- STAGE 5: POSITION OFFERED -->
                             <div
                                 class="stage-card <?= $candidate->stage_position_offered ? 'completed' : ($candidate->onboarding_stage == 'stage_position_offered' ? 'active' : '') ?> <?= !$candidate->stage_requested_docs ? 'disabled-stage' : '' ?>">
                                 <div class="stage-header">
@@ -738,7 +790,44 @@
             </div>
         </div>
     </div>
+    <!-- HM Decision Modal -->
+    <div class="modal fade" id="hmDecisionModal" tabindex="-1" role="dialog" aria-labelledby="hmDecisionModalLabel"
+        aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="hmDecisionModalLabel">Record Hiring Manager Decision</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <form id="hmDecisionForm">
+                        <input type="hidden" name="candidate_id" value="<?= $candidate->id ?>">
 
+                        <div class="form-group">
+                            <label for="decision"><strong>Decision</strong></label>
+                            <select class="form-control" id="decision" name="decision" required>
+                                <option value="">Select Decision</option>
+                                <option value="accepted">✅ Accept Candidate</option>
+                                <option value="rejected">❌ Reject Candidate</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="notes">Decision Notes (Optional)</label>
+                            <textarea class="form-control" id="notes" name="notes" rows="4"
+                                placeholder="Add any notes about the decision..."></textarea>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" id="saveHmDecision">Save Decision</button>
+                </div>
+            </div>
+        </div>
+    </div>
     <script>
     on_script_load('jQuery', function() {
         jQuery(document).ready(function($) {
@@ -859,6 +948,77 @@
                     }
                 }
             );
+
+            // HM Decision functionality - MOVED INSIDE jQuery ready function
+            $('#saveHmDecision').on('click', function() {
+                const form = $('#hmDecisionForm');
+                const decision = $('#decision').val();
+                const notes = $('#notes').val();
+
+                if (!decision) {
+                    if (typeof toastr !== 'undefined') {
+                        toastr.warning('Please select a decision');
+                    } else {
+                        alert('Please select a decision');
+                    }
+                    return;
+                }
+
+                const button = $(this);
+                const originalText = button.html();
+                button.prop('disabled', true).html(
+                    '<i class="fa fa-spinner fa-spin"></i> Saving...');
+
+                $.ajax({
+                    url: '<?= site_url("agency/candidates/update_hm_decision") ?>',
+                    type: 'POST',
+                    data: {
+                        candidate_id: <?= $candidate->id ?>,
+                        decision: decision,
+                        notes: notes
+                    },
+                    success: function(response) {
+                        if (response.success) {
+                            if (typeof toastr !== 'undefined') {
+                                toastr.success('Decision recorded successfully!');
+                            } else {
+                                alert('Decision recorded successfully!');
+                            }
+
+                            $('#hmDecisionModal').modal('hide');
+                            form[0].reset();
+
+                            setTimeout(function() {
+                                location.reload();
+                            }, 1500);
+                        } else {
+                            if (typeof toastr !== 'undefined') {
+                                toastr.error('Error: ' + response.message);
+                            } else {
+                                alert('Error: ' + response.message);
+                            }
+                            button.prop('disabled', false).html(originalText);
+                        }
+                    },
+                    error: function(xhr, status, error) {
+                        if (typeof toastr !== 'undefined') {
+                            toastr.error(
+                                'An error occurred while saving the decision. Please try again.'
+                                );
+                        } else {
+                            alert(
+                                'An error occurred while saving the decision. Please try again.');
+                        }
+                        button.prop('disabled', false).html(originalText);
+                        console.error('AJAX Error:', error);
+                    }
+                });
+            });
+
+            // Reset form when modal is closed
+            $('#hmDecisionModal').on('hidden.bs.modal', function() {
+                $('#hmDecisionForm')[0].reset();
+            });
         });
     });
     </script>

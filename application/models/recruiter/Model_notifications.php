@@ -236,4 +236,126 @@ class Model_notifications extends CRUD_Model
             'closing_date' => 'Closing Date'
         ];
     }
+
+    /**
+     * Create HM Decision notification for recruiters
+     */
+    public function create_hm_decision_notification($candidate_id, $job_id, $agency_id, $decision, $notes = '', $sender_id = null)
+    {
+        // Get candidate details
+        $candidate = $this->db->select('first_name, last_name, reference_number')
+                             ->from('candidates')
+                             ->where('id', $candidate_id)
+                             ->get()
+                             ->row();
+        
+        if (!$candidate) {
+            return false;
+        }
+
+        // Get job details
+        $job = $this->db->select('name, reference_number')
+                       ->from('mod_jobs')
+                       ->where('id', $job_id)
+                       ->get()
+                       ->row();
+
+        // Get ALL recruiters for this agency
+        $this->db->select('id, first_name, last_name, agency_id');
+        $this->db->from('recruiters');
+        $this->db->where('agency_id', $agency_id);
+        $this->db->where('enabled', 1);
+        $this->db->where('removed', 0);
+        $recruiters = $this->db->get()->result();
+        
+        if (empty($recruiters)) {
+            return false;
+        }
+
+        // Prepare notification content
+        $notification_content = $this->prepare_hm_decision_content($decision, $candidate, $job, $notes);
+        
+        $notifications = [];
+        foreach ($recruiters as $recruiter) {
+            $notification_data = [
+                'title' => $notification_content['title'],
+                'message' => $notification_content['message'],
+                'type' => 'hm_decision',
+                'sender_type' => 'hiring_manager',
+                'sender_id' => $sender_id,
+                'receiver_type' => 'recruiter',
+                'receiver_id' => $recruiter->id,
+                'related_entity' => 'candidate',
+                'related_entity_id' => $candidate_id,
+                'metadata' => json_encode([
+                    'decision' => $decision,
+                    'notes' => $notes,
+                    'candidate_name' => $candidate->first_name . ' ' . $candidate->last_name,
+                    'candidate_reference' => $candidate->reference_number,
+                    'job_name' => $job ? $job->name : 'Unknown Job',
+                    'job_reference' => $job ? $job->reference_number : 'N/A'
+                ]),
+                'is_read' => 0,
+                'created_at' => date('Y-m-d H:i:s'),
+                'updated_at' => date('Y-m-d H:i:s')
+            ];
+            $notifications[] = $notification_data;
+        }
+
+        // Insert all notifications
+        if (!empty($notifications)) {
+            return $this->db->insert_batch('notifications', $notifications);
+        }
+
+        return false;
+    }
+
+    /**
+     * Prepare HM Decision notification content
+     */
+    private function prepare_hm_decision_content($decision, $candidate, $job, $notes)
+    {
+        $candidate_name = $candidate->first_name . ' ' . $candidate->last_name;
+        $job_name = $job ? $job->name : 'the position';
+        
+        if ($decision === 'accepted') {
+            $title = "🎉 Candidate Accepted: {$candidate_name}";
+            $message = "Great news! The hiring manager has accepted {$candidate_name} for {$job_name}.";
+        } else {
+            $title = "❌ Candidate Rejected: {$candidate_name}";
+            $message = "The hiring manager has decided not to move forward with {$candidate_name} for {$job_name}.";
+        }
+
+        if (!empty($notes)) {
+            $message .= "\n\n📝 Hiring Manager's Notes:\n" . $notes;
+        }
+
+        return [
+            'title' => $title,
+            'message' => $message
+        ];
+    }
+
+    /**
+     * Get HM decision notifications for recruiter
+     */
+    public function get_hm_decision_notifications($recruiter_id, $limit = null)
+    {
+        $this->db->select('n.*, c.first_name, c.last_name, c.reference_number as candidate_ref, j.name as job_name, j.reference_number as job_ref');
+        $this->db->from('notifications n');
+        $this->db->join('candidates c', 'c.id = n.related_entity_id', 'left');
+        $this->db->join('mod_jobs j', 'j.id = c.job_id', 'left');
+        $this->db->where('n.receiver_type', 'recruiter');
+        $this->db->where('n.receiver_id', $recruiter_id);
+        $this->db->where('n.type', 'hm_decision');
+        $this->db->order_by('n.created_at', 'DESC');
+        
+        if ($limit) {
+            $this->db->limit($limit);
+        }
+        
+        return $this->db->get()->result();
+    }
+
+
 }

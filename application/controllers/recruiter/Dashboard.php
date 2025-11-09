@@ -41,7 +41,7 @@ class Dashboard extends CRUD_Controller {
         $data['unread_count'] = $this->Model_notifications->count_unread_notifications($recruiter_id);
         $data['recruiter_id'] = $recruiter_id;
        
-        $this->setup_breadcrumbs();
+        $this->setup_dashboard_breadcrumbs();
         load_custom_page($this->folder.'/'.$this->pageName.'/view_dashboard', $data);
     }
 
@@ -63,16 +63,15 @@ class Dashboard extends CRUD_Controller {
      * AJAX method to mark notification as read
      */
     public function ajax_mark_notification_read() {
-        if (!is_ajax()) {
-            ajax_error('Invalid request');
-            return;
+        if (!$this->input->is_ajax_request()) {
+            show_404();
         }
 
         $notification_id = $this->input->post('notification_id');
         $recruiter_id = $this->get_recruiter_id();
 
         if (empty($notification_id) || empty($recruiter_id)) {
-            ajax_error('Invalid parameters');
+            echo json_encode(['success' => false, 'message' => 'Invalid parameters']);
             return;
         }
 
@@ -80,12 +79,12 @@ class Dashboard extends CRUD_Controller {
         
         if ($result) {
             $unread_count = $this->Model_notifications->count_unread_notifications($recruiter_id);
-            ajax_return([
+            echo json_encode([
                 'success' => true,
                 'unread_count' => $unread_count
             ]);
         } else {
-            ajax_error('Failed to mark notification as read');
+            echo json_encode(['success' => false, 'message' => 'Failed to mark notification as read']);
         }
     }
 
@@ -93,27 +92,26 @@ class Dashboard extends CRUD_Controller {
      * AJAX method to mark all notifications as read
      */
     public function ajax_mark_all_read() {
-        if (!is_ajax()) {
-            ajax_error('Invalid request');
-            return;
+        if (!$this->input->is_ajax_request()) {
+            show_404();
         }
 
         $recruiter_id = $this->get_recruiter_id();
 
         if (empty($recruiter_id)) {
-            ajax_error('Invalid recruiter');
+            echo json_encode(['success' => false, 'message' => 'Invalid recruiter']);
             return;
         }
 
         $result = $this->Model_notifications->mark_all_as_read($recruiter_id);
         
         if ($result) {
-            ajax_return([
+            echo json_encode([
                 'success' => true,
                 'unread_count' => 0
             ]);
         } else {
-            ajax_error('Failed to mark notifications as read');
+            echo json_encode(['success' => false, 'message' => 'Failed to mark notifications as read']);
         }
     }
 
@@ -126,6 +124,154 @@ class Dashboard extends CRUD_Controller {
         $data['notifications'] = $this->Model_notifications->get_all_notifications($recruiter_id);
         $data['unread_count'] = $this->Model_notifications->count_unread_notifications($recruiter_id);
         
+        $this->setup_notifications_breadcrumbs();
+        load_custom_page($this->folder.'/'.$this->pageName.'/view_notifications', $data);
+    }
+
+/**
+ * AJAX method to get HM decision notifications for popup
+ */
+public function get_hm_decision_notifications() {
+    // Enable AJAX check for security
+    if (!$this->input->is_ajax_request()) {
+        show_404();
+    }
+
+    $recruiter_id = $this->get_recruiter_id();
+    
+    if (empty($recruiter_id)) {
+        echo json_encode(['success' => false, 'message' => 'Invalid recruiter']);
+        return;
+    }
+
+    // Get unread HM decision notifications
+    $this->db->select('n.*, c.first_name, c.last_name, c.reference_number as candidate_ref, 
+                      j.name as job_name, j.reference_number as job_ref');
+    $this->db->from('notifications n');
+    $this->db->join('candidates c', 'c.id = n.related_entity_id', 'left');
+    $this->db->join('mod_jobs j', 'j.id = c.job_id', 'left');
+    $this->db->where('n.receiver_type', 'recruiter');
+    $this->db->where('n.receiver_id', $recruiter_id);
+    $this->db->where('n.type', 'hm_decision');
+    $this->db->where('n.is_read', 0);
+    $this->db->order_by('n.created_at', 'DESC');
+    
+    $notifications = $this->db->get()->result();
+
+    // Format notifications for response
+    $formatted_notifications = [];
+    foreach ($notifications as $notification) {
+        $metadata = !empty($notification->metadata) ? json_decode($notification->metadata, true) : null;
+        
+        $formatted_notifications[] = [
+            'id' => $notification->id,
+            'title' => $notification->title,
+            'message' => $notification->message,
+            'type' => $notification->type,
+            'is_read' => $notification->is_read,
+            'created_at' => $notification->created_at,
+            'candidate_name' => $notification->first_name . ' ' . $notification->last_name,
+            'candidate_ref' => $notification->candidate_ref,
+            'job_name' => $notification->job_name,
+            'job_ref' => $notification->job_ref,
+            'related_entity_id' => $notification->related_entity_id,
+            'metadata' => $metadata
+        ];
+    }
+
+    // Set proper content type for JSON response
+    header('Content-Type: application/json');
+    echo json_encode([
+        'success' => true,
+        'notifications' => $formatted_notifications
+    ]);
+}
+
+/**
+ * AJAX method to mark HM decision notification as read
+ */
+public function mark_hm_notification_read() {
+    // Enable AJAX check for security
+    if (!$this->input->is_ajax_request()) {
+        show_404();
+    }
+
+    $notification_id = $this->input->post('notification_id');
+    $recruiter_id = $this->get_recruiter_id();
+
+    if (empty($notification_id) || empty($recruiter_id)) {
+        header('Content-Type: application/json');
+        echo json_encode(['success' => false, 'message' => 'Invalid parameters']);
+        return;
+    }
+
+    $result = $this->Model_notifications->mark_as_read($notification_id, $recruiter_id);
+    
+    header('Content-Type: application/json');
+    if ($result) {
+        echo json_encode(['success' => true]);
+    } else {
+        echo json_encode(['success' => false, 'message' => 'Failed to mark notification as read']);
+    }
+}
+
+
+
+    /**
+     * Get HM notifications (legacy method for compatibility)
+     */
+    public function get_hm_notifications() {
+        if (!$this->input->is_ajax_request()) {
+            show_404();
+        }
+
+        $recruiter_id = $this->get_recruiter_id();
+        
+        if (empty($recruiter_id)) {
+            echo json_encode(['success' => false, 'message' => 'Invalid recruiter']);
+            return;
+        }
+
+        $notifications = $this->Model_notifications->get_hm_decision_notifications($recruiter_id, 5);
+        
+        // Format notifications for response
+        $formatted_notifications = [];
+        foreach ($notifications as $notification) {
+            $metadata = !empty($notification->metadata) ? json_decode($notification->metadata) : null;
+            
+            $formatted_notifications[] = [
+                'id' => $notification->id,
+                'title' => $notification->title,
+                'message' => $notification->message,
+                'type' => $notification->type,
+                'is_read' => $notification->is_read,
+                'created_at' => $notification->created_at,
+                'metadata' => $metadata
+            ];
+        }
+
+        echo json_encode([
+            'success' => true,
+            'notifications' => $formatted_notifications
+        ]);
+    }
+
+    /**
+     * Setup breadcrumbs for dashboard page
+     */
+    public function setup_dashboard_breadcrumbs() {
+        $this->breadcrumbs = array(
+            array(
+                'title' => lang('label_dashboard'),
+                'url' => url($this->pageName)
+            )
+        );
+    }
+
+    /**
+     * Setup breadcrumbs for notifications page
+     */
+    public function setup_notifications_breadcrumbs() {
         $this->breadcrumbs = array(
             array(
                 'title' => lang('label_dashboard'),
@@ -136,7 +282,17 @@ class Dashboard extends CRUD_Controller {
                 'url' => url($this->pageName . '/notifications')
             )
         );
-        
-        load_custom_page($this->folder.'/'.$this->pageName.'/view_notifications', $data);
     }
+
+    /**
+ * Test method to check if controller is working
+ */
+public function test_hm_endpoint() {
+    echo "<h1>HM Endpoint Test</h1>";
+    echo "<p>If you can see this, the controller is working.</p>";
+    echo "<p>Method: get_hm_decision_notifications</p>";
+    
+    // Test the method directly
+    $this->get_hm_decision_notifications();
+}
 }

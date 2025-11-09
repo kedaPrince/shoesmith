@@ -450,7 +450,66 @@ public function update($id = null)
         );
     }
 }
+/**
+     * Update HM Decision - AJAX endpoint
+     */
+    public function update_hm_decision()
+    {
+        if (!$this->input->is_ajax_request()) {
+            show_404();
+        }
 
+        $candidate_id = $this->input->post('candidate_id');
+        $decision = $this->input->post('decision');
+        $notes = $this->input->post('notes');
+
+        // Validate inputs
+        if (empty($candidate_id) || empty($decision)) {
+            echo json_encode(['success' => false, 'message' => 'Missing required fields']);
+            return;
+        }
+
+        // Get candidate details
+        $candidate = $this->{$this->model}->get_by_id($candidate_id);
+        if (!$candidate) {
+            echo json_encode(['success' => false, 'message' => 'Candidate not found']);
+            return;
+        }
+
+        // Update candidate record
+        $update_data = [
+            'hm_decision' => $decision,
+            'hm_decision_notes' => $notes,
+            'hm_decision_at' => date('Y-m-d H:i:s'),
+            'stage_hm_decision' => 1,
+            'onboarding_stage' => 'stage_hm_decision',
+            'updated_at' => date('Y-m-d H:i:s')
+        ];
+
+        $this->db->where('id', $candidate_id);
+        $result = $this->db->update('candidates', $update_data);
+
+        if ($result) {
+            // Send notifications to recruiters
+            $this->load->model('recruiter/Model_notifications');
+            $notification_sent = $this->Model_notifications->create_hm_decision_notification(
+                $candidate_id,
+                $candidate->job_id,
+                $candidate->agency_id,
+                $decision,
+                $notes,
+                $this->get_recruiter_id() // or hiring manager ID
+            );
+
+            echo json_encode([
+                'success' => true,
+                'message' => 'Decision recorded successfully',
+                'notification_sent' => $notification_sent
+            ]);
+        } else {
+            echo json_encode(['success' => false, 'message' => 'Failed to record decision']);
+        }
+    }
     /**
      * Get the logged-in recruiter's ID
      */

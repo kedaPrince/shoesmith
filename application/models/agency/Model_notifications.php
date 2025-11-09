@@ -254,4 +254,111 @@ class Model_notifications extends CRUD_Model
     {
         return $this->mark_all_as_read($agency_id);
     }
+
+    
+    /**
+ * Create HM Decision notification for recruiters - FIXED VERSION
+ */
+/**
+ * Create HM Decision notification for recruiters - FIXED VERSION
+ */
+public function create_hm_decision_notification($candidate_id, $job_id, $agency_id, $decision, $notes = '', $sender_id = null)
+{
+    // Get candidate details
+    $candidate = $this->db->select('first_name, last_name, reference_number')
+                         ->from('candidates')
+                         ->where('id', $candidate_id)
+                         ->get()
+                         ->row();
+    
+    if (!$candidate) {
+        log_message('error', "Candidate {$candidate_id} not found for HM decision notification");
+        return false;
+    }
+
+    // Get job details
+    $job = $this->db->select('name, reference_number')
+                   ->from('mod_jobs')
+                   ->where('id', $job_id)
+                   ->get()
+                   ->row();
+
+    // Get ALL recruiters for this agency
+    $this->db->select('id, first_name, last_name, agency_id');
+    $this->db->from('recruiters');
+    $this->db->where('agency_id', $agency_id);
+    $this->db->where('enabled', 1);
+    $this->db->where('removed', 0);
+    $recruiters = $this->db->get()->result();
+    
+    if (empty($recruiters)) {
+        log_message('error', "No recruiters found for agency {$agency_id}");
+        return false;
+    }
+
+    // Prepare notification content
+    $notification_content = $this->prepare_hm_decision_content($decision, $candidate, $job, $notes);
+    
+    $notifications = [];
+    foreach ($recruiters as $recruiter) {
+        $notification_data = [
+            'title' => $notification_content['title'],
+            'message' => $notification_content['message'],
+            'type' => 'hm_decision',
+            'sender_type' => 'agency', // Changed from 'hiring_manager' to 'agency'
+            'sender_id' => $sender_id,
+            'receiver_type' => 'recruiter',
+            'receiver_id' => $recruiter->id,
+            'related_entity' => 'candidate',
+            'related_entity_id' => $candidate_id,
+            'metadata' => json_encode([
+                'decision' => $decision,
+                'notes' => $notes,
+                'candidate_name' => $candidate->first_name . ' ' . $candidate->last_name,
+                'candidate_reference' => $candidate->reference_number,
+                'job_name' => $job ? $job->name : 'Unknown Job',
+                'job_reference' => $job ? $job->reference_number : 'N/A'
+            ]),
+            'is_read' => 0,
+            'created_at' => date('Y-m-d H:i:s'),
+            'updated_at' => date('Y-m-d H:i:s')
+        ];
+        $notifications[] = $notification_data;
+    }
+
+    // Insert all notifications
+    if (!empty($notifications)) {
+        $result = $this->db->insert_batch('notifications', $notifications);
+        log_message('debug', "Inserted HM decision notifications for agency {$agency_id} to " . count($recruiters) . " recruiters");
+        return $result;
+    }
+
+    return false;
+}
+
+    /**
+     * Prepare HM Decision notification content
+     */
+    private function prepare_hm_decision_content($decision, $candidate, $job, $notes)
+    {
+        $candidate_name = $candidate->first_name . ' ' . $candidate->last_name;
+        $job_name = $job ? $job->name : 'the position';
+        
+        if ($decision === 'accepted') {
+            $title = "🎉 Candidate Accepted: {$candidate_name}";
+            $message = "Great news! The hiring manager has accepted {$candidate_name} for {$job_name}.";
+        } else {
+            $title = "❌ Candidate Rejected: {$candidate_name}";
+            $message = "The hiring manager has decided not to move forward with {$candidate_name} for {$job_name}.";
+        }
+
+        if (!empty($notes)) {
+            $message .= "\n\n📝 Hiring Manager's Notes:\n" . $notes;
+        }
+
+        return [
+            'title' => $title,
+            'message' => $message
+        ];
+    }
 }

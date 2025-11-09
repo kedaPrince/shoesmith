@@ -108,6 +108,21 @@
     color: white;
 }
 
+.stage-hm-decision {
+    background: #6f42c1;
+    color: white;
+}
+
+.stage-hm-accepted {
+    background: #28a745;
+    color: white;
+}
+
+.stage-hm-rejected {
+    background: #dc3545;
+    color: white;
+}
+
 .stage-completed {
     background: #28a745;
     color: white;
@@ -121,6 +136,21 @@
 .btn-sm {
     padding: 5px 10px;
     font-size: 12px;
+}
+
+.stage-hm-decision {
+    background: #6f42c1;
+    color: white;
+}
+
+.stage-hm-accepted {
+    background: #28a745;
+    color: white;
+}
+
+.stage-hm-rejected {
+    background: #dc3545;
+    color: white;
 }
 </style>
 
@@ -175,6 +205,10 @@
                                     <div class="stat-label">Submitted to HM</div>
                                 </div>
                                 <div class="stat-card">
+                                    <div class="stat-number"><?= $stats->hm_decision_count ?? 0 ?></div>
+                                    <div class="stat-label">HM Decision</div>
+                                </div>
+                                <div class="stat-card">
                                     <div class="stat-number"><?= $stats->completed_count ?? 0 ?></div>
                                     <div class="stat-label">Completed</div>
                                 </div>
@@ -205,26 +239,38 @@
                                             </td>
                                             <td>
                                                 <?php
-                                                        $stage_class = 'stage-not-started';
-                                                        $stage_label = 'Not Started';
-                                                        
-                                                        if ($candidate->onboarding_stage === 'completed') {
-                                                            $stage_class = 'stage-completed';
-                                                            $stage_label = 'Completed';
-                                                        } elseif ($candidate->onboarding_stage === 'stage_under_review') {
-                                                            $stage_class = 'stage-under-review';
-                                                            $stage_label = 'Under Review';
-                                                        } elseif ($candidate->onboarding_stage === 'stage_submitted_to_hm') {
-                                                            $stage_class = 'stage-submitted-to-hm';
-                                                            $stage_label = 'Submitted to HM';
-                                                        } elseif ($candidate->onboarding_stage === 'stage_requested_docs') {
-                                                            $stage_class = 'stage-requested-docs';
-                                                            $stage_label = 'Requested Docs';
-                                                        } elseif ($candidate->onboarding_stage === 'stage_position_offered') {
-                                                            $stage_class = 'stage-position-offered';
-                                                            $stage_label = 'Position Offered';
-                                                        }
-                                                        ?>
+    $stage_class = 'stage-not-started';
+    $stage_label = 'Not Started';
+    
+    if ($candidate->onboarding_stage === 'completed') {
+        $stage_class = 'stage-completed';
+        $stage_label = 'Completed';
+    } elseif ($candidate->onboarding_stage === 'stage_under_review') {
+        $stage_class = 'stage-under-review';
+        $stage_label = 'Under Review';
+    } elseif ($candidate->onboarding_stage === 'stage_submitted_to_hm') {
+        $stage_class = 'stage-submitted-to-hm';
+        $stage_label = 'Submitted to HM';
+    } elseif ($candidate->onboarding_stage === 'stage_requested_docs') {
+        $stage_class = 'stage-requested-docs';
+        $stage_label = 'Requested Docs';
+    } elseif ($candidate->onboarding_stage === 'stage_position_offered') {
+        $stage_class = 'stage-position-offered';
+        $stage_label = 'Position Offered';
+    } elseif ($candidate->onboarding_stage === 'stage_hm_decision') {
+        $stage_class = 'stage-hm-decision';
+        $stage_label = 'HM Decision';
+        
+        // Show decision status if available
+        if ($candidate->hm_decision === 'accepted') {
+            $stage_label = 'HM Accepted';
+            $stage_class = 'stage-hm-accepted';
+        } elseif ($candidate->hm_decision === 'rejected') {
+            $stage_label = 'HM Rejected';
+            $stage_class = 'stage-hm-rejected';
+        }
+    }
+    ?>
                                                 <span class="stage-badge <?= $stage_class ?>"><?= $stage_label ?></span>
                                             </td>
                                             <td class="progress-cell">
@@ -244,7 +290,8 @@
                                                         class="btn btn-primary btn-sm" title="Manage Onboarding">
                                                         <i class="fa fa-tasks"></i> Manage
                                                     </a>
-                                                    <a href="<?= redir('candidates/view/' . $candidate->id, true) ?>"
+                                                    <!-- FIXED: Changed from candidates/view to candidates_list/view -->
+                                                    <a href="<?= site_url('agency/candidates_list/view/' . $candidate->id) ?>"
                                                         class="btn btn-info btn-sm" title="View Candidate">
                                                         <i class="fa fa-eye"></i> View
                                                     </a>

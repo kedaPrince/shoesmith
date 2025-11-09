@@ -82,6 +82,29 @@ public function update_onboarding_stage($candidate_id, $stage, $value)
     return $result;
 }
 
+/**
+ * Update HM decision
+ */
+public function update_hm_decision($candidate_id, $decision, $notes = null)
+{
+    $update_data = array(
+        'hm_decision' => $decision,
+        'hm_decision_notes' => $notes,
+        'hm_decision_by' => $this->get_current_agency_id(),
+        'hm_decision_at' => date('Y-m-d H:i:s'),
+        'stage_hm_decision' => 1, // Mark the stage as complete
+        'stage_hm_decision_at' => date('Y-m-d H:i:s'),
+        'updated_at' => date('Y-m-d H:i:s')
+    );
+
+    $result = $this->db->where('id', $candidate_id)->update($this->table, $update_data);
+
+    if ($result) {
+        $this->update_onboarding_progress($candidate_id);
+    }
+
+    return $result;
+}
    /**
  * Calculate and update overall onboarding progress - FIXED VERSION
  */
@@ -97,6 +120,7 @@ private function update_onboarding_progress($candidate_id)
     $stages = [
         'stage_under_review',
         'stage_submitted_to_hm', 
+        'stage_hm_decision', // NEW STAGE
         'stage_requested_docs',
         'stage_position_offered'
     ];
@@ -173,9 +197,12 @@ public function get_onboarding_stats($agency_id = null)
             COUNT(DISTINCT c.id) as total_candidates,
             COUNT(DISTINCT CASE WHEN c.stage_under_review = 1 THEN c.id END) as under_review_count,
             COUNT(DISTINCT CASE WHEN c.stage_submitted_to_hm = 1 THEN c.id END) as submitted_hm_count,
+            COUNT(DISTINCT CASE WHEN c.stage_hm_decision = 1 THEN c.id END) as hm_decision_count,
             COUNT(DISTINCT CASE WHEN c.stage_requested_docs = 1 THEN c.id END) as requested_docs_count,
             COUNT(DISTINCT CASE WHEN c.stage_position_offered = 1 THEN c.id END) as position_offered_count,
-            COUNT(DISTINCT CASE WHEN c.onboarding_stage = "completed" THEN c.id END) as completed_count
+            COUNT(DISTINCT CASE WHEN c.onboarding_stage = "completed" THEN c.id END) as completed_count,
+            COUNT(DISTINCT CASE WHEN c.hm_decision = "accepted" THEN c.id END) as hm_accepted_count,
+            COUNT(DISTINCT CASE WHEN c.hm_decision = "rejected" THEN c.id END) as hm_rejected_count
         ');
         
         $this->db->from('candidates c');
@@ -187,10 +214,6 @@ public function get_onboarding_stats($agency_id = null)
 
         $result = $this->db->get()->row();
 
-        // Debug logging
-        log_message('debug', "Onboarding stats query for agency {$agency_id}: " . $this->db->last_query());
-        log_message('debug', "Onboarding stats result: " . json_encode($result));
-
         return $result;
 
     } catch (Exception $e) {
@@ -198,6 +221,7 @@ public function get_onboarding_stats($agency_id = null)
         return $this->get_empty_stats_object();
     }
 }
+
 
 /**
  * Get empty stats object
@@ -208,9 +232,12 @@ private function get_empty_stats_object()
         'total_candidates' => 0,
         'under_review_count' => 0,
         'submitted_hm_count' => 0,
+        'hm_decision_count' => 0,
         'requested_docs_count' => 0,
         'position_offered_count' => 0,
-        'completed_count' => 0
+        'completed_count' => 0,
+        'hm_accepted_count' => 0,
+        'hm_rejected_count' => 0
     ];
 }
 

@@ -350,7 +350,7 @@ $(document).ready(function() {
 
         // Use aggressive cache buster
         var cacheBuster = 't=' + new Date().getTime();
-        var url = 'http://localhost/shoesmith/admin/templates/ajax_quick_manage/' + templateId + '?' +
+        var url = 'admin/templates/ajax_quick_manage/' + templateId + '?' +
             cacheBuster;
 
         console.log('Fetching from URL:', url);

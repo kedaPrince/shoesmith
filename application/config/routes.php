@@ -44,7 +44,18 @@ $route['admin/agency_templates/get_available_sections'] = 'admin/agency_template
 $route['agency/notifications'] = 'agency/notifications';
 $route['agency/notifications/(:any)'] = 'agency/notifications/$1';
 $route['agency/notifications/(:any)/(:any)'] = 'agency/notifications/$1/$2';
+// Recruiter Routes
+// HM Decision Notification Routes - TRY DIFFERENT PATTERNS
+$route['recruiter/dashboard/get_hm_decision_notifications'] = 'recruiter/dashboard/get_hm_decision_notifications';
+$route['recruiter/dashboard/mark_hm_notification_read'] = 'recruiter/dashboard/mark_hm_notification_read';
 
+// Alternative route patterns
+$route['recruiter/get_hm_decision_notifications'] = 'recruiter/dashboard/get_hm_decision_notifications';
+$route['recruiter/mark_hm_notification_read'] = 'recruiter/dashboard/mark_hm_notification_read';
+
+// Direct routes (bypass folder structure)
+$route['get_hm_decision_notifications'] = 'recruiter/dashboard/get_hm_decision_notifications';
+$route['mark_hm_notification_read'] = 'recruiter/dashboard/mark_hm_notification_read';
 // AJAX routes for notifications
 $route['agency/notifications/ajax_get_unread_count'] = 'agency/notifications/ajax_get_unread_count';
 $route['agency/notifications/ajax_get_recent_notifications'] = 'agency/notifications/ajax_get_recent_notifications';
@@ -174,3 +185,50 @@ function increment_match_number_by_one($matches) {
 function increment_match_number_by_two($matches) {
     return '$'.(str_replace('$', '', $matches[0])+2);
 }
+
+
+
+// ========== DEBUG ROUTES ==========
+$route['debug-routes'] = function() {
+    $ci =& get_instance();
+    $ci->load->library('router');
+    
+    echo "<h1>Route Debug - HM Decision Notifications</h1>";
+    
+    // Check if our specific route exists
+    $test_route = 'recruiter/dashboard/get_hm_decision_notifications';
+    echo "<h2>Checking route: {$test_route}</h2>";
+    
+    if (isset($ci->router->routes[$test_route])) {
+        echo "<p style='color: green'>✓ Route FOUND: {$test_route} → " . $ci->router->routes[$test_route] . "</p>";
+    } else {
+        echo "<p style='color: red'>✗ Route NOT FOUND: {$test_route}</p>";
+    }
+    
+    // Show all recruiter routes
+    echo "<h2>All Recruiter Routes:</h2>";
+    echo "<pre>";
+    foreach ($ci->router->routes as $pattern => $destination) {
+        if (strpos($pattern, 'recruiter/') === 0) {
+            echo "{$pattern} => {$destination}\n";
+        }
+    }
+    echo "</pre>";
+    
+    // Test if controller method exists
+    echo "<h2>Controller Method Check:</h2>";
+    $controller_path = APPPATH . 'controllers/recruiter/Dashboard.php';
+    if (file_exists($controller_path)) {
+        echo "<p style='color: green'>✓ Controller file exists: {$controller_path}</p>";
+        
+        // Check if method exists
+        require_once($controller_path);
+        if (method_exists('Dashboard', 'get_hm_decision_notifications')) {
+            echo "<p style='color: green'>✓ Method exists: get_hm_decision_notifications</p>";
+        } else {
+            echo "<p style='color: red'>✗ Method NOT found: get_hm_decision_notifications</p>";
+        }
+    } else {
+        echo "<p style='color: red'>✗ Controller file NOT found: {$controller_path}</p>";
+    }
+};
