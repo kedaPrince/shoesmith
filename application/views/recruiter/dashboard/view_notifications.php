@@ -132,6 +132,11 @@
     background: linear-gradient(135deg, #fff8f8 0%, #fff0f0 100%);
 }
 
+.notification-card.hm-decision.documents_required {
+    border-left-color: #ffc107;
+    background: linear-gradient(135deg, #fffdf0 0%, #fff9e6 100%);
+}
+
 .hm-decision-badge {
     padding: 6px 12px;
     border-radius: 20px;
@@ -149,6 +154,11 @@
 .hm-decision-badge.rejected {
     background: #dc3545;
     color: white;
+}
+
+.hm-decision-badge.documents_required {
+    background: #ffc107;
+    color: #212529;
 }
 
 .decision-notes {
@@ -303,6 +313,20 @@
 .notification-card.hm-decision.unread {
     animation: pulse-glow 2s infinite;
 }
+
+/* FIXED: Ensure the main content area can scroll */
+.card-body {
+    max-height: calc(100vh - 300px);
+    overflow-y: auto;
+    padding: 20px;
+}
+
+/* FIXED: Make sure expanded notifications are fully visible */
+.notification-card.expanded {
+    z-index: 10;
+    position: relative;
+    margin-bottom: 20px;
+}
 </style>
 
 <div id="main-content">
@@ -379,6 +403,36 @@
                                     $is_hm_decision = $notification->type === 'hm_decision';
                                     $metadata = !empty($notification->metadata) ? json_decode($notification->metadata) : null;
                                     
+                                    // FIX: Safely get decision with fallback
+                                    $decision = '';
+                                    $is_documents_request = false;
+                                    if ($is_hm_decision && $metadata) {
+                                        // Try to get decision from multiple possible properties
+                                        $decision = $metadata->decision ?? '';
+                                        
+                                        // Determine if this is a documents request
+                                        // Check multiple indicators
+                                        $is_documents_request = (
+                                            strpos($notification->title, 'Additional Documents') !== false ||
+                                            strpos($notification->title, 'Documents Required') !== false ||
+                                            strpos($notification->message, 'additional documents') !== false ||
+                                            strpos($notification->message, 'Documents Required') !== false ||
+                                            (!empty($metadata->required_documents) && empty($metadata->decision)) ||
+                                            $decision === 'documents_required'
+                                        );
+                                        
+                                        // Set decision based on type
+                                        if ($is_documents_request) {
+                                            $decision = 'documents_required';
+                                        } elseif (strpos($notification->title, 'Accepted') !== false || $decision === 'accepted') {
+                                            $decision = 'accepted';
+                                        } elseif (strpos($notification->title, 'Rejected') !== false || $decision === 'rejected') {
+                                            $decision = 'rejected';
+                                        } else {
+                                            $decision = $decision ?: 'unknown';
+                                        }
+                                    }
+                                    
                                     // Existing job notification handling
                                     $job_id = $notification->related_entity_id;
                                     $job_data = (object)[
@@ -402,15 +456,16 @@
                                     }
                                     
                                     // Debug output for this notification
-                                    echo "<!-- Notification ID: {$notification->id}, Type: {$notification->type} -->";
+                                    echo "<!-- Notification ID: {$notification->id}, Type: {$notification->type}, Decision: {$decision}, Is Documents Request: " . ($is_documents_request ? 'Yes' : 'No') . " -->";
                                 ?>
 
                                 <!-- NOTIFICATION CARD - UPDATED WITH HM DECISION SUPPORT -->
                                 <div class="notification-card <?php echo $notification->is_read ? '' : 'unread'; ?> 
                                      <?php echo $is_update_notification ? 'updated update-highlight' : ''; ?>
-                                     <?php echo $is_hm_decision ? 'hm-decision ' . ($metadata ? $metadata->decision : '') : ''; ?>"
+                                     <?php echo $is_hm_decision ? 'hm-decision ' . ($decision ? $decision : '') : ''; ?>"
                                     data-notification-id="<?php echo $notification->id; ?>"
-                                    data-notification-type="<?php echo $notification->type; ?>">
+                                    data-notification-type="<?php echo $notification->type; ?>"
+                                    data-candidate-id="<?php echo $notification->related_entity_id; ?>">
 
                                     <div class="notification-header">
                                         <div class="notification-title-section">
@@ -418,9 +473,19 @@
                                                 <?php echo htmlspecialchars($notification->title); ?>
 
                                                 <!-- Notification Type Badges -->
-                                                <?php if ($is_hm_decision && $metadata): ?>
-                                                <span class="hm-decision-badge <?php echo $metadata->decision; ?>">
-                                                    <?php echo ucfirst($metadata->decision); ?>
+                                                <?php if ($is_hm_decision && $decision): ?>
+                                                <span class="hm-decision-badge <?php echo $decision; ?>">
+                                                    <?php 
+                                                    if ($decision === 'accepted') {
+                                                        echo 'Accepted';
+                                                    } elseif ($decision === 'rejected') {
+                                                        echo 'Rejected';
+                                                    } elseif ($decision === 'documents_required') {
+                                                        echo 'Documents Required';
+                                                    } else {
+                                                        echo 'HM Decision';
+                                                    }
+                                                    ?>
                                                 </span>
                                                 <?php else: ?>
                                                 <span
@@ -467,24 +532,25 @@
                                     </div>
 
                                     <!-- HM Decision Candidate Highlight -->
-                                    <?php if ($is_hm_decision && $metadata): ?>
+                                    <?php if ($is_hm_decision && $metadata && !empty($metadata->candidate_name)): ?>
                                     <div class="candidate-highlight">
                                         <div class="candidate-info-grid">
                                             <div class="candidate-info-item">
                                                 <div class="candidate-info-label">Candidate</div>
                                                 <div class="candidate-info-value">
-                                                    <?php echo htmlspecialchars($metadata->candidate_name); ?></div>
+                                                    <?php echo htmlspecialchars($metadata->candidate_name ?? 'N/A'); ?>
+                                                </div>
                                             </div>
                                             <div class="candidate-info-item">
                                                 <div class="candidate-info-label">Reference</div>
                                                 <div class="candidate-info-value">
-                                                    <?php echo htmlspecialchars($metadata->candidate_reference); ?>
+                                                    <?php echo htmlspecialchars($metadata->candidate_reference ?? $metadata->candidate_ref ?? 'N/A'); ?>
                                                 </div>
                                             </div>
                                             <div class="candidate-info-item">
                                                 <div class="candidate-info-label">Job</div>
                                                 <div class="candidate-info-value">
-                                                    <?php echo htmlspecialchars($metadata->job_name); ?></div>
+                                                    <?php echo htmlspecialchars($metadata->job_name ?? 'N/A'); ?></div>
                                             </div>
                                         </div>
                                     </div>
@@ -540,11 +606,33 @@
                                     <?php endif; ?>
 
                                     <div class="notification-expandable">
+                                        <!-- Documents Request Notice -->
+                                        <?php if ($is_documents_request): ?>
+                                        <div class="alert alert-warning">
+                                            <h5><i class="fa fa-file-alt"></i> Additional Documents Required</h5>
+                                            <p class="mb-2">The hiring manager requires additional documents for this
+                                                candidate.</p>
+                                            <a href="<?php echo site_url('recruiter/candidates/view/' . $notification->related_entity_id . '?tab=required'); ?>"
+                                                class="btn btn-primary btn-sm">
+                                                <i class="fa fa-upload"></i> Upload Documents in Candidate Profile
+                                            </a>
+                                        </div>
+                                        <?php endif; ?>
+
                                         <!-- HM Decision Notes -->
-                                        <?php if ($is_hm_decision && $metadata && !empty($metadata->notes)): ?>
+                                        <?php if ($is_hm_decision && $metadata && (!empty($metadata->notes) || !empty($metadata->decision_notes) || !empty($metadata->required_documents))): ?>
                                         <div class="decision-notes">
                                             <div class="decision-notes-content">
-                                                <?php echo nl2br(htmlspecialchars($metadata->notes)); ?>
+                                                <?php 
+                                                if (!empty($metadata->required_documents)) {
+                                                    echo '<strong>Required Documents:</strong><br>';
+                                                    echo nl2br(htmlspecialchars($metadata->required_documents));
+                                                } elseif (!empty($metadata->notes)) {
+                                                    echo nl2br(htmlspecialchars($metadata->notes));
+                                                } elseif (!empty($metadata->decision_notes)) {
+                                                    echo nl2br(htmlspecialchars($metadata->decision_notes));
+                                                }
+                                                ?>
                                             </div>
                                         </div>
                                         <?php endif; ?>
@@ -629,7 +717,14 @@
                                                     <i class="fa fa-eye"></i> View Full Job Details
                                                 </a>
                                                 <?php elseif ($is_hm_decision && $metadata): ?>
-                                                <a href="<?php echo site_url('recruiter/candidates/view/' . $notification->related_entity_id); ?>"
+                                                <?php 
+                                                // Determine the correct URL based on notification type
+                                                $candidate_url = site_url('recruiter/candidates/view/' . $notification->related_entity_id);
+                                                if ($is_documents_request) {
+                                                    $candidate_url .= '?tab=required';
+                                                }
+                                                ?>
+                                                <a href="<?php echo $candidate_url; ?>"
                                                     class="btn btn-notification btn-view-job">
                                                     <i class="fa fa-user"></i> View Candidate
                                                 </a>
@@ -823,13 +918,16 @@ function showToast(message, type = 'info') {
 
 // Real-time HM Decision Notifications
 function showHMDecisionToast(notification) {
+    // Safely get decision with fallback
+    const decision = notification.metadata?.decision || 'unknown';
+
     const toast = document.createElement('div');
-    toast.className = `hm-decision-toast ${notification.metadata.decision}`;
+    toast.className = `hm-decision-toast ${decision}`;
 
     toast.innerHTML = `
         <div class="toast-header">
             <h4 class="toast-title">
-                ${notification.metadata.decision === 'accepted' ? '🎉' : '❌'}
+                ${decision === 'accepted' ? '🎉' : '❌'}
                 ${notification.title}
             </h4>
             <button class="toast-close">&times;</button>
@@ -838,14 +936,14 @@ function showHMDecisionToast(notification) {
             <div class="candidate-info-grid">
                 <div class="candidate-info-item">
                     <div class="candidate-info-label">Candidate</div>
-                    <div class="candidate-info-value">${notification.metadata.candidate_name}</div>
+                    <div class="candidate-info-value">${notification.metadata?.candidate_name || 'N/A'}</div>
                 </div>
                 <div class="candidate-info-item">
                     <div class="candidate-info-label">Job</div>
-                    <div class="candidate-info-value">${notification.metadata.job_name}</div>
+                    <div class="candidate-info-value">${notification.metadata?.job_name || 'N/A'}</div>
                 </div>
             </div>
-            ${notification.metadata.notes ? `
+            ${notification.metadata?.notes ? `
                 <div class="toast-notes">
                     <strong>HM Notes:</strong><br>
                     ${notification.metadata.notes}

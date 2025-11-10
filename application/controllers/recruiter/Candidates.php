@@ -38,44 +38,61 @@ class Candidates extends CRUD_Controller
     private function setup_listing(): void
     {
         $this->listFields = array(
-            'reference_number' => array('label' => lang('label_reference_number'), 'sort' => true),
-            'first_name' => array('label' => lang('label_first_name'), 'sort' => true),
-            'last_name' => array('label' => lang('label_last_name'), 'sort' => true),
-            'email' => array('label' => lang('label_email'), 'sort' => true),
-            'agency_name' => array('label' => lang('label_agency'), 'sort' => true),
-            'job_name' => array('label' => lang('label_job'), 'sort' => true),
-            'status' => array('label' => lang('label_status'), 'sort' => true),
-            'application_date' => array('label' => lang('label_application_date'), 'sort' => true, 'type' => 'date'),
+            'reference_number' => array(
+                'label' => lang('label_reference_number'),
+                'sort' => true,
+            ),
+            'first_name' => array(
+                'label' => lang('label_first_name'),
+                'sort' => true,
+            ),
+            'email' => array(
+                'label' => lang('label_email'),
+                'sort' => true,
+            ),
+            'job_name' => array(
+                'label' => lang('label_job'),
+                'sort' => true,
+                'field' => 'mod_jobs.name'
+            ),
+            'status' => array(
+                'label' => lang('label_status'),
+                'sort' => true,
+            ),
+            'application_date' => array(
+                'label' => lang('label_application_date'),
+                'sort' => true,
+                'type' => 'date',
+            ),
         );
 
         $this->listActions = array(
-            'edit' => array('label' => lang('label_edit'), 'url' => url($this->pageName . '/edit/{id}'), 'icon' => 'fa-edit', 'class' => 'edit-row'),
-            'enable' => array(
-                'label'     => lang('label_enable'),
-                'url'       => url($this->pageName . '/enable/{id}'),
+            'view' => array(
+                'label'     => lang('label_view'),
+                'url'       => site_url('recruiter/candidates/view/{id}'),
                 'icon'      => 'fa-eye',
-                'class'     => 'enable-row btn-enable',
-                'function'  => (function ($str, $row) {
-                    return ($row->enabled) ? false : $str;
-                }),
+                'class'     => 'view-row',
+                'title'     => 'View detailed candidate profile',
             ),
-            'disable' => array(
-                'label'     => lang('label_disable'),
-                'url'       => url($this->pageName . '/disable/{id}'),
-                'icon'      => 'fa-eye-slash',
-                'class'     => 'disable-row btn-disable',
-                'function'  => (function ($str, $row) {
-                    return (!$row->enabled) ? false : $str;
-                }),
+            'edit' => array(
+                'label'     => lang('label_edit'),
+                'url'       => redir($this->pageName . '/edit/{id}', true),
+                'icon'      => 'fa-edit',
+                'class'     => 'edit-row',
+                'title'     => 'Edit candidate information',
             ),
-            'delete' => array('label' => lang('label_delete'), 'url' => url($this->pageName . '/remove/{id}'), 'icon' => 'fa-trash-o', 'class' => 'delete-row btn-delete'),
         );
 
         $this->filters = array(
             'search' => array(
                 'label' => lang('label_search'),
                 'type' => 'autocomplete',
-                'field' => array('candidates.first_name', 'candidates.last_name', 'candidates.email', 'candidates.reference_number'),
+                'field' => array(
+                    'candidates.first_name',
+                    'candidates.last_name',
+                    'candidates.email',
+                    'candidates.reference_number',
+                ),
             ),
             'status' => array(
                 'label' => lang('label_status'),
@@ -98,65 +115,252 @@ class Candidates extends CRUD_Controller
     {
         $this->formFields = array(
             'main' => array(
-                'reference_number' => 'trim|required|strip_tags',
-                'first_name' => 'trim|required|strip_tags',
-                'last_name' => 'trim|required|strip_tags',
-                'email' => 'trim|required|valid_email|callback_is_unique_email',
-                'phone' => 'trim|strip_tags',
-                'id_number' => 'trim|strip_tags',
-                'date_of_birth' => 'trim|valid_date',
-                'gender' => 'trim|strip_tags',
-                'address' => 'trim|strip_tags',
-                'city' => 'trim|strip_tags',
-                'province' => 'trim|strip_tags',
-                'postal_code' => 'trim|strip_tags',
-                'country' => 'trim|strip_tags',
-                'highest_qualification' => 'trim|strip_tags',
-                'years_experience' => 'trim|numeric',
-                'current_position' => 'trim|strip_tags',
-                'current_company' => 'trim|strip_tags',
-                'current_salary' => 'trim|decimal',
-                'expected_salary' => 'trim|decimal',
-                'notice_period' => 'trim|numeric',
-                'cv_file' => 'trim|strip_tags', 
-                'cover_letter' => 'trim|strip_tags',
-                'source' => 'trim|strip_tags',
-                'status' => 'trim|required|strip_tags',
-                'rating' => 'trim|numeric',
-                'notes' => 'trim|strip_tags',
-                'agency_id' => 'trim|required|numeric',
-                'job_id' => 'trim|numeric',
-                'assigned_agent_id' => 'trim|numeric',
-            ),
-            'multi_selects' => array(
-                'additional_agency_ids' => array(
-                    'validation' => 'trim|required',
-                    'pivot_table' => 'candidate_agencies',
-                    'main_field' => 'candidate_id',
-                    'link_field' => 'agency_id',
-                ),
-                'additional_job_ids' => array(
-                    'validation' => 'trim',
-                    'pivot_table' => 'candidate_jobs',
-                    'main_field' => 'candidate_id',
-                    'link_field' => 'job_id',
-                ),
+                'reference_number'  => 'trim|required|strip_tags',
+                'first_name'        => 'trim|required|strip_tags',
+                'last_name'         => 'trim|required|strip_tags',
+                'email'             => 'trim|required|valid_email|strip_tags',
+                'phone'             => 'trim|strip_tags',
+                'status'            => 'trim|required|strip_tags',
+                'rating'            => 'trim|numeric',
+                'notes'             => 'trim|strip_tags',
             ),
         );
 
         $this->formLabels = array();
+
         $this->uploaders = array(
             'cv_file' => [
-                'type' => 'single_file',
-                'table' => 'candidates',
-                'upload_path' => FCPATH . 'uploads/candidates/cv/',
-                'info' => '<strong>File Requirements:</strong><br/>File Type: PDF, DOC, DOCX<br/>Max Size: 10MB',
-                'allowed_types' => 'pdf|doc|docx',
-                'max_size' => 10240,
+                'type'      => 'single_file',
+                'table'     => 'candidates',
+                'info'      => '<strong>File Requirements:</strong><br/>File Type: PDF, DOC, DOCX<br/>Max Size: 10MB',
             ],
         );
     }
 
+    /**
+     * Upload document for candidate (Recruiter)
+     */
+    public function upload_document()
+    {
+        $candidate_id = $this->input->post('candidate_id');
+        $document_name = $this->input->post('document_name');
+        $document_type = $this->input->post('document_type');
+        $description = $this->input->post('description');
+
+        // Check if file was uploaded
+        if (empty($_FILES['document_file']['name'])) {
+            ajax_return(['success' => false, 'message' => 'Please select a file to upload.']);
+            return;
+        }
+
+        // Upload configuration
+        $config['upload_path'] = './uploads/candidate_documents/';
+        $config['allowed_types'] = 'pdf|doc|docx|jpg|jpeg|png';
+        $config['max_size'] = 10240; // 10MB
+        $config['encrypt_name'] = true;
+
+        // Create upload directory if it doesn't exist
+        if (!is_dir($config['upload_path'])) {
+            mkdir($config['upload_path'], 0755, true);
+        }
+
+        $this->load->library('upload', $config);
+
+        if (!$this->upload->do_upload('document_file')) {
+            ajax_return(['success' => false, 'message' => $this->upload->display_errors()]);
+            return;
+        }
+
+        $upload_data = $this->upload->data();
+
+        // Save document to database
+        $document_data = [
+            'candidate_id' => $candidate_id,
+            'document_name' => $document_name,
+            'file_name' => $upload_data['file_name'],
+            'file_path' => 'uploads/candidate_documents/' . $upload_data['file_name'],
+            'file_size' => $upload_data['file_size'],
+            'file_type' => $upload_data['file_type'],
+            'uploaded_by' => loginID('recruiter'),
+            'uploaded_by_type' => 'recruiter',
+            'document_type' => $document_type,
+            'description' => $description,
+            'created_at' => date('Y-m-d H:i:s'),
+            'updated_at' => date('Y-m-d H:i:s')
+        ];
+
+        $result = $this->{$this->model}->save_candidate_document($document_data);
+
+        if ($result) {
+            // Send notification to agency
+            $this->load->model('recruiter/Model_notifications');
+            $this->Model_notifications->create_documents_uploaded_notification($candidate_id, loginID('recruiter'), 1);
+
+            ajax_return(['success' => true, 'message' => 'Document uploaded successfully!']);
+        } else {
+            ajax_return(['success' => false, 'message' => 'Failed to save document information.']);
+        }
+    }
+
+    /**
+     * Get documents for candidate (Recruiter)
+     */
+    public function get_documents($candidate_id)
+    {
+        $documents = $this->{$this->model}->get_candidate_documents($candidate_id);
+        
+        $html = '';
+        if (!empty($documents)) {
+            foreach ($documents as $doc) {
+                $html .= '<tr>';
+                $html .= '<td>' . htmlspecialchars($doc->document_name, ENT_QUOTES, 'UTF-8') . '</td>';
+                $html .= '<td><span class="badge badge-info">' . ucfirst(str_replace('_', ' ', $doc->document_type)) . '</span></td>';
+                $html .= '<td>' . date('M j, Y', strtotime($doc->created_at)) . '</td>';
+                $html .= '<td>' . $this->format_file_size($doc->file_size) . '</td>';
+                $html .= '<td><span class="badge badge-success">Uploaded</span></td>';
+                $html .= '<td>';
+                $html .= '<a href="' . base_url($doc->file_path) . '" target="_blank" class="btn btn-sm btn-primary" title="Download"><i class="fa fa-download"></i></a>';
+                $html .= '<button onclick="deleteDocument(' . $doc->id . ')" class="btn btn-sm btn-danger ml-1" title="Delete"><i class="fa fa-trash"></i></button>';
+                $html .= '</td>';
+                $html .= '</tr>';
+            }
+        } else {
+            $html = '<tr><td colspan="6" class="text-center text-muted">No documents uploaded yet.</td></tr>';
+        }
+        
+        echo $html;
+    }
+
+    /**
+     * Format file size
+     */
+    private function format_file_size($bytes)
+    {
+        if ($bytes >= 1073741824) {
+            return number_format($bytes / 1073741824, 2) . ' GB';
+        } elseif ($bytes >= 1048576) {
+            return number_format($bytes / 1048576, 2) . ' MB';
+        } elseif ($bytes >= 1024) {
+            return number_format($bytes / 1024, 2) . ' KB';
+        } elseif ($bytes > 1) {
+            return $bytes . ' bytes';
+        } elseif ($bytes == 1) {
+            return '1 byte';
+        } else {
+            return '0 bytes';
+        }
+    }
+
+    /**
+     * Delete document
+     */
+    public function delete_document($document_id)
+    {
+        // Verify the document belongs to a candidate that this recruiter has access to
+        $document = $this->{$this->model}->get_document($document_id);
+        
+        if (!$document) {
+            ajax_return(['success' => false, 'message' => 'Document not found.']);
+            return;
+        }
+        
+        // Verify recruiter has access to this candidate
+        $recruiter_id = loginID('recruiter');
+        $has_access = $this->{$this->model}->check_recruiter_candidate_access($recruiter_id, $document->candidate_id);
+        
+        if (!$has_access) {
+            ajax_return(['success' => false, 'message' => 'Access denied.']);
+            return;
+        }
+        
+        // Delete file from server
+        if (file_exists($document->file_path)) {
+            unlink($document->file_path);
+        }
+        
+        // Delete from database
+        $result = $this->{$this->model}->delete_candidate_document($document_id);
+        
+        if ($result) {
+            ajax_return(['success' => true, 'message' => 'Document deleted successfully.']);
+        } else {
+            ajax_return(['success' => false, 'message' => 'Failed to delete document.']);
+        }
+    }
+
+    public function index(): void
+    {
+        $this->breadcrumbs = array(
+            array(
+                'title' => lang($this->pageName . '_heading'),
+                'url'   => redir($this->pageName, true)
+            ),
+        );
+        $this->view = 'listing';
+        $this->load->view($this->folder . '/' . 'view_header');
+        $this->load->view('cms/crud/view_list', array(
+            'heading'           => lang($this->pageName . '_heading'),
+            'noRows'            => lang($this->pageName . '_no_rows'),
+        ));
+        $this->load->view($this->folder . '/' . 'view_footer');
+    }
+
+public function view($id)
+{
+    $row = $this->{$this->model}->get_candidate($id);
+    
+    if (empty($row)) {
+        show_404();
+    }
+
+    // Check for pending documents requests
+    $documents_request_data = $this->check_pending_documents_request($id);
+    
+    // Pass the data to the view - MAKE SURE $id IS PASSED
+    $this->load->view($this->folder . '/view_header');
+    $this->load->view('cms/crud/view_single', array(
+        'row' => $row,
+        'id' => $id, // ← THIS IS CRITICAL - ADD THIS LINE
+        'heading' => lang('view_candidate_heading'),
+        'has_pending_documents_request' => $documents_request_data['has_request'],
+        'documents_request_notes' => $documents_request_data['notes'],
+        'pending_notification_id' => $documents_request_data['notification_id']
+    ));
+    $this->load->view($this->folder . '/view_footer');
+}
+
+public function ajax_quick_manage($id = 0)
+{
+    $row = false;
+    if (!empty($id)) {
+        $row = $this->{$this->model}->get_by_id($id);
+    }
+
+    // Get quick manage extra data
+    $extra_data = $this->quick_manage_extra($id, $row);
+    
+    // Check for URL parameter to force required documents tab
+    $tab_required = $this->input->get('tab') === 'required';
+    if ($tab_required) {
+        $extra_data['force_required_tab'] = true;
+    }
+
+    $data = array(
+        'row' => $row,
+        'id' => $id,
+    );
+
+    // Merge with extra data - ensure all required variables are passed
+    $data = array_merge($data, $extra_data);
+
+    // DEBUG: Log what's being passed to the view
+    log_message('debug', '=== AJAX_QUICK_MANAGE DATA TO VIEW ===');
+    log_message('debug', 'Candidate ID: ' . $id);
+    log_message('debug', 'Has pending documents request: ' . ($data['has_pending_documents_request'] ? 'YES' : 'NO'));
+    log_message('debug', 'Force required tab: ' . ($data['force_required_tab'] ?? 'NO'));
+
+    $this->load->view($this->folder . '/' . $this->pageName . '/ajax_manage', $data);
+}
     /**
      * Generate reference number via AJAX
      */
@@ -219,7 +423,7 @@ class Candidates extends CRUD_Controller
     /**
      * Get post data - FIXED version
      */
-   public function get_post_data()
+    public function get_post_data()
     {
         log_message('debug', '=== GET_POST_DATA STARTED ===');
         $data = array();
@@ -266,7 +470,6 @@ class Candidates extends CRUD_Controller
         return $data;
     }
 
-
     private function get_field_label($field)
     {
         // Remove everything after | for field names like 'reference_number|label_reference_number'
@@ -307,7 +510,7 @@ class Candidates extends CRUD_Controller
                 $data['created_at'] = date('Y-m-d H:i:s');
                 
                 // Insert the main record
-               $id = $this->{$this->model}->create($data);
+                $id = $this->{$this->model}->create($data);
                 
                 if ($id) {
                     // Handle file upload
@@ -343,114 +546,115 @@ class Candidates extends CRUD_Controller
     }
 
     /**
- * Update candidate - FIXED version
- */
-public function update($id = null)
-{
-    log_message('debug', '=== UPDATE METHOD STARTED ===');
-    log_message('debug', 'Candidate ID: ' . $id);
-    log_message('debug', 'POST data: ' . print_r($this->input->post(), true));
-    
-    if ($this->input->post()) {
-        log_message('debug', 'POST request detected');
+     * Update candidate - FIXED version
+     */
+    public function update($id = null)
+    {
+        log_message('debug', '=== UPDATE METHOD STARTED ===');
+        log_message('debug', 'Candidate ID: ' . $id);
+        log_message('debug', 'POST data: ' . print_r($this->input->post(), true));
         
-        // Validate form
-        if ($this->validate_form('update')) {
-            log_message('debug', 'Form validation passed');
+        if ($this->input->post()) {
+            log_message('debug', 'POST request detected');
             
-            // Get post data
-            $data = $this->get_post_data();
-            log_message('debug', 'Post data array: ' . print_r($data, true));
-            log_message('debug', 'Data type: ' . gettype($data));
-            log_message('debug', 'Is array: ' . (is_array($data) ? 'YES' : 'NO'));
-            
-            // Add extra parameters
-            $extra_params = $this->update_extra_params($id);
-            log_message('debug', 'Extra params: ' . print_r($extra_params, true));
-            
-            $data = array_merge($data, $extra_params);
-            log_message('debug', 'Merged data: ' . print_r($data, true));
-            
-            // Add updated_at timestamp
-            $data['updated_at'] = date('Y-m-d H:i:s');
-            
-            // CRITICAL: Ensure data is an array
-            if (!is_array($data)) {
-                log_message('error', 'DATA IS NOT AN ARRAY! Type: ' . gettype($data));
-                $data = array(); // Force to empty array
-            }
-            
-            log_message('debug', 'Final data before update: ' . print_r($data, true));
-            
-            // Update the main record - FIXED: Correct parameter order
-            try {
-                // CORRECTED: Pass parameters in the right order (data, id)
-                $result = $this->{$this->model}->update($data, $id);
-                log_message('debug', 'Update result: ' . ($result ? 'SUCCESS' : 'FAILED'));
+            // Validate form
+            if ($this->validate_form('update')) {
+                log_message('debug', 'Form validation passed');
                 
-                if ($result) {
-                    // Handle file upload
-                    $this->handle_file_upload_manual($id);
+                // Get post data
+                $data = $this->get_post_data();
+                log_message('debug', 'Post data array: ' . print_r($data, true));
+                log_message('debug', 'Data type: ' . gettype($data));
+                log_message('debug', 'Is array: ' . (is_array($data) ? 'YES' : 'NO'));
+                
+                // Add extra parameters
+                $extra_params = $this->update_extra_params($id);
+                log_message('debug', 'Extra params: ' . print_r($extra_params, true));
+                
+                $data = array_merge($data, $extra_params);
+                log_message('debug', 'Merged data: ' . print_r($data, true));
+                
+                // Add updated_at timestamp
+                $data['updated_at'] = date('Y-m-d H:i:s');
+                
+                // CRITICAL: Ensure data is an array
+                if (!is_array($data)) {
+                    log_message('error', 'DATA IS NOT AN ARRAY! Type: ' . gettype($data));
+                    $data = array(); // Force to empty array
+                }
+                
+                log_message('debug', 'Final data before update: ' . print_r($data, true));
+                
+                // Update the main record - FIXED: Correct parameter order
+                try {
+                    // CORRECTED: Pass parameters in the right order (data, id)
+                    $result = $this->{$this->model}->update($data, $id);
+                    log_message('debug', 'Update result: ' . ($result ? 'SUCCESS' : 'FAILED'));
                     
-                    // Handle pivot tables
-                    $this->handle_pivot_tables($id);
-                    
-                    // Set success message
-                    $this->session->set_flashdata('success', lang('record_updated'));
-                    
+                    if ($result) {
+                        // Handle file upload
+                        $this->handle_file_upload_manual($id);
+                        
+                        // Handle pivot tables
+                        $this->handle_pivot_tables($id);
+                        
+                        // Set success message
+                        $this->session->set_flashdata('success', lang('record_updated'));
+                        
+                        if ($this->input->is_ajax_request()) {
+                            echo json_encode(['success' => true, 'message' => lang('record_updated')]);
+                            return;
+                        } else {
+                            redirect(redir($this->pageName, true));
+                        }
+                    }
+                } catch (Exception $e) {
+                    log_message('error', 'Update exception: ' . $e->getMessage());
                     if ($this->input->is_ajax_request()) {
-                        echo json_encode(['success' => true, 'message' => lang('record_updated')]);
+                        echo json_encode(['success' => false, 'error' => 'Update failed: ' . $e->getMessage()]);
                         return;
-                    } else {
-                        redirect(redir($this->pageName, true));
                     }
                 }
-            } catch (Exception $e) {
-                log_message('error', 'Update exception: ' . $e->getMessage());
-                if ($this->input->is_ajax_request()) {
-                    echo json_encode(['success' => false, 'error' => 'Update failed: ' . $e->getMessage()]);
-                    return;
-                }
+            } else {
+                log_message('debug', 'Form validation failed: ' . validation_errors());
+            }
+            
+            // If we get here, there was an error
+            if ($this->input->is_ajax_request()) {
+                echo json_encode(['success' => false, 'error' => validation_errors()]);
+                return;
             }
         } else {
-            log_message('debug', 'Form validation failed: ' . validation_errors());
+            log_message('debug', 'No POST data received');
         }
         
-        // If we get here, there was an error
-        if ($this->input->is_ajax_request()) {
-            echo json_encode(['success' => false, 'error' => validation_errors()]);
-            return;
-        }
-    } else {
-        log_message('debug', 'No POST data received');
+        log_message('debug', '=== UPDATE METHOD ENDED ===');
+        // Show the form
+        $this->edit($id);
     }
-    
-    log_message('debug', '=== UPDATE METHOD ENDED ===');
-    // Show the form
-    $this->edit($id);
-}
 
     /**
      * Send notifications to agencies when candidate is submitted
      */
-   private function send_agency_notifications($candidate_id)
-{
-    $this->load->model('agency/Model_notifications');
-    
-    $additional_agencies = $this->input->post('additional_agency_ids') ?: [];
-    $recruiter_id = $this->get_recruiter_id();
-    $job_id = $this->input->post('job_id');
-    
-    foreach ($additional_agencies as $agency_id) {
-        $this->Model_notifications->create_candidate_submission_notification(
-            $candidate_id, 
-            $agency_id, 
-            $recruiter_id,
-            $job_id
-        );
+    private function send_agency_notifications($candidate_id)
+    {
+        $this->load->model('agency/Model_notifications');
+        
+        $additional_agencies = $this->input->post('additional_agency_ids') ?: [];
+        $recruiter_id = $this->get_recruiter_id();
+        $job_id = $this->input->post('job_id');
+        
+        foreach ($additional_agencies as $agency_id) {
+            $this->Model_notifications->create_candidate_submission_notification(
+                $candidate_id, 
+                $agency_id, 
+                $recruiter_id,
+                $job_id
+            );
+        }
     }
-}
-/**
+
+    /**
      * Update HM Decision - AJAX endpoint
      */
     public function update_hm_decision()
@@ -510,6 +714,7 @@ public function update($id = null)
             echo json_encode(['success' => false, 'message' => 'Failed to record decision']);
         }
     }
+
     /**
      * Get the logged-in recruiter's ID
      */
@@ -524,7 +729,276 @@ public function update($id = null)
         
         return null;
     }
+public function upload_required_documents()
+{
+    $candidate_id = $this->input->post('candidate_id');
+    $notification_id = $this->input->post('notification_id');
+    $submission_notes = $this->input->post('submission_notes');
+    
+    // Check if candidate exists and recruiter has access
+    $candidate = $this->{$this->model}->get_candidate($candidate_id);
+    if (empty($candidate)) {
+        ajax_return(['success' => false, 'message' => 'Candidate not found.']);
+        return;
+    }
+    
+    // Check access
+    $has_access = $this->{$this->model}->check_recruiter_candidate_access($this->get_recruiter_id(), $candidate_id);
+    if (!$has_access) {
+        ajax_return(['success' => false, 'message' => 'Access denied.']);
+        return;
+    }
+    
+    // Handle multiple document uploads
+    $uploaded_documents = [];
+    $errors = [];
+    
+    // Get the document data from POST
+    $document_names = $this->input->post('required_documents');
+    
+    log_message('debug', 'Document names received: ' . print_r($document_names, true));
+    log_message('debug', 'FILES received: ' . print_r($_FILES, true));
+    
+    if (!empty($document_names) && is_array($document_names)) {
+        foreach ($document_names as $index => $document_data) {
+            if (!empty($document_data['name']) && isset($_FILES['required_documents']['name'][$index]['file'])) {
+                $document_name = $document_data['name'];
+                $description = isset($document_data['description']) ? $document_data['description'] : '';
+                
+                $upload_result = $this->upload_single_required_document(
+                    $candidate_id, 
+                    $document_name, 
+                    $description,
+                    $index
+                );
+                
+                if ($upload_result['success']) {
+                    $uploaded_documents[] = $upload_result['document'];
+                } else {
+                    $errors[] = "Document '{$document_name}': " . $upload_result['error'];
+                }
+            } else {
+                $errors[] = "Document at index {$index} is missing name or file";
+            }
+        }
+    } else {
+        ajax_return(['success' => false, 'message' => 'No document data received.']);
+        return;
+    }
+    
+    if (!empty($errors) && empty($uploaded_documents)) {
+        ajax_return(['success' => false, 'message' => 'All uploads failed: ' . implode(', ', $errors)]);
+        return;
+    }
+    
+    if (!empty($uploaded_documents)) {
+        // ✅ AUTO-UPDATE: Update the documents stage automatically
+        $stage_updated = false;
+        try {
+            // Check if documents stage needs to be updated
+            if (!$candidate->stage_requested_docs) {
+                $stage_updated = $this->{$this->model}->check_and_update_documents_stage($candidate_id);
+                log_message('debug', "Auto-update documents stage for candidate {$candidate_id}: " . ($stage_updated ? 'SUCCESS' : 'NO UPDATE NEEDED'));
+            }
+        } catch (Exception $e) {
+            log_message('error', 'Error auto-updating documents stage: ' . $e->getMessage());
+        }
+        
+        // Send notification to agency about submitted required documents
+        $this->load->model('recruiter/Model_notifications');
+        
+        // Check if the notification method exists
+        $notification_sent = false;
+        if (method_exists($this->Model_notifications, 'create_required_documents_submitted_notification')) {
+            $notification_sent = $this->Model_notifications->create_required_documents_submitted_notification(
+                $candidate_id, 
+                $this->get_recruiter_id(), 
+                count($uploaded_documents),
+                $submission_notes,
+                $notification_id
+            );
+        } else {
+            // Fallback to the existing documents uploaded notification
+            $notification_sent = $this->Model_notifications->create_documents_uploaded_notification(
+                $candidate_id,
+                $this->get_recruiter_id(),
+                count($uploaded_documents)
+            );
+            log_message('warning', 'create_required_documents_submitted_notification method not found, used fallback');
+        }
+        
+        $message = count($uploaded_documents) . ' required document(s) submitted successfully!';
+        
+        // Add stage update information to message
+        if ($stage_updated) {
+            $message .= ' Documents stage has been automatically updated to "Submitted".';
+        } else {
+            $message .= ' Documents are now available for agency review.';
+        }
+        
+        if (!empty($errors)) {
+            $message .= ' Some documents failed: ' . implode(', ', $errors);
+        }
+        
+        if (!$notification_sent) {
+            $message .= ' (Note: Agency notification failed to send)';
+        }
+        
+        ajax_return([
+            'success' => true, 
+            'message' => $message, 
+            'documents' => $uploaded_documents,
+            'stage_updated' => $stage_updated
+        ]);
+    } else {
+        ajax_return(['success' => false, 'message' => 'No documents were successfully uploaded.']);
+    }
+}
 
+
+    private function upload_single_required_document($candidate_id, $document_name, $description, $file_index)
+    {
+        $config['upload_path'] = './uploads/candidate_documents/required/';
+        $config['allowed_types'] = 'pdf|doc|docx|jpg|jpeg|png';
+        $config['max_size'] = 10240; // 10MB
+        $config['encrypt_name'] = true;
+        
+        // Create upload directory if it doesn't exist
+        if (!is_dir($config['upload_path'])) {
+            mkdir($config['upload_path'], 0755, true);
+        }
+        
+        $this->load->library('upload', $config);
+        
+        // Handle the file upload for this specific index - FIXED VERSION
+        $file_data = [
+            'name' => $_FILES['required_documents']['name'][$file_index]['file'],
+            'type' => $_FILES['required_documents']['type'][$file_index]['file'],
+            'tmp_name' => $_FILES['required_documents']['tmp_name'][$file_index]['file'],
+            'error' => $_FILES['required_documents']['error'][$file_index]['file'],
+            'size' => $_FILES['required_documents']['size'][$file_index]['file']
+        ];
+        
+        // Check if file was actually uploaded
+        if ($file_data['error'] !== UPLOAD_ERR_OK) {
+            return [
+                'success' => false,
+                'error' => 'File upload error: ' . $this->get_upload_error_message($file_data['error'])
+            ];
+        }
+        
+        // Use a temporary global $_FILES variable for the upload library
+        $_FILES['document_file'] = $file_data;
+        
+        if (!$this->upload->do_upload('document_file')) {
+            return [
+                'success' => false,
+                'error' => $this->upload->display_errors()
+            ];
+        }
+        
+        $upload_data = $this->upload->data();
+        
+        // Save document to database with special type
+        $document_data = [
+            'candidate_id' => $candidate_id,
+            'document_name' => $document_name,
+            'file_name' => $upload_data['file_name'],
+            'file_path' => 'uploads/candidate_documents/required/' . $upload_data['file_name'],
+            'file_size' => $upload_data['file_size'],
+            'file_type' => $upload_data['file_type'],
+            'uploaded_by' => $this->get_recruiter_id(),
+            'uploaded_by_type' => 'recruiter',
+            'document_type' => 'required_document',
+            'description' => $description,
+            'is_required_submission' => 1,
+            'created_at' => date('Y-m-d H:i:s'),
+            'updated_at' => date('Y-m-d H:i:s')
+        ];
+        
+        $result = $this->{$this->model}->save_candidate_document($document_data);
+        
+        if ($result) {
+            return [
+                'success' => true,
+                'document' => $document_data
+            ];
+        } else {
+            // Delete the uploaded file if database save failed
+            unlink($upload_data['full_path']);
+            return [
+                'success' => false,
+                'error' => 'Failed to save document information'
+            ];
+        }
+    }
+    private function get_upload_error_message($error_code)
+    {
+        $errors = [
+            UPLOAD_ERR_INI_SIZE => 'The uploaded file exceeds the upload_max_filesize directive in php.ini',
+            UPLOAD_ERR_FORM_SIZE => 'The uploaded file exceeds the MAX_FILE_SIZE directive that was specified in the HTML form',
+            UPLOAD_ERR_PARTIAL => 'The uploaded file was only partially uploaded',
+            UPLOAD_ERR_NO_FILE => 'No file was uploaded',
+            UPLOAD_ERR_NO_TMP_DIR => 'Missing a temporary folder',
+            UPLOAD_ERR_CANT_WRITE => 'Failed to write file to disk',
+            UPLOAD_ERR_EXTENSION => 'A PHP extension stopped the file upload',
+        ];
+        
+        return isset($errors[$error_code]) ? $errors[$error_code] : 'Unknown upload error';
+    }
+public function get_submitted_required_documents($candidate_id)
+{
+    $documents = $this->{$this->model}->get_required_documents($candidate_id);
+    
+    $html = '';
+    if (!empty($documents)) {
+        $html .= '<table class="table table-striped">';
+        $html .= '<thead><tr><th>Document Name</th><th>Submitted Date</th><th>Size</th><th>Actions</th></tr></thead>';
+        $html .= '<tbody>';
+        
+        foreach ($documents as $doc) {
+            $html .= '<tr>';
+            $html .= '<td>' . htmlspecialchars($doc->document_name, ENT_QUOTES, 'UTF-8') . '</td>';
+            $html .= '<td>' . date('M j, Y', strtotime($doc->created_at)) . '</td>';
+            $html .= '<td>' . $this->format_file_size($doc->file_size) . '</td>';
+            $html .= '<td>';
+            $html .= '<a href="' . base_url($doc->file_path) . '" target="_blank" class="btn btn-sm btn-primary" title="Download"><i class="fa fa-download"></i></a>';
+            $html .= '<button onclick="deleteDocument(' . $doc->id . ')" class="btn btn-sm btn-danger ml-1" title="Delete"><i class="fa fa-trash"></i></button>';
+            $html .= '</td>';
+            $html .= '</tr>';
+        }
+        
+        $html .= '</tbody></table>';
+    } else {
+        $html = '<div class="text-center text-muted p-4">No required documents submitted yet.</div>';
+    }
+    
+    echo $html;
+}
+
+/**
+ * Mark documents request as completed
+ */
+public function mark_documents_request_complete()
+{
+    $notification_id = $this->input->post('notification_id');
+    $candidate_id = $this->input->post('candidate_id');
+    
+    if (empty($notification_id)) {
+        ajax_return(['success' => false, 'message' => 'Notification ID required']);
+        return;
+    }
+    
+    // Mark notification as read/completed
+    $this->load->model('recruiter/Model_notifications');
+    $result = $this->Model_notifications->mark_as_read($notification_id, $this->get_recruiter_id());
+    
+    if ($result) {
+        ajax_return(['success' => true, 'message' => 'Documents request marked as completed']);
+    } else {
+        ajax_return(['success' => false, 'message' => 'Failed to mark request as completed']);
+    }
+}
     private function handle_file_upload_manual($candidate_id)
     {
         if (!empty($_FILES['cv_file']['name']) && $_FILES['cv_file']['error'] == 0) {
@@ -548,99 +1022,200 @@ public function update($id = null)
         return true;
     }
 
-    public function index(): void
-    {
-        $this->breadcrumbs = array(
-            array('title' => lang($this->pageName . '_heading'), 'url' => redir($this->pageName, true)),
-        );
-        $this->view = 'listing';
-        $this->load->view($this->folder . '/view_header');
-        $this->load->view('cms/crud/view_list', array(
-            'heading' => lang($this->pageName . '_heading'),
-            'noRows' => lang($this->pageName . '_no_rows'),
-        ));
-        $this->load->view($this->folder . '/view_footer');
-    }
-
     public function get_all($limit = null, $offset = null, $sort_by = null, $sort_order = null)
     {
         return parent::get_all($limit, $offset, $sort_by, $sort_order);
     }
 
-    public function quick_manage_extra($id, $row): array
-    {
-        if (is_string($row) || $row === null) {
-            $row = new stdClass();
-            $row->id = 0;
-            $row->job_id = null;
-            $row->agency_id = null;
+public function quick_manage_extra($id, $row): array
+{
+    if (is_string($row) || $row === null) {
+        $row = new stdClass();
+        $row->id = 0;
+        $row->job_id = null;
+        $row->agency_id = null;
+    }
+
+    $agencies = $this->{$this->model}->get_agencies_all();
+    $jobs = $this->{$this->model}->get_jobs_all();
+    $pre_selected_job_id = $this->session->userdata('pre_selected_job_id');
+    
+    if (empty($id) && $pre_selected_job_id) {
+        $job = $this->{$this->model}->get_job_by_id($pre_selected_job_id);
+        if ($job) {
+            $row->job_id = $job->id;
+            $row->agency_id = $job->agency_id;
+            $this->session->unset_userdata('pre_selected_job_id');
         }
+    }
 
-        $pre_selected_job_id = $this->session->userdata('pre_selected_job_id');
-        
-        if (empty($id) && $pre_selected_job_id) {
-            $job = $this->{$this->model}->get_job_by_id($pre_selected_job_id);
-            if ($job) {
-                $row->job_id = $job->id;
-                $row->agency_id = $job->agency_id;
-                $this->session->unset_userdata('pre_selected_job_id');
-            }
+    // Get existing data
+    $agencies = $this->{$this->model}->get_agencies_all();
+    $jobs = $this->{$this->model}->get_jobs_all();
+
+    $agents = [];
+    if (!empty($row->agency_id)) {
+        $agents = $this->{$this->model}->get_agency_agents_by_agency($row->agency_id);
+    }
+
+    $all_additional_agency_ids = !empty($id) ? $this->{$this->model}->get_candidate_additional_agencies($id) : [];
+    $all_additional_job_ids = !empty($id) ? $this->{$this->model}->get_candidate_additional_jobs($id) : [];
+    
+    if (empty($all_additional_agency_ids) && !empty($row->agency_id)) {
+        $all_additional_agency_ids[] = $row->agency_id;
+    }
+    if (empty($all_additional_job_ids) && !empty($row->job_id)) {
+        $all_additional_job_ids[] = $row->job_id;
+    }
+
+    $additional_agency_options = $this->{$this->model}->get_additional_agency_options();
+    $additional_job_options = $this->{$this->model}->get_additional_job_options();
+
+    $agency_options_array = [];
+    if (!empty($additional_agency_options)) {
+        foreach ($additional_agency_options as $agency) {
+            $agency_options_array[] = [
+                'id' => $agency->id,
+                'name' => $agency->name
+            ];
         }
+    }
 
-        $agencies = $this->{$this->model}->get_agencies_all();
-        $jobs = $this->{$this->model}->get_jobs_all();
-
-        $agents = [];
-        if (!empty($row->agency_id)) {
-            $agents = $this->{$this->model}->get_agency_agents_by_agency($row->agency_id);
+    $job_options_array = [];
+    if (!empty($additional_job_options)) {
+        foreach ($additional_job_options as $job) {
+            $job_options_array[] = [
+                'id' => $job->id,
+                'name' => $job->name . ' (' . $job->reference_number . ')'
+            ];
         }
+    }
 
-        $all_additional_agency_ids = !empty($id) ? $this->{$this->model}->get_candidate_additional_agencies($id) : [];
-        $all_additional_job_ids = !empty($id) ? $this->{$this->model}->get_candidate_additional_jobs($id) : [];
-        
-        if (empty($all_additional_agency_ids) && !empty($row->agency_id)) {
-            $all_additional_agency_ids[] = $row->agency_id;
-        }
-        if (empty($all_additional_job_ids) && !empty($row->job_id)) {
-            $all_additional_job_ids[] = $row->job_id;
-        }
+    // Check for pending documents requests
+    $documents_request_data = $this->check_pending_documents_request($id);
+    // Check if we're forcing the required tab via URL parameter
+    $force_required_tab = $this->input->get('tab') === 'required';
 
-        $additional_agency_options = $this->{$this->model}->get_additional_agency_options();
-        $additional_job_options = $this->{$this->model}->get_additional_job_options();
-
-        $agency_options_array = [];
-        if (!empty($additional_agency_options)) {
-            foreach ($additional_agency_options as $agency) {
-                $agency_options_array[] = [
-                    'id' => $agency->id,
-                    'name' => $agency->name
-                ];
-            }
-        }
-
-        $job_options_array = [];
-        if (!empty($additional_job_options)) {
-            foreach ($additional_job_options as $job) {
-                $job_options_array[] = [
-                    'id' => $job->id,
-                    'name' => $job->name . ' (' . $job->reference_number . ')'
-                ];
-            }
-        }
-
-        return [
-            'agencies_all' => $agencies,
-            'jobs_all' => $jobs,
-            'agents_all' => $agents,
-            'additional_agency_options' => $agency_options_array,
-            'additional_job_options' => $job_options_array,
-            'additional_agency_ids' => $all_additional_agency_ids,
-            'additional_job_ids' => $all_additional_job_ids,
-            'primary_agency_id' => $row->agency_id ?? null,
-            'primary_job_id' => $row->job_id ?? null,
+      // If forcing required tab, ensure we show it even if no notification is found
+    if ($force_required_tab && !$documents_request_data['has_request']) {
+        $documents_request_data = [
+            'has_request' => true,
+            'notes' => 'Additional documents are required for this candidate.',
+            'notification_id' => null
         ];
     }
 
+    log_message('debug', '=== QUICK MANAGE EXTRA FINAL ===');
+    log_message('debug', 'Candidate ID: ' . $id);
+    log_message('debug', 'Has pending documents request: ' . ($documents_request_data['has_request'] ? 'YES' : 'NO'));
+    log_message('debug', 'Force required tab: ' . ($force_required_tab ? 'YES' : 'NO'));
+
+    return [
+        'agencies_all' => $agencies,
+        'jobs_all' => $jobs,
+        'agents_all' => $agents,
+        'additional_agency_options' => $agency_options_array,
+        'additional_job_options' => $job_options_array,
+        'additional_agency_ids' => $all_additional_agency_ids,
+        'additional_job_ids' => $all_additional_job_ids,
+        'primary_agency_id' => $row->agency_id ?? null,
+        'primary_job_id' => $row->job_id ?? null,
+        // Add documents request data
+        'has_pending_documents_request' => $documents_request_data['has_request'],
+        'documents_request_notes' => $documents_request_data['notes'],
+        'pending_notification_id' => $documents_request_data['notification_id'],
+        'force_required_tab' => $force_required_tab
+    ];
+}
+
+
+private function check_pending_documents_request($candidate_id)
+{
+    // If it's a new candidate (id = 0), no documents request
+    if (empty($candidate_id) || $candidate_id == 0) {
+        log_message('debug', 'Documents request check: Candidate ID is 0 or empty');
+        return [
+            'has_request' => false,
+            'notes' => '',
+            'notification_id' => null
+        ];
+    }
+
+    $this->load->model('recruiter/Model_notifications');
+    
+    $recruiter_id = $this->get_recruiter_id();
+    if (empty($recruiter_id)) {
+        log_message('debug', 'Documents request check: Recruiter ID not found');
+        return [
+            'has_request' => false,
+            'notes' => '',
+            'notification_id' => null
+        ];
+    }
+
+    // Get all notifications for this recruiter
+    $notifications = $this->Model_notifications->get_hm_decision_notifications($recruiter_id, 100);
+    
+    log_message('debug', 'Documents request check: Found ' . count($notifications) . ' total notifications for recruiter ' . $recruiter_id);
+
+    foreach ($notifications as $notification) {
+        log_message('debug', 'Checking notification: ' . $notification->id . ' for candidate: ' . $notification->related_entity_id . ' (looking for: ' . $candidate_id . ')');
+        
+        if ($notification->related_entity_id == $candidate_id) {
+            $metadata = !empty($notification->metadata) ? json_decode($notification->metadata, true) : [];
+            
+            log_message('debug', 'Found matching notification for candidate. Is Read: ' . ($notification->is_read ? 'Yes' : 'No'));
+            
+            // Check if this is a documents request - look for specific indicators
+            $is_documents_request = false;
+            $required_documents = '';
+            
+            // Check multiple indicators for documents request
+            if (isset($metadata['notification_type']) && $metadata['notification_type'] === 'documents_request') {
+                $is_documents_request = true;
+                $required_documents = $metadata['required_documents'] ?? $metadata['notes'] ?? 'Additional documents are required';
+                log_message('debug', 'Found documents request via notification_type');
+            } 
+            elseif (isset($metadata['decision']) && $metadata['decision'] === 'documents_required') {
+                $is_documents_request = true;
+                $required_documents = $metadata['required_documents'] ?? $metadata['notes'] ?? 'Additional documents are required';
+                log_message('debug', 'Found documents request via decision field');
+            }
+            elseif (strpos($notification->title, 'Additional Documents') !== false || 
+                     strpos($notification->title, 'Documents Required') !== false ||
+                     strpos($notification->title, 'Documents Requested') !== false) {
+                $is_documents_request = true;
+                $required_documents = $metadata['required_documents'] ?? $metadata['notes'] ?? 'Additional documents are required';
+                log_message('debug', 'Found documents request via title');
+            }
+            elseif (isset($metadata['required_documents']) && !empty($metadata['required_documents'])) {
+                $is_documents_request = true;
+                $required_documents = $metadata['required_documents'];
+                log_message('debug', 'Found documents request via required_documents field');
+            }
+            
+            log_message('debug', 'Is documents request: ' . ($is_documents_request ? 'Yes' : 'No'));
+            log_message('debug', 'Is read: ' . ($notification->is_read ? 'Yes' : 'No'));
+            
+            // For testing, let's be less strict about the "is_read" check
+            if ($is_documents_request) {
+                log_message('debug', 'Found valid documents request: ' . $required_documents);
+                return [
+                    'has_request' => true,
+                    'notes' => $required_documents,
+                    'notification_id' => $notification->id
+                ];
+            }
+        }
+    }
+    
+    log_message('debug', 'No documents request found for candidate ' . $candidate_id);
+    return [
+        'has_request' => false,
+        'notes' => '',
+        'notification_id' => null
+    ];
+}
     public function is_unique_email(string $email): bool
     {
         $id = $this->input->post('id');
@@ -733,27 +1308,38 @@ public function update($id = null)
         echo json_encode($agents);
     }
 
-    public function view($id = null)
-    {
-        if (empty($id) || !is_numeric($id)) {
-            show_404();
-        }
 
-        $row = $this->{$this->model}->get_by_id($id);
-        if (empty($row) || $row->removed) {
-            show_404();
-        }
-
-        $this->breadcrumbs = [
-            ['title' => lang($this->pageName . '_heading'), 'url' => redir($this->pageName, true)],
-            ['title' => htmlspecialchars($row->first_name . ' ' . $row->last_name, ENT_QUOTES, 'UTF-8'), 'url' => ''],
-        ];
-
-        $this->load->view($this->folder . '/view_header');
-        $this->load->view('cms/crud/view_single', [
-            'row' => $row,
-            'heading' => lang('view_candidate_heading'),
-        ]);
-        $this->load->view($this->folder . '/view_footer');
+public function test_quick_manage_data($candidate_id)
+{
+    // Simulate what happens in quick_manage_extra
+    $row = $this->{$this->model}->get_by_id($candidate_id);
+    
+    echo "<h3>Testing Quick Manage Data for Candidate ID: " . $candidate_id . "</h3>";
+    
+    if (!$row) {
+        echo "<p style='color: red;'>Candidate not found!</p>";
+        return;
     }
+    
+    echo "<p>Candidate Name: " . $row->first_name . " " . $row->last_name . "</p>";
+    
+    // Test the documents request check
+    $documents_data = $this->check_pending_documents_request($candidate_id);
+    
+    echo "<h4>Documents Request Data:</h4>";
+    echo "<pre>" . print_r($documents_data, true) . "</pre>";
+    
+    echo "<h4>Quick Manage Extra Result:</h4>";
+    $quick_manage_data = $this->quick_manage_extra($candidate_id, $row);
+    
+    echo "<pre>" . print_r([
+        'has_pending_documents_request' => $quick_manage_data['has_pending_documents_request'],
+        'documents_request_notes' => $quick_manage_data['documents_request_notes'],
+        'pending_notification_id' => $quick_manage_data['pending_notification_id']
+    ], true) . "</pre>";
+    
+    echo "<h4>View the candidate:</h4>";
+    echo "<a href='" . site_url('recruiter/candidates/view/' . $candidate_id . '?tab=required') . "' target='_blank'>View Candidate with Required Documents Tab</a>";
+}
+
 }

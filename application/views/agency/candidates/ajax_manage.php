@@ -174,11 +174,30 @@ a.btn.btn-primary.add-item {
     border-left: 4px solid #007bff;
     padding: 15px;
     margin-top: 20px;
+    border-radius: 5px;
 }
 
 .info-box h4 {
     margin-top: 0;
     color: #007bff;
+    border-bottom: 1px solid #dee2e6;
+    padding-bottom: 8px;
+    margin-bottom: 12px;
+}
+
+.info-box p {
+    margin-bottom: 8px;
+    font-size: 14px;
+}
+
+.text-success {
+    color: #28a745 !important;
+    font-weight: bold;
+}
+
+.text-danger {
+    color: #dc3545 !important;
+    font-weight: bold;
 }
 </style>
 
@@ -333,6 +352,48 @@ a.btn.btn-primary.add-item {
 
         <!-- Tab 3: Application Details (Status and notes are editable) -->
         <div rel="3" class="qm-tabs-tab active">
+            <!-- ADD ONBOARDING STATUS DISPLAY HERE -->
+            <?php if (!empty($row)): ?>
+            <div class="row">
+                <div class="col-lg-12">
+                    <div class="info-box">
+                        <h4>Onboarding Progress</h4>
+                        <p><strong>Current Stage:</strong>
+                            <?php 
+                            $stage_labels = [
+                                'not_started' => 'Not Started',
+                                'stage_under_review' => 'Under Review',
+                                'stage_submitted_to_hm' => 'Submitted to HM',
+                                'stage_hm_decision' => 'HM Decision',
+                                'stage_requested_docs' => 'Requested Documents',
+                                'stage_position_offered' => 'Position Offered',
+                                'completed' => 'Completed'
+                            ];
+                            echo $stage_labels[$row->onboarding_stage] ?? 'Not Started';
+                            ?>
+                        </p>
+                        <p><strong>Progress:</strong> <?= round($row->onboarding_progress) ?>%</p>
+                        <?php if ($row->onboarding_completed_at): ?>
+                        <p><strong>Completed On:</strong>
+                            <?= date('j M Y, H:i', strtotime($row->onboarding_completed_at)) ?></p>
+                        <?php endif; ?>
+
+                        <!-- Show HM Decision if available -->
+                        <?php if (!empty($row->hm_decision)): ?>
+                        <p><strong>HM Decision:</strong>
+                            <span class="<?= $row->hm_decision === 'accepted' ? 'text-success' : 'text-danger' ?>">
+                                <?= ucfirst($row->hm_decision) ?>
+                            </span>
+                            <?php if ($row->hm_decision_at): ?>
+                            (<?= date('j M Y', strtotime($row->hm_decision_at)) ?>)
+                            <?php endif; ?>
+                        </p>
+                        <?php endif; ?>
+                    </div>
+                </div>
+            </div>
+            <?php endif; ?>
+
             <div class="row">
                 <div class="col-lg-6">
                     <?= field_dropdown('status|label_status', 

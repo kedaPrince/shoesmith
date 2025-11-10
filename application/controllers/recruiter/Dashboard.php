@@ -295,4 +295,74 @@ public function test_hm_endpoint() {
     // Test the method directly
     $this->get_hm_decision_notifications();
 }
+
+/**
+ * Upload document for candidate (called from notifications)
+ */
+public function upload_document() {
+    $candidate_id = $this->input->post('candidate_id');
+    $notification_id = $this->input->post('notification_id');
+    $document_name = $this->input->post('document_name');
+    $document_type = $this->input->post('document_type');
+    $description = $this->input->post('description');
+
+    // Check if file was uploaded
+    if (empty($_FILES['document_file']['name'])) {
+        ajax_return(['success' => false, 'message' => 'Please select a file to upload.']);
+        return;
+    }
+
+    // Upload configuration
+    $config['upload_path'] = './uploads/candidate_documents/';
+    $config['allowed_types'] = 'pdf|doc|docx|jpg|jpeg|png';
+    $config['max_size'] = 10240; // 10MB
+    $config['encrypt_name'] = true;
+
+    // Create upload directory if it doesn't exist
+    if (!is_dir($config['upload_path'])) {
+        mkdir($config['upload_path'], 0755, true);
+    }
+
+    $this->load->library('upload', $config);
+
+    if (!$this->upload->do_upload('document_file')) {
+        ajax_return(['success' => false, 'message' => $this->upload->display_errors()]);
+        return;
+    }
+
+    $upload_data = $this->upload->data();
+
+    // Save document to database
+    $document_data = [
+        'candidate_id' => $candidate_id,
+        'document_name' => $document_name,
+        'file_name' => $upload_data['file_name'],
+        'file_path' => 'uploads/candidate_documents/' . $upload_data['file_name'],
+        'file_size' => $upload_data['file_size'],
+        'file_type' => $upload_data['file_type'],
+        'uploaded_by' => loginID('recruiter'),
+        'uploaded_by_type' => 'recruiter',
+        'document_type' => $document_type,
+        'description' => $description,
+        'created_at' => date('Y-m-d H:i:s'),
+        'updated_at' => date('Y-m-d H:i:s')
+    ];
+
+    $this->load->model('recruiter/Model_candidates');
+    $result = $this->Model_candidates->save_candidate_document($document_data);
+
+    if ($result) {
+        // Send notification to agency
+        $this->load->model('recruiter/Model_notifications');
+        $this->Model_notifications->create_documents_uploaded_notification($candidate_id, loginID('recruiter'), 1);
+
+        // Mark the original notification as read
+        $this->load->model('recruiter/Model_notifications');
+        $this->Model_notifications->mark_as_read($notification_id, loginID('recruiter'));
+
+        ajax_return(['success' => true, 'message' => 'Document uploaded successfully!']);
+    } else {
+        ajax_return(['success' => false, 'message' => 'Failed to save document information.']);
+    }
+}
 }

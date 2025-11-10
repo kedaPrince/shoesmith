@@ -51,15 +51,7 @@ class Model_candidates extends CRUD_Model
         return $this->db->where('removed', 0)->count_all_results($this->table);
     }
 
-    public function is_unique_email($email, $id = "")
-    {
-        $this->db->where('email', $email);
-        $this->db->where('enabled', 1);
-        if (!empty($id)) {
-            $this->db->where('id !=', $id);
-        }
-        return $this->db->get($this->table)->num_rows() == 0;
-    }
+ 
 
     public function get_agencies_all()
     {
@@ -94,37 +86,7 @@ class Model_candidates extends CRUD_Model
                         ->result();
     }
 
-    /**
-     * Generate reference number for new candidates
-     */
-    public function generate_reference_number()
-    {
-        try {
-            $prefix = 'CAND';
-            $year = date('Y');
-            
-            // Count candidates created this year
-            $this->db->where('YEAR(created_at)', $year);
-            $this->db->where('enabled', 1);
-            $this->db->where('removed', 0);
-            $count = $this->db->count_all_results($this->table);
-            
-            $sequence = $count + 1;
-            $reference = $prefix . '-' . $year . '-' . str_pad($sequence, 4, '0', STR_PAD_LEFT);
-            
-            // Log for debugging
-            log_message('debug', "Generated reference number: {$reference} (count: {$count})");
-            
-            return $reference;
-        } catch (Exception $e) {
-            error_log('Error in generate_reference_number: ' . $e->getMessage());
-            // Fallback reference
-            $prefix = 'CAND';
-            $year = date('Y');
-            $timestamp = time() % 10000;
-            return $prefix . '-' . $year . '-' . str_pad($timestamp, 4, '0', STR_PAD_LEFT);
-        }
-    }
+    
 
     // Get additional agencies assigned to candidate
     public function get_candidate_additional_agencies($candidate_id)
@@ -200,6 +162,218 @@ public function get_job_by_id($job_id)
                     ->where('mj.removed', 0)
                     ->get()
                     ->row();
+}
+
+/**
+     * Get candidate details
+     */
+    public function get_candidate($id)
+    {
+        $this->db->select('c.*, j.name as job_name, j.reference_number as job_ref');
+        $this->db->from('candidates c');
+        $this->db->join('mod_jobs j', 'j.id = c.job_id', 'left');
+        $this->db->where('c.id', $id);
+        $this->db->where('c.removed', 0);
+        
+        return $this->db->get()->row();
+    }
+
+    /**
+     * Save candidate document
+     */
+    public function save_candidate_document($data)
+    {
+        return $this->db->insert('candidate_documents', $data);
+    }
+
+    /**
+     * Get candidate documents
+     */
+    public function get_candidate_documents($candidate_id)
+    {
+        return $this->db->where('candidate_id', $candidate_id)
+                        ->where('removed', 0)
+                        ->order_by('created_at', 'DESC')
+                        ->get('candidate_documents')
+                        ->result();
+    }
+
+    /**
+     * Get single document
+     */
+    public function get_document($document_id)
+    {
+        return $this->db->where('id', $document_id)
+                        ->where('removed', 0)
+                        ->get('candidate_documents')
+                        ->row();
+    }
+
+    /**
+     * Delete candidate document (soft delete)
+     */
+    public function delete_candidate_document($document_id)
+    {
+        return $this->db->where('id', $document_id)
+                        ->update('candidate_documents', [
+                            'removed' => 1,
+                            'updated_at' => date('Y-m-d H:i:s')
+                        ]);
+    }
+
+    /**
+     * Check if recruiter has access to candidate
+     */
+    public function check_recruiter_candidate_access($recruiter_id, $candidate_id)
+    {
+        // Get recruiter's agency
+        $recruiter = $this->db->select('agency_id')
+                             ->from('recruiters')
+                             ->where('id', $recruiter_id)
+                             ->where('enabled', 1)
+                             ->where('removed', 0)
+                             ->get()
+                             ->row();
+        
+        if (!$recruiter) {
+            return false;
+        }
+
+        // Check if candidate is associated with recruiter's agency
+        $this->db->select('1')
+                 ->from('candidate_agencies')
+                 ->where('candidate_id', $candidate_id)
+                 ->where('agency_id', $recruiter->agency_id);
+        
+        return $this->db->get()->row() !== null;
+    }
+
+    /**
+     * Main query for candidates listing
+     */
+    public function main_selects()
+    {
+        $this->db->select('candidates.*');
+        $this->db->select('mod_jobs.name as job_name');
+    }
+
+    public function main_joins()
+    {
+        $this->db->join('mod_jobs', 'mod_jobs.id = candidates.job_id', 'left');
+    }
+
+    public function main_wheres()
+    {
+        // Filter by recruiter's agency
+        $login_data = $this->session->userdata('login');
+        if (!empty($login_data['recruiter'])) {
+            $recruiter = $login_data['recruiter'];
+            $agency_id = $recruiter['agency_id'] ?? $recruiter['id'];
+            
+            $this->db->join('candidate_agencies ca', 'ca.candidate_id = candidates.id', 'inner');
+            $this->db->where('ca.agency_id', $agency_id);
+        }
+        
+        $this->db->where('candidates.removed', 0);
+    }
+
+    public function main_sorting()
+    {
+        $this->db->order_by('candidates.created_at', 'DESC');
+    }
+
+    /**
+     * Generate reference number for candidate
+     */
+    public function generate_reference_number()
+    {
+        $prefix = 'CAND';
+        $year = date('Y');
+        
+        // Get the last reference number
+        $this->db->select('reference_number')
+                 ->from('candidates')
+                 ->like('reference_number', $prefix . '-' . $year, 'after')
+                 ->order_by('id', 'DESC')
+                 ->limit(1);
+        
+        $last_ref = $this->db->get()->row();
+        
+        if ($last_ref) {
+            $last_number = intval(substr($last_ref->reference_number, -4));
+            $new_number = $last_number + 1;
+        } else {
+            $new_number = 1;
+        }
+        
+        return $prefix . '-' . $year . '-' . str_pad($new_number, 4, '0', STR_PAD_LEFT);
+    }
+
+    /**
+     * Check if email is unique
+     */
+    public function is_unique_email($email, $id = null)
+    {
+        $this->db->where('email', $email);
+        $this->db->where('removed', 0);
+        
+        if ($id) {
+            $this->db->where('id !=', $id);
+        }
+        
+        return $this->db->count_all_results('candidates') === 0;
+    }
+
+
+
+
+
+/**
+ * Check if required documents have been submitted and update stage
+ */
+public function check_and_update_documents_stage($candidate_id) {
+    // Get required documents
+    $required_documents = $this->get_required_documents($candidate_id);
+    
+    if (!empty($required_documents)) {
+        // Documents have been submitted, update the stage
+        $update_data = array(
+            'stage_requested_docs' => 1,
+            'stage_requested_docs_at' => date('Y-m-d H:i:s'),
+            'updated_at' => date('Y-m-d H:i:s')
+        );
+
+        $result = $this->db->where('id', $candidate_id)->update($this->table, $update_data);
+
+        if ($result) {
+            $this->update_onboarding_progress($candidate_id);
+            log_message('debug', "Documents stage updated for candidate {$candidate_id}");
+            return true;
+        }
+    }
+    
+    return false;
+}
+
+/**
+ * Get required documents for candidate (documents with type 'required_document')
+ */
+public function get_required_documents($candidate_id) {
+    $this->db->select('cd.*, 
+                      CASE 
+                          WHEN cd.uploaded_by_type = "recruiter" THEN CONCAT(r.first_name, " ", r.last_name)
+                          WHEN cd.uploaded_by_type = "agency" THEN CONCAT(a.first_name, " ", a.last_name)
+                          ELSE "System"
+                      END as uploader_name');
+    $this->db->from('candidate_documents cd');
+    $this->db->join('recruiters r', 'r.id = cd.uploaded_by AND cd.uploaded_by_type = "recruiter"', 'left');
+    $this->db->join('agency_staff a', 'a.id = cd.uploaded_by AND cd.uploaded_by_type = "agency"', 'left');
+    $this->db->where('cd.candidate_id', $candidate_id);
+    $this->db->where('cd.document_type', 'required_document'); // Filter for required documents
+    $this->db->where('cd.removed', 0);
+    $this->db->order_by('cd.created_at', 'DESC');
+    
+    return $this->db->get()->result();
 }
 
 }

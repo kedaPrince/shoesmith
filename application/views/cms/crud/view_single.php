@@ -106,13 +106,14 @@ if (!empty($submodules[$this->pageName])) {
         </div>
     </div>
 </div>
+
 <script>
-    window.addEventListener('DOMContentLoaded', (event) => {
-        ajax_get('ajax_quick_manage/<?= (!empty($id)?$id:0); ?>', '', function (d) {
-            if (d) {
-                open_qm(d);
-                $('body').addClass('qm-full-page');
-            }
-        });
+window.addEventListener('DOMContentLoaded', (event) => {
+    ajax_get('ajax_quick_manage/<?= (!empty($id)?$id:0); ?>', '', function(d) {
+        if (d) {
+            open_qm(d);
+            $('body').addClass('qm-full-page');
+        }
     });
+});
 </script>

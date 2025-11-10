@@ -165,9 +165,101 @@ class Candidates extends CRUD_Controller{
             ],
         );
     }
-/**
- * Onboarding Listing Page - Shows all candidates with onboarding status - FIXED
- */
+
+public function onboarding($candidate_id) 
+{
+    $agency_id = $this->get_user_agency_id();
+    
+    if (!$agency_id) {
+        show_error('Access denied', 403);
+    }
+
+    $subquery = $this->db->select('candidate_id')
+        ->from('candidate_agencies')
+        ->where('candidate_id', $candidate_id)
+        ->where('agency_id', $agency_id)
+        ->get_compiled_select();
+    
+    $this->db->select('c.*, j.name as job_name, j.reference_number as job_ref');
+    $this->db->from('candidates c');
+    $this->db->join('mod_jobs j', 'j.id = c.job_id', 'left');
+    $this->db->where('c.id', $candidate_id);
+    $this->db->where("c.id IN ($subquery)", null, false);
+    $this->db->where('c.removed', 0);
+    
+    $candidate = $this->db->get()->row();
+
+    if (empty($candidate)) {
+        show_404();
+    }
+
+    $this->db->where('candidate_id', $candidate_id);
+    $this->db->where('removed', 0);
+    $total_documents_count = $this->db->count_all_results('candidate_documents');
+
+    log_message('debug', "DIRECT DB CHECK - Total documents for candidate {$candidate_id}: {$total_documents_count}");
+
+    $required_documents = [];
+    $has_required_docs = false;
+    $can_mark_reviewed = false;
+    
+    try {
+        if (method_exists($this->{$this->model}, 'check_documents_submission_status')) {
+            $documents_status = $this->{$this->model}->check_documents_submission_status($candidate_id);
+            $required_documents = $documents_status['documents'] ?? [];
+            $has_required_docs = $documents_status['has_documents'] ?? false;
+            
+            $can_mark_reviewed = $has_required_docs && 
+                                !$candidate->stage_requested_docs && 
+                                isset($candidate->documents_required) && 
+                                $candidate->documents_required;
+
+            if ($total_documents_count > 0 && count($required_documents) === 0) {
+                log_message('debug', "FILTER ISSUE: Database has {$total_documents_count} documents but query returned 0");
+            }
+        } else {
+            log_message('error', 'check_documents_submission_status method not found in model');
+        }
+    } catch (Exception $e) {
+        log_message('error', 'Error loading required documents: ' . $e->getMessage());
+        $required_documents = [];
+        $has_required_docs = false;
+        $can_mark_reviewed = false;
+    }
+
+    log_message('debug', '=== DOCUMENTS DEBUG ===');
+    log_message('debug', 'Candidate ID: ' . $candidate_id);
+    log_message('debug', 'Has required docs: ' . ($has_required_docs ? 'YES' : 'NO'));
+    log_message('debug', 'Documents count: ' . count($required_documents));
+    log_message('debug', 'Can mark reviewed: ' . ($can_mark_reviewed ? 'YES' : 'NO'));
+    log_message('debug', 'Stage requested docs: ' . ($candidate->stage_requested_docs ? 'YES' : 'NO'));
+    log_message('debug', 'Documents required: ' . (isset($candidate->documents_required) ? ($candidate->documents_required ? 'YES' : 'NO') : 'NOT SET'));
+
+    $this->breadcrumbs = array(
+        array(
+            'title' => lang($this->pageName . '_heading'),
+            'url'   => redir($this->pageName, true)
+        ),
+        array(
+            'title' => htmlspecialchars($candidate->first_name . ' ' . $candidate->last_name, ENT_QUOTES, 'UTF-8'),
+            'url'   => redir($this->pageName . '/view/' . $candidate_id, true)
+        ),
+        array(
+            'title' => 'Onboarding',
+            'url'   => redir($this->pageName . '/onboarding/' . $candidate_id, true)
+        ),
+    );
+
+    $this->load->view($this->folder . '/view_header');
+    $this->load->view('agency/candidates/onboarding', array(
+        'candidate' => $candidate,
+        'heading' => 'Candidate Onboarding - ' . $candidate->first_name . ' ' . $candidate->last_name,
+        'required_documents' => $required_documents,
+        'has_required_docs' => $has_required_docs,
+        'can_mark_reviewed' => $can_mark_reviewed
+    ));
+    $this->load->view($this->folder . '/view_footer');
+}
 public function onboarding_listing() 
 {
     $agency_id = $this->get_user_agency_id();
@@ -190,14 +282,14 @@ public function onboarding_listing()
     // Get onboarding statistics - FIXED: Pass agency_id
     $stats = $this->{$this->model}->get_onboarding_stats($agency_id);
     
-    // Get candidates with onboarding progress - FIXED: Use ONLY pivot table for filtering
-    $this->db->select('c.*, j.name as job_name, ca.agency_id as pivot_agency_id');
+    // Get candidates with onboarding progress - FIXED: Use unique alias for pivot table
+    $this->db->select('c.*, j.name as job_name, ca_onboard.agency_id as pivot_agency_id');
     $this->db->from('candidates c');
-    $this->db->join('candidate_agencies ca', 'ca.candidate_id = c.id', 'inner');
+    $this->db->join('candidate_agencies ca_onboard', 'ca_onboard.candidate_id = c.id', 'inner'); // ✅ Unique alias
     $this->db->join('mod_jobs j', 'j.id = c.job_id', 'left');
     
     // ✅ CRITICAL: Filter ONLY by pivot table, ignore primary agency_id
-    $this->db->where('ca.agency_id', $agency_id);
+    $this->db->where('ca_onboard.agency_id', $agency_id); // ✅ Use unique alias
     $this->db->where('c.removed', 0);
     $this->db->group_by('c.id'); // Important: avoid duplicates
     $this->db->order_by('c.onboarding_progress', 'DESC');
@@ -247,57 +339,186 @@ public function onboarding_listing()
         return '<span class="label label-info">' . $current_stage . '</span>';
     }
 
- /**
- * Onboarding management page - FIXED with job information
+/**
+ * Upload document for candidate (Recruiter)
  */
-public function onboarding($id) {
-    $agency_id = $this->get_user_agency_id();
-    
-    if (!$agency_id) {
-        show_error('Access denied', 403);
+public function upload_document() {
+    $candidate_id = $this->input->post('candidate_id');
+    $document_name = $this->input->post('document_name');
+    $document_type = $this->input->post('document_type');
+    $description = $this->input->post('description');
+
+    // Check if file was uploaded
+    if (empty($_FILES['document_file']['name'])) {
+        ajax_return(['success' => false, 'message' => 'Please select a file to upload.']);
+        return;
     }
 
-    // ✅ FIXED: Include job information in the query
-    $this->db->select('c.*, j.name as job_name, j.reference_number as job_ref');
-    $this->db->from('candidates c');
-    $this->db->join('candidate_agencies ca', 'ca.candidate_id = c.id', 'inner');
-    $this->db->join('mod_jobs j', 'j.id = c.job_id', 'left'); // LEFT join to include job info
-    $this->db->where('c.id', $id);
-    $this->db->where('ca.agency_id', $agency_id);
-    $this->db->where('c.removed', 0);
-    
-    $candidate = $this->db->get()->row();
-    
-    if (!$candidate) {
-        show_error('Candidate not found or you do not have permission to access it.', 404);
+    // Upload configuration
+    $config['upload_path'] = './uploads/candidate_documents/';
+    $config['allowed_types'] = 'pdf|doc|docx|jpg|jpeg|png';
+    $config['max_size'] = 10240; // 10MB
+    $config['encrypt_name'] = true;
+
+    // Create upload directory if it doesn't exist
+    if (!is_dir($config['upload_path'])) {
+        mkdir($config['upload_path'], 0755, true);
     }
 
-    // Debug: Check what data we're getting
-    log_message('debug', "Onboarding candidate data - Job ID: " . ($candidate->job_id ?? 'NULL') . 
-               ", Job Name: " . ($candidate->job_name ?? 'NULL') . 
-               ", Job Ref: " . ($candidate->job_ref ?? 'NULL'));
+    $this->load->library('upload', $config);
 
-    $this->breadcrumbs = array(
-        array(
-            'title' => lang($this->pageName . '_heading'),
-            'url'   => redir($this->pageName, true)
-        ),
-        array(
-            'title' => 'Onboarding: ' . $candidate->first_name . ' ' . $candidate->last_name,
-            'url'   => redir($this->pageName . '/onboarding/' . $id, true)
-        ),
-    );
+    if (!$this->upload->do_upload('document_file')) {
+        ajax_return(['success' => false, 'message' => $this->upload->display_errors()]);
+        return;
+    }
 
-    $this->load->view($this->folder . '/' . 'view_header');
-    $this->load->view('agency/candidates/onboarding', array(
-        'candidate' => $candidate,
-        'heading'   => 'Onboarding: ' . $candidate->first_name . ' ' . $candidate->last_name,
-    ));
-    $this->load->view($this->folder . '/' . 'view_footer');
+    $upload_data = $this->upload->data();
+
+    // Save document to database
+    $document_data = [
+        'candidate_id' => $candidate_id,
+        'document_name' => $document_name,
+        'file_name' => $upload_data['file_name'],
+        'file_path' => 'uploads/candidate_documents/' . $upload_data['file_name'],
+        'file_size' => $upload_data['file_size'],
+        'file_type' => $upload_data['file_type'],
+        'uploaded_by' => loginID('recruiter'),
+        'uploaded_by_type' => 'recruiter',
+        'document_type' => $document_type,
+        'description' => $description,
+        'created_at' => date('Y-m-d H:i:s'),
+        'updated_at' => date('Y-m-d H:i:s')
+    ];
+
+    $this->load->model('recruiter/Model_candidates'); // Or your candidate model
+    $result = $this->Model_candidates->save_candidate_document($document_data);
+
+    if ($result) {
+        // Send notification to agency
+        $this->load->model('agency/Model_notifications');
+        $this->Model_notifications->create_documents_uploaded_notification($candidate_id, loginID('recruiter'), 1);
+
+        ajax_return(['success' => true, 'message' => 'Document uploaded successfully!']);
+    } else {
+        ajax_return(['success' => false, 'message' => 'Failed to save document information.']);
+    }
 }
 
 /**
- * Update HM decision via AJAX - FIXED with notification trigger
+ * Get documents for candidate (Both Recruiter and Agency)
+ */
+public function get_documents($candidate_id) {
+    $this->load->model('recruiter/Model_candidates'); // Or your candidate model
+    $documents = $this->Model_candidates->get_candidate_documents($candidate_id);
+    
+    $html = '';
+    if (!empty($documents)) {
+        foreach ($documents as $doc) {
+            $html .= '<tr>';
+            $html .= '<td>' . htmlspecialchars($doc->document_name) . '</td>';
+            $html .= '<td><span class="badge badge-info">' . ucfirst(str_replace('_', ' ', $doc->document_type)) . '</span></td>';
+            
+            if (user_type() == 'agency') {
+                $html .= '<td>' . htmlspecialchars($doc->uploader_name ?? 'Recruiter') . '</td>';
+            }
+            
+            $html .= '<td>' . date('M j, Y', strtotime($doc->created_at)) . '</td>';
+            $html .= '<td>' . $this->format_file_size($doc->file_size) . '</td>';
+            
+            if (user_type() == 'agency') {
+                $html .= '<td>';
+                $html .= '<a href="' . base_url($doc->file_path) . '" target="_blank" class="btn btn-sm btn-primary" title="Download"><i class="fa fa-download"></i></a>';
+                $html .= '</td>';
+            } else {
+                $html .= '<td>';
+                $html .= '<a href="' . base_url($doc->file_path) . '" target="_blank" class="btn btn-sm btn-primary" title="Download"><i class="fa fa-download"></i></a>';
+                $html .= '<button onclick="deleteDocument(' . $doc->id . ')" class="btn btn-sm btn-danger ml-1" title="Delete"><i class="fa fa-trash"></i></button>';
+                $html .= '</td>';
+            }
+            
+            $html .= '</tr>';
+        }
+    } else {
+        $html = '<tr><td colspan="6" class="text-center text-muted">No documents uploaded yet.</td></tr>';
+    }
+    
+    echo $html;
+}
+
+/**
+ * Format file size
+ */
+private function format_file_size($bytes) {
+    if ($bytes >= 1073741824) {
+        return number_format($bytes / 1073741824, 2) . ' GB';
+    } elseif ($bytes >= 1048576) {
+        return number_format($bytes / 1048576, 2) . ' MB';
+    } elseif ($bytes >= 1024) {
+        return number_format($bytes / 1024, 2) . ' KB';
+    } elseif ($bytes > 1) {
+        return $bytes . ' bytes';
+    } elseif ($bytes == 1) {
+        return '1 byte';
+    } else {
+        return '0 bytes';
+    }
+}
+
+
+/**
+ * Update onboarding stage via AJAX - with agency check AND status synchronization
+ */
+public function update_onboarding_stage() {
+    $candidate_id = $this->input->post('candidate_id');
+    $stage = $this->input->post('stage');
+    $value = $this->input->post('value');
+
+    // Verify the candidate belongs to the current agency via pivot table
+    $agency_id = $this->get_user_agency_id();
+    if ($agency_id) {
+        $exists = $this->db->select('1')
+            ->from('candidate_agencies')
+            ->where('candidate_id', $candidate_id)
+            ->where('agency_id', $agency_id)
+            ->get()
+            ->row();
+        
+        if (!$exists) {
+            ajax_return([
+                'success' => false,
+                'message' => 'Candidate not found or access denied'
+            ]);
+            return;
+        }
+    }
+
+    // ✅ FIX: When reopening Documents Decision stage, reset documents fields
+    if ($stage === 'stage_documents_decision' && $value == 0) {
+        $this->db->where('id', $candidate_id)->update('candidates', [
+            'documents_required' => null,
+            'documents_notes' => null,
+            'stage_documents_decision_at' => null,
+            'updated_at' => date('Y-m-d H:i:s')
+        ]);
+    }
+
+    $result = $this->{$this->model}->update_onboarding_stage($candidate_id, $stage, $value);
+
+    if ($result) {
+        ajax_return([
+            'success' => true,
+            'message' => 'Onboarding stage updated successfully'
+        ]);
+    } else {
+        ajax_return([
+            'success' => false,
+            'message' => 'Failed to update onboarding stage'
+        ]);
+    }
+}
+
+/**
+ * Update HM decision via AJAX - with status synchronization
  */
 public function update_hm_decision() {
     $candidate_id = $this->input->post('candidate_id');
@@ -323,9 +544,25 @@ public function update_hm_decision() {
         }
     }
 
+    // Map HM decision to status
+    $status_mapping = [
+        'accepted' => 'hired',
+        'rejected' => 'rejected'
+    ];
+
     $result = $this->{$this->model}->update_hm_decision($candidate_id, $decision, $notes);
 
     if ($result) {
+        // Update candidate status based on HM decision
+        if (isset($status_mapping[$decision])) {
+            $new_status = $status_mapping[$decision];
+            $this->db->where('id', $candidate_id)->update('candidates', [
+                'status' => $new_status,
+                'status_updated_at' => date('Y-m-d H:i:s'),
+                'updated_at' => date('Y-m-d H:i:s')
+            ]);
+        }
+
         // ✅ CRITICAL: Send notification to recruiters
         $this->send_hm_decision_notification($candidate_id, $decision, $notes);
 
@@ -334,14 +571,15 @@ public function update_hm_decision() {
         $this->{$this->model}->log_candidate_activity([
             'candidate_id' => $candidate_id,
             'action' => 'hm_decision_' . $decision_text,
-            'description' => 'Hiring Manager ' . $decision_text . ' the candidate' . ($notes ? ' with notes' : ''),
+            'description' => 'Hiring Manager ' . $decision_text . ' the candidate - Status updated to: ' . $new_status . ($notes ? ' with notes' : ''),
             'created_by' => loginID('agency'),
             'created_at' => date('Y-m-d H:i:s')
         ]);
 
         ajax_return([
             'success' => true,
-            'message' => 'Hiring Manager decision updated successfully'
+            'message' => 'Hiring Manager decision updated successfully',
+            'new_status' => $new_status ?? null
         ]);
     } else {
         ajax_return([
@@ -351,6 +589,262 @@ public function update_hm_decision() {
     }
 }
 
+/**
+ * Update documents decision via AJAX - FIXED VERSION
+ */
+public function update_documents_decision() {
+    // Check if it's an AJAX request
+    if (!$this->input->is_ajax_request()) {
+        show_404();
+    }
+
+    try {
+        $candidate_id = $this->input->post('candidate_id');
+        $documents_required = $this->input->post('documents_required');
+        $documents_notes = $this->input->post('documents_notes');
+
+        // Validate input
+        if (empty($candidate_id)) {
+            throw new Exception('Candidate ID is required');
+        }
+
+        if ($documents_required === '') {
+            throw new Exception('Please specify if documents are required');
+        }
+
+        // Verify the candidate belongs to the current agency via pivot table
+        $agency_id = $this->get_user_agency_id();
+        if ($agency_id) {
+            $exists = $this->db->select('1')
+                ->from('candidate_agencies')
+                ->where('candidate_id', $candidate_id)
+                ->where('agency_id', $agency_id)
+                ->get()
+                ->row();
+            
+            if (!$exists) {
+                throw new Exception('Candidate not found or access denied');
+            }
+        }
+
+        // Convert to boolean
+        $documents_required_bool = ($documents_required == '1');
+
+        // Update candidate record
+        $update_data = [
+            'stage_documents_decision' => 1,
+            'documents_required' => $documents_required_bool,
+            'documents_notes' => $documents_notes ?: null,
+            'stage_documents_decision_at' => date('Y-m-d H:i:s'),
+            'onboarding_stage' => 'stage_documents_decision',
+            'updated_at' => date('Y-m-d H:i:s')
+        ];
+
+        $this->db->where('id', $candidate_id);
+        $success = $this->db->update('candidates', $update_data);
+
+        if (!$success) {
+            throw new Exception('Failed to update database');
+        }
+
+        // ✅ FIX: Call the model method to update progress, not controller method
+        $this->{$this->model}->update_onboarding_progress($candidate_id);
+
+        // Send notification to recruiter if documents are required
+        if ($documents_required_bool) {
+            $this->send_documents_request_notification($candidate_id, $documents_notes);
+        }
+
+        // Log the activity
+        $decision_text = $documents_required_bool ? 'documents_required' : 'no_documents_required';
+        $this->{$this->model}->log_candidate_activity([
+            'candidate_id' => $candidate_id,
+            'action' => $decision_text,
+            'description' => $documents_required_bool ? 'Additional documents required: ' . $documents_notes : 'No additional documents required',
+            'created_by' => loginID('agency'),
+            'created_at' => date('Y-m-d H:i:s')
+        ]);
+
+        // Return proper JSON response
+        $this->output
+            ->set_content_type('application/json')
+            ->set_output(json_encode([
+                'success' => true,
+                'message' => 'Documents decision updated successfully'
+            ]));
+
+    } catch (Exception $e) {
+        // Return JSON error response
+        $this->output
+            ->set_content_type('application/json')
+            ->set_output(json_encode([
+                'success' => false,
+                'message' => $e->getMessage()
+            ]));
+    }
+}
+
+/**
+ * Calculate and update overall onboarding progress - FIXED VERSION
+ * Now handles skipped stages (like when documents are not required)
+ */
+private function update_onboarding_progress($candidate_id)
+{
+    $candidate = $this->get_candidate_details($candidate_id);
+    
+    if (!$candidate) {
+        log_message('error', "Candidate {$candidate_id} not found for progress update");
+        return;
+    }
+
+    // Define all stages including the new documents decision stage
+    $stages = [
+        'stage_under_review',
+        'stage_submitted_to_hm', 
+        'stage_hm_decision',
+        'stage_documents_decision', // NEW STAGE
+        'stage_requested_docs',
+        'stage_position_offered'
+    ];
+
+    $completed_stages = 0;
+    $total_considered_stages = count($stages); // Start with all stages
+    
+    // Count completed stages - safely check each stage
+    foreach ($stages as $stage) {
+        // Use isset to check if the property exists and is completed
+        if (isset($candidate->$stage) && $candidate->$stage == 1) {
+            $completed_stages++;
+        }
+    }
+
+    // ✅ CRITICAL FIX: Handle skipped stages (like when documents are not required)
+    // If documents are not required, then stage_requested_docs is automatically considered completed
+    if (isset($candidate->stage_documents_decision) && 
+        $candidate->stage_documents_decision == 1 && 
+        isset($candidate->documents_required) && 
+        $candidate->documents_required == 0) {
+        
+        // If documents are not required, automatically count stage_requested_docs as completed
+        if (!isset($candidate->stage_requested_docs) || $candidate->stage_requested_docs == 0) {
+            $completed_stages++; // Add stage_requested_docs to completed count
+            log_message('debug', "Auto-completing stage_requested_docs since documents are not required");
+        }
+        
+        // Also, if we're at position offered stage, make sure it's counted properly
+        if (isset($candidate->stage_position_offered) && $candidate->stage_position_offered == 1) {
+            // All stages should be considered complete
+            $completed_stages = count($stages);
+            log_message('debug', "All stages completed including skipped stage_requested_docs");
+        }
+    }
+
+    // Determine current stage
+    $current_stage = 'not_started';
+    
+    if ($completed_stages == count($stages)) {
+        $current_stage = 'completed';
+    } elseif ($completed_stages > 0) {
+        // Find the current active stage (first incomplete stage)
+        foreach ($stages as $stage) {
+            // Skip stage_requested_docs if documents are not required
+            if ($stage === 'stage_requested_docs' && 
+                isset($candidate->stage_documents_decision) && 
+                $candidate->stage_documents_decision == 1 && 
+                isset($candidate->documents_required) && 
+                $candidate->documents_required == 0) {
+                continue; // Skip this stage in current stage determination
+            }
+            
+            // Safely check if stage exists and is not completed
+            if (!isset($candidate->$stage) || $candidate->$stage == 0) {
+                $current_stage = $stage;
+                break;
+            }
+        }
+    }
+
+    // Update completion timestamp if all stages are done
+    if ($completed_stages == count($stages)) {
+        $this->db->where('id', $candidate_id)->update($this->table, [
+            'onboarding_completed_at' => date('Y-m-d H:i:s')
+        ]);
+    } else {
+        // Clear completion timestamp if not all stages are complete
+        $this->db->where('id', $candidate_id)->update($this->table, [
+            'onboarding_completed_at' => null
+        ]);
+    }
+
+    $progress_percentage = ($completed_stages / count($stages)) * 100;
+
+    $update_data = [
+        'onboarding_stage' => $current_stage,
+        'onboarding_progress' => $progress_percentage,
+        'updated_at' => date('Y-m-d H:i:s')
+    ];
+
+    $result = $this->db->where('id', $candidate_id)->update($this->table, $update_data);
+
+    // Debug logging
+    log_message('debug', "=== PROGRESS CALCULATION DEBUG ===");
+    log_message('debug', "Candidate: {$candidate_id}");
+    log_message('debug', "Stages completed: {$completed_stages}/" . count($stages));
+    log_message('debug', "Progress: {$progress_percentage}%");
+    log_message('debug', "Current stage: {$current_stage}");
+    log_message('debug', "Documents required: " . (isset($candidate->documents_required) ? $candidate->documents_required : 'NOT SET'));
+    log_message('debug', "Stage requested docs: " . (isset($candidate->stage_requested_docs) ? $candidate->stage_requested_docs : 'NOT SET'));
+    log_message('debug', "Stage position offered: " . (isset($candidate->stage_position_offered) ? $candidate->stage_position_offered : 'NOT SET'));
+    log_message('debug', "=== END PROGRESS DEBUG ===");
+
+    return $result;
+}
+/**
+ * Send documents request notification to recruiter
+ */
+private function send_documents_request_notification($candidate_id, $documents_notes) {
+    try {
+        // Load the agency notifications model
+        $this->load->model('agency/Model_notifications');
+        
+        // Get candidate details
+        $candidate = $this->{$this->model}->get_candidate_details($candidate_id);
+        
+        if (!$candidate) {
+            log_message('error', "Candidate {$candidate_id} not found for documents request notification");
+            return false;
+        }
+
+        // Get the agency ID that originally submitted this candidate
+        $submitting_agency_id = $this->get_submitting_agency_id($candidate_id);
+        
+        if (!$submitting_agency_id) {
+            log_message('error', "No submitting agency found for candidate {$candidate_id}");
+            return false;
+        }
+
+        // Send notification to all recruiters in the submitting agency
+        $notification_sent = $this->Model_notifications->create_documents_request_notification(
+            $candidate_id,
+            $candidate->job_id,
+            $submitting_agency_id,
+            $documents_notes,
+            $this->get_user_agency_id()
+        );
+
+        if ($notification_sent) {
+            log_message('debug', "Documents request notification sent for candidate {$candidate_id} to agency {$submitting_agency_id}");
+        } else {
+            log_message('error', "Failed to send documents request notification for candidate {$candidate_id}");
+        }
+
+        return $notification_sent;
+
+    } catch (Exception $e) {
+        log_message('error', 'Error sending documents request notification: ' . $e->getMessage());
+        return false;
+    }
+}
     /**
      * OVERRIDE: Update candidate - only allow status and notes updates for agencies
      */
@@ -398,64 +892,7 @@ public function update_hm_decision() {
         ));
     }
 
-    /**
- * Update onboarding stage via AJAX - with agency check
- */
-public function update_onboarding_stage() {
-    $candidate_id = $this->input->post('candidate_id');
-    $stage = $this->input->post('stage');
-    $value = $this->input->post('value');
 
-    // Verify the candidate belongs to the current agency via pivot table
-    $agency_id = $this->get_user_agency_id();
-    if ($agency_id) {
-        $exists = $this->db->select('1')
-            ->from('candidate_agencies')
-            ->where('candidate_id', $candidate_id)
-            ->where('agency_id', $agency_id)
-            ->get()
-            ->row();
-        
-        if (!$exists) {
-            ajax_return([
-                'success' => false,
-                'message' => 'Candidate not found or access denied'
-            ]);
-            return;
-        }
-    }
-
-    $result = $this->{$this->model}->update_onboarding_stage($candidate_id, $stage, $value);
-
-    if ($result) {
-        // Log the activity
-        $stage_labels = [
-            'stage_under_review' => 'Under Review',
-            'stage_submitted_to_hm' => 'Submitted to Hiring Manager',
-            'stage_requested_docs' => 'Requested Further Documents',
-            'stage_position_offered' => 'Position Offered'
-        ];
-
-        $action = $value ? 'completed' : 'reopened';
-        $this->{$this->model}->log_candidate_activity([
-            'candidate_id' => $candidate_id,
-            'action' => 'onboarding_stage_' . $action,
-            'description' => $stage_labels[$stage] . ' stage ' . $action,
-            'created_by' => loginID('agency'),
-            'created_at' => date('Y-m-d H:i:s')
-        ]);
-
-        ajax_return([
-            'success' => true,
-            'message' => 'Onboarding stage updated successfully'
-        ]);
-    } else {
-        ajax_return([
-            'success' => false,
-            'message' => 'Failed to update onboarding stage'
-        ]);
-    }
-}
 
     /**
      * Get onboarding statistics
@@ -470,11 +907,8 @@ public function update_onboarding_stage() {
         ]);
     }
 
-    /**
-     * OVERRIDE get_all to filter by agency_id - ENHANCED
-     */
 /**
- * OVERRIDE get_all to filter by agency assignment via pivot table
+ * OVERRIDE get_all to filter by agency assignment via pivot table - FIXED VERSION
  */
 public function get_all($limit = null, $offset = null, $sort_by = null, $sort_order = null)
 {
@@ -487,9 +921,9 @@ public function get_all($limit = null, $offset = null, $sort_by = null, $sort_or
         return parent::get_all($limit, $offset, $sort_by, $sort_order);
     }
 
-    // ✅ CRITICAL FIX: Use candidate_agencies pivot table to filter
-    $this->db->join('candidate_agencies ca', 'ca.candidate_id = candidates.id', 'inner');
-    $this->db->where('ca.agency_id', (int)$agency_id);
+    // ✅ CRITICAL FIX: Use DISTINCT alias for pivot table to avoid conflicts
+    $this->db->join('candidate_agencies ca_filter', 'ca_filter.candidate_id = candidates.id', 'inner');
+    $this->db->where('ca_filter.agency_id', (int)$agency_id);
     
     // Avoid duplicates if candidate is linked multiple times
     $this->db->group_by('candidates.id');
@@ -999,7 +1433,76 @@ private function send_hm_decision_notification($candidate_id, $decision, $notes 
     }
 
 
+/**
+ * Check and update documents stage when documents are viewed
+ */
+public function check_documents_submission($candidate_id) {
+    $result = $this->{$this->model}->check_and_update_documents_stage($candidate_id);
+    
+    if ($result) {
+        ajax_return([
+            'success' => true,
+            'message' => 'Documents stage updated successfully',
+            'stage_updated' => true
+        ]);
+    } else {
+        ajax_return([
+            'success' => false,
+            'message' => 'No required documents submitted yet',
+            'stage_updated' => false
+        ]);
+    }
+}
 
+/**
+ * Get required documents for candidate (AGENCY side - read only)
+ */
+public function get_required_documents($candidate_id) {
+    // Verify agency has access to this candidate
+    $agency_id = $this->get_current_agency_id();
+    
+    if (!$agency_id) {
+        log_message('error', "No agency ID found for documents query");
+        return [];
+    }
+    
+    $has_access = $this->check_agency_candidate_access($agency_id, $candidate_id);
+    
+    if (!$has_access) {
+        log_message('error', "Agency {$agency_id} attempted to access documents for unauthorized candidate {$candidate_id}");
+        return [];
+    }
+
+    log_message('debug', "Querying documents for candidate {$candidate_id} - ALL TYPES");
+
+    $this->db->select('cd.*, 
+                      CASE 
+                          WHEN cd.uploaded_by_type = "recruiter" THEN CONCAT(r.first_name, " ", r.last_name)
+                          WHEN cd.uploaded_by_type = "agency" THEN CONCAT(a.first_name, " ", a.last_name)
+                          ELSE "System"
+                      END as uploader_name');
+    $this->db->from('candidate_documents cd');
+    $this->db->join('recruiters r', 'r.id = cd.uploaded_by AND cd.uploaded_by_type = "recruiter"', 'left');
+    $this->db->join('agency_staff a', 'a.id = cd.uploaded_by AND cd.uploaded_by_type = "agency"', 'left');
+    $this->db->where('cd.candidate_id', $candidate_id);
+    $this->db->where('cd.removed', 0);
+    
+    // Remove the document_type filter entirely to get ALL documents
+    // $this->db->where_in('cd.document_type', [...]); // COMMENTED OUT
+    
+    $this->db->order_by('cd.created_at', 'DESC');
+    
+    $result = $this->db->get()->result();
+    
+    log_message('debug', "Found " . count($result) . " documents for candidate {$candidate_id}");
+    
+    // Log each document found
+    foreach ($result as $doc) {
+        log_message('debug', "Document: ID={$doc->id}, Name='{$doc->document_name}', Type='{$doc->document_type}', Created='{$doc->created_at}'");
+    }
+    
+    return $result;
+}
 
 
 }
