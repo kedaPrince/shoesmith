@@ -463,13 +463,14 @@ a.btn.btn-primary.add-item {
                         <div class="form-control-static">
                             <strong>
                                 <?php 
-                                    if (!empty($agencies_all) && is_object($agencies_all) && $agencies_all->num_rows() > 0) {
-                                        $agency = $agencies_all->row();
-                                        echo htmlspecialchars($agency->name, ENT_QUOTES, 'UTF-8');
-                                    } else {
-                                        echo 'Your Agency';
-                                    }
-                                ?>
+                            // FIXED: Remove the num_rows() check since $agencies_all is a single object
+                            if (!empty($agencies_all) && is_object($agencies_all)) {
+                                // $agencies_all is already the agency object, no need to call row()
+                                echo htmlspecialchars($agencies_all->name ?? 'Your Agency', ENT_QUOTES, 'UTF-8');
+                            } else {
+                                echo 'Your Agency';
+                            }
+                        ?>
                             </strong>
                         </div>
                     </div>

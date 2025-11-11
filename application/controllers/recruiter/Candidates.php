@@ -553,6 +553,10 @@ public function ajax_quick_manage($id = 0)
         log_message('debug', '=== UPDATE METHOD STARTED ===');
         log_message('debug', 'Candidate ID: ' . $id);
         log_message('debug', 'POST data: ' . print_r($this->input->post(), true));
+
+         // DEBUG: Check language file
+    $test_lang = lang('record_updated');
+    log_message('debug', 'LANGUAGE TEST - record_updated: ' . ($test_lang ? $test_lang : 'EMPTY OR MISSING'));
         
         if ($this->input->post()) {
             log_message('debug', 'POST request detected');
@@ -601,12 +605,21 @@ public function ajax_quick_manage($id = 0)
                         // Set success message
                         $this->session->set_flashdata('success', lang('record_updated'));
                         
-                        if ($this->input->is_ajax_request()) {
-                            echo json_encode(['success' => true, 'message' => lang('record_updated')]);
-                            return;
-                        } else {
-                            redirect(redir($this->pageName, true));
-                        }
+if ($this->input->is_ajax_request()) {
+    $response = [
+        'success' => true, 
+        'message' => lang('record_updated'),
+        'debug' => 'Update completed successfully'
+    ];
+    
+    // Set proper JSON headers
+    $this->output
+        ->set_content_type('application/json')
+        ->set_output(json_encode($response));
+    
+    log_message('debug', 'AJAX Response sent: ' . json_encode($response));
+    return;
+}
                     }
                 } catch (Exception $e) {
                     log_message('error', 'Update exception: ' . $e->getMessage());

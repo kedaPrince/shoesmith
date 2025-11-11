@@ -234,34 +234,34 @@
             <div class="row">
                 <div class="col-lg-6">
                     <?= field_multi_select('additional_agency_ids|label_agencies', 
-                $additional_agency_options, 
-                $additional_agency_ids,
-                'Select agencies (first selected becomes primary)',
-                [], // empty array for attributes instead of true
-                true // required - moved to the correct parameter position
-            ); ?>
-                    <small class="text-muted">First selected agency will be set as primary</small>
+            $additional_agency_options, 
+            $additional_agency_ids,
+            'Select agencies (first selected becomes primary)',
+            [], // empty array for attributes instead of true
+            true // required - moved to the correct parameter position
+        ); ?>
+                    <small class="text-muted"><?= lang('help_first_agency_primary') ?></small>
                 </div>
                 <div class="col-lg-6">
                     <?= field_multi_select('additional_job_ids|label_jobs', 
-                $additional_job_options, 
-                $additional_job_ids,
-                'Select jobs (first selected becomes primary)'
-            ); ?>
-                    <small class="text-muted">First selected job will be set as primary</small>
+            $additional_job_options, 
+            $additional_job_ids,
+            'Select jobs (first selected becomes primary)'
+        ); ?>
+                    <small class="text-muted"><?= lang('help_first_job_primary') ?></small>
                 </div>
             </div>
 
             <div class="row">
                 <div class="col-lg-6">
                     <?= field_dropdown('assigned_agent_id|label_assigned_agent', 
-                !empty($agents_all) ? array_reduce($agents_all, function($carry, $agent) {
-                    $carry[$agent->id] = $agent->first_name . ' ' . $agent->last_name;
-                    return $carry;
-                }, ['' => '-- Select Agent --']) : ['' => '-- Select Agency First --'], 
-                $row, 
-                ''
-            ); ?>
+            !empty($agents_all) ? array_reduce($agents_all, function($carry, $agent) {
+                $carry[$agent->id] = $agent->first_name . ' ' . $agent->last_name;
+                return $carry;
+            }, ['' => lang('select_assigned_agent')]) : ['' => '-- Select Agency First --'], 
+            $row, 
+            ''
+        ); ?>
                 </div>
             </div>
         </div>
@@ -377,395 +377,51 @@
         <div class="btn-container">
             <?= qm_tab_buttons(); ?>
             <?= qm_close_button(); ?>
-            <?= save_button('Save Candidate'); ?>
+            <button type="submit" class="btn btn-primary save-button">
+                <i class="fa fa-save"></i> Save Candidate
+            </button>
         </div>
         <?= form_close(); ?>
     </div>
 </div>
 
 <script>
-// SIMPLIFIED AND WORKING VERSION - WITH PROPER AJAX HANDLING
-$(document).ready(function() {
-    console.log('Document ready - Quick Manage Loaded');
+// ========== VANILLA JS FALLBACK ==========
+document.getElementById('mainCandidateForm').addEventListener('submit', function(e) {
+    e.preventDefault();
 
-    // Initialize required documents functionality if tab exists
-    if ($('.required-documents-tab').length) {
-        console.log('Required documents tab found, initializing...');
-        loadSubmittedRequiredDocuments();
+    var formData = new FormData(this);
+    var id = document.getElementById('id').value;
+    var action = id && id != '0' ?
+        '<?= site_url("recruiter/candidates/update") ?>/' + id :
+        '<?= site_url("recruiter/candidates/create") ?>';
 
-        // Auto-switch to required documents tab if needed
-        const urlParams = new URLSearchParams(window.location.search);
-        if (urlParams.get('tab') === 'required') {
-            console.log('Auto-switching to required documents tab');
-            setTimeout(() => {
-                $('.required-documents-tab').click();
-            }, 100);
-        }
-    }
+    var submitBtn = document.querySelector('.save-button');
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Saving...';
 
-    // Add more document fields - SIMPLE WORKING VERSION
-    $(document).on('click', '#addMoreDocuments', function() {
-        console.log('Add More Documents button clicked - WORKING');
-
-        const container = $('#documentUploadContainer');
-        const currentCount = container.find('.document-upload-row').length;
-        console.log('Current rows:', currentCount);
-
-        const newRow = `
-            <div class="document-upload-row mb-3 p-3 border rounded">
-                <div class="row">
-                    <div class="col-md-4">
-                        <div class="form-group">
-                            <label>Document Name *</label>
-                            <input type="text" name="required_documents[${currentCount}][name]" class="form-control" 
-                                placeholder="e.g., ID Copy, Degree Certificate" required>
-                        </div>
-                    </div>
-                    <div class="col-md-4">
-                        <div class="form-group">
-                            <label>File *</label>
-                            <input type="file" name="required_documents[${currentCount}][file]" class="form-control" 
-                                accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" required>
-                        </div>
-                    </div>
-                    <div class="col-md-3">
-                        <div class="form-group">
-                            <label>Description (Optional)</label>
-                            <textarea name="required_documents[${currentCount}][description]" class="form-control" 
-                                rows="1" placeholder="Brief description..."></textarea>
-                        </div>
-                    </div>
-                    <div class="col-md-1">
-                        <div class="form-group">
-                            <label>&nbsp;</label>
-                            <button type="button" class="btn btn-outline-danger btn-block remove-document" style="margin-top: 32px;">
-                                <i class="fa fa-trash"></i>
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        `;
-
-        container.append(newRow);
-        console.log('New row added successfully');
-
-        // Enable all remove buttons
-        $('.remove-document').prop('disabled', false);
-        // Keep first remove button disabled if it's the only one
-        if (container.find('.document-upload-row').length === 1) {
-            container.find('.document-upload-row:first-child .remove-document').prop('disabled', true);
-        }
-    });
-
-    // Remove document field
-    $(document).on('click', '.remove-document', function() {
-        console.log('Remove document clicked');
-        const row = $(this).closest('.document-upload-row');
-        const container = $('#documentUploadContainer');
-
-        // Don't remove if it's the only row
-        if (container.find('.document-upload-row').length <= 1) {
-            alert('You need at least one document field.');
-            return;
-        }
-
-        row.remove();
-        console.log('Document row removed');
-
-        // Reindex remaining rows
-        reindexDocumentRows();
-
-        // Disable remove button if only one row remains
-        if (container.find('.document-upload-row').length === 1) {
-            container.find('.remove-document').prop('disabled', true);
-        }
-    });
-
-    // Submit documents via AJAX
-    $(document).on('click', '#submitDocumentsBtn', function(e) {
-        e.preventDefault();
-        console.log('Submit documents button clicked');
-
-        // Create FormData object
-        var formData = new FormData();
-
-        // Add basic fields
-        formData.append('candidate_id', $('input[name="candidate_id"]').val());
-        formData.append('is_required_documents', $('input[name="is_required_documents"]').val());
-        formData.append('notification_id', $('input[name="notification_id"]').val());
-        formData.append('submission_notes', $('textarea[name="submission_notes"]').val());
-
-        // Validate that at least one document is added
-        var documentCount = $('#documentUploadContainer .document-upload-row').length;
-        if (documentCount === 0) {
-            alert('Please add at least one document to submit.');
-            return;
-        }
-
-        // Validate all required fields and collect data
-        let isValid = true;
-        let hasFiles = false;
-
-        $('#documentUploadContainer .document-upload-row').each(function(index) {
-            const nameField = $(this).find('input[type="text"]');
-            const fileField = $(this).find('input[type="file"]')[0];
-            const descriptionField = $(this).find('textarea');
-
-            const documentName = nameField.val().trim();
-            const file = fileField.files[0];
-            const description = descriptionField.val().trim();
-
-            // Validate required fields
-            if (!documentName) {
-                nameField.addClass('is-invalid');
-                isValid = false;
+    fetch(action, {
+            method: 'POST',
+            body: formData
+        })
+        .then(r => r.text())
+        .then(response => {
+            var result = JSON.parse(response);
+            if (result.success) {
+                alert('Saved successfully!');
+                window.location.reload();
             } else {
-                nameField.removeClass('is-invalid');
-                // Append document data with proper structure
-                formData.append(`required_documents[${index}][name]`, documentName);
+                alert('Error: ' + (result.error || 'Unknown error'));
             }
-
-            if (!file) {
-                $(fileField).addClass('is-invalid');
-                isValid = false;
-            } else {
-                $(fileField).removeClass('is-invalid');
-                // Append file with proper structure - THIS IS THE KEY FIX
-                formData.append(`required_documents[${index}][file]`, file);
-                hasFiles = true;
-            }
-
-            if (description) {
-                formData.append(`required_documents[${index}][description]`, description);
-            }
+        })
+        .catch(error => {
+            alert('Error: ' + error);
+        })
+        .finally(() => {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '<i class="fa fa-save"></i> Save Candidate';
         });
-
-        if (!isValid) {
-            alert('Please fill in all required fields (Document Name and File) for each document.');
-            return;
-        }
-
-        if (!hasFiles) {
-            alert('Please select at least one file to upload.');
-            return;
-        }
-
-        // Debug: Log FormData contents
-        console.log('FormData contents:');
-        for (var pair of formData.entries()) {
-            console.log(pair[0] + ': ', pair[1]);
-        }
-
-        // Show loading state
-        var $submitBtn = $(this);
-        $submitBtn.prop('disabled', true).html(
-            '<i class="fa fa-spinner fa-spin"></i> Submitting Documents...');
-
-        // Submit via AJAX
-        $.ajax({
-            url: '<?= site_url("recruiter/candidates/upload_required_documents") ?>',
-            type: 'POST',
-            data: formData,
-            processData: false,
-            contentType: false,
-            success: function(response) {
-                console.log('Submission response:', response);
-
-                // Parse response if it's a string
-                if (typeof response === 'string') {
-                    try {
-                        response = JSON.parse(response);
-                    } catch (e) {
-                        console.error('Failed to parse response:', e);
-                        show_message('Error: Invalid response from server', 'error');
-                        return;
-                    }
-                }
-
-                if (response.success) {
-                    // Show success message
-                    show_message(
-                        'Documents submitted successfully! The agency has been notified.',
-                        'success');
-
-                    // Reset form but keep one empty row
-                    $('textarea[name="submission_notes"]').val('');
-                    $('#documentUploadContainer').html(`
-                    <div class="document-upload-row mb-3 p-3 border rounded">
-                        <div class="row">
-                            <div class="col-md-4">
-                                <div class="form-group">
-                                    <label>Document Name *</label>
-                                    <input type="text" name="required_documents[0][name]" class="form-control" 
-                                        placeholder="e.g., ID Copy, Degree Certificate" required>
-                                </div>
-                            </div>
-                            <div class="col-md-4">
-                                <div class="form-group">
-                                    <label>File *</label>
-                                    <input type="file" name="required_documents[0][file]" class="form-control" 
-                                        accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" required>
-                                </div>
-                            </div>
-                            <div class="col-md-3">
-                                <div class="form-group">
-                                    <label>Description (Optional)</label>
-                                    <textarea name="required_documents[0][description]" class="form-control" 
-                                        rows="1" placeholder="Brief description..."></textarea>
-                                </div>
-                            </div>
-                            <div class="col-md-1">
-                                <div class="form-group">
-                                    <label>&nbsp;</label>
-                                    <button type="button" class="btn btn-outline-danger btn-block remove-document" style="margin-top: 32px;" disabled>
-                                        <i class="fa fa-trash"></i>
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                `);
-
-                    // Reload submitted required documents
-                    loadSubmittedRequiredDocuments();
-
-                    // Mark notification as completed
-                    markDocumentsRequestComplete();
-
-                } else {
-                    show_message('Error: ' + (response.message || 'Unknown error occurred'),
-                        'error');
-                }
-            },
-            error: function(xhr, status, error) {
-                console.error('Submit Error:', error);
-                console.error('Status:', status);
-                console.error('XHR response:', xhr.responseText);
-                show_message(
-                    'An error occurred while submitting the documents. Please check the console for details.',
-                    'error');
-            },
-            complete: function() {
-                $submitBtn.prop('disabled', false).html(
-                    '<i class="fa fa-paper-plane"></i> Submit All Documents to Agency');
-            }
-        });
-    });
-
-    // Tab navigation
-    $('.qm-tabs-header li').on('click', function() {
-        const tabId = $(this).attr('rel');
-        $('.qm-tabs-header li').removeClass('active');
-        $(this).addClass('active');
-        $('.qm-tabs-tab').removeClass('active');
-        $('.qm-tabs-tab[rel="' + tabId + '"]').addClass('active');
-    });
-
-    // File input validation
-    $(document).on('change', 'input[type="file"]', function() {
-        const file = this.files[0];
-        if (file) {
-            const fileSize = file.size / 1024 / 1024; // in MB
-            if (fileSize > 10) {
-                alert('File size must be less than 10MB');
-                $(this).val('');
-                $(this).addClass('is-invalid');
-            } else {
-                $(this).removeClass('is-invalid');
-            }
-        }
-    });
-
-    // Real-time validation for document names
-    $(document).on('input', 'input[name*="[name]"]', function() {
-        if ($(this).val().trim()) {
-            $(this).removeClass('is-invalid');
-        } else {
-            $(this).addClass('is-invalid');
-        }
-    });
 });
-
-// Function to reindex document rows
-function reindexDocumentRows() {
-    const container = $('#documentUploadContainer');
-    container.find('.document-upload-row').each(function(index) {
-        $(this).find('input, textarea').each(function() {
-            const name = $(this).attr('name');
-            if (name) {
-                const newName = name.replace(/\[\d+\]/, '[' + index + ']');
-                $(this).attr('name', newName);
-            }
-        });
-    });
-}
-
-// Load submitted required documents
-function loadSubmittedRequiredDocuments() {
-    const candidateId = <?= !empty($row->id) ? $row->id : 0 ?>;
-    $.ajax({
-        url: '<?= site_url("recruiter/candidates/get_submitted_required_documents/") ?>' + candidateId,
-        type: 'GET',
-        success: function(response) {
-            $('#submittedRequiredDocuments').html(response);
-        },
-        error: function(xhr, status, error) {
-            console.error('Error loading submitted documents:', error);
-            $('#submittedRequiredDocuments').html(
-                '<div class="text-center text-muted py-4">Error loading submitted documents</div>');
-        }
-    });
-}
-
-// Mark documents request as completed
-function markDocumentsRequestComplete() {
-    var notificationId = $('input[name="notification_id"]').val();
-    if (!notificationId) return;
-
-    $.ajax({
-        url: '<?= site_url("recruiter/candidates/mark_documents_request_complete") ?>',
-        type: 'POST',
-        data: {
-            notification_id: notificationId,
-            candidate_id: <?= !empty($row->id) ? $row->id : 0 ?>
-        },
-        success: function(response) {
-            if (response.success) {
-                console.log('Documents request marked as completed');
-            }
-        },
-        error: function(xhr, status, error) {
-            console.error('Error marking request complete:', error);
-        }
-    });
-}
-
-// Helper function to show messages
-function show_message(message, type) {
-    const alertClass = type === 'success' ? 'alert-success' : 'alert-danger';
-    const messageHtml = `
-        <div class="alert ${alertClass} alert-dismissible fade show" role="alert" style="margin: 15px;">
-            ${message}
-            <button type="button" class="close" data-dismiss="alert" aria-label="Close">
-                <span aria-hidden="true">&times;</span>
-            </button>
-        </div>
-    `;
-
-    // Remove any existing alerts
-    $('.alert').remove();
-
-    // Add new alert at the top of the form
-    $('.quick-manage-heading').after(messageHtml);
-
-    // Auto-remove success messages after 5 seconds
-    if (type === 'success') {
-        setTimeout(function() {
-            $('.alert').alert('close');
-        }, 5000);
-    }
-}
 </script>
 
 <style>

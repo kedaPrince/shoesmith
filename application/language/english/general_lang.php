@@ -921,8 +921,34 @@ $lang['label_site'] = 'Site';
 
 // Add with other job listing specific fields
 $lang['label_pay_cycle'] = 'Pay Cycle';
+// Add these after your existing agency and job labels
+$lang['label_agencies'] = 'Agencies';
+$lang['label_jobs'] = 'Jobs';
+$lang['label_assigned_agent'] = 'Assigned Agent';
 
+// Add these for the multi-select placeholders
+$lang['select_agencies'] = 'Select agencies (first selected becomes primary)';
+$lang['select_jobs'] = 'Select jobs (first selected becomes primary)';
+$lang['select_assigned_agent'] = 'Select Assigned Agent';
 
+// Add these tooltip/help text labels
+$lang['help_first_agency_primary'] = 'First selected agency will be set as primary';
+$lang['help_first_job_primary'] = 'First selected job will be set as primary';
+
+// Add these lines to your language file
+$lang['label_blank'] = '';
+$lang['label_select_option'] = '-- Select --';
+$lang['label_please_select'] = 'Please select...';
+$lang['label_none'] = 'None';
+$lang['label_optional'] = 'Optional';
+// If you need specific agency-related labels
+$lang['label_primary_agency'] = 'Primary Agency';
+$lang['label_additional_agencies'] = 'Additional Agencies';
+$lang['label_agency_assignment'] = 'Agency Assignment';
+
+$lang['record_updated'] = 'Record updated successfully';
+$lang['record_created'] = 'Record created successfully';
+$lang['record_deleted'] = 'Record deleted successfully';
 $lang['notifications_heading'] = 'Notifications';
 $lang['notifications_no_rows'] = 'No notifications found';
 $lang['label_title'] = 'Title';
