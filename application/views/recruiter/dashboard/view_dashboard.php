@@ -372,7 +372,91 @@ function markHmNotificationAsRead(notificationId) {
             console.error('💥 Error marking HM notification as read:', error);
         });
 }
+// Add to your existing HM decision notification system
+function checkForPositionOfferedNotifications() {
+    const recruiterId = <?php echo $recruiter_id ?? 'null'; ?>;
 
+    if (!recruiterId) return;
+
+    $.ajax({
+        url: '<?php echo site_url("recruiter/dashboard/get_position_offered_notifications"); ?>',
+        type: 'GET',
+        data: {
+            recruiter_id: recruiterId
+        },
+        success: function(response) {
+            if (response.success && response.notifications.length > 0) {
+                response.notifications.forEach(notification => {
+                    showPositionOfferedPopup(notification);
+                    // Mark as read after showing
+                    markAsRead(notification.id);
+                });
+            }
+        }
+    });
+}
+
+function showPositionOfferedPopup(notification) {
+    const popupElement = document.createElement('div');
+    popupElement.className = 'hm-decision-popup accepted';
+    popupElement.id = 'positionPopup-' + notification.id;
+
+    popupElement.innerHTML = `
+        <div class="popup-header">
+            <h4 class="popup-title">
+                🎉 Position Offered!
+            </h4>
+            <button class="popup-close">&times;</button>
+        </div>
+        <div class="popup-body">
+            <div class="candidate-info">
+                <div class="candidate-detail"><strong>Candidate:</strong> ${notification.metadata?.candidate_name || 'N/A'}</div>
+                <div class="candidate-detail"><strong>Job:</strong> ${notification.metadata?.job_name || 'N/A'}</div>
+                <div class="candidate-detail"><strong>Offered By:</strong> ${notification.metadata?.offering_agency || 'Hiring Manager'}</div>
+            </div>
+            <div class="hm-notes">
+                <strong>Next Step:</strong> ${notification.metadata?.action_required || 'Contact candidate to confirm acceptance'}
+            </div>
+        </div>
+        <div class="popup-footer">
+            <button class="btn btn-sm btn-light">Close</button>
+            <a href="<?= site_url('recruiter/candidates/view/') ?>${notification.related_entity_id}" class="btn btn-sm btn-primary" target="_blank">
+                View Candidate
+            </a>
+        </div>
+    `;
+
+    // Add event listeners
+    const closeButton = popupElement.querySelector('.popup-close');
+    const closeBtn = popupElement.querySelector('.btn.btn-light');
+
+    const closeHandler = () => {
+        closePositionPopup(notification.id);
+    };
+
+    closeButton.addEventListener('click', closeHandler);
+    closeBtn.addEventListener('click', closeHandler);
+
+    document.body.appendChild(popupElement);
+}
+
+function closePositionPopup(notificationId) {
+    const popup = document.getElementById('positionPopup-' + notificationId);
+    if (popup) {
+        popup.style.transition = 'all 0.3s ease';
+        popup.style.opacity = '0';
+        popup.style.transform = 'translateX(100%)';
+
+        setTimeout(() => {
+            if (popup.parentNode) {
+                popup.parentNode.removeChild(popup);
+            }
+        }, 300);
+    }
+}
+
+// Add to your existing interval checks
+setInterval(checkForPositionOfferedNotifications, 30000);
 // Debug function to test popup manually - REMOVE AUTO-CALL
 function testPopupManually() {
     console.log('Testing popup manually...');

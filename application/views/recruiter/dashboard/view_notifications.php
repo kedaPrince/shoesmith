@@ -327,6 +327,27 @@
     position: relative;
     margin-bottom: 20px;
 }
+
+.notification-card.position-offered {
+    border-left: 4px solid #28a745;
+    background: linear-gradient(135deg, #f8fff9 0%, #f0fff4 100%);
+}
+
+.notification-type-badge.position-offered {
+    background: #28a745;
+    color: white;
+}
+
+.position-offered-badge {
+    background: #28a745;
+    color: white;
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
 </style>
 
 <div id="main-content">
@@ -748,6 +769,122 @@
                                 </div>
                                 <?php endforeach; ?>
                             </div>
+                            <?php foreach ($notifications as $notification): ?>
+                            <?php 
+        // HM Decision specific handling
+        $is_hm_decision = $notification->type === 'hm_decision';
+        $is_position_offered = $notification->type === 'position_offered'; // ADD THIS LINE
+        $metadata = !empty($notification->metadata) ? json_decode($notification->metadata) : null;
+        
+        // ... existing HM decision logic ...
+    ?>
+
+                            <!-- POSITION OFFERED NOTIFICATION - ADD THIS NEW BLOCK -->
+                            <?php if ($is_position_offered): ?>
+                            <div class="notification-card position-offered <?php echo $notification->is_read ? '' : 'unread'; ?>"
+                                data-notification-id="<?php echo $notification->id; ?>"
+                                data-notification-type="<?php echo $notification->type; ?>"
+                                data-candidate-id="<?php echo $notification->related_entity_id; ?>">
+
+                                <div class="notification-header">
+                                    <h3 class="notification-title">
+                                        <?php echo htmlspecialchars($notification->title); ?>
+                                        <span class="notification-type-badge position-offered">
+                                            Position Offered
+                                        </span>
+                                    </h3>
+                                    <span class="notification-time">
+                                        <?php echo date('M j, g:i A', strtotime($notification->created_at)); ?>
+                                    </span>
+                                </div>
+
+                                <?php if ($metadata && !empty($metadata->candidate_name)): ?>
+                                <div class="candidate-highlight">
+                                    <div class="candidate-info-grid">
+                                        <div class="candidate-info-item">
+                                            <div class="candidate-info-label">Candidate</div>
+                                            <div class="candidate-info-value">
+                                                <?php echo htmlspecialchars($metadata->candidate_name); ?>
+                                            </div>
+                                        </div>
+                                        <div class="candidate-info-item">
+                                            <div class="candidate-info-label">Job</div>
+                                            <div class="candidate-info-value">
+                                                <?php echo htmlspecialchars($metadata->job_name ?? 'N/A'); ?>
+                                            </div>
+                                        </div>
+                                        <div class="candidate-info-item">
+                                            <div class="candidate-info-label">Offered By</div>
+                                            <div class="candidate-info-value">
+                                                <?php echo htmlspecialchars($metadata->offering_agency ?? 'Hiring Manager'); ?>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <?php endif; ?>
+
+                                <div class="notification-expandable">
+                                    <div class="notification-content">
+                                        <p class="notification-message">
+                                            <?php echo htmlspecialchars($notification->message); ?>
+                                        </p>
+
+                                        <?php if ($metadata && !empty($metadata->action_required)): ?>
+                                        <div class="alert alert-info">
+                                            <strong>Next Step:</strong>
+                                            <?php echo htmlspecialchars($metadata->action_required); ?>
+                                        </div>
+                                        <?php endif; ?>
+                                    </div>
+
+                                    <div class="notification-actions">
+                                        <div class="action-buttons">
+                                            <a href="<?php echo site_url('recruiter/candidates/view/' . $notification->related_entity_id); ?>"
+                                                class="btn btn-notification btn-view-candidate">
+                                                <i class="fa fa-user"></i> View Candidate
+                                            </a>
+                                        </div>
+
+                                        <?php if (!$notification->is_read): ?>
+                                        <button class="btn btn-notification btn-mark-read"
+                                            onclick="markAsRead(<?php echo $notification->id; ?>)">
+                                            <i class="fa fa-check"></i> Mark as Read
+                                        </button>
+                                        <?php endif; ?>
+                                    </div>
+                                </div>
+
+                                <div class="expand-indicator">
+                                    <i class="fa fa-chevron-down"></i> Click to view more details
+                                </div>
+                            </div>
+
+                            <!-- EXISTING HM DECISION NOTIFICATION -->
+                            <?php elseif ($is_hm_decision): ?>
+                            <div class="notification-card <?php echo $notification->is_read ? '' : 'unread'; ?> 
+         <?php echo $is_hm_decision ? 'hm-decision ' . ($decision ? $decision : '') : ''; ?>"
+                                data-notification-id="<?php echo $notification->id; ?>"
+                                data-notification-type="<?php echo $notification->type; ?>"
+                                data-candidate-id="<?php echo $notification->related_entity_id; ?>">
+
+                                <!-- ... your existing HM decision notification content ... -->
+
+                            </div>
+
+                            <!-- EXISTING JOB NOTIFICATIONS -->
+                            <?php else: ?>
+                            <div class="notification-card <?php echo $notification->is_read ? '' : 'unread'; ?> 
+         <?php echo $is_update_notification ? 'updated update-highlight' : ''; ?>"
+                                data-notification-id="<?php echo $notification->id; ?>"
+                                data-notification-type="<?php echo $notification->type; ?>"
+                                data-candidate-id="<?php echo $notification->related_entity_id; ?>">
+
+                                <!-- ... your existing job notification content ... -->
+
+                            </div>
+                            <?php endif; ?>
+
+                            <?php endforeach; ?>
                             <?php else: ?>
                             <div class="empty-state">
                                 <div class="empty-state-icon">

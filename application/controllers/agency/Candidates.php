@@ -445,6 +445,7 @@ private function format_file_size($bytes) {
     }
 }
 
+// In your update_onboarding_stage method or stage toggle handler:
 public function update_onboarding_stage() {
     $candidate_id = $this->input->post('candidate_id');
     $stage = $this->input->post('stage');
@@ -468,18 +469,23 @@ public function update_onboarding_stage() {
         }
     }
 
-    if ($stage === 'stage_documents_decision' && $value == 0) {
-        $this->db->where('id', $candidate_id)->update('candidates', [
-            'documents_required' => null,
-            'documents_notes' => null,
-            'stage_documents_decision_at' => null,
-            'updated_at' => date('Y-m-d H:i:s')
-        ]);
-    }
-
     $result = $this->{$this->model}->update_onboarding_stage($candidate_id, $stage, $value);
 
     if ($result) {
+        // ✅ NEW: Send notification when position offered stage is completed
+        if ($stage === 'stage_position_offered' && $value == 1) {
+            $this->send_position_offered_notification($candidate_id, loginID('agency'));
+            
+            // Log the activity
+            $this->{$this->model}->log_candidate_activity([
+                'candidate_id' => $candidate_id,
+                'action' => 'position_offered',
+                'description' => 'Position offered to candidate - notification sent to recruiter',
+                'created_by' => loginID('agency'),
+                'created_at' => date('Y-m-d H:i:s')
+            ]);
+        }
+
         ajax_return([
             'success' => true,
             'message' => 'Onboarding stage updated successfully'
@@ -1022,7 +1028,70 @@ private function get_user_agency_id()
             ));
         }
     }
+/**
+ * Send position offered notification to recruiter
+ */
+private function send_position_offered_notification($candidate_id, $agency_user_id = null) {
+    try {
+        $this->load->model('agency/Model_notifications');
+        
+        // Get candidate details
+        $candidate = $this->{$this->model}->get_candidate_details($candidate_id);
+        
+        if (!$candidate) {
+            log_message('error', "Candidate {$candidate_id} not found for position offered notification");
+            return false;
+        }
 
+        // Get the submitting agency (recruiter's agency)
+        $submitting_agency_id = $this->get_submitting_agency_id($candidate_id);
+        
+        if (!$submitting_agency_id) {
+            log_message('error', "No submitting agency found for candidate {$candidate_id}");
+            return false;
+        }
+
+        // Get job details
+        $job_name = $candidate->job_name ?? 'Unknown Job';
+        $job_ref = $candidate->job_ref ?? 'N/A';
+
+        // Get current agency details
+        $current_agency_id = $this->get_user_agency_id();
+        $current_agency_name = 'Hiring Manager';
+        
+        if ($current_agency_id) {
+            $this->db->select('name');
+            $this->db->from('agencies');
+            $this->db->where('id', $current_agency_id);
+            $agency = $this->db->get()->row();
+            if ($agency) {
+                $current_agency_name = $agency->name;
+            }
+        }
+
+        $notification_sent = $this->Model_notifications->create_position_offered_notification(
+            $candidate_id,
+            $candidate->job_id,
+            $submitting_agency_id,
+            $current_agency_name,
+            $job_name,
+            $job_ref,
+            $agency_user_id
+        );
+
+        if ($notification_sent) {
+            log_message('debug', "Position offered notification sent for candidate {$candidate_id} to agency {$submitting_agency_id}");
+        } else {
+            log_message('error', "Failed to send position offered notification for candidate {$candidate_id}");
+        }
+
+        return $notification_sent;
+
+    } catch (Exception $e) {
+        log_message('error', 'Error sending position offered notification: ' . $e->getMessage());
+        return false;
+    }
+}
     private function send_agent_notification($candidateId){
         try {
             $candidate = $this->{$this->model}->get_candidate($candidateId);
