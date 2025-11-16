@@ -380,51 +380,51 @@ class Model_candidates extends CRUD_Model
     }
 
     /**
- * Get candidates filtered by job ID
- */
-public function get_candidates_by_job($job_id, $limit = null, $offset = null, $sort_by = 'first_name', $sort_order = 'ASC')
-{
-    // Select base candidate fields
-    $this->db->select('candidates.*');
+     * Get candidates filtered by job ID
+     */
+    public function get_candidates_by_job($job_id, $limit = null, $offset = null, $sort_by = 'first_name', $sort_order = 'ASC')
+    {
+        // Select base candidate fields
+        $this->db->select('candidates.*');
 
-    // Subquery: get all agency names for this candidate
-    $this->db->select("(SELECT GROUP_CONCAT(a.name SEPARATOR ', ')
-                        FROM candidate_agencies ca
-                        JOIN agencies a ON a.id = ca.agency_id
-                        WHERE ca.candidate_id = candidates.id
-                        AND a.removed = 0 AND a.enabled = 1
-                    ) AS agency_name", false);
+        // Subquery: get all agency names for this candidate
+        $this->db->select("(SELECT GROUP_CONCAT(a.name SEPARATOR ', ')
+                            FROM candidate_agencies ca
+                            JOIN agencies a ON a.id = ca.agency_id
+                            WHERE ca.candidate_id = candidates.id
+                            AND a.removed = 0 AND a.enabled = 1
+                        ) AS agency_name", false);
 
-    // Subquery: get all job names for this candidate
-    $this->db->select("(SELECT GROUP_CONCAT(j.name SEPARATOR ', ')
-                        FROM candidate_jobs cj
-                        JOIN mod_jobs j ON j.id = cj.job_id
-                        WHERE cj.candidate_id = candidates.id
-                        AND j.removed = 0 AND j.enabled = 1
-                    ) AS job_name", false);
+        // Subquery: get all job names for this candidate
+        $this->db->select("(SELECT GROUP_CONCAT(j.name SEPARATOR ', ')
+                            FROM candidate_jobs cj
+                            JOIN mod_jobs j ON j.id = cj.job_id
+                            WHERE cj.candidate_id = candidates.id
+                            AND j.removed = 0 AND j.enabled = 1
+                        ) AS job_name", false);
 
-    $this->db->from('candidates');
-    $this->db->where('candidates.removed', 0);
+        $this->db->from('candidates');
+        $this->db->where('candidates.removed', 0);
 
-    // Add job filtering - check both primary job_id and candidate_jobs pivot table
-    $this->db->group_start();
-    $this->db->where('candidates.job_id', $job_id); // Primary job assignment
-    $this->db->or_where("candidates.id IN (SELECT candidate_id FROM candidate_jobs WHERE job_id = $job_id)"); // Additional job assignments
-    $this->db->group_end();
+        // Add job filtering - check both primary job_id and candidate_jobs pivot table
+        $this->db->group_start();
+        $this->db->where('candidates.job_id', $job_id); // Primary job assignment
+        $this->db->or_where("candidates.id IN (SELECT candidate_id FROM candidate_jobs WHERE job_id = $job_id)"); // Additional job assignments
+        $this->db->group_end();
 
-    // Sorting
-    if ($sort_by) {
-        if (!in_array($sort_by, ['agency_name', 'job_name'])) {
-            $this->db->order_by("candidates.$sort_by", $sort_order ?: 'ASC');
+        // Sorting
+        if ($sort_by) {
+            if (!in_array($sort_by, ['agency_name', 'job_name'])) {
+                $this->db->order_by("candidates.$sort_by", $sort_order ?: 'ASC');
+            }
         }
-    }
 
-    if ($limit !== null) {
-        $this->db->limit($limit, $offset);
-    }
+        if ($limit !== null) {
+            $this->db->limit($limit, $offset);
+        }
 
-    return $this->db->get();
-}
+        return $this->db->get();
+    }
 
     /**
      * Count candidates by job ID
@@ -443,27 +443,23 @@ public function get_candidates_by_job($job_id, $limit = null, $offset = null, $s
         return $this->db->count_all_results();
     }
 
-public function create(array $data, $table = false)
-{
-    log_message('debug', 'Model Create - Data: ' . print_r($data, true));
+    public function create(array $data, $table = false)
+    {
     
-    // Use the provided table or default to $this->table
-    $target_table = $table ? $table : $this->table;
-    
-    log_message('debug', 'Inserting into table: ' . $target_table);
-    
-    $result = $this->db->insert($target_table, $data);
-    
-    if ($result) {
-        $id = $this->db->insert_id();
-        log_message('debug', 'Model Create - Success, ID: ' . $id);
-        return $id;
-    } else {
-        $error = $this->db->error();
-        log_message('error', 'Model Create - DB Error: ' . $error['message']);
-        log_message('error', 'Model Create - Last Query: ' . $this->db->last_query());
-        return false;
+        
+        // Use the provided table or default to $this->table
+        $target_table = $table ? $table : $this->table;
+        
+        $result = $this->db->insert($target_table, $data);
+        
+        if ($result) {
+            $id = $this->db->insert_id();
+            
+            return $id;
+        } else {
+            $error = $this->db->error();
+            return false;
+        }
     }
-}
 
 }
