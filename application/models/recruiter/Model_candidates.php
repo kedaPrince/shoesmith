@@ -5,8 +5,7 @@ class Model_candidates extends CRUD_Model
 {
     protected $table = 'candidates';
 
-    // Override to include joins for agency/job names in listing
-   public function get_all($limit = null, $offset = null, $sort_by = 'first_name', $sort_order = 'ASC')
+    public function get_all($limit = null, $offset = null, $sort_by = 'first_name', $sort_order = 'ASC', $job_id = null)
     {
         // Select base candidate fields
         $this->db->select('candidates.*');
@@ -29,6 +28,14 @@ class Model_candidates extends CRUD_Model
 
         $this->db->from($this->table);
         $this->db->where('candidates.removed', 0);
+
+        // Add job filtering if job_id is provided
+        if (!empty($job_id)) {
+            $this->db->group_start();
+            $this->db->where('candidates.job_id', $job_id); // Primary job assignment
+            $this->db->or_where("candidates.id IN (SELECT candidate_id FROM candidate_jobs WHERE job_id = $job_id)"); // Additional job assignments
+            $this->db->group_end();
+        }
 
         // Sorting
         if ($sort_by) {
@@ -371,5 +378,92 @@ class Model_candidates extends CRUD_Model
         
         return $this->db->get()->result();
     }
+
+    /**
+ * Get candidates filtered by job ID
+ */
+public function get_candidates_by_job($job_id, $limit = null, $offset = null, $sort_by = 'first_name', $sort_order = 'ASC')
+{
+    // Select base candidate fields
+    $this->db->select('candidates.*');
+
+    // Subquery: get all agency names for this candidate
+    $this->db->select("(SELECT GROUP_CONCAT(a.name SEPARATOR ', ')
+                        FROM candidate_agencies ca
+                        JOIN agencies a ON a.id = ca.agency_id
+                        WHERE ca.candidate_id = candidates.id
+                        AND a.removed = 0 AND a.enabled = 1
+                    ) AS agency_name", false);
+
+    // Subquery: get all job names for this candidate
+    $this->db->select("(SELECT GROUP_CONCAT(j.name SEPARATOR ', ')
+                        FROM candidate_jobs cj
+                        JOIN mod_jobs j ON j.id = cj.job_id
+                        WHERE cj.candidate_id = candidates.id
+                        AND j.removed = 0 AND j.enabled = 1
+                    ) AS job_name", false);
+
+    $this->db->from('candidates');
+    $this->db->where('candidates.removed', 0);
+
+    // Add job filtering - check both primary job_id and candidate_jobs pivot table
+    $this->db->group_start();
+    $this->db->where('candidates.job_id', $job_id); // Primary job assignment
+    $this->db->or_where("candidates.id IN (SELECT candidate_id FROM candidate_jobs WHERE job_id = $job_id)"); // Additional job assignments
+    $this->db->group_end();
+
+    // Sorting
+    if ($sort_by) {
+        if (!in_array($sort_by, ['agency_name', 'job_name'])) {
+            $this->db->order_by("candidates.$sort_by", $sort_order ?: 'ASC');
+        }
+    }
+
+    if ($limit !== null) {
+        $this->db->limit($limit, $offset);
+    }
+
+    return $this->db->get();
+}
+
+    /**
+     * Count candidates by job ID
+     */
+    public function count_candidates_by_job($job_id)
+    {
+        $this->db->from('candidates');
+        $this->db->where('candidates.removed', 0);
+        
+        // Add job filter
+        $this->db->group_start();
+        $this->db->where('candidates.job_id', $job_id); // Primary job assignment
+        $this->db->or_where("candidates.id IN (SELECT candidate_id FROM candidate_jobs WHERE job_id = $job_id)"); // Additional job assignments
+        $this->db->group_end();
+        
+        return $this->db->count_all_results();
+    }
+
+public function create(array $data, $table = false)
+{
+    log_message('debug', 'Model Create - Data: ' . print_r($data, true));
+    
+    // Use the provided table or default to $this->table
+    $target_table = $table ? $table : $this->table;
+    
+    log_message('debug', 'Inserting into table: ' . $target_table);
+    
+    $result = $this->db->insert($target_table, $data);
+    
+    if ($result) {
+        $id = $this->db->insert_id();
+        log_message('debug', 'Model Create - Success, ID: ' . $id);
+        return $id;
+    } else {
+        $error = $this->db->error();
+        log_message('error', 'Model Create - DB Error: ' . $error['message']);
+        log_message('error', 'Model Create - Last Query: ' . $this->db->last_query());
+        return false;
+    }
+}
 
 }

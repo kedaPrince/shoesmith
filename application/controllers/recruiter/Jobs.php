@@ -47,58 +47,66 @@ class Jobs extends CRUD_Controller
     }
 
     private function setup_listing()
-    {
-        $this->listFields = array(
-            'name' => array('label' => lang('label_title'), 'sort' => true),
-            'reference_number' => array('label' => lang('label_reference_number'), 'sort' => true),
-            'employment_type' => array('label' => lang('label_job_type'), 'sort' => true),
-            'industry_name' => array(
-                'label' => lang('label_industry'),
-                'sort' => true,
-            ),
-            'agency_name' => array(
-                'label' => lang('label_agency'),
-                'sort' => true,
-            ),
-            'candidate_count' => array(
-                'label' => 'Candidates',
-                'sort' => true,
-                'function' => function($str, $row) {
-                    $count = isset($row->candidate_count) ? $row->candidate_count : 0;
-                    $url = site_url('recruiter/candidates?job_id=' . $row->id);
-                    if ($count > 0) {
-                        return '<a href="' . $url . '" class="btn btn-sm btn-info" title="View ' . $count . ' Candidates">' . $count . '</a>';
-                    } else {
-                        return '<span class="text-muted">0</span>';
-                    }
+{
+    $this->listFields = array(
+        'name' => array('label' => lang('label_title'), 'sort' => true),
+        'reference_number' => array('label' => lang('label_reference_number'), 'sort' => true),
+        'employment_type' => array('label' => lang('label_job_type'), 'sort' => true),
+        'industry_name' => array(
+            'label' => lang('label_industry'),
+            'sort' => true,
+        ),
+        'agency_name' => array(
+            'label' => lang('label_agency'),
+            'sort' => true,
+        ),
+        'candidate_count' => array(
+            'label' => 'Candidates',
+            'sort' => true,
+            'function' => function($str, $row) {
+                $count = isset($row->candidate_count) ? $row->candidate_count : 0;
+                $url = site_url('recruiter/candidates/for_job/' . $row->id);
+                if ($count > 0) {
+                    return '<a href="' . $url . '" class="btn btn-sm btn-info" title="View ' . $count . ' Candidates">' . $count . '</a>';
+                } else {
+                    return '<span class="text-muted">0</span>';
                 }
-            ),
-        );
+            }
+        ),
+    );
 
-        $this->listActions = array(
-            'view' => array(
-                'label'     => lang('label_view'),
-                'url'       => url($this->pageName . '/view/{id}'),
-                'icon'      => 'fa-eye',
-                'class'     => 'view-row btn-info',
-            ),
-            'add_candidate' => array(
-                'label'     => 'Add Candidate',
-                'url'       => site_url('recruiter/candidates/add/{id}'),
-                'icon'      => 'fa-user-plus',
-                'class'     => 'add-candidate-row btn-success',
-                'title'     => 'Add candidate to this job',
-            ),
-        );
+    $this->listActions = array(
+        'view' => array(
+            'label'     => lang('label_view'),
+            'url'       => url($this->pageName . '/view/{id}'),
+            'icon'      => 'fa-eye',
+            'class'     => 'view-row btn-info',
+            'title'     => 'View job details',
+        ),
+        'view_candidates' => array(  // NEW ACTION - View candidates for this job
+            'label'     => 'View Candidates',
+            'url'       => site_url('recruiter/candidates/for_job/{id}'),
+            'icon'      => 'fa-users',
+            'class'     => 'view-candidates-row btn-primary',
+            'title'     => 'View candidates for this job',
+        ),
+        'add_candidate' => array(
+            'label'     => 'Add Candidate',
+            'url'       => site_url('recruiter/candidates/add/{id}'),
+            'icon'      => 'fa-user-plus',
+            'class'     => 'add-candidate-row btn-success',
+            'title'     => 'Add candidate to this job',
+        ),
+    );
 
-        $this->filters = array(
-            'general' => array(
-                'label' => lang('label_search'),
-                'type' => 'autocomplete',
-                'field' => array('mod_jobs.name', 'mod_jobs.reference_number'),
-            ),
-        );
-    }
+    $this->filters = array(
+        'general' => array(
+            'label' => lang('label_search'),
+            'type' => 'autocomplete',
+            'field' => array('mod_jobs.name', 'mod_jobs.reference_number'),
+        ),
+    );
+}
 
     public function setup_fields()
     {
@@ -130,6 +138,7 @@ class Jobs extends CRUD_Controller
 
     public function index()
     {
+   
         $this->breadcrumbs = array(
             array(
                 'title' => lang($this->pageName . '_heading'),

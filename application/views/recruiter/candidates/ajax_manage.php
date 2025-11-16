@@ -21,7 +21,7 @@
         <?php if ((isset($has_pending_documents_request) && $has_pending_documents_request === true) || 
           (isset($force_required_tab) && $force_required_tab === true)): ?>
         <li rel="5" class="required-documents-tab">
-            📋 Required Documents
+            Required Documents
             <span class="badge badge-danger ml-1">!</span>
         </li>
         <?php endif; ?>
@@ -30,9 +30,11 @@
     <div class="form-field-container">
         <?= form_open('', ['enctype' => 'multipart/form-data', 'id' => 'mainCandidateForm']); ?>
         <?= form_hidden('id', !empty($row->id) ? $row->id : 0); ?>
+        <?= form_hidden('action', !empty($row->id) ? 'update' : 'create'); ?>
 
-        <?= form_hidden('agency_id', !empty($row->agency_id) ? $row->agency_id : ''); ?>
-        <?= form_hidden('job_id', !empty($row->job_id) ? $row->job_id : ''); ?>
+        <!-- Remove these hidden fields as they might be causing conflicts -->
+        <!-- <?= form_hidden('agency_id', !empty($row->agency_id) ? $row->agency_id : ''); ?> -->
+        <!-- <?= form_hidden('job_id', !empty($row->job_id) ? $row->job_id : ''); ?> -->
 
         <!-- Tab 1: Personal -->
         <div rel="1" class="qm-tabs-tab active">
@@ -43,7 +45,7 @@
                         <div class="input-group">
                             <input type="text" name="reference_number" id="reference_number" class="form-control"
                                 value="<?= !empty($row->reference_number) ? htmlspecialchars($row->reference_number, ENT_QUOTES, 'UTF-8') : '' ?>"
-                                required placeholder="e.g., CAND-001" readonly>
+                                required placeholder="e.g., CAND-001">
                             <div class="input-group-append">
                                 <button type="button" class="btn btn-outline-secondary" id="refresh-reference"
                                     title="Generate new reference">
@@ -386,43 +388,273 @@
 </div>
 
 <script>
-// ========== VANILLA JS FALLBACK ==========
-document.getElementById('mainCandidateForm').addEventListener('submit', function(e) {
-    e.preventDefault();
+// ========== REFERENCE NUMBER HANDLING ==========
+document.addEventListener('DOMContentLoaded', function() {
+    const referenceField = document.getElementById('reference_number');
+    const refreshBtn = document.getElementById('refresh-reference');
 
-    var formData = new FormData(this);
-    var id = document.getElementById('id').value;
-    var action = id && id != '0' ?
+    // Generate initial reference if empty
+    if (referenceField && !referenceField.value) {
+        generateReferenceNumber();
+    }
+
+    // Handle refresh button
+    if (refreshBtn) {
+        refreshBtn.addEventListener('click', generateReferenceNumber);
+    }
+
+    function generateReferenceNumber() {
+        fetch('<?= site_url("recruiter/candidates/generate_reference") ?>')
+            .then(response => response.json())
+            .then(data => {
+                if (data.success && referenceField) {
+                    referenceField.value = data.reference;
+                }
+            })
+            .catch(error => {
+                console.error('Error generating reference:', error);
+                // Fallback reference number
+                const timestamp = new Date().getTime();
+                if (referenceField) {
+                    referenceField.value = 'CAND-' + timestamp;
+                }
+            });
+    }
+});
+
+// ========== FORM VALIDATION & SUBMISSION ==========
+function save_form(el) {
+    // Prevent the default core.min.js validation
+    if (event) {
+        event.preventDefault();
+        event.stopPropagation();
+    }
+
+    // Use our custom validation and submission
+    customSaveForm(el);
+}
+
+function customSaveForm(el) {
+    const form = document.getElementById('mainCandidateForm');
+
+    if (!form) {
+        console.error('Form not found');
+        alert('Form not found. Please refresh the page and try again.');
+        return;
+    }
+
+    // Ensure at least one job is selected
+    const jobSelects = form.querySelectorAll('select[name="additional_job_ids[]"] option:checked');
+    if (jobSelects.length === 0) {
+        alert('Please select at least one job for this candidate.');
+        // Switch to Agency & Job tab
+        const jobTab = document.querySelector('.qm-tabs-header li[rel="4"]');
+        if (jobTab) {
+            jobTab.click();
+        }
+        return;
+    }
+
+    // Ensure at least one agency is selected  
+    const agencySelects = form.querySelectorAll('select[name="additional_agency_ids[]"] option:checked');
+    if (agencySelects.length === 0) {
+        alert('Please select at least one agency for this candidate.');
+        // Switch to Agency & Job tab
+        const jobTab = document.querySelector('.qm-tabs-header li[rel="4"]');
+        if (jobTab) {
+            jobTab.click();
+        }
+        return;
+    }
+
+    console.log('Form validation passed, submitting via AJAX...');
+
+    // Submit the form via AJAX
+    submitFormData(form);
+}
+
+function submitFormData(form) {
+    if (!form) {
+        console.error('Form is null');
+        alert('Form error. Please refresh the page and try again.');
+        return;
+    }
+
+    const formData = new FormData(form);
+
+    // PROPERLY get the ID value
+    const idElement = document.querySelector('input[name="id"]');
+    const id = idElement ? idElement.value : '0';
+
+    console.log('ID value found:', id);
+    console.log('Is update?', id && id != '0');
+
+    // CORRECTED: Use the proper endpoint
+    const action = id && id != '0' && id !== '0' ?
         '<?= site_url("recruiter/candidates/update") ?>/' + id :
         '<?= site_url("recruiter/candidates/create") ?>';
 
-    var submitBtn = document.querySelector('.save-button');
+    const submitBtn = document.querySelector('.save-button');
+    if (!submitBtn) {
+        console.error('Submit button not found');
+        alert('Submit button not found. Please refresh the page and try again.');
+        return;
+    }
+
+    const originalText = submitBtn.innerHTML;
+
     submitBtn.disabled = true;
     submitBtn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Saving...';
 
+    console.log('Submitting to:', action);
+
+    // ADD THIS CRITICAL HEADER to make it a proper AJAX request
     fetch(action, {
             method: 'POST',
-            body: formData
+            body: formData,
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest' // THIS MAKES IT AN AJAX REQUEST
+            }
         })
-        .then(r => r.text())
         .then(response => {
-            var result = JSON.parse(response);
+            console.log('Response status:', response.status);
+            if (!response.ok) {
+                throw new Error('Network response was not ok: ' + response.status);
+            }
+            return response.json(); // Expect JSON response
+        })
+        .then(result => {
+            console.log('Response received:', result);
+
             if (result.success) {
-                alert('Saved successfully!');
-                window.location.reload();
+                // Success handling
+                const successMessage = result.message || 'Candidate saved successfully!';
+                console.log('Success:', successMessage);
+
+                // Show success message
+                if (typeof toastr !== 'undefined') {
+                    toastr.success(successMessage);
+                } else {
+                    alert(successMessage);
+                }
+
+                // Close the quick manage modal
+                if (typeof close_quick_manage === 'function') {
+                    close_quick_manage();
+                } else if (typeof close_qm === 'function') {
+                    close_qm();
+                } else {
+                    // Fallback: reload the page after a short delay
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 1500);
+                }
             } else {
-                alert('Error: ' + (result.error || 'Unknown error'));
+                // Error handling
+                const errorMessage = result.error || 'Failed to save candidate';
+                console.error('Error:', errorMessage);
+
+                if (typeof toastr !== 'undefined') {
+                    toastr.error(errorMessage);
+                } else {
+                    alert('Error: ' + errorMessage);
+                }
+
+                // Show validation errors if any
+                if (result.fields) {
+                    console.log('Validation errors:', result.fields);
+                    // You can add code here to highlight invalid fields
+                }
             }
         })
         .catch(error => {
-            alert('Error: ' + error);
+            console.error('Fetch error:', error);
+            const errorMessage = 'Error saving candidate: ' + error.message;
+
+            if (typeof toastr !== 'undefined') {
+                toastr.error(errorMessage);
+            } else {
+                alert(errorMessage);
+            }
         })
         .finally(() => {
             submitBtn.disabled = false;
-            submitBtn.innerHTML = '<i class="fa fa-save"></i> Save Candidate';
+            submitBtn.innerHTML = originalText;
         });
+}
+
+// ========== FALLBACK FORM SUBMISSION ==========
+const mainForm = document.getElementById('mainCandidateForm');
+if (mainForm) {
+    mainForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        customSaveForm(this);
+    });
+}
+
+// ========== TAB HANDLING ==========
+// Make sure tab switching works properly
+document.querySelectorAll('.qm-tabs-header li').forEach(tab => {
+    tab.addEventListener('click', function() {
+        const tabId = this.getAttribute('rel');
+
+        // Remove active class from all tabs and tab content
+        document.querySelectorAll('.qm-tabs-header li').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.qm-tabs-tab').forEach(t => t.classList.remove('active'));
+
+        // Add active class to clicked tab and corresponding content
+        this.classList.add('active');
+        const targetTab = document.querySelector('.qm-tabs-tab[rel="' + tabId + '"]');
+        if (targetTab) {
+            targetTab.classList.add('active');
+        }
+    });
+});
+
+// ========== DEBUGGING ==========
+// Add some debugging to see what's happening
+console.log('Candidate form loaded');
+console.log('Form element:', document.getElementById('mainCandidateForm'));
+console.log('ID element:', document.getElementById('id'));
+console.log('Reference element:', document.getElementById('reference_number'));
+console.log('Save button:', document.querySelector('.save-button'));
+console.log('=== CANDIDATE FORM DEBUG INFO ===');
+console.log('Form action:', '<?= !empty($row->id) ? "update" : "create" ?>');
+console.log('Candidate ID:', '<?= !empty($row->id) ? $row->id : "0" ?>');
+console.log('Row data:', <?= json_encode($row) ?>);
+console.log('Additional Jobs:', <?= json_encode($additional_job_ids) ?>);
+console.log('Additional Agencies:', <?= json_encode($additional_agency_ids) ?>);
+console.log('================================');
+
+// Temporary test - add this to your JavaScript
+document.addEventListener('DOMContentLoaded', function() {
+    const idField = document.querySelector('input[name="id"]');
+    const actionField = document.querySelector('input[name="action"]');
+    console.log('ID Field value:', idField ? idField.value : 'NOT FOUND');
+    console.log('Action Field value:', actionField ? actionField.value : 'NOT FOUND');
+
+    // Force the form to use update if we have an ID
+    if (idField && idField.value && idField.value != '0') {
+        console.log('This should be an UPDATE operation for candidate ID:', idField.value);
+    } else {
+        console.log('This should be a CREATE operation');
+    }
 });
 </script>
+<style>
+.is-invalid {
+    border-color: #dc3545 !important;
+    box-shadow: 0 0 0 0.2rem rgba(220, 53, 69, 0.25);
+}
+
+.quick-manage-form-container .form-control:required {
+    border-left: 3px solid #007bff;
+}
+
+.quick-manage-form-container .form-control.is-invalid {
+    border-left: 3px solid #dc3545;
+}
+</style>
 
 <style>
 .unified-documents-form {
