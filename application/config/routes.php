@@ -76,7 +76,9 @@ $route['recruiter/chat'] = 'recruiter/chat';
 $route['recruiter/chat/(:any)'] = 'recruiter/chat/$1';
 $route['recruiter/chat/(:any)/(:any)'] = 'recruiter/chat/$1/$2';
 $route['recruiter/chat/(:any)/(:any)/(:any)'] = 'recruiter/chat/$1/$2/$3';
-
+// Ensure the candidates/for_job route works
+$route['recruiter/candidates/for_job/(:num)'] = 'recruiter/candidates/for_job/$1';
+$route['candidates/for_job/(:num)'] = 'recruiter/candidates/for_job/$1';
 // Agency Chat Routes  
 $route['agency/chat'] = 'agency/chat';
 $route['agency/chat/(:any)'] = 'agency/chat/$1';
@@ -204,7 +206,41 @@ function increment_match_number_by_one($matches) {
 function increment_match_number_by_two($matches) {
     return '$'.(str_replace('$', '', $matches[0])+2);
 }
-
+$route['test-candidates-route'] = function() {
+    $ci =& get_instance();
+    
+    echo "<h1>Testing Candidates Route Specifically</h1>";
+    
+    // Test the exact route pattern
+    $test_url = 'recruiter/candidates/for_job/92';
+    echo "<h2>Testing: {$test_url}</h2>";
+    
+    $ci->load->library('router');
+    
+    // Check all possible route matches
+    echo "<h3>Route Analysis:</h3>";
+    foreach ($ci->router->routes as $pattern => $destination) {
+        if (strpos($pattern, 'candidates') !== false || strpos($pattern, 'recruiter') !== false) {
+            $matches = [];
+            if (preg_match('#^'.$pattern.'$#', $test_url, $matches)) {
+                echo "<p style='color: green'>✓ MATCHES: {$pattern} => {$destination}</p>";
+                echo "<pre>Matches: " . print_r($matches, true) . "</pre>";
+            } else {
+                echo "<p style='color: gray'>✗ No match: {$pattern}</p>";
+            }
+        }
+    }
+    
+    // Test if the generic route is catching it
+    echo "<h3>Generic Route Test:</h3>";
+    $generic_pattern = '(:any)/(:any)/(:any)/(:any)';
+    $matches = [];
+    if (preg_match('#^'.$generic_pattern.'$#', $test_url, $matches)) {
+        echo "<p style='color: orange'>⚠ Matches generic route: {$generic_pattern}</p>";
+        echo "<pre>Generic matches: " . print_r($matches, true) . "</pre>";
+        echo "<p>Would route to: front/{$matches[1]}/{$matches[2]}/{$matches[3]}/{$matches[4]}</p>";
+    }
+};
 
 
 // ========== DEBUG ROUTES ==========

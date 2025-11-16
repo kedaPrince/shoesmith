@@ -1563,63 +1563,57 @@ class Candidates extends CRUD_Controller
         echo "<a href='" . site_url('recruiter/candidates/view/' . $candidate_id . '?tab=required') . "' target='_blank'>View Candidate with Required Documents Tab</a>";
     }
 
-    /**
-     * View candidates for a specific job
-     */
     public function for_job($job_id)
-    {
-        // Verify the job exists and belongs to recruiter's agency
-        $this->load->model('recruiter/model_jobs');
-        
-        // Get job with proper joins to include industry name
-        $this->db->select('mod_jobs.*, agencies.name as agency_name, mod_industries.name as industry_name');
-        $this->db->from('mod_jobs');
-        $this->db->join('agencies', 'agencies.id = mod_jobs.agency_id', 'left');
-        $this->db->join('mod_industries', 'mod_industries.id = mod_jobs.industry_id', 'left');
-        $this->db->where('mod_jobs.id', $job_id);
-        $this->db->where('mod_jobs.removed', 0);
-        
-        $job = $this->db->get()->row();
-        
-        if (!$job) {
-            show_404();
-        }
-        
-        // Verify job belongs to recruiter's agency
-        $user_agency_id = $this->get_user_agency_id();
-        if ($job->agency_id != $user_agency_id) {
-            show_404();
-        }
-        
-        // Get candidates for this specific job
-        $candidates_query = $this->{$this->model}->get_candidates_by_job($job_id);
-        $candidates = $candidates_query->result();
-        
-        // Set breadcrumbs
-        $this->breadcrumbs = array(
-            array(
-                'title' => 'Jobs',
-                'url'   => site_url('recruiter/jobs')
-            ),
-            array(
-                'title' => $job->name,
-                'url'   => site_url('recruiter/jobs/view/' . $job_id)
-            ),
-            array(
-                'title' => 'Candidates',
-                'url'   => '#'
-            ),
-        );
-        
-        // Load the view
-        $this->load->view($this->folder . '/view_header');
-        $this->load->view('recruiter/candidates/view_job_candidates', array(
-            'job' => $job,
-            'candidates' => $candidates,
-            'heading' => 'Candidates for: ' . $job->name
-        ));
-        $this->load->view($this->folder . '/view_footer');
+{
+    // Verify the job exists
+    $this->load->model('recruiter/model_jobs');
+    
+    // Get job with proper joins to include industry name
+    $this->db->select('mod_jobs.*, agencies.name as agency_name, mod_industries.name as industry_name');
+    $this->db->from('mod_jobs');
+    $this->db->join('agencies', 'agencies.id = mod_jobs.agency_id', 'left');
+    $this->db->join('mod_industries', 'mod_industries.id = mod_jobs.industry_id', 'left');
+    $this->db->where('mod_jobs.id', $job_id);
+    $this->db->where('mod_jobs.removed', 0);
+    
+    $job = $this->db->get()->row();
+    
+    if (!$job) {
+        show_404();
     }
+    
+    // REMOVED: Agency restriction check
+    // All recruiters can now access any job
+    
+    // Get candidates for this specific job
+    $candidates_query = $this->{$this->model}->get_candidates_by_job($job_id);
+    $candidates = $candidates_query->result();
+    
+    // Set breadcrumbs
+    $this->breadcrumbs = array(
+        array(
+            'title' => 'Jobs',
+            'url'   => site_url('recruiter/jobs')
+        ),
+        array(
+            'title' => $job->name,
+            'url'   => site_url('recruiter/jobs/view/' . $job_id)
+        ),
+        array(
+            'title' => 'Candidates',
+            'url'   => '#'
+        ),
+    );
+    
+    // Load the view
+    $this->load->view($this->folder . '/view_header');
+    $this->load->view('recruiter/candidates/view_job_candidates', array(
+        'job' => $job,
+        'candidates' => $candidates,
+        'heading' => 'Candidates for: ' . $job->name
+    ));
+    $this->load->view($this->folder . '/view_footer');
+}
 
     /**
      * Get the logged-in recruiter's agency ID

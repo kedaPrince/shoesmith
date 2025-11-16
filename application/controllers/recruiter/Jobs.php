@@ -46,7 +46,7 @@ class Jobs extends CRUD_Controller
         );
     }
 
-    private function setup_listing()
+private function setup_listing()
 {
     $this->listFields = array(
         'name' => array('label' => lang('label_title'), 'sort' => true),
@@ -83,16 +83,16 @@ class Jobs extends CRUD_Controller
             'class'     => 'view-row btn-info',
             'title'     => 'View job details',
         ),
-        'view_candidates' => array(  // NEW ACTION - View candidates for this job
+        'view_candidates' => array(  // FIXED - Use url() instead of site_url()
             'label'     => 'View Candidates',
-            'url'       => site_url('recruiter/candidates/for_job/{id}'),
+            'url'       => url('candidates/for_job/{id}'),  // CHANGED THIS LINE
             'icon'      => 'fa-users',
             'class'     => 'view-candidates-row btn-primary',
             'title'     => 'View candidates for this job',
         ),
-        'add_candidate' => array(
+        'add_candidate' => array(    // FIXED - Use url() instead of site_url()
             'label'     => 'Add Candidate',
-            'url'       => site_url('recruiter/candidates/add/{id}'),
+            'url'       => url('candidates/add/{id}'),  // CHANGED THIS LINE
             'icon'      => 'fa-user-plus',
             'class'     => 'add-candidate-row btn-success',
             'title'     => 'Add candidate to this job',
