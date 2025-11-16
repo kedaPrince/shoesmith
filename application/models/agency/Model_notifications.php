@@ -256,7 +256,7 @@ class Model_notifications extends CRUD_Model
     }
 
     
-public function create_hm_decision_notification($candidate_id, $job_id, $agency_id, $decision, $notes = '', $requesting_agency_id = null) {
+    public function create_hm_decision_notification($candidate_id, $job_id, $agency_id, $decision, $notes = '', $requesting_agency_id = null) {
         try {
             // Get candidate details
             $this->db->select('first_name, last_name, reference_number');
@@ -265,7 +265,6 @@ public function create_hm_decision_notification($candidate_id, $job_id, $agency_
             $candidate = $this->db->get()->row();
             
             if (!$candidate) {
-                log_message('error', "Candidate {$candidate_id} not found for HM decision notification");
                 return false;
             }
 
@@ -302,12 +301,11 @@ public function create_hm_decision_notification($candidate_id, $job_id, $agency_
             $recruiters = $this->db->get()->result();
 
             if (empty($recruiters)) {
-                log_message('error', "No recruiters found for agency {$agency_id} to send HM decision notification");
                 return false;
             }
 
             $notifications_created = 0;
-            $decision_icon = $decision === 'accepted' ? '✅' : '❌';
+            $decision_icon = $decision === 'accepted' ? '' : '';
             $decision_text = $decision === 'accepted' ? 'accepted' : 'rejected';
 
             foreach ($recruiters as $recruiter) {
@@ -344,11 +342,9 @@ public function create_hm_decision_notification($candidate_id, $job_id, $agency_
                 }
             }
 
-            log_message('debug', "Created {$notifications_created} HM decision notifications for candidate {$candidate_id}");
             return $notifications_created > 0;
 
         } catch (Exception $e) {
-            log_message('error', 'Error creating HM decision notification: ' . $e->getMessage());
             return false;
         }
     }
@@ -362,15 +358,15 @@ public function create_hm_decision_notification($candidate_id, $job_id, $agency_
         $job_name = $job ? $job->name : 'the position';
         
         if ($decision === 'accepted') {
-            $title = "🎉 Candidate Accepted: {$candidate_name}";
+            $title = " Candidate Accepted: {$candidate_name}";
             $message = "Great news! The hiring manager has accepted {$candidate_name} for {$job_name}.";
         } else {
-            $title = "❌ Candidate Rejected: {$candidate_name}";
+            $title = " Candidate Rejected: {$candidate_name}";
             $message = "The hiring manager has decided not to move forward with {$candidate_name} for {$job_name}.";
         }
 
         if (!empty($notes)) {
-            $message .= "\n\n📝 Hiring Manager's Notes:\n" . $notes;
+            $message .= "\n\n Hiring Manager's Notes:\n" . $notes;
         }
 
         return [
@@ -379,107 +375,103 @@ public function create_hm_decision_notification($candidate_id, $job_id, $agency_
         ];
     }
 
-    /**
- * Create documents request notification for recruiters - FIXED VERSION
- */
-public function create_documents_request_notification($candidate_id, $job_id, $agency_id, $documents_notes, $requesting_agency_id = null) {
-    try {
-        // Get candidate details
-        $this->db->select('first_name, last_name, reference_number');
-        $this->db->from('candidates');
-        $this->db->where('id', $candidate_id);
-        $candidate = $this->db->get()->row();
-        
-        if (!$candidate) {
-            log_message('error', "Candidate {$candidate_id} not found for documents request notification");
+        /**
+     * Create documents request notification for recruiters - FIXED VERSION
+     */
+    public function create_documents_request_notification($candidate_id, $job_id, $agency_id, $documents_notes, $requesting_agency_id = null) {
+        try {
+            // Get candidate details
+            $this->db->select('first_name, last_name, reference_number');
+            $this->db->from('candidates');
+            $this->db->where('id', $candidate_id);
+            $candidate = $this->db->get()->row();
+            
+            if (!$candidate) {
+                return false;
+            }
+
+            // Get job details
+            $job_name = 'Unknown Job';
+            if ($job_id) {
+                $this->db->select('name');
+                $this->db->from('mod_jobs');
+                $this->db->where('id', $job_id);
+                $job = $this->db->get()->row();
+                if ($job) {
+                    $job_name = $job->name;
+                }
+            }
+
+            // Get requesting agency name
+            $requesting_agency_name = 'Hiring Manager';
+            if ($requesting_agency_id) {
+                $this->db->select('name');
+                $this->db->from('agencies');
+                $this->db->where('id', $requesting_agency_id);
+                $agency = $this->db->get()->row();
+                if ($agency) {
+                    $requesting_agency_name = $agency->name;
+                }
+            }
+
+            // Get all recruiters from the submitting agency
+            $this->db->select('id, first_name, last_name');
+            $this->db->from('recruiters');
+            $this->db->where('agency_id', $agency_id);
+            $this->db->where('enabled', 1);
+            $this->db->where('removed', 0);
+            $recruiters = $this->db->get()->result();
+
+            if (empty($recruiters)) {
+                return false;
+            }
+
+            $notifications_created = 0;
+
+            foreach ($recruiters as $recruiter) {
+                // Prepare metadata properly
+                $metadata = [
+                    'decision' => 'documents_required', // Add decision field for compatibility
+                    'candidate_name' => $candidate->first_name . ' ' . $candidate->last_name,
+                    'candidate_reference' => $candidate->reference_number,
+                    'job_name' => $job_name,
+                    'requesting_agency' => $requesting_agency_name,
+                    'required_documents' => $documents_notes,
+                    'notes' => $documents_notes, // Add for compatibility
+                    'action_required' => 'Please upload the required documents to the candidate profile',
+                    'notification_type' => 'documents_request',
+                    'action_url' => site_url("recruiter/candidates/view/{$candidate_id}#documents")
+                ];
+
+                $notification_data = [
+                    'title' => 'Additional Documents Required',
+                    'message' => "The hiring manager ({$requesting_agency_name}) requires additional documents for candidate {$candidate->first_name} {$candidate->last_name} ({$candidate->reference_number}) for position: {$job_name}.",
+                    'type' => 'hm_decision', // Keep as hm_decision for consistency
+                    'sender_type' => 'agency',
+                    'sender_id' => $requesting_agency_id,
+                    'receiver_type' => 'recruiter',
+                    'receiver_id' => $recruiter->id,
+                    'related_entity' => 'candidate',
+                    'related_entity_id' => $candidate_id,
+                    'metadata' => json_encode($metadata), // Encode the full metadata
+                    'is_read' => 0,
+                    'created_at' => date('Y-m-d H:i:s'),
+                    'updated_at' => date('Y-m-d H:i:s'),
+                    'enabled' => 1
+                ];
+
+                // Insert notification
+                if ($this->db->insert('notifications', $notification_data)) {
+                    $notifications_created++;
+                }
+            }
+
+            return $notifications_created > 0;
+
+        } catch (Exception $e) {
             return false;
         }
-
-        // Get job details
-        $job_name = 'Unknown Job';
-        if ($job_id) {
-            $this->db->select('name');
-            $this->db->from('mod_jobs');
-            $this->db->where('id', $job_id);
-            $job = $this->db->get()->row();
-            if ($job) {
-                $job_name = $job->name;
-            }
-        }
-
-        // Get requesting agency name
-        $requesting_agency_name = 'Hiring Manager';
-        if ($requesting_agency_id) {
-            $this->db->select('name');
-            $this->db->from('agencies');
-            $this->db->where('id', $requesting_agency_id);
-            $agency = $this->db->get()->row();
-            if ($agency) {
-                $requesting_agency_name = $agency->name;
-            }
-        }
-
-        // Get all recruiters from the submitting agency
-        $this->db->select('id, first_name, last_name');
-        $this->db->from('recruiters');
-        $this->db->where('agency_id', $agency_id);
-        $this->db->where('enabled', 1);
-        $this->db->where('removed', 0);
-        $recruiters = $this->db->get()->result();
-
-        if (empty($recruiters)) {
-            log_message('error', "No recruiters found for agency {$agency_id} to send documents request notification");
-            return false;
-        }
-
-        $notifications_created = 0;
-
-        foreach ($recruiters as $recruiter) {
-            // Prepare metadata properly
-            $metadata = [
-                'decision' => 'documents_required', // Add decision field for compatibility
-                'candidate_name' => $candidate->first_name . ' ' . $candidate->last_name,
-                'candidate_reference' => $candidate->reference_number,
-                'job_name' => $job_name,
-                'requesting_agency' => $requesting_agency_name,
-                'required_documents' => $documents_notes,
-                'notes' => $documents_notes, // Add for compatibility
-                'action_required' => 'Please upload the required documents to the candidate profile',
-                'notification_type' => 'documents_request',
-                'action_url' => site_url("recruiter/candidates/view/{$candidate_id}#documents")
-            ];
-
-            $notification_data = [
-                'title' => '📋 Additional Documents Required',
-                'message' => "The hiring manager ({$requesting_agency_name}) requires additional documents for candidate {$candidate->first_name} {$candidate->last_name} ({$candidate->reference_number}) for position: {$job_name}.",
-                'type' => 'hm_decision', // Keep as hm_decision for consistency
-                'sender_type' => 'agency',
-                'sender_id' => $requesting_agency_id,
-                'receiver_type' => 'recruiter',
-                'receiver_id' => $recruiter->id,
-                'related_entity' => 'candidate',
-                'related_entity_id' => $candidate_id,
-                'metadata' => json_encode($metadata), // Encode the full metadata
-                'is_read' => 0,
-                'created_at' => date('Y-m-d H:i:s'),
-                'updated_at' => date('Y-m-d H:i:s'),
-                'enabled' => 1
-            ];
-
-            // Insert notification
-            if ($this->db->insert('notifications', $notification_data)) {
-                $notifications_created++;
-            }
-        }
-
-        log_message('debug', "Created {$notifications_created} documents request notifications for candidate {$candidate_id}");
-        return $notifications_created > 0;
-
-    } catch (Exception $e) {
-        log_message('error', 'Error creating documents request notification: ' . $e->getMessage());
-        return false;
     }
-}
 
     /**
      * Create notification for agency when documents are uploaded by recruiter
@@ -493,7 +485,6 @@ public function create_documents_request_notification($candidate_id, $job_id, $a
             $candidate = $this->db->get()->row();
             
             if (!$candidate) {
-                log_message('error', "Candidate {$candidate_id} not found for documents uploaded notification");
                 return false;
             }
 
@@ -504,7 +495,6 @@ public function create_documents_request_notification($candidate_id, $job_id, $a
             $recruiter = $this->db->get()->row();
 
             if (!$recruiter) {
-                log_message('error', "Recruiter {$uploaded_by_recruiter_id} not found for documents uploaded notification");
                 return false;
             }
 
@@ -517,7 +507,6 @@ public function create_documents_request_notification($candidate_id, $job_id, $a
             $agency_users = $this->db->get()->result();
 
             if (empty($agency_users)) {
-                log_message('error', "No agency users found for agency {$candidate->agency_id} to send documents uploaded notification");
                 return false;
             }
 
@@ -525,7 +514,7 @@ public function create_documents_request_notification($candidate_id, $job_id, $a
 
             foreach ($agency_users as $agency_user) {
                 $notification_data = [
-                    'title' => '📄 Documents Uploaded',
+                    'title' => ' Documents Uploaded',
                     'message' => "Recruiter {$recruiter->first_name} {$recruiter->last_name} has uploaded {$document_count} document(s) for candidate {$candidate->first_name} {$candidate->last_name} ({$candidate->reference_number}).",
                     'type' => 'candidate_applied',
                     'sender_type' => 'recruiter',
@@ -555,87 +544,81 @@ public function create_documents_request_notification($candidate_id, $job_id, $a
                 }
             }
 
-            log_message('debug', "Created {$notifications_created} documents uploaded notifications for candidate {$candidate_id}");
             return $notifications_created > 0;
 
         } catch (Exception $e) {
-            log_message('error', 'Error creating documents uploaded notification: ' . $e->getMessage());
             return false;
         }
     }
 
-/**
- * Create position offered notification for recruiters
- */
-public function create_position_offered_notification($candidate_id, $job_id, $agency_id, $offering_agency_name, $job_name, $job_ref, $offered_by_user_id = null) {
-    try {
-        // Get candidate details
-        $this->db->select('first_name, last_name, reference_number');
-        $this->db->from('candidates');
-        $this->db->where('id', $candidate_id);
-        $candidate = $this->db->get()->row();
-        
-        if (!$candidate) {
-            log_message('error', "Candidate {$candidate_id} not found for position offered notification");
-            return false;
-        }
-
-        // Get all recruiters from the submitting agency
-        $this->db->select('id, first_name, last_name');
-        $this->db->from('recruiters');
-        $this->db->where('agency_id', $agency_id);
-        $this->db->where('enabled', 1);
-        $this->db->where('removed', 0);
-        $recruiters = $this->db->get()->result();
-
-        if (empty($recruiters)) {
-            log_message('error', "No recruiters found for agency {$agency_id} to send position offered notification");
-            return false;
-        }
-
-        $notifications_created = 0;
-
-        foreach ($recruiters as $recruiter) {
-            $notification_data = [
-                'title' => '🎉 Position Offered to Candidate',
-                'message' => "Great news! {$offering_agency_name} has offered the position '{$job_name}' ({$job_ref}) to your candidate {$candidate->first_name} {$candidate->last_name} ({$candidate->reference_number}).",
-                'type' => 'position_offered',
-                'sender_type' => 'agency',
-                'sender_id' => $offered_by_user_id,
-                'receiver_type' => 'recruiter',
-                'receiver_id' => $recruiter->id,
-                'related_entity' => 'candidate',
-                'related_entity_id' => $candidate_id,
-                'metadata' => json_encode([
-                    'candidate_name' => $candidate->first_name . ' ' . $candidate->last_name,
-                    'candidate_reference' => $candidate->reference_number,
-                    'job_name' => $job_name,
-                    'job_reference' => $job_ref,
-                    'offering_agency' => $offering_agency_name,
-                    'notification_type' => 'position_offered',
-                    'action_required' => 'Contact candidate to confirm acceptance',
-                    'action_url' => site_url("recruiter/candidates/view/{$candidate_id}")
-                ]),
-                'is_read' => 0,
-                'created_at' => date('Y-m-d H:i:s'),
-                'updated_at' => date('Y-m-d H:i:s'),
-                'enabled' => 1
-            ];
-
-            // Insert notification
-            if ($this->db->insert('notifications', $notification_data)) {
-                $notifications_created++;
+    /**
+     * Create position offered notification for recruiters
+     */
+    public function create_position_offered_notification($candidate_id, $job_id, $agency_id, $offering_agency_name, $job_name, $job_ref, $offered_by_user_id = null) {
+        try {
+            // Get candidate details
+            $this->db->select('first_name, last_name, reference_number');
+            $this->db->from('candidates');
+            $this->db->where('id', $candidate_id);
+            $candidate = $this->db->get()->row();
+            
+            if (!$candidate) {
+                return false;
             }
+
+            // Get all recruiters from the submitting agency
+            $this->db->select('id, first_name, last_name');
+            $this->db->from('recruiters');
+            $this->db->where('agency_id', $agency_id);
+            $this->db->where('enabled', 1);
+            $this->db->where('removed', 0);
+            $recruiters = $this->db->get()->result();
+
+            if (empty($recruiters)) {
+                return false;
+            }
+
+            $notifications_created = 0;
+
+            foreach ($recruiters as $recruiter) {
+                $notification_data = [
+                    'title' => ' Position Offered to Candidate',
+                    'message' => "Great news! {$offering_agency_name} has offered the position '{$job_name}' ({$job_ref}) to your candidate {$candidate->first_name} {$candidate->last_name} ({$candidate->reference_number}).",
+                    'type' => 'position_offered',
+                    'sender_type' => 'agency',
+                    'sender_id' => $offered_by_user_id,
+                    'receiver_type' => 'recruiter',
+                    'receiver_id' => $recruiter->id,
+                    'related_entity' => 'candidate',
+                    'related_entity_id' => $candidate_id,
+                    'metadata' => json_encode([
+                        'candidate_name' => $candidate->first_name . ' ' . $candidate->last_name,
+                        'candidate_reference' => $candidate->reference_number,
+                        'job_name' => $job_name,
+                        'job_reference' => $job_ref,
+                        'offering_agency' => $offering_agency_name,
+                        'notification_type' => 'position_offered',
+                        'action_required' => 'Contact candidate to confirm acceptance',
+                        'action_url' => site_url("recruiter/candidates/view/{$candidate_id}")
+                    ]),
+                    'is_read' => 0,
+                    'created_at' => date('Y-m-d H:i:s'),
+                    'updated_at' => date('Y-m-d H:i:s'),
+                    'enabled' => 1
+                ];
+
+                // Insert notification
+                if ($this->db->insert('notifications', $notification_data)) {
+                    $notifications_created++;
+                }
+            }
+
+            return $notifications_created > 0;
+
+        } catch (Exception $e) {
+            return false;
         }
-
-        log_message('debug', "Created {$notifications_created} position offered notifications for candidate {$candidate_id}");
-        return $notifications_created > 0;
-
-    } catch (Exception $e) {
-        log_message('error', 'Error creating position offered notification: ' . $e->getMessage());
-        return false;
     }
-}
 
 
 

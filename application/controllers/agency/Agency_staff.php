@@ -211,10 +211,9 @@ private function setup_listing(): void
         $user_agency_id = $this->get_user_agency_id();
         
         if (!empty($user_agency_id)) {
-            log_message('debug', 'Applying agency filter for agency_staff in _get_data: ' . $user_agency_id);
             $this->db->where('agency_staff.agency_id', $user_agency_id);
         } else {
-            log_message('debug', 'No agency_id found for filtering agency_staff');
+            
         }
         
         return parent::_get_data($limit, $offset, $sort_by, $sort_order);
@@ -223,12 +222,10 @@ private function setup_listing(): void
     public function index(): void
     {
         $user_agency_id = $this->get_user_agency_id();
-        log_message('debug', 'Current user agency_id for agency_staff: ' . $user_agency_id);
         
         // Apply agency filter directly before the listing loads
         if (!empty($user_agency_id)) {
             $this->db->where('agency_staff.agency_id', $user_agency_id);
-            log_message('debug', 'Applied agency filter in index method for agency_staff: ' . $user_agency_id);
         }
         
         $this->breadcrumbs = array(
@@ -250,39 +247,36 @@ private function setup_listing(): void
     /**
      * Override the pager fetch batch to ensure agency filtering
      */
-   /**
- * Override the pager fetch batch to ensure agency filtering
- */
-public function ajax_pager_fetch_batch($batch = 1, $section = "", $template = "listing")
-{
-    $this->page = $batch;
-    
-    $user_agency_id = $this->get_user_agency_id();
-    
-    try {
-        // Apply agency filter before calling get_all
-        if (!empty($user_agency_id)) {
-            $this->db->where('agency_staff.agency_id', $user_agency_id);
-            log_message('debug', 'Applied agency filter in ajax_pager_fetch_batch: ' . $user_agency_id);
-        }
+ 
+    public function ajax_pager_fetch_batch($batch = 1, $section = "", $template = "listing")
+    {
+        $this->page = $batch;
         
-        $query = $this->{$this->model}->get_all($section);
-    }
-    catch(Exception $e) {
-        echo $e->getMessage();
-        exit();
-    }
+        $user_agency_id = $this->get_user_agency_id();
+        
+        try {
+            // Apply agency filter before calling get_all
+            if (!empty($user_agency_id)) {
+                $this->db->where('agency_staff.agency_id', $user_agency_id);
+            }
+            
+            $query = $this->{$this->model}->get_all($section);
+        }
+        catch(Exception $e) {
+            echo $e->getMessage();
+            exit();
+        }
 
-    $amount = $this->{$this->model}->get_count();
-    
-    $html = $this->load->view('cms/crud/ajax_' . $template . '_rows', array(
-        'query' => $query,
-        'batch' => $batch,
-        'amount' => $amount
-    ), TRUE);
+        $amount = $this->{$this->model}->get_count();
+        
+        $html = $this->load->view('cms/crud/ajax_' . $template . '_rows', array(
+            'query' => $query,
+            'batch' => $batch,
+            'amount' => $amount
+        ), TRUE);
 
-    $this->output->set_output($html);
-}
+        $this->output->set_output($html);
+    }
 
     public function quick_manage_extra($id, $row): array
     {
@@ -306,32 +300,25 @@ public function ajax_pager_fetch_batch($batch = 1, $section = "", $template = "l
     /**
      * Get the logged-in user's agency ID - Works for both agency staff and recruiters
      */
-   /**
- * Get the logged-in user's agency ID - Works for both agency staff and recruiters
- */
-/**
- * Get the logged-in user's agency ID
- */
-private function get_user_agency_id()
-{
-    // Get the login data from session
-    $login_data = $this->session->userdata('login');
-    
-    // Check for agency login - when logged in as agency, the ID is the agency ID
-    if (!empty($login_data['agency'])) {
-        $agency_user = $login_data['agency'];
+
+    private function get_user_agency_id()
+    {
+        // Get the login data from session
+        $login_data = $this->session->userdata('login');
         
-        if (!empty($agency_user['id'])) {
-            // When logged in as agency, the ID is the agency ID
-            $agency_id = $agency_user['id'];
-            log_message('debug', 'Agency_Staff - Using agency ID from session: ' . $agency_id);
-            return $agency_id;
+        // Check for agency login - when logged in as agency, the ID is the agency ID
+        if (!empty($login_data['agency'])) {
+            $agency_user = $login_data['agency'];
+            
+            if (!empty($agency_user['id'])) {
+                // When logged in as agency, the ID is the agency ID
+                $agency_id = $agency_user['id'];
+                return $agency_id;
+            }
         }
+        
+        return null;
     }
-    
-    log_message('debug', 'Agency_Staff - No agency ID found in session');
-    return null;
-}
 
     /**
      * Is Unique Email

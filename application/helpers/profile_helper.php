@@ -167,7 +167,6 @@ function getUserAccessGroups($id, $type): array
         return $ci->db->get()->result();
     } catch (Exception $e) {
         // Log the error and return empty array or re-throw based on your needs
-        log_message('error', 'Error fetching access groups: ' . $e->getMessage());
         return [];
     }
 }

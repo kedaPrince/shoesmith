@@ -114,8 +114,8 @@
 document.addEventListener('DOMContentLoaded', function() {
     console.log('Template instance form loaded');
     console.log('Template sections:', <?= json_encode(array_map(function($s) { 
-        return ['id' => $s->id, 'name' => $s->name, 'schema_id' => $s->schema_id]; 
-    }, $template->sections ?? [])) ?>);
+            return ['id' => $s->id, 'name' => $s->name, 'schema_id' => $s->schema_id]; 
+        }, $template->sections ?? [])) ?>);
 
     // Load each form via AJAX
     <?php foreach ($template->sections as $section): ?>
@@ -235,7 +235,7 @@ function initializeFormElements(container) {
         });
     }
 
-    // ✅ FIX: Initialize multi-select dropdowns for loaded forms
+    //  FIX: Initialize multi-select dropdowns for loaded forms
     initializeMultiSelects(container);
 
     // Log all form fields for debugging
@@ -247,30 +247,30 @@ function initializeFormElements(container) {
     })));
 }
 
-// ✅ NEW: Function to initialize multi-select dropdowns
+//  NEW: Function to initialize multi-select dropdowns
 function initializeMultiSelects(container) {
     console.log('Initializing multi-select dropdowns in container...');
-    
+
     // Find all multi-select elements
     const multiSelects = container.querySelectorAll('select[multiple]');
     console.log('Found multi-select elements:', multiSelects.length);
-    
+
     multiSelects.forEach(select => {
         const name = select.getAttribute('name');
         console.log('Processing multi-select:', name);
-        
+
         // Skip if already initialized
         if (select.classList.contains('initialized-multiselect')) {
             console.log('Multi-select already initialized:', name);
             return;
         }
-        
+
         // Mark as initialized
         select.classList.add('initialized-multiselect');
-        
+
         // Get placeholder from data attribute or use default
         const placeholder = select.getAttribute('data-placeholder') || 'Select options';
-        
+
         // Initialize based on available plugins
         if (typeof $.fn.select2 !== 'undefined') {
             // Use Select2 if available
@@ -300,8 +300,8 @@ function initializeMultiSelects(container) {
             select.style.padding = '8px';
             select.title = 'Hold Ctrl/Cmd to select multiple options';
         }
-        
-        console.log('✅ Multi-select initialized:', name);
+
+
     });
 }
 </script>

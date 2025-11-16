@@ -20,7 +20,6 @@ class Model_recruiters extends CRUD_Model
         $loginData = loginData();
         if (isset($loginData['id']) && $loginData['group'] == 'agency') {
             $this->db->where('recruiters.agency_id', $loginData['id']);
-            log_message('debug', 'Filtering recruiters by agency_id: ' . $loginData['id']);
         }
     }
 

@@ -240,68 +240,68 @@
                                             <td>
                                                 <?php
                                                    // TEMPORARY DEBUG - Remove this after testing
-    echo "<!-- DEBUG: candidate_id: {$candidate->id}, hm_decision: " . ($candidate->hm_decision ?? 'NULL') . ", status: {$candidate->status}, stage_hm_decision: {$candidate->stage_hm_decision} -->";
-    
-    // FIXED: Improved stage determination logic
-    $stage_class = 'stage-not-started';
-    $stage_label = 'Not Started';
-    
-    // ✅ FIX: Check if candidate is rejected - only if BOTH hm_decision is 'rejected' AND status is 'rejected'
-    // When we reopen HM decision, we reset hm_decision to null but status might still be 'rejected'
-    $is_rejected = ($candidate->hm_decision === 'rejected' && $candidate->status === 'rejected');
-    
-    if ($is_rejected) {
-        $stage_class = 'stage-hm-rejected';
-        $stage_label = 'Rejected';
-    }
-    // Check if onboarding is completed
-    elseif ($candidate->onboarding_stage === 'completed' || $candidate->stage_position_offered) {
-        $stage_class = 'stage-completed';
-        $stage_label = 'Completed';
-    }
-    // ✅ FIXED: Check HM decision status - only if stage_hm_decision is completed AND hm_decision has a value
-    elseif ($candidate->stage_hm_decision && !empty($candidate->hm_decision)) {
-        if ($candidate->hm_decision === 'accepted') {
-            $stage_class = 'stage-hm-accepted';
-            $stage_label = 'HM Accepted';
-        } elseif ($candidate->hm_decision === 'rejected') {
-            $stage_class = 'stage-hm-rejected';
-            $stage_label = 'HM Rejected';
-        }
-    }
-    // Check individual stages in order to find the current active stage
-    else {
-        // Define stages in order
-        $stages = [
-            'stage_under_review' => ['label' => 'Under Review', 'class' => 'stage-under-review'],
-            'stage_submitted_to_hm' => ['label' => 'Submitted to HM', 'class' => 'stage-submitted-to-hm'],
-            'stage_hm_decision' => ['label' => 'HM Decision', 'class' => 'stage-hm-decision'],
-            'stage_documents_decision' => ['label' => 'Docs Decision', 'class' => 'stage-requested-docs'],
-            'stage_requested_docs' => ['label' => 'Requested Docs', 'class' => 'stage-requested-docs'],
-            'stage_position_offered' => ['label' => 'Position Offered', 'class' => 'stage-position-offered']
-        ];
-        
-        $current_stage_found = false;
-        
-        // Loop through stages to find the first incomplete stage
-        foreach ($stages as $stage_key => $stage_info) {
-            $stage_completed = !empty($candidate->$stage_key) && $candidate->$stage_key == 1;
-            
-            if (!$stage_completed && !$current_stage_found) {
-                // This is the current active stage (first incomplete stage)
-                $stage_class = $stage_info['class'];
-                $stage_label = $stage_info['label'];
-                $current_stage_found = true;
-            }
-        }
-        
-        // If all stages are completed but not marked as 'completed'
-        if (!$current_stage_found) {
-            $stage_class = 'stage-completed';
-            $stage_label = 'Completed';
-        }
-    }
-    ?>
+                                                    echo "<!-- DEBUG: candidate_id: {$candidate->id}, hm_decision: " . ($candidate->hm_decision ?? 'NULL') . ", status: {$candidate->status}, stage_hm_decision: {$candidate->stage_hm_decision} -->";
+                                                    
+                                                    // FIXED: Improved stage determination logic
+                                                    $stage_class = 'stage-not-started';
+                                                    $stage_label = 'Not Started';
+                                                    
+                                                    //  FIX: Check if candidate is rejected - only if BOTH hm_decision is 'rejected' AND status is 'rejected'
+                                                    // When we reopen HM decision, we reset hm_decision to null but status might still be 'rejected'
+                                                    $is_rejected = ($candidate->hm_decision === 'rejected' && $candidate->status === 'rejected');
+                                                    
+                                                    if ($is_rejected) {
+                                                        $stage_class = 'stage-hm-rejected';
+                                                        $stage_label = 'Rejected';
+                                                    }
+                                                    // Check if onboarding is completed
+                                                    elseif ($candidate->onboarding_stage === 'completed' || $candidate->stage_position_offered) {
+                                                        $stage_class = 'stage-completed';
+                                                        $stage_label = 'Completed';
+                                                    }
+                                                    //  FIXED: Check HM decision status - only if stage_hm_decision is completed AND hm_decision has a value
+                                                    elseif ($candidate->stage_hm_decision && !empty($candidate->hm_decision)) {
+                                                        if ($candidate->hm_decision === 'accepted') {
+                                                            $stage_class = 'stage-hm-accepted';
+                                                            $stage_label = 'HM Accepted';
+                                                        } elseif ($candidate->hm_decision === 'rejected') {
+                                                            $stage_class = 'stage-hm-rejected';
+                                                            $stage_label = 'HM Rejected';
+                                                        }
+                                                    }
+                                                    // Check individual stages in order to find the current active stage
+                                                    else {
+                                                        // Define stages in order
+                                                        $stages = [
+                                                            'stage_under_review' => ['label' => 'Under Review', 'class' => 'stage-under-review'],
+                                                            'stage_submitted_to_hm' => ['label' => 'Submitted to HM', 'class' => 'stage-submitted-to-hm'],
+                                                            'stage_hm_decision' => ['label' => 'HM Decision', 'class' => 'stage-hm-decision'],
+                                                            'stage_documents_decision' => ['label' => 'Docs Decision', 'class' => 'stage-requested-docs'],
+                                                            'stage_requested_docs' => ['label' => 'Requested Docs', 'class' => 'stage-requested-docs'],
+                                                            'stage_position_offered' => ['label' => 'Position Offered', 'class' => 'stage-position-offered']
+                                                        ];
+                                                        
+                                                        $current_stage_found = false;
+                                                        
+                                                        // Loop through stages to find the first incomplete stage
+                                                        foreach ($stages as $stage_key => $stage_info) {
+                                                            $stage_completed = !empty($candidate->$stage_key) && $candidate->$stage_key == 1;
+                                                            
+                                                            if (!$stage_completed && !$current_stage_found) {
+                                                                // This is the current active stage (first incomplete stage)
+                                                                $stage_class = $stage_info['class'];
+                                                                $stage_label = $stage_info['label'];
+                                                                $current_stage_found = true;
+                                                            }
+                                                        }
+                                                        
+                                                        // If all stages are completed but not marked as 'completed'
+                                                        if (!$current_stage_found) {
+                                                            $stage_class = 'stage-completed';
+                                                            $stage_label = 'Completed';
+                                                        }
+                                                    }
+                                                    ?>
                                                 <span class="stage-badge <?= $stage_class ?>"><?= $stage_label ?></span>
                                             </td>
                                             <td class="progress-cell">

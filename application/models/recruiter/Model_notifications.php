@@ -249,7 +249,6 @@ class Model_notifications extends CRUD_Model
             $candidate = $this->db->get()->row();
             
             if (!$candidate) {
-                log_message('error', "Candidate {$candidate_id} not found for HM decision notification");
                 return false;
             }
 
@@ -286,12 +285,11 @@ class Model_notifications extends CRUD_Model
             $recruiters = $this->db->get()->result();
 
             if (empty($recruiters)) {
-                log_message('error', "No recruiters found for agency {$agency_id} to send HM decision notification");
                 return false;
             }
 
             $notifications_created = 0;
-            $decision_icon = $decision === 'accepted' ? '✅' : '❌';
+            $decision_icon = $decision === 'accepted' ? '' : '';
             $decision_text = $decision === 'accepted' ? 'accepted' : 'rejected';
 
             foreach ($recruiters as $recruiter) {
@@ -332,11 +330,9 @@ class Model_notifications extends CRUD_Model
                 }
             }
 
-            log_message('debug', "Created {$notifications_created} HM decision notifications for candidate {$candidate_id}");
             return $notifications_created > 0;
 
         } catch (Exception $e) {
-            log_message('error', 'Error creating HM decision notification: ' . $e->getMessage());
             return false;
         }
     }
@@ -379,7 +375,6 @@ class Model_notifications extends CRUD_Model
             $candidate = $this->db->get()->row();
             
             if (!$candidate) {
-                log_message('error', "Candidate {$candidate_id} not found for documents uploaded notification");
                 return false;
             }
 
@@ -390,7 +385,6 @@ class Model_notifications extends CRUD_Model
             $recruiter = $this->db->get()->row();
 
             if (!$recruiter) {
-                log_message('error', "Recruiter {$uploaded_by_recruiter_id} not found for documents uploaded notification");
                 return false;
             }
 
@@ -403,7 +397,6 @@ class Model_notifications extends CRUD_Model
             $agency_users = $this->db->get()->result();
 
             if (empty($agency_users)) {
-                log_message('error', "No agency users found for agency {$recruiter->agency_id} to send documents uploaded notification");
                 return false;
             }
 
@@ -411,7 +404,7 @@ class Model_notifications extends CRUD_Model
 
             foreach ($agency_users as $agency_user) {
                 $notification_data = [
-                    'title' => '📄 Documents Uploaded',
+                    'title' => ' Documents Uploaded',
                     'message' => "Recruiter {$recruiter->first_name} {$recruiter->last_name} has uploaded {$document_count} document(s) for candidate {$candidate->first_name} {$candidate->last_name} ({$candidate->reference_number}).",
                     'type' => 'documents_uploaded',
                     'sender_type' => 'recruiter',
@@ -441,11 +434,9 @@ class Model_notifications extends CRUD_Model
                 }
             }
 
-            log_message('debug', "Created {$notifications_created} documents uploaded notifications for candidate {$candidate_id}");
             return $notifications_created > 0;
 
         } catch (Exception $e) {
-            log_message('error', 'Error creating documents uploaded notification: ' . $e->getMessage());
             return false;
         }
     }
@@ -463,10 +454,9 @@ class Model_notifications extends CRUD_Model
         $this->db->where('n.receiver_id', $recruiter_id);
         $this->db->where('n.type', 'hm_decision');
         $this->db->order_by('n.created_at', 'DESC');
-        
-        if ($limit) {
-            $this->db->limit($limit);
-        }
+            if ($limit) {
+                $this->db->limit($limit);
+            }
         
         return $this->db->get()->result();
     }
@@ -480,7 +470,6 @@ class Model_notifications extends CRUD_Model
             $candidate = $this->db->get()->row();
             
             if (!$candidate) {
-                log_message('error', "Candidate {$candidate_id} not found for required documents submitted notification");
                 return false;
             }
 
@@ -491,7 +480,6 @@ class Model_notifications extends CRUD_Model
             $recruiter = $this->db->get()->row();
 
             if (!$recruiter) {
-                log_message('error', "Recruiter {$recruiter_id} not found for required documents submitted notification");
                 return false;
             }
 
@@ -516,7 +504,6 @@ class Model_notifications extends CRUD_Model
             $agency_users = $this->db->get()->result();
 
             if (empty($agency_users)) {
-                log_message('error', "No agency users found for agency {$candidate->agency_id} to send required documents submitted notification");
                 return false;
             }
 
@@ -527,11 +514,11 @@ class Model_notifications extends CRUD_Model
                 $message = "Recruiter {$recruiter->first_name} {$recruiter->last_name} has submitted {$document_count} required document(s) for candidate {$candidate->first_name} {$candidate->last_name} ({$candidate->reference_number}) for position: {$job_name}.";
                 
                 if (!empty($submission_notes)) {
-                    $message .= "\n\n📝 Recruiter's Notes: " . $submission_notes;
+                    $message .= "\n\nRecruiter's Notes: " . $submission_notes;
                 }
 
                 $notification_data = [
-                    'title' => '📋 Required Documents Submitted',
+                    'title' => ' Required Documents Submitted',
                     'message' => $message,
                     'type' => 'required_documents_submitted',
                     'sender_type' => 'recruiter',
@@ -564,11 +551,9 @@ class Model_notifications extends CRUD_Model
                 }
             }
 
-            log_message('debug', "Created {$notifications_created} required documents submitted notifications for candidate {$candidate_id}");
             return $notifications_created > 0;
 
         } catch (Exception $e) {
-            log_message('error', 'Error creating required documents submitted notification: ' . $e->getMessage());
             return false;
         }
     }
@@ -585,7 +570,6 @@ class Model_notifications extends CRUD_Model
             $candidate = $this->db->get()->row();
             
             if (!$candidate) {
-                log_message('error', "Candidate {$candidate_id} not found for documents request notification");
                 return false;
             }
 
@@ -610,7 +594,6 @@ class Model_notifications extends CRUD_Model
             $recruiters = $this->db->get()->result();
 
             if (empty($recruiters)) {
-                log_message('error', "No recruiters found for agency {$candidate->agency_id} to send documents request notification");
                 return false;
             }
 
@@ -618,7 +601,7 @@ class Model_notifications extends CRUD_Model
 
             foreach ($recruiters as $recruiter) {
                 $notification_data = [
-                    'title' => '📄 Additional Documents Required',
+                    'title' => ' Additional Documents Required',
                     'message' => "The agency requires additional documents for candidate {$candidate->first_name} {$candidate->last_name} ({$candidate->reference_number}) for position: {$job_name}.\n\nRequired Documents: {$required_documents_notes}",
                     'type' => 'documents_request',
                     'sender_type' => 'agency',
@@ -649,11 +632,9 @@ class Model_notifications extends CRUD_Model
                 }
             }
 
-            log_message('debug', "Created {$notifications_created} documents request notifications for candidate {$candidate_id}");
             return $notifications_created > 0;
 
         } catch (Exception $e) {
-            log_message('error', 'Error creating documents request notification: ' . $e->getMessage());
             return false;
         }
     }

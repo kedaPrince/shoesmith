@@ -500,7 +500,7 @@ if (typeof window.QuickManageForm === 'undefined') {
                 // Populate modal message with section name
                 $('#delete-section-message').html(
                     `Are you sure you want to delete the section "<strong>${sectionName}</strong>"? This action cannot be
-        undone and will remove all associated form data for this section.`
+            undone and will remove all associated form data for this section.`
                 );
                 $('#confirm-delete-section').data('section-id', sectionId).prop('disabled',
                     false); // ENABLE THE BUTTON HERE
@@ -1552,10 +1552,10 @@ if (typeof window.QuickManageForm === 'undefined') {
 
             // Append new button to form footer
             const jobButton = `
-            <button type="button" class="btn btn-primary ml-2" id="save-as-job-btn">
-                <i class="fa fa-briefcase"></i> Save as Job Listing
-            </button>
-        `;
+                <button type="button" class="btn btn-primary ml-2" id="save-as-job-btn">
+                    <i class="fa fa-briefcase"></i> Save as Job Listing
+                </button>
+            `;
             $('#save-button').after(jobButton);
 
             // Bind click event
@@ -1733,9 +1733,6 @@ $(document).on('click', '.preview-composite-template', function() {
     const templateName = $(this).data('name');
     window.open('<?= site_url("agency/templates/preview/") ?>' + templateId, '_blank');
 });
-
-// Add this to your template JavaScript
-console.log('=== DEBUG FORM SUBMISSION ===');
 
 // Check multi-select fields before submission
 $('form').on('submit', function(e) {

@@ -5,55 +5,54 @@ class Model_agency_staff extends CRUD_Model
 {
     protected $table = 'agency_staff';
 
-public function get_all($limit = 0, $offset = 0, $section = '')
-{
-    $this->db->distinct();
-    $this->db->join('agencies', 'agencies.id = agency_staff.agency_id', 'left');
-    
-    // Explicitly select all needed fields including agency_id
-    $this->db->select('
-        agency_staff.*,
-        agencies.name as agency_name
-    ', false);
-    
-    $this->db->where('agency_staff.removed', 0);
-    
-    // Apply agency filtering - get agency ID from session
-    $ci =& get_instance();
-    $agency_id = null;
-    
-    // Get agency ID from session
-    if (isset($ci->session) && $ci->session->has_userdata('login')) {
-        $login_data = $ci->session->userdata('login');
+    public function get_all($limit = 0, $offset = 0, $section = '')
+    {
+        $this->db->distinct();
+        $this->db->join('agencies', 'agencies.id = agency_staff.agency_id', 'left');
         
-        if (!empty($login_data['agency']) && !empty($login_data['agency']['id'])) {
-            $agency_id = $login_data['agency']['id'];
+        // Explicitly select all needed fields including agency_id
+        $this->db->select('
+            agency_staff.*,
+            agencies.name as agency_name
+        ', false);
+        
+        $this->db->where('agency_staff.removed', 0);
+        
+        // Apply agency filtering - get agency ID from session
+        $ci =& get_instance();
+        $agency_id = null;
+        
+        // Get agency ID from session
+        if (isset($ci->session) && $ci->session->has_userdata('login')) {
+            $login_data = $ci->session->userdata('login');
+            
+            if (!empty($login_data['agency']) && !empty($login_data['agency']['id'])) {
+                $agency_id = $login_data['agency']['id'];
+            }
         }
-    }
-    
-    // Apply agency filter if we have an agency ID
-    if (!empty($agency_id)) {
-        $this->db->where('agency_staff.agency_id', $agency_id);
-        log_message('debug', 'Model_agency_staff - Filtering by agency_id: ' . $agency_id);
-    } else {
-        log_message('debug', 'Model_agency_staff - No agency filter applied');
-    }
-    
-    // Apply sorting
-    if (!empty($this->sorting)) {
-        foreach ($this->sorting as $field => $direction) {
-            $this->db->order_by($field, $direction);
+        
+        // Apply agency filter if we have an agency ID
+        if (!empty($agency_id)) {
+            $this->db->where('agency_staff.agency_id', $agency_id);
+            log_message('debug', 'Model_agency_staff - Filtering by agency_id: ' . $agency_id);
+        } else {
+            log_message('debug', 'Model_agency_staff - No agency filter applied');
         }
+        
+        // Apply sorting
+        if (!empty($this->sorting)) {
+            foreach ($this->sorting as $field => $direction) {
+                $this->db->order_by($field, $direction);
+            }
+        }
+        
+        if ($limit > 0) {
+            $this->db->limit($limit, $offset);
+        }
+        
+        $query = $this->db->get($this->table);
+        return $query;
     }
-    
-    if ($limit > 0) {
-        $this->db->limit($limit, $offset);
-    }
-    
-    $query = $this->db->get($this->table);
-    log_message('debug', 'Model_agency_staff get_all query: ' . $this->db->last_query());
-    return $query;
-}
 
     // Remove the selects() method entirely or keep it empty
     public function selects()
@@ -205,16 +204,16 @@ public function get_all($limit = 0, $offset = 0, $section = '')
     }
 
     public function get_user_types_all()
-{
-    $this->db->select('id, title as name');
-    // Include all agency-related user types
-    $this->db->where_in('slug', ['agency_admin', 'agency_manager', 'agency_agent', 'agency_support']);
-    $this->db->where('enabled', 1);
-    $this->db->where('removed', 0);
-    $this->db->order_by('title');
+    {
+        $this->db->select('id, title as name');
+        // Include all agency-related user types
+        $this->db->where_in('slug', ['agency_admin', 'agency_manager', 'agency_agent', 'agency_support']);
+        $this->db->where('enabled', 1);
+        $this->db->where('removed', 0);
+        $this->db->order_by('title');
 
-    return $this->db->get('usr_types');
-}
+        return $this->db->get('usr_types');
+    }
 
     /**
      * Get agency options for dropdowns
@@ -227,7 +226,6 @@ public function get_all($limit = 0, $offset = 0, $section = '')
         // If agency_id is provided, filter to show only that agency
         if ($agency_id) {
             $this->db->where('id', $agency_id);
-            log_message('debug', 'Model_agency_staff - Filtering agencies to show only ID: ' . $agency_id);
         }
         
         $this->db->order_by('name');

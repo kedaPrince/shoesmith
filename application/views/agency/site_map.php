@@ -85,6 +85,20 @@ $this->siteMap = array(
         'active_by'     => 'notifications',
         'badge_count'   => true, // This will show unread count
     ],
+
+    // Add to agency sitemap array  
+(object) [
+    'group'         => 'Chat',
+    'page'          => 'chat',
+    'label'         => lang('chat_heading'),
+    'icon'          => 'fa-comments',
+    'url'           => url('chat'),
+    'class'         => 'Chat',
+    'show'          => true,
+    'show_heading'  => false,
+    'active_by'     => 'chat',
+    'badge_count'   => true, // This will show unread message count
+],
     (object)array(
         'group' => 'Templates',
         'page' => 'templates',

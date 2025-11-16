@@ -305,62 +305,56 @@ class Candidates extends CRUD_Controller
         $this->load->view($this->folder . '/' . 'view_footer');
     }
 
-public function view($id)
-{
-    $row = $this->{$this->model}->get_candidate($id);
-    
-    if (empty($row)) {
-        show_404();
+    public function view($id)
+    {
+        $row = $this->{$this->model}->get_candidate($id);
+        
+        if (empty($row)) {
+            show_404();
+        }
+
+        // Check for pending documents requests
+        $documents_request_data = $this->check_pending_documents_request($id);
+        
+        // Pass the data to the view - MAKE SURE $id IS PASSED
+        $this->load->view($this->folder . '/view_header');
+        $this->load->view('cms/crud/view_single', array(
+            'row' => $row,
+            'id' => $id, // ← THIS IS CRITICAL - ADD THIS LINE
+            'heading' => lang('view_candidate_heading'),
+            'has_pending_documents_request' => $documents_request_data['has_request'],
+            'documents_request_notes' => $documents_request_data['notes'],
+            'pending_notification_id' => $documents_request_data['notification_id']
+        ));
+        $this->load->view($this->folder . '/view_footer');
     }
 
-    // Check for pending documents requests
-    $documents_request_data = $this->check_pending_documents_request($id);
-    
-    // Pass the data to the view - MAKE SURE $id IS PASSED
-    $this->load->view($this->folder . '/view_header');
-    $this->load->view('cms/crud/view_single', array(
-        'row' => $row,
-        'id' => $id, // ← THIS IS CRITICAL - ADD THIS LINE
-        'heading' => lang('view_candidate_heading'),
-        'has_pending_documents_request' => $documents_request_data['has_request'],
-        'documents_request_notes' => $documents_request_data['notes'],
-        'pending_notification_id' => $documents_request_data['notification_id']
-    ));
-    $this->load->view($this->folder . '/view_footer');
-}
+    public function ajax_quick_manage($id = 0)
+    {
+        $row = false;
+        if (!empty($id)) {
+            $row = $this->{$this->model}->get_by_id($id);
+        }
 
-public function ajax_quick_manage($id = 0)
-{
-    $row = false;
-    if (!empty($id)) {
-        $row = $this->{$this->model}->get_by_id($id);
+        // Get quick manage extra data
+        $extra_data = $this->quick_manage_extra($id, $row);
+        
+        // Check for URL parameter to force required documents tab
+        $tab_required = $this->input->get('tab') === 'required';
+        if ($tab_required) {
+            $extra_data['force_required_tab'] = true;
+        }
+
+        $data = array(
+            'row' => $row,
+            'id' => $id,
+        );
+
+        // Merge with extra data - ensure all required variables are passed
+        $data = array_merge($data, $extra_data);
+
+        $this->load->view($this->folder . '/' . $this->pageName . '/ajax_manage', $data);
     }
-
-    // Get quick manage extra data
-    $extra_data = $this->quick_manage_extra($id, $row);
-    
-    // Check for URL parameter to force required documents tab
-    $tab_required = $this->input->get('tab') === 'required';
-    if ($tab_required) {
-        $extra_data['force_required_tab'] = true;
-    }
-
-    $data = array(
-        'row' => $row,
-        'id' => $id,
-    );
-
-    // Merge with extra data - ensure all required variables are passed
-    $data = array_merge($data, $extra_data);
-
-    // DEBUG: Log what's being passed to the view
-    log_message('debug', '=== AJAX_QUICK_MANAGE DATA TO VIEW ===');
-    log_message('debug', 'Candidate ID: ' . $id);
-    log_message('debug', 'Has pending documents request: ' . ($data['has_pending_documents_request'] ? 'YES' : 'NO'));
-    log_message('debug', 'Force required tab: ' . ($data['force_required_tab'] ?? 'NO'));
-
-    $this->load->view($this->folder . '/' . $this->pageName . '/ajax_manage', $data);
-}
     /**
      * Generate reference number via AJAX
      */
@@ -425,7 +419,6 @@ public function ajax_quick_manage($id = 0)
      */
     public function get_post_data()
     {
-        log_message('debug', '=== GET_POST_DATA STARTED ===');
         $data = array();
         
         // Process main fields
@@ -439,7 +432,6 @@ public function ajax_quick_manage($id = 0)
                 }
                 
                 $value = $this->input->post($clean_field);
-                log_message('debug', "Field: {$clean_field}, Value: " . ($value === null ? 'NULL' : $value));
                 
                 if ($value !== null && $value !== '') {
                     // Handle date fields
@@ -464,9 +456,7 @@ public function ajax_quick_manage($id = 0)
                 }
             }
         }
-        
-        log_message('debug', 'Final post data array: ' . print_r($data, true));
-        log_message('debug', '=== GET_POST_DATA ENDED ===');
+ 
         return $data;
     }
 
@@ -550,50 +540,29 @@ public function ajax_quick_manage($id = 0)
      */
     public function update($id = null)
     {
-        log_message('debug', '=== UPDATE METHOD STARTED ===');
-        log_message('debug', 'Candidate ID: ' . $id);
-        log_message('debug', 'POST data: ' . print_r($this->input->post(), true));
 
          // DEBUG: Check language file
-    $test_lang = lang('record_updated');
-    log_message('debug', 'LANGUAGE TEST - record_updated: ' . ($test_lang ? $test_lang : 'EMPTY OR MISSING'));
+        $test_lang = lang('record_updated');
         
-        if ($this->input->post()) {
-            log_message('debug', 'POST request detected');
-            
+        if ($this->input->post()) {            
             // Validate form
-            if ($this->validate_form('update')) {
-                log_message('debug', 'Form validation passed');
-                
+            if ($this->validate_form('update')) {                
                 // Get post data
                 $data = $this->get_post_data();
-                log_message('debug', 'Post data array: ' . print_r($data, true));
-                log_message('debug', 'Data type: ' . gettype($data));
-                log_message('debug', 'Is array: ' . (is_array($data) ? 'YES' : 'NO'));
-                
                 // Add extra parameters
-                $extra_params = $this->update_extra_params($id);
-                log_message('debug', 'Extra params: ' . print_r($extra_params, true));
-                
-                $data = array_merge($data, $extra_params);
-                log_message('debug', 'Merged data: ' . print_r($data, true));
-                
+                $extra_params = $this->update_extra_params($id);                
+                $data = array_merge($data, $extra_params);                
                 // Add updated_at timestamp
                 $data['updated_at'] = date('Y-m-d H:i:s');
                 
                 // CRITICAL: Ensure data is an array
                 if (!is_array($data)) {
-                    log_message('error', 'DATA IS NOT AN ARRAY! Type: ' . gettype($data));
                     $data = array(); // Force to empty array
                 }
-                
-                log_message('debug', 'Final data before update: ' . print_r($data, true));
-                
-                // Update the main record - FIXED: Correct parameter order
+    
                 try {
                     // CORRECTED: Pass parameters in the right order (data, id)
                     $result = $this->{$this->model}->update($data, $id);
-                    log_message('debug', 'Update result: ' . ($result ? 'SUCCESS' : 'FAILED'));
                     
                     if ($result) {
                         // Handle file upload
@@ -605,31 +574,28 @@ public function ajax_quick_manage($id = 0)
                         // Set success message
                         $this->session->set_flashdata('success', lang('record_updated'));
                         
-if ($this->input->is_ajax_request()) {
-    $response = [
-        'success' => true, 
-        'message' => lang('record_updated'),
-        'debug' => 'Update completed successfully'
-    ];
-    
-    // Set proper JSON headers
-    $this->output
-        ->set_content_type('application/json')
-        ->set_output(json_encode($response));
-    
-    log_message('debug', 'AJAX Response sent: ' . json_encode($response));
-    return;
-}
+        if ($this->input->is_ajax_request()) {
+            $response = [
+                'success' => true, 
+                'message' => lang('record_updated'),
+                'debug' => 'Update completed successfully'
+            ];
+            
+            // Set proper JSON headers
+            $this->output
+                ->set_content_type('application/json')
+                ->set_output(json_encode($response));
+            
+            return;
+        }
                     }
                 } catch (Exception $e) {
-                    log_message('error', 'Update exception: ' . $e->getMessage());
                     if ($this->input->is_ajax_request()) {
                         echo json_encode(['success' => false, 'error' => 'Update failed: ' . $e->getMessage()]);
                         return;
                     }
                 }
             } else {
-                log_message('debug', 'Form validation failed: ' . validation_errors());
             }
             
             // If we get here, there was an error
@@ -638,10 +604,8 @@ if ($this->input->is_ajax_request()) {
                 return;
             }
         } else {
-            log_message('debug', 'No POST data received');
         }
         
-        log_message('debug', '=== UPDATE METHOD ENDED ===');
         // Show the form
         $this->edit($id);
     }
@@ -742,132 +706,126 @@ if ($this->input->is_ajax_request()) {
         
         return null;
     }
-public function upload_required_documents()
-{
-    $candidate_id = $this->input->post('candidate_id');
-    $notification_id = $this->input->post('notification_id');
-    $submission_notes = $this->input->post('submission_notes');
-    
-    // Check if candidate exists and recruiter has access
-    $candidate = $this->{$this->model}->get_candidate($candidate_id);
-    if (empty($candidate)) {
-        ajax_return(['success' => false, 'message' => 'Candidate not found.']);
-        return;
-    }
-    
-    // Check access
-    $has_access = $this->{$this->model}->check_recruiter_candidate_access($this->get_recruiter_id(), $candidate_id);
-    if (!$has_access) {
-        ajax_return(['success' => false, 'message' => 'Access denied.']);
-        return;
-    }
-    
-    // Handle multiple document uploads
-    $uploaded_documents = [];
-    $errors = [];
-    
-    // Get the document data from POST
-    $document_names = $this->input->post('required_documents');
-    
-    log_message('debug', 'Document names received: ' . print_r($document_names, true));
-    log_message('debug', 'FILES received: ' . print_r($_FILES, true));
-    
-    if (!empty($document_names) && is_array($document_names)) {
-        foreach ($document_names as $index => $document_data) {
-            if (!empty($document_data['name']) && isset($_FILES['required_documents']['name'][$index]['file'])) {
-                $document_name = $document_data['name'];
-                $description = isset($document_data['description']) ? $document_data['description'] : '';
-                
-                $upload_result = $this->upload_single_required_document(
-                    $candidate_id, 
-                    $document_name, 
-                    $description,
-                    $index
-                );
-                
-                if ($upload_result['success']) {
-                    $uploaded_documents[] = $upload_result['document'];
-                } else {
-                    $errors[] = "Document '{$document_name}': " . $upload_result['error'];
-                }
-            } else {
-                $errors[] = "Document at index {$index} is missing name or file";
-            }
-        }
-    } else {
-        ajax_return(['success' => false, 'message' => 'No document data received.']);
-        return;
-    }
-    
-    if (!empty($errors) && empty($uploaded_documents)) {
-        ajax_return(['success' => false, 'message' => 'All uploads failed: ' . implode(', ', $errors)]);
-        return;
-    }
-    
-    if (!empty($uploaded_documents)) {
-        // ✅ AUTO-UPDATE: Update the documents stage automatically
-        $stage_updated = false;
-        try {
-            // Check if documents stage needs to be updated
-            if (!$candidate->stage_requested_docs) {
-                $stage_updated = $this->{$this->model}->check_and_update_documents_stage($candidate_id);
-                log_message('debug', "Auto-update documents stage for candidate {$candidate_id}: " . ($stage_updated ? 'SUCCESS' : 'NO UPDATE NEEDED'));
-            }
-        } catch (Exception $e) {
-            log_message('error', 'Error auto-updating documents stage: ' . $e->getMessage());
-        }
-        
-        // Send notification to agency about submitted required documents
-        $this->load->model('recruiter/Model_notifications');
-        
-        // Check if the notification method exists
-        $notification_sent = false;
-        if (method_exists($this->Model_notifications, 'create_required_documents_submitted_notification')) {
-            $notification_sent = $this->Model_notifications->create_required_documents_submitted_notification(
-                $candidate_id, 
-                $this->get_recruiter_id(), 
-                count($uploaded_documents),
-                $submission_notes,
-                $notification_id
-            );
-        } else {
-            // Fallback to the existing documents uploaded notification
-            $notification_sent = $this->Model_notifications->create_documents_uploaded_notification(
-                $candidate_id,
-                $this->get_recruiter_id(),
-                count($uploaded_documents)
-            );
-            log_message('warning', 'create_required_documents_submitted_notification method not found, used fallback');
-        }
-        
-        $message = count($uploaded_documents) . ' required document(s) submitted successfully!';
-        
-        // Add stage update information to message
-        if ($stage_updated) {
-            $message .= ' Documents stage has been automatically updated to "Submitted".';
-        } else {
-            $message .= ' Documents are now available for agency review.';
-        }
-        
-        if (!empty($errors)) {
-            $message .= ' Some documents failed: ' . implode(', ', $errors);
-        }
-        
-        if (!$notification_sent) {
-            $message .= ' (Note: Agency notification failed to send)';
-        }
-        
-        ajax_return([
-            'success' => true, 
-            'message' => $message, 
-            'documents' => $uploaded_documents,
-            'stage_updated' => $stage_updated
-        ]);
-    } else {
-        ajax_return(['success' => false, 'message' => 'No documents were successfully uploaded.']);
-    }
-}
 
+    public function upload_required_documents()
+    {
+        $candidate_id = $this->input->post('candidate_id');
+        $notification_id = $this->input->post('notification_id');
+        $submission_notes = $this->input->post('submission_notes');
+        
+        // Check if candidate exists and recruiter has access
+        $candidate = $this->{$this->model}->get_candidate($candidate_id);
+        if (empty($candidate)) {
+            ajax_return(['success' => false, 'message' => 'Candidate not found.']);
+            return;
+        }
+        
+        // Check access
+        $has_access = $this->{$this->model}->check_recruiter_candidate_access($this->get_recruiter_id(), $candidate_id);
+        if (!$has_access) {
+            ajax_return(['success' => false, 'message' => 'Access denied.']);
+            return;
+        }
+        
+        // Handle multiple document uploads
+        $uploaded_documents = [];
+        $errors = [];
+        
+        // Get the document data from POST
+        $document_names = $this->input->post('required_documents');
+        
+        if (!empty($document_names) && is_array($document_names)) {
+            foreach ($document_names as $index => $document_data) {
+                if (!empty($document_data['name']) && isset($_FILES['required_documents']['name'][$index]['file'])) {
+                    $document_name = $document_data['name'];
+                    $description = isset($document_data['description']) ? $document_data['description'] : '';
+                    
+                    $upload_result = $this->upload_single_required_document(
+                        $candidate_id, 
+                        $document_name, 
+                        $description,
+                        $index
+                    );
+                    
+                    if ($upload_result['success']) {
+                        $uploaded_documents[] = $upload_result['document'];
+                    } else {
+                        $errors[] = "Document '{$document_name}': " . $upload_result['error'];
+                    }
+                } else {
+                    $errors[] = "Document at index {$index} is missing name or file";
+                }
+            }
+        } else {
+            ajax_return(['success' => false, 'message' => 'No document data received.']);
+            return;
+        }
+        
+        if (!empty($errors) && empty($uploaded_documents)) {
+            ajax_return(['success' => false, 'message' => 'All uploads failed: ' . implode(', ', $errors)]);
+            return;
+        }
+        
+        if (!empty($uploaded_documents)) {
+            // AUTO-UPDATE: Update the documents stage automatically
+            $stage_updated = false;
+            try {
+                // Check if documents stage needs to be updated
+                if (!$candidate->stage_requested_docs) {
+                    $stage_updated = $this->{$this->model}->check_and_update_documents_stage($candidate_id);
+                }
+            } catch (Exception $e) {
+            }
+            
+            // Send notification to agency about submitted required documents
+            $this->load->model('recruiter/Model_notifications');
+            
+            // Check if the notification method exists
+            $notification_sent = false;
+            if (method_exists($this->Model_notifications, 'create_required_documents_submitted_notification')) {
+                $notification_sent = $this->Model_notifications->create_required_documents_submitted_notification(
+                    $candidate_id, 
+                    $this->get_recruiter_id(), 
+                    count($uploaded_documents),
+                    $submission_notes,
+                    $notification_id
+                );
+            } else {
+                // Fallback to the existing documents uploaded notification
+                $notification_sent = $this->Model_notifications->create_documents_uploaded_notification(
+                    $candidate_id,
+                    $this->get_recruiter_id(),
+                    count($uploaded_documents)
+                );
+            }
+            
+            $message = count($uploaded_documents) . ' required document(s) submitted successfully!';
+            
+            // Add stage update information to message
+            if ($stage_updated) {
+                $message .= ' Documents stage has been automatically updated to "Submitted".';
+            } else {
+                $message .= ' Documents are now available for agency review.';
+            }
+            
+            if (!empty($errors)) {
+                $message .= ' Some documents failed: ' . implode(', ', $errors);
+            }
+            
+            if (!$notification_sent) {
+                $message .= ' (Note: Agency notification failed to send)';
+            }
+            
+            ajax_return([
+                'success' => true, 
+                'message' => $message, 
+                'documents' => $uploaded_documents,
+                'stage_updated' => $stage_updated
+            ]);
+        } else {
+            ajax_return(['success' => false, 'message' => 'No documents were successfully uploaded.']);
+        }
+    }
 
     private function upload_single_required_document($candidate_id, $document_name, $description, $file_index)
     {
@@ -945,6 +903,7 @@ public function upload_required_documents()
             ];
         }
     }
+
     private function get_upload_error_message($error_code)
     {
         $errors = [
@@ -959,59 +918,61 @@ public function upload_required_documents()
         
         return isset($errors[$error_code]) ? $errors[$error_code] : 'Unknown upload error';
     }
-public function get_submitted_required_documents($candidate_id)
-{
-    $documents = $this->{$this->model}->get_required_documents($candidate_id);
-    
-    $html = '';
-    if (!empty($documents)) {
-        $html .= '<table class="table table-striped">';
-        $html .= '<thead><tr><th>Document Name</th><th>Submitted Date</th><th>Size</th><th>Actions</th></tr></thead>';
-        $html .= '<tbody>';
+
+    public function get_submitted_required_documents($candidate_id)
+    {
+        $documents = $this->{$this->model}->get_required_documents($candidate_id);
         
-        foreach ($documents as $doc) {
-            $html .= '<tr>';
-            $html .= '<td>' . htmlspecialchars($doc->document_name, ENT_QUOTES, 'UTF-8') . '</td>';
-            $html .= '<td>' . date('M j, Y', strtotime($doc->created_at)) . '</td>';
-            $html .= '<td>' . $this->format_file_size($doc->file_size) . '</td>';
-            $html .= '<td>';
-            $html .= '<a href="' . base_url($doc->file_path) . '" target="_blank" class="btn btn-sm btn-primary" title="Download"><i class="fa fa-download"></i></a>';
-            $html .= '<button onclick="deleteDocument(' . $doc->id . ')" class="btn btn-sm btn-danger ml-1" title="Delete"><i class="fa fa-trash"></i></button>';
-            $html .= '</td>';
-            $html .= '</tr>';
+        $html = '';
+        if (!empty($documents)) {
+            $html .= '<table class="table table-striped">';
+            $html .= '<thead><tr><th>Document Name</th><th>Submitted Date</th><th>Size</th><th>Actions</th></tr></thead>';
+            $html .= '<tbody>';
+            
+            foreach ($documents as $doc) {
+                $html .= '<tr>';
+                $html .= '<td>' . htmlspecialchars($doc->document_name, ENT_QUOTES, 'UTF-8') . '</td>';
+                $html .= '<td>' . date('M j, Y', strtotime($doc->created_at)) . '</td>';
+                $html .= '<td>' . $this->format_file_size($doc->file_size) . '</td>';
+                $html .= '<td>';
+                $html .= '<a href="' . base_url($doc->file_path) . '" target="_blank" class="btn btn-sm btn-primary" title="Download"><i class="fa fa-download"></i></a>';
+                $html .= '<button onclick="deleteDocument(' . $doc->id . ')" class="btn btn-sm btn-danger ml-1" title="Delete"><i class="fa fa-trash"></i></button>';
+                $html .= '</td>';
+                $html .= '</tr>';
+            }
+            
+            $html .= '</tbody></table>';
+        } else {
+            $html = '<div class="text-center text-muted p-4">No required documents submitted yet.</div>';
         }
         
-        $html .= '</tbody></table>';
-    } else {
-        $html = '<div class="text-center text-muted p-4">No required documents submitted yet.</div>';
+        echo $html;
     }
-    
-    echo $html;
-}
 
-/**
- * Mark documents request as completed
- */
-public function mark_documents_request_complete()
-{
-    $notification_id = $this->input->post('notification_id');
-    $candidate_id = $this->input->post('candidate_id');
-    
-    if (empty($notification_id)) {
-        ajax_return(['success' => false, 'message' => 'Notification ID required']);
-        return;
+    /**
+     * Mark documents request as completed
+     */
+    public function mark_documents_request_complete()
+    {
+        $notification_id = $this->input->post('notification_id');
+        $candidate_id = $this->input->post('candidate_id');
+        
+        if (empty($notification_id)) {
+            ajax_return(['success' => false, 'message' => 'Notification ID required']);
+            return;
+        }
+        
+        // Mark notification as read/completed
+        $this->load->model('recruiter/Model_notifications');
+        $result = $this->Model_notifications->mark_as_read($notification_id, $this->get_recruiter_id());
+        
+        if ($result) {
+            ajax_return(['success' => true, 'message' => 'Documents request marked as completed']);
+        } else {
+            ajax_return(['success' => false, 'message' => 'Failed to mark request as completed']);
+        }
     }
-    
-    // Mark notification as read/completed
-    $this->load->model('recruiter/Model_notifications');
-    $result = $this->Model_notifications->mark_as_read($notification_id, $this->get_recruiter_id());
-    
-    if ($result) {
-        ajax_return(['success' => true, 'message' => 'Documents request marked as completed']);
-    } else {
-        ajax_return(['success' => false, 'message' => 'Failed to mark request as completed']);
-    }
-}
+
     private function handle_file_upload_manual($candidate_id)
     {
         if (!empty($_FILES['cv_file']['name']) && $_FILES['cv_file']['error'] == 0) {
@@ -1040,195 +1001,176 @@ public function mark_documents_request_complete()
         return parent::get_all($limit, $offset, $sort_by, $sort_order);
     }
 
-public function quick_manage_extra($id, $row): array
-{
-    if (is_string($row) || $row === null) {
-        $row = new stdClass();
-        $row->id = 0;
-        $row->job_id = null;
-        $row->agency_id = null;
-    }
-
-    $agencies = $this->{$this->model}->get_agencies_all();
-    $jobs = $this->{$this->model}->get_jobs_all();
-    $pre_selected_job_id = $this->session->userdata('pre_selected_job_id');
-    
-    if (empty($id) && $pre_selected_job_id) {
-        $job = $this->{$this->model}->get_job_by_id($pre_selected_job_id);
-        if ($job) {
-            $row->job_id = $job->id;
-            $row->agency_id = $job->agency_id;
-            $this->session->unset_userdata('pre_selected_job_id');
+    public function quick_manage_extra($id, $row): array
+    {
+        if (is_string($row) || $row === null) {
+            $row = new stdClass();
+            $row->id = 0;
+            $row->job_id = null;
+            $row->agency_id = null;
         }
-    }
 
-    // Get existing data
-    $agencies = $this->{$this->model}->get_agencies_all();
-    $jobs = $this->{$this->model}->get_jobs_all();
-
-    $agents = [];
-    if (!empty($row->agency_id)) {
-        $agents = $this->{$this->model}->get_agency_agents_by_agency($row->agency_id);
-    }
-
-    $all_additional_agency_ids = !empty($id) ? $this->{$this->model}->get_candidate_additional_agencies($id) : [];
-    $all_additional_job_ids = !empty($id) ? $this->{$this->model}->get_candidate_additional_jobs($id) : [];
-    
-    if (empty($all_additional_agency_ids) && !empty($row->agency_id)) {
-        $all_additional_agency_ids[] = $row->agency_id;
-    }
-    if (empty($all_additional_job_ids) && !empty($row->job_id)) {
-        $all_additional_job_ids[] = $row->job_id;
-    }
-
-    $additional_agency_options = $this->{$this->model}->get_additional_agency_options();
-    $additional_job_options = $this->{$this->model}->get_additional_job_options();
-
-    $agency_options_array = [];
-    if (!empty($additional_agency_options)) {
-        foreach ($additional_agency_options as $agency) {
-            $agency_options_array[] = [
-                'id' => $agency->id,
-                'name' => $agency->name
-            ];
-        }
-    }
-
-    $job_options_array = [];
-    if (!empty($additional_job_options)) {
-        foreach ($additional_job_options as $job) {
-            $job_options_array[] = [
-                'id' => $job->id,
-                'name' => $job->name . ' (' . $job->reference_number . ')'
-            ];
-        }
-    }
-
-    // Check for pending documents requests
-    $documents_request_data = $this->check_pending_documents_request($id);
-    // Check if we're forcing the required tab via URL parameter
-    $force_required_tab = $this->input->get('tab') === 'required';
-
-      // If forcing required tab, ensure we show it even if no notification is found
-    if ($force_required_tab && !$documents_request_data['has_request']) {
-        $documents_request_data = [
-            'has_request' => true,
-            'notes' => 'Additional documents are required for this candidate.',
-            'notification_id' => null
-        ];
-    }
-
-    log_message('debug', '=== QUICK MANAGE EXTRA FINAL ===');
-    log_message('debug', 'Candidate ID: ' . $id);
-    log_message('debug', 'Has pending documents request: ' . ($documents_request_data['has_request'] ? 'YES' : 'NO'));
-    log_message('debug', 'Force required tab: ' . ($force_required_tab ? 'YES' : 'NO'));
-
-    return [
-        'agencies_all' => $agencies,
-        'jobs_all' => $jobs,
-        'agents_all' => $agents,
-        'additional_agency_options' => $agency_options_array,
-        'additional_job_options' => $job_options_array,
-        'additional_agency_ids' => $all_additional_agency_ids,
-        'additional_job_ids' => $all_additional_job_ids,
-        'primary_agency_id' => $row->agency_id ?? null,
-        'primary_job_id' => $row->job_id ?? null,
-        // Add documents request data
-        'has_pending_documents_request' => $documents_request_data['has_request'],
-        'documents_request_notes' => $documents_request_data['notes'],
-        'pending_notification_id' => $documents_request_data['notification_id'],
-        'force_required_tab' => $force_required_tab
-    ];
-}
-
-
-private function check_pending_documents_request($candidate_id)
-{
-    // If it's a new candidate (id = 0), no documents request
-    if (empty($candidate_id) || $candidate_id == 0) {
-        log_message('debug', 'Documents request check: Candidate ID is 0 or empty');
-        return [
-            'has_request' => false,
-            'notes' => '',
-            'notification_id' => null
-        ];
-    }
-
-    $this->load->model('recruiter/Model_notifications');
-    
-    $recruiter_id = $this->get_recruiter_id();
-    if (empty($recruiter_id)) {
-        log_message('debug', 'Documents request check: Recruiter ID not found');
-        return [
-            'has_request' => false,
-            'notes' => '',
-            'notification_id' => null
-        ];
-    }
-
-    // Get all notifications for this recruiter
-    $notifications = $this->Model_notifications->get_hm_decision_notifications($recruiter_id, 100);
-    
-    log_message('debug', 'Documents request check: Found ' . count($notifications) . ' total notifications for recruiter ' . $recruiter_id);
-
-    foreach ($notifications as $notification) {
-        log_message('debug', 'Checking notification: ' . $notification->id . ' for candidate: ' . $notification->related_entity_id . ' (looking for: ' . $candidate_id . ')');
+        $agencies = $this->{$this->model}->get_agencies_all();
+        $jobs = $this->{$this->model}->get_jobs_all();
+        $pre_selected_job_id = $this->session->userdata('pre_selected_job_id');
         
-        if ($notification->related_entity_id == $candidate_id) {
-            $metadata = !empty($notification->metadata) ? json_decode($notification->metadata, true) : [];
-            
-            log_message('debug', 'Found matching notification for candidate. Is Read: ' . ($notification->is_read ? 'Yes' : 'No'));
-            
-            // Check if this is a documents request - look for specific indicators
-            $is_documents_request = false;
-            $required_documents = '';
-            
-            // Check multiple indicators for documents request
-            if (isset($metadata['notification_type']) && $metadata['notification_type'] === 'documents_request') {
-                $is_documents_request = true;
-                $required_documents = $metadata['required_documents'] ?? $metadata['notes'] ?? 'Additional documents are required';
-                log_message('debug', 'Found documents request via notification_type');
-            } 
-            elseif (isset($metadata['decision']) && $metadata['decision'] === 'documents_required') {
-                $is_documents_request = true;
-                $required_documents = $metadata['required_documents'] ?? $metadata['notes'] ?? 'Additional documents are required';
-                log_message('debug', 'Found documents request via decision field');
+        if (empty($id) && $pre_selected_job_id) {
+            $job = $this->{$this->model}->get_job_by_id($pre_selected_job_id);
+            if ($job) {
+                $row->job_id = $job->id;
+                $row->agency_id = $job->agency_id;
+                $this->session->unset_userdata('pre_selected_job_id');
             }
-            elseif (strpos($notification->title, 'Additional Documents') !== false || 
-                     strpos($notification->title, 'Documents Required') !== false ||
-                     strpos($notification->title, 'Documents Requested') !== false) {
-                $is_documents_request = true;
-                $required_documents = $metadata['required_documents'] ?? $metadata['notes'] ?? 'Additional documents are required';
-                log_message('debug', 'Found documents request via title');
-            }
-            elseif (isset($metadata['required_documents']) && !empty($metadata['required_documents'])) {
-                $is_documents_request = true;
-                $required_documents = $metadata['required_documents'];
-                log_message('debug', 'Found documents request via required_documents field');
-            }
-            
-            log_message('debug', 'Is documents request: ' . ($is_documents_request ? 'Yes' : 'No'));
-            log_message('debug', 'Is read: ' . ($notification->is_read ? 'Yes' : 'No'));
-            
-            // For testing, let's be less strict about the "is_read" check
-            if ($is_documents_request) {
-                log_message('debug', 'Found valid documents request: ' . $required_documents);
-                return [
-                    'has_request' => true,
-                    'notes' => $required_documents,
-                    'notification_id' => $notification->id
+        }
+
+        // Get existing data
+        $agencies = $this->{$this->model}->get_agencies_all();
+        $jobs = $this->{$this->model}->get_jobs_all();
+
+        $agents = [];
+        if (!empty($row->agency_id)) {
+            $agents = $this->{$this->model}->get_agency_agents_by_agency($row->agency_id);
+        }
+
+        $all_additional_agency_ids = !empty($id) ? $this->{$this->model}->get_candidate_additional_agencies($id) : [];
+        $all_additional_job_ids = !empty($id) ? $this->{$this->model}->get_candidate_additional_jobs($id) : [];
+        
+        if (empty($all_additional_agency_ids) && !empty($row->agency_id)) {
+            $all_additional_agency_ids[] = $row->agency_id;
+        }
+        if (empty($all_additional_job_ids) && !empty($row->job_id)) {
+            $all_additional_job_ids[] = $row->job_id;
+        }
+
+        $additional_agency_options = $this->{$this->model}->get_additional_agency_options();
+        $additional_job_options = $this->{$this->model}->get_additional_job_options();
+
+        $agency_options_array = [];
+        if (!empty($additional_agency_options)) {
+            foreach ($additional_agency_options as $agency) {
+                $agency_options_array[] = [
+                    'id' => $agency->id,
+                    'name' => $agency->name
                 ];
             }
         }
+
+        $job_options_array = [];
+        if (!empty($additional_job_options)) {
+            foreach ($additional_job_options as $job) {
+                $job_options_array[] = [
+                    'id' => $job->id,
+                    'name' => $job->name . ' (' . $job->reference_number . ')'
+                ];
+            }
+        }
+
+        // Check for pending documents requests
+        $documents_request_data = $this->check_pending_documents_request($id);
+        // Check if we're forcing the required tab via URL parameter
+        $force_required_tab = $this->input->get('tab') === 'required';
+
+        // If forcing required tab, ensure we show it even if no notification is found
+        if ($force_required_tab && !$documents_request_data['has_request']) {
+            $documents_request_data = [
+                'has_request' => true,
+                'notes' => 'Additional documents are required for this candidate.',
+                'notification_id' => null
+            ];
+        }
+
+        return [
+            'agencies_all' => $agencies,
+            'jobs_all' => $jobs,
+            'agents_all' => $agents,
+            'additional_agency_options' => $agency_options_array,
+            'additional_job_options' => $job_options_array,
+            'additional_agency_ids' => $all_additional_agency_ids,
+            'additional_job_ids' => $all_additional_job_ids,
+            'primary_agency_id' => $row->agency_id ?? null,
+            'primary_job_id' => $row->job_id ?? null,
+            // Add documents request data
+            'has_pending_documents_request' => $documents_request_data['has_request'],
+            'documents_request_notes' => $documents_request_data['notes'],
+            'pending_notification_id' => $documents_request_data['notification_id'],
+            'force_required_tab' => $force_required_tab
+        ];
     }
-    
-    log_message('debug', 'No documents request found for candidate ' . $candidate_id);
-    return [
-        'has_request' => false,
-        'notes' => '',
-        'notification_id' => null
-    ];
-}
+
+    private function check_pending_documents_request($candidate_id)
+    {
+        // If it's a new candidate (id = 0), no documents request
+        if (empty($candidate_id) || $candidate_id == 0) {
+            return [
+                'has_request' => false,
+                'notes' => '',
+                'notification_id' => null
+            ];
+        }
+
+        $this->load->model('recruiter/Model_notifications');
+        
+        $recruiter_id = $this->get_recruiter_id();
+        if (empty($recruiter_id)) {
+            return [
+                'has_request' => false,
+                'notes' => '',
+                'notification_id' => null
+            ];
+        }
+
+        // Get all notifications for this recruiter
+        $notifications = $this->Model_notifications->get_hm_decision_notifications($recruiter_id, 100);
+        
+
+        foreach ($notifications as $notification) {
+            
+            if ($notification->related_entity_id == $candidate_id) {
+                $metadata = !empty($notification->metadata) ? json_decode($notification->metadata, true) : [];
+                
+                
+                // Check if this is a documents request - look for specific indicators
+                $is_documents_request = false;
+                $required_documents = '';
+                
+                // Check multiple indicators for documents request
+                if (isset($metadata['notification_type']) && $metadata['notification_type'] === 'documents_request') {
+                    $is_documents_request = true;
+                    $required_documents = $metadata['required_documents'] ?? $metadata['notes'] ?? 'Additional documents are required';
+                } 
+                elseif (isset($metadata['decision']) && $metadata['decision'] === 'documents_required') {
+                    $is_documents_request = true;
+                    $required_documents = $metadata['required_documents'] ?? $metadata['notes'] ?? 'Additional documents are required';
+                }
+                elseif (strpos($notification->title, 'Additional Documents') !== false || 
+                        strpos($notification->title, 'Documents Required') !== false ||
+                        strpos($notification->title, 'Documents Requested') !== false) {
+                    $is_documents_request = true;
+                    $required_documents = $metadata['required_documents'] ?? $metadata['notes'] ?? 'Additional documents are required';
+                }
+                elseif (isset($metadata['required_documents']) && !empty($metadata['required_documents'])) {
+                    $is_documents_request = true;
+                    $required_documents = $metadata['required_documents'];
+                }
+                
+                // For testing, let's be less strict about the "is_read" check
+                if ($is_documents_request) {
+                    return [
+                        'has_request' => true,
+                        'notes' => $required_documents,
+                        'notification_id' => $notification->id
+                    ];
+                }
+            }
+        }
+        
+        return [
+            'has_request' => false,
+            'notes' => '',
+            'notification_id' => null
+        ];
+    }
+
     public function is_unique_email(string $email): bool
     {
         $id = $this->input->post('id');
@@ -1322,37 +1264,37 @@ private function check_pending_documents_request($candidate_id)
     }
 
 
-public function test_quick_manage_data($candidate_id)
-{
-    // Simulate what happens in quick_manage_extra
-    $row = $this->{$this->model}->get_by_id($candidate_id);
-    
-    echo "<h3>Testing Quick Manage Data for Candidate ID: " . $candidate_id . "</h3>";
-    
-    if (!$row) {
-        echo "<p style='color: red;'>Candidate not found!</p>";
-        return;
+    public function test_quick_manage_data($candidate_id)
+    {
+        // Simulate what happens in quick_manage_extra
+        $row = $this->{$this->model}->get_by_id($candidate_id);
+        
+        echo "<h3>Testing Quick Manage Data for Candidate ID: " . $candidate_id . "</h3>";
+        
+        if (!$row) {
+            echo "<p style='color: red;'>Candidate not found!</p>";
+            return;
+        }
+        
+        echo "<p>Candidate Name: " . $row->first_name . " " . $row->last_name . "</p>";
+        
+        // Test the documents request check
+        $documents_data = $this->check_pending_documents_request($candidate_id);
+        
+        echo "<h4>Documents Request Data:</h4>";
+        echo "<pre>" . print_r($documents_data, true) . "</pre>";
+        
+        echo "<h4>Quick Manage Extra Result:</h4>";
+        $quick_manage_data = $this->quick_manage_extra($candidate_id, $row);
+        
+        echo "<pre>" . print_r([
+            'has_pending_documents_request' => $quick_manage_data['has_pending_documents_request'],
+            'documents_request_notes' => $quick_manage_data['documents_request_notes'],
+            'pending_notification_id' => $quick_manage_data['pending_notification_id']
+        ], true) . "</pre>";
+        
+        echo "<h4>View the candidate:</h4>";
+        echo "<a href='" . site_url('recruiter/candidates/view/' . $candidate_id . '?tab=required') . "' target='_blank'>View Candidate with Required Documents Tab</a>";
     }
-    
-    echo "<p>Candidate Name: " . $row->first_name . " " . $row->last_name . "</p>";
-    
-    // Test the documents request check
-    $documents_data = $this->check_pending_documents_request($candidate_id);
-    
-    echo "<h4>Documents Request Data:</h4>";
-    echo "<pre>" . print_r($documents_data, true) . "</pre>";
-    
-    echo "<h4>Quick Manage Extra Result:</h4>";
-    $quick_manage_data = $this->quick_manage_extra($candidate_id, $row);
-    
-    echo "<pre>" . print_r([
-        'has_pending_documents_request' => $quick_manage_data['has_pending_documents_request'],
-        'documents_request_notes' => $quick_manage_data['documents_request_notes'],
-        'pending_notification_id' => $quick_manage_data['pending_notification_id']
-    ], true) . "</pre>";
-    
-    echo "<h4>View the candidate:</h4>";
-    echo "<a href='" . site_url('recruiter/candidates/view/' . $candidate_id . '?tab=required') . "' target='_blank'>View Candidate with Required Documents Tab</a>";
-}
 
 }

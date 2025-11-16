@@ -38,7 +38,8 @@
     <!-- Extra Plugin CSS -->
     <link rel="stylesheet" type="text/css" href="<?= site_url(); ?>resources/cms/css/cropper.min.css" />
     <link rel="stylesheet" type="text/css" href="<?= site_url(); ?>resources/cms/plugins/flatpickr/flatpickr.min.css" />
-
+    <!-- Add this line BEFORE other JavaScript files -->
+    <script type="text/javascript" src="<?= site_url(); ?>resources/cms/plugins/theme/jquery/jquery.min.js"></script>
     <?php
 //Add extra page specific css files
 if (!empty($css)) {

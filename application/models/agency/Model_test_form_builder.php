@@ -3,53 +3,49 @@ class Model_test_form_builder extends CRUD_Model {
     protected $table = 'sys_form_schemas';
 
     public function update(array $data, $whereValue, $whereField = 'id', $table = false) {
-    $table = $table ? $table : $this->table;
+        $table = $table ? $table : $this->table;
 
-    $data['updated_at'] = date('Y-m-d H:i:s');
-    
-    // ✅ FIXED: Use proper session checking
-    if ($this->session->userdata('agency_id')) {
-        $data['agency_id'] = $this->session->userdata('agency_id');
-        $data['is_public'] = 0; // Agency-specific forms are not public by default
-    }
-    
-    // Rest of your update logic...
-    if (isset($data['schema'])) {
-        $schema = json_decode($data['schema'], true);
-        // Ensure multi-select has options if dynamic
-        foreach ($schema as &$row) {
-            if (isset($row['fields'])) {
-                foreach ($row['fields'] as &$field) {
-                    if ($field['type'] === 'multiselect' && empty($field['options'])) {
-                        // Auto-populate from suggestions if name matches
-                        $suggestions = $this->get_field_suggestions();
-                        // Logic to match and set options (simplified)
-                        $field['options'] = $suggestions['Qualification Fields'] ?? [];
+        $data['updated_at'] = date('Y-m-d H:i:s');
+        
+        // FIXED: Use proper session checking
+        if ($this->session->userdata('agency_id')) {
+            $data['agency_id'] = $this->session->userdata('agency_id');
+            $data['is_public'] = 0; // Agency-specific forms are not public by default
+        }
+        
+        // Rest of your update logic...
+        if (isset($data['schema'])) {
+            $schema = json_decode($data['schema'], true);
+            // Ensure multi-select has options if dynamic
+            foreach ($schema as &$row) {
+                if (isset($row['fields'])) {
+                    foreach ($row['fields'] as &$field) {
+                        if ($field['type'] === 'multiselect' && empty($field['options'])) {
+                            // Auto-populate from suggestions if name matches
+                            $suggestions = $this->get_field_suggestions();
+                            // Logic to match and set options (simplified)
+                            $field['options'] = $suggestions['Qualification Fields'] ?? [];
+                        }
                     }
                 }
             }
+            $data['schema'] = json_encode($schema);
         }
-        $data['schema'] = json_encode($schema);
+
+        $result = $this->db->update($table, $data, array($whereField => $whereValue));
+        
+        if (!$result) {
+            Anomalies::log('Failed to update from CRUD', $this->db->last_query());
+            return false;
+        }
+
+        //  SIMPLE FIX: Return the ID we're updating instead of querying for it
+        // This prevents the "Attempt to read property 'id' on null" error
+        return $whereValue;
     }
-
-    $result = $this->db->update($table, $data, array($whereField => $whereValue));
-    
-    if (!$result) {
-        log_message('error', 'Update failed: ' . $this->db->last_query());
-        Anomalies::log('Failed to update from CRUD', $this->db->last_query());
-        return false;
-    }
-
-    // ✅ SIMPLE FIX: Return the ID we're updating instead of querying for it
-    // This prevents the "Attempt to read property 'id' on null" error
-    return $whereValue;
-}
-
-
 
     public function get_count() 
     {
-        log_message('debug', '=== MODEL_TEST_FORM_BUILDER GET_COUNT WITH AGENCY FILTER ===');
         
         $agency_id = $this->session->userdata('agency_id');
         
@@ -57,7 +53,7 @@ class Model_test_form_builder extends CRUD_Model {
                  ->where('removed', 0)
                  ->where('deleted_at IS NULL');
 
-        // ✅ AGENCY FILTERING
+        //  AGENCY FILTERING
         if ($agency_id) {
             $this->db->where("(agency_id = $agency_id OR is_public = 1)");
         } else {
@@ -69,7 +65,6 @@ class Model_test_form_builder extends CRUD_Model {
 
     public function get_all($section = '') 
     {
-        log_message('debug', '=== MODEL_TEST_FORM_BUILDER GET_ALL WITH AGENCY FILTER ===');
         
         $agency_id = $this->session->userdata('agency_id');
         
@@ -77,7 +72,7 @@ class Model_test_form_builder extends CRUD_Model {
                  ->where('removed', 0)
                  ->where('deleted_at IS NULL');
 
-        // ✅ AGENCY FILTERING
+        //  AGENCY FILTERING
         if ($agency_id) {
             $this->db->where("(agency_id = $agency_id OR is_public = 1)");
         } else {
@@ -98,7 +93,7 @@ class Model_test_form_builder extends CRUD_Model {
         $this->db->where('removed', 0)
                  ->where('deleted_at IS NULL');
                  
-        // ✅ ADD AGENCY CHECK FOR SECURITY
+        //  ADD AGENCY CHECK FOR SECURITY
         $agency_id = $this->session->userdata('agency_id');
         if ($agency_id) {
             $this->db->where("(agency_id = $agency_id OR is_public = 1)");
@@ -108,8 +103,6 @@ class Model_test_form_builder extends CRUD_Model {
         
         return $this->db->where('id', $id)->get($table)->row();
     }
-
-
 
     // Keep if used elsewhere
     public function get_form_data($id) {
@@ -156,9 +149,9 @@ class Model_test_form_builder extends CRUD_Model {
             'mod_job_skills',
             'mod_industries',
             'pivot_job_qualifications',
-            'usr_medical_emergency_details', // ✅ KEEP USER MEDICAL TABLE
-            'pivot_job_medical_details',     // ✅ KEEP MEDICAL PIVOT TABLE
-            'mod_job_medical_requirements'   // ✅ ADD JOB MEDICAL REQUIREMENTS TABLE
+            'usr_medical_emergency_details', //  KEEP USER MEDICAL TABLE
+            'pivot_job_medical_details',     //  KEEP MEDICAL PIVOT TABLE
+            'mod_job_medical_requirements'   //  ADD JOB MEDICAL REQUIREMENTS TABLE
         ];
         
         foreach ($allowed_tables as $table) {
@@ -180,9 +173,7 @@ class Model_test_form_builder extends CRUD_Model {
                         'primary_key' => $field->primary_key
                     ];
                 }
-                log_message('debug', 'Found ' . count($table_fields) . ' fields in table: ' . $table);
             } else {
-                log_message('debug', 'Table does not exist: ' . $table);
             }
         }
         
@@ -201,9 +192,9 @@ class Model_test_form_builder extends CRUD_Model {
             'mod_job_skills' => 'Skill Fields', 
             'mod_industries' => 'Industry Fields',
             'pivot_job_qualifications' => 'Job Qualifications Pivot',
-            'usr_medical_emergency_details' => 'Medical Emergency Fields', // ✅ KEEP USER MEDICAL
-            'pivot_job_medical_details' => 'Job Medical Pivot',           // ✅ KEEP MEDICAL PIVOT
-            'mod_job_medical_requirements' => 'Job Medical Requirements'  // ✅ ADD JOB MEDICAL REQUIREMENTS
+            'usr_medical_emergency_details' => 'Medical Emergency Fields', //  KEEP USER MEDICAL
+            'pivot_job_medical_details' => 'Job Medical Pivot',           //  KEEP MEDICAL PIVOT
+            'mod_job_medical_requirements' => 'Job Medical Requirements'  //  ADD JOB MEDICAL REQUIREMENTS
         ];
         
         foreach ($tables as $table => $label) {
@@ -217,9 +208,7 @@ class Model_test_form_builder extends CRUD_Model {
                     }
                     $suggestions[$label][$table . '.' . $field] = $field;
                 }
-                log_message('debug', 'Added ' . count($table_fields) . ' fields from ' . $table);
             } else {
-                log_message('debug', 'Table not found for suggestions: ' . $table);
             }
         }
         
@@ -262,7 +251,7 @@ class Model_test_form_builder extends CRUD_Model {
      */
     public function get_medical_field_recommendations() {
         return [
-            // ✅ KEEP EXISTING USER MEDICAL FIELDS
+            //  KEEP EXISTING USER MEDICAL FIELDS
             'usr_medical_emergency_details.next_of_kin_first_name' => [
                 'type' => 'text',
                 'label' => 'Next of Kin First Name',

@@ -10,11 +10,9 @@ class Model_template_sections extends CRUD_Model
 
     public function get_count() 
     {
-        log_message('debug', '=== OVERRIDDEN GET_COUNT IN MODEL - WITH AGENCY FILTER ===');
         
         $agency_id = $this->session->userdata('agency_id');
-        log_message('debug', 'Current agency ID for filtering: ' . $agency_id);
-        
+      
         // Use COUNT(*) instead of COUNT(DISTINCT id) to get accurate count
         $this->db->select('COUNT(*) AS row_count', false);
         
@@ -25,12 +23,10 @@ class Model_template_sections extends CRUD_Model
 
         $query = $this->db->get('mod_template_sections');
         
-        log_message('debug', 'Count query: ' . $this->db->last_query());
-        
         if ($query->num_rows() > 0) {
             $row = $query->row();
             $count = $row->row_count;
-            log_message('debug', 'Count result: ' . $count);
+          
             return $count;
         } else {
             $message = "Query for count returned 0 rows in the CRUD_model";
@@ -51,13 +47,11 @@ class Model_template_sections extends CRUD_Model
         $this->db->where('mod_template_sections.removed', 0);
         $this->db->where('mod_template_sections.enabled', 1);
         
-        // ✅ FIX: STRICT AGENCY FILTERING - Only show sections from current agency
+        //  FIX: STRICT AGENCY FILTERING - Only show sections from current agency
         $agency_id = $this->session->userdata('agency_id');
         if ($agency_id) {
-            log_message('debug', 'Applying agency filter: ' . $agency_id);
             $this->db->where('sys_form_schemas.agency_id', $agency_id);
         } else {
-            log_message('debug', 'No agency ID found in session - showing NO sections');
             $this->db->where('1=0'); // Show nothing if no agency ID
         }
     }
@@ -66,10 +60,6 @@ class Model_template_sections extends CRUD_Model
     {
         // Get filters and apply them without aliases
         $filters = get_ecms_filters($this->pageName);
-        
-        log_message('debug', '=== MAIN_FILTERS DEBUG ===');
-        log_message('debug', 'Filters received: ' . print_r($filters, true));
-        
         if (!empty($filters['search'])) {
             $search_value = $filters['search'];
             // Ensure it's a string, not an array
@@ -117,7 +107,7 @@ class Model_template_sections extends CRUD_Model
                  ->where('mod_template_sections.removed', 0)
                  ->where('mod_template_sections.enabled', 1);
 
-        // ✅ FIX: Apply agency filter
+        //  FIX: Apply agency filter
         if ($agency_id) {
             $this->db->where('sys_form_schemas.agency_id', $agency_id);
         } else {
@@ -203,7 +193,7 @@ class Model_template_sections extends CRUD_Model
                  ->where('mod_template_sections.removed', 0)
                  ->where('mod_template_sections.enabled', 1);
         
-        // ✅ FIX: Apply agency filter
+        //  FIX: Apply agency filter
         if ($agency_id) {
             $this->db->where('sys_form_schemas.agency_id', $agency_id);
         } else {
@@ -233,7 +223,7 @@ class Model_template_sections extends CRUD_Model
                  ->where('mod_template_sections.enabled', 1)
                  ->where('mod_template_sections.removed', 0);
         
-        // ✅ FIX: STRICT agency filtering
+        //  FIX: STRICT agency filtering
         if ($agency_id) {
             $this->db->where('sys_form_schemas.agency_id', $agency_id);
         } else {
@@ -249,7 +239,6 @@ class Model_template_sections extends CRUD_Model
         return $this->db->get()->result();
     }
 
-    // ... keep your other methods but ensure they all have agency filtering
 
     /**
      * Get sections available for the current agency only
@@ -259,18 +248,16 @@ class Model_template_sections extends CRUD_Model
         $agency_id = $this->session->userdata('agency_id');
         
         if (!$agency_id) {
-            log_message('error', 'No agency ID in session - cannot get sections');
             return [];
         }
         
-        log_message('debug', 'Getting sections for agency: ' . $agency_id);
         
         $this->db->select('mod_template_sections.*, sys_form_schemas.name as schema_name')
                  ->from('mod_template_sections')
                  ->join('sys_form_schemas', 'sys_form_schemas.id = mod_template_sections.schema_id', 'left')
                  ->where('mod_template_sections.enabled', 1)
                  ->where('mod_template_sections.removed', 0)
-                 ->where('sys_form_schemas.agency_id', $agency_id); // ✅ STRICT agency filter
+                 ->where('sys_form_schemas.agency_id', $agency_id); //  STRICT agency filter
         
         if ($section_type && $section_type !== 'all') {
             $this->db->where('mod_template_sections.section_type', $section_type);
@@ -281,7 +268,6 @@ class Model_template_sections extends CRUD_Model
                  
         $sections = $this->db->get()->result();
         
-        log_message('debug', 'Found ' . count($sections) . ' sections for agency ' . $agency_id);
         
         return $sections;
     }

@@ -36,65 +36,65 @@ class Candidates_resume_listings extends CRUD_Controller
     }
 
    private function setup_listing(): void
-{
-    $this->listFields = array(
-        'reference_number' => array('label' => lang('label_reference_number'), 'sort' => true),
-        'first_name' => array('label' => lang('label_first_name'), 'sort' => true),
-        'last_name' => array('label' => lang('label_last_name'), 'sort' => true),
-        'email' => array('label' => lang('label_email'), 'sort' => true),
-        'phone' => array('label' => lang('label_phone'), 'sort' => true),
-        'cv_file' => array(
-            'label' => lang('label_cv_file'), 
-            'sort' => false, 
-            'type' => 'custom',
-            'function' => 'custom_field_cv_file'
-        ),
-        'application_date' => array('label' => lang('label_application_date'), 'sort' => true, 'type' => 'date'),
-        'status' => array('label' => lang('label_status'), 'sort' => true),
-    );
-
-    // FIXED: Change 'title' to 'label' to match what the view expects
-    $this->listActions = array(
-        'download' => array(
-            'label' => 'Download CV', // CHANGED from 'title' to 'label'
-            'icon' => 'fa-download',
-            'class' => 'btn btn-sm btn-primary',
-            'url' => site_url('recruiter/candidates_resume_listings/download_cv/{id}'),
-            'target' => '_self'
-        )
-    );
-
-    $this->filters = array(
-        'search' => array(
-            'label' => lang('label_search'),
-            'type' => 'autocomplete',
-            'field' => array('candidates.first_name', 'candidates.last_name', 'candidates.email', 'candidates.reference_number'),
-        ),
-        'status' => array(
-            'label' => lang('label_status'),
-            'type' => 'dropdown',
-            'field' => 'candidates.status',
-            'options' => array(
-                'new' => 'New',
-                'reviewed' => 'Reviewed',
-                'shortlisted' => 'Shortlisted',
-                'interviewed' => 'Interviewed',
-                'rejected' => 'Rejected',
-                'hired' => 'Hired',
-                'on_hold' => 'On Hold',
+    {
+        $this->listFields = array(
+            'reference_number' => array('label' => lang('label_reference_number'), 'sort' => true),
+            'first_name' => array('label' => lang('label_first_name'), 'sort' => true),
+            'last_name' => array('label' => lang('label_last_name'), 'sort' => true),
+            'email' => array('label' => lang('label_email'), 'sort' => true),
+            'phone' => array('label' => lang('label_phone'), 'sort' => true),
+            'cv_file' => array(
+                'label' => lang('label_cv_file'), 
+                'sort' => false, 
+                'type' => 'custom',
+                'function' => 'custom_field_cv_file'
             ),
-        ),
-        'has_cv' => array(
-            'label' => lang('label_has_cv'),
-            'type' => 'dropdown',
-            'field' => 'candidates.cv_file',
-            'options' => array(
-                '1' => 'With CV',
-                '0' => 'Without CV',
+            'application_date' => array('label' => lang('label_application_date'), 'sort' => true, 'type' => 'date'),
+            'status' => array('label' => lang('label_status'), 'sort' => true),
+        );
+
+        // FIXED: Change 'title' to 'label' to match what the view expects
+        $this->listActions = array(
+            'download' => array(
+                'label' => 'Download CV', // CHANGED from 'title' to 'label'
+                'icon' => 'fa-download',
+                'class' => 'btn btn-sm btn-primary',
+                'url' => site_url('recruiter/candidates_resume_listings/download_cv/{id}'),
+                'target' => '_self'
+            )
+        );
+
+        $this->filters = array(
+            'search' => array(
+                'label' => lang('label_search'),
+                'type' => 'autocomplete',
+                'field' => array('candidates.first_name', 'candidates.last_name', 'candidates.email', 'candidates.reference_number'),
             ),
-        ),
-    );
-}
+            'status' => array(
+                'label' => lang('label_status'),
+                'type' => 'dropdown',
+                'field' => 'candidates.status',
+                'options' => array(
+                    'new' => 'New',
+                    'reviewed' => 'Reviewed',
+                    'shortlisted' => 'Shortlisted',
+                    'interviewed' => 'Interviewed',
+                    'rejected' => 'Rejected',
+                    'hired' => 'Hired',
+                    'on_hold' => 'On Hold',
+                ),
+            ),
+            'has_cv' => array(
+                'label' => lang('label_has_cv'),
+                'type' => 'dropdown',
+                'field' => 'candidates.cv_file',
+                'options' => array(
+                    '1' => 'With CV',
+                    '0' => 'Without CV',
+                ),
+            ),
+        );
+    }
 
     public function setup_fields(): void
     {

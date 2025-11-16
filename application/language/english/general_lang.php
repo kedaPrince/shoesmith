@@ -1084,6 +1084,35 @@ $lang['heading_custom_section_form'] = 'Create Custom Section Form';
 $lang['heading_regular_form'] = 'Build New Form';
 $lang['subheading_custom_section'] = 'Building form for template section';
 $lang['subheading_regular_form'] = 'Create a reusable form';
+
+
+// Add to your existing language file
+$lang['chat_heading'] = 'Chat';
+$lang['chat_no_rows'] = 'No conversations found';
+$lang['label_chat'] = 'Chat';
+$lang['label_conversations'] = 'Conversations';
+$lang['label_messages'] = 'Messages';
+$lang['label_type_message'] = 'Type your message...';
+$lang['label_send'] = 'Send';
+$lang['label_start_conversation'] = 'Start Conversation';
+$lang['label_new_message'] = 'New Message';
+$lang['label_with'] = 'With';
+$lang['label_about'] = 'About';
+$lang['label_unread_messages'] = 'Unread Messages';
+$lang['label_online'] = 'Online';
+$lang['label_offline'] = 'Offline';
+$lang['label_typing'] = 'is typing...';
+$lang['label_attachment'] = 'Attachment';
+$lang['label_file_shared'] = 'File shared';
+$lang['label_conversation_with'] = 'Conversation with';
+$lang['label_no_messages'] = 'No messages yet. Start the conversation!';
+$lang['label_search_conversations'] = 'Search conversations...';
+
+// Chat notifications
+$lang['chat_new_message_subject'] = 'New Message from {sender}';
+$lang['chat_new_message_body'] = 'You have a new message in your conversation about {subject}';
+
+general_labels($lang, 'chat', 'chat', 'chats');
 function general_labels(&$lang, $module, $singular, $plural="") {
 
 	//Set plural word if not set

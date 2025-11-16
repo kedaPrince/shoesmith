@@ -234,45 +234,45 @@ class Notifications extends CRUD_Controller
         redirect(redir($this->pageName, true));
     }
 
-    /**
- * View related entity (candidate, job, etc.)
- */
-public function view_related($id)
-{
-    $login_data = $this->session->userdata('login');
-    $agency_id = $login_data['agency']['id'] ?? 0;
-    
-    // Get notification
-    $notification = $this->db->where('id', $id)
-                            ->where('receiver_type', 'agency')
-                            ->where('receiver_id', $agency_id)
-                            ->get('notifications')
-                            ->row();
-    
-    if (!$notification) {
-        show_404();
+        /**
+     * View related entity (candidate, job, etc.)
+     */
+    public function view_related($id)
+    {
+        $login_data = $this->session->userdata('login');
+        $agency_id = $login_data['agency']['id'] ?? 0;
+        
+        // Get notification
+        $notification = $this->db->where('id', $id)
+                                ->where('receiver_type', 'agency')
+                                ->where('receiver_id', $agency_id)
+                                ->get('notifications')
+                                ->row();
+        
+        if (!$notification) {
+            show_404();
+        }
+        
+        // Mark as read when viewing
+        $this->{$this->model}->mark_as_read($id, $agency_id);
+        
+        // Redirect based on related entity
+        switch ($notification->related_entity) {
+            case 'candidate':
+                redirect('agency/candidates/view/' . $notification->related_entity_id);
+                break;
+            case 'job':
+                redirect('agency/jobs_listings/view/' . $notification->related_entity_id); // This should point to your jobs listings
+                break;
+            case 'agency':
+                redirect('agency/dashboard');
+                break;
+            default:
+                $this->session->set_flashdata('info', 'No specific action for this notification type');
+                redirect(redir($this->pageName, true));
+                break;
+        }
     }
-    
-    // Mark as read when viewing
-    $this->{$this->model}->mark_as_read($id, $agency_id);
-    
-    // Redirect based on related entity
-    switch ($notification->related_entity) {
-        case 'candidate':
-            redirect('agency/candidates/view/' . $notification->related_entity_id);
-            break;
-        case 'job':
-            redirect('agency/jobs_listings/view/' . $notification->related_entity_id); // This should point to your jobs listings
-            break;
-        case 'agency':
-            redirect('agency/dashboard');
-            break;
-        default:
-            $this->session->set_flashdata('info', 'No specific action for this notification type');
-            redirect(redir($this->pageName, true));
-            break;
-    }
-}
 
     /**
      * AJAX get unread count for navbar
@@ -343,13 +343,4 @@ public function view_related($id)
         }
     }
 
-    // Add this temporarily to your controller to debug
-public function debug_table()
-{
-    $fields = $this->db->list_fields('notifications');
-    echo "<pre>Notifications table columns:\n";
-    print_r($fields);
-    echo "</pre>";
-    exit;
-}
 }

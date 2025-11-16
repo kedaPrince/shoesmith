@@ -39,7 +39,6 @@ class Recruiters extends CRUD_Controller
         // Store agency ID for filtering
         $this->agency_id = isset($loginData['id']) ? $loginData['id'] : null;
         
-        log_message('debug', 'Agency ID for filtering: ' . $this->agency_id);
 
         $this->load->model($this->folder . '/' . $this->model);
         $this->setup_listing();

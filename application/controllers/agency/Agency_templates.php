@@ -33,7 +33,7 @@ class Agency_templates extends CRUD_Controller
         );
     }
 
-public function build($agency_id = null) 
+    public function build($agency_id = null) 
     {
         if (!$agency_id) {
             $agency_id = $this->session->userdata('agency_id') ?? 1;
@@ -82,7 +82,7 @@ public function build($agency_id = null)
         $this->load->view($this->folder . '/view_footer');
     }
 
- public function save_custom_template() 
+    public function save_custom_template() 
     {
         try {
             $agency_id = $this->input->post('agency_id');
@@ -134,7 +134,7 @@ public function build($agency_id = null)
         }
     }
 
-      public function select_template($agency_id, $template_id)
+    public function select_template($agency_id, $template_id)
     {
         $template = $this->{$this->model}->get_template_by_id($template_id);
         if ($template && $template->agency_id == $agency_id) {
@@ -148,28 +148,27 @@ public function build($agency_id = null)
     // Add method to create new template
     public function create_new($agency_id)
     {
-        redirect('agency/agency_templates/build/' . $agency_id . '?new=true');
-    }
-    public function debug_template_status($agency_id = null) 
-{
-    if (!$agency_id) {
-        $agency_id = $this->session->userdata('agency_id') ?? 1;
-    }
+            redirect('agency/agency_templates/build/' . $agency_id . '?new=true');
+        }
+        public function debug_template_status($agency_id = null) {
+        if (!$agency_id) {
+            $agency_id = $this->session->userdata('agency_id') ?? 1;
+        }
 
-    $this->output->set_content_type('application/json');
-    
-    $template = $this->{$this->model}->get_agency_template($agency_id);
-    $template_with_sections = $template ? $this->{$this->model}->get_template_with_sections($template->id) : null;
-    
-    $this->output->set_output(json_encode([
-        'success' => true,
-        'agency_id' => $agency_id,
-        'current_template' => $template,
-        'template_with_sections' => $template_with_sections,
-        'sections_count' => $template_with_sections ? count($template_with_sections->sections) : 0,
-        'all_sections' => $this->Model_template_sections->get_all()->result()
-    ]));
-}
+        $this->output->set_content_type('application/json');
+        
+        $template = $this->{$this->model}->get_agency_template($agency_id);
+        $template_with_sections = $template ? $this->{$this->model}->get_template_with_sections($template->id) : null;
+        
+        $this->output->set_output(json_encode([
+            'success' => true,
+            'agency_id' => $agency_id,
+            'current_template' => $template,
+            'template_with_sections' => $template_with_sections,
+            'sections_count' => $template_with_sections ? count($template_with_sections->sections) : 0,
+            'all_sections' => $this->Model_template_sections->get_all()->result()
+        ]));
+    }
 
     public function preview_agency_template($agency_id = null) 
     {

@@ -10,10 +10,6 @@ class Model_template_instances extends CRUD_Model
 
     public function save_instance($template_id, $instance_name, $form_data) 
     {
-        log_message('debug', '=== MODEL save_instance CALLED ===');
-        log_message('debug', 'Template ID: ' . $template_id);
-        log_message('debug', 'Instance name: ' . $instance_name);
-        log_message('debug', 'Form data: ' . print_r($form_data, true));
 
         // Validate template exists
         $template_exists = $this->db->where('id', $template_id)
@@ -32,20 +28,16 @@ class Model_template_instances extends CRUD_Model
             'created_at' => date('Y-m-d H:i:s')
         ];
 
-        log_message('debug', 'Data to insert: ' . print_r($data, true));
 
         $this->db->insert($this->table, $data);
         $instance_id = $this->db->insert_id();
 
-        log_message('debug', 'Insert ID: ' . $instance_id);
 
         if (!$instance_id) {
             $error = $this->db->error();
-            log_message('error', 'Database error: ' . print_r($error, true));
             throw new Exception('Database insert failed: ' . $error['message']);
         }
 
-        log_message('debug', '=== MODEL save_instance COMPLETED SUCCESSFULLY ===');
         return $instance_id;
     }
 

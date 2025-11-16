@@ -15,22 +15,19 @@ class Test_form_builder extends CRUD_Controller {
     public $sluggify = false;
 
 
- public function __construct() {
-    parent::__construct();
-    
-    log_message('debug', '=== TEST_FORM_BUILDER CONSTRUCT ===');
-    log_message('debug', 'Session agency_id: ' . ($this->session->userdata('agency_id') ?: 'NOT SET'));
-    log_message('debug', 'Session all data: ' . print_r($this->session->userdata(), true));
-    
-    $this->setup_listing();
-    $this->setup_fields();
-    $this->load->model($this->folder . '/' . $this->model);
-    $this->zone = array(
-        'title' => lang($this->pageName . '_heading'),
-        'url' => redir($this->pageName, true)
-    );
-    $this->load->library('Form_builder');
-}
+    public function __construct() {
+        parent::__construct();
+
+        
+        $this->setup_listing();
+        $this->setup_fields();
+        $this->load->model($this->folder . '/' . $this->model);
+        $this->zone = array(
+            'title' => lang($this->pageName . '_heading'),
+            'url' => redir($this->pageName, true)
+        );
+        $this->load->library('Form_builder');
+    }
     private function setup_listing() {
         $this->listFields = array(
             'id' => array(
@@ -98,8 +95,8 @@ class Test_form_builder extends CRUD_Controller {
                 'form_element_id' => 'trim|strip_tags',
                 'form_classes' => 'trim|strip_tags',
                 'form_action' => 'trim|strip_tags',
-                'agency_id' => 'trim|numeric', // ✅ ADD AGENCY ID VALIDATION
-                'is_public' => 'trim|numeric'  // ✅ ADD IS_PUBLIC VALIDATION
+                'agency_id' => 'trim|numeric', // ADD AGENCY ID VALIDATION
+                'is_public' => 'trim|numeric'  // ADD IS_PUBLIC VALIDATION
             )
         );
     }
@@ -121,108 +118,94 @@ class Test_form_builder extends CRUD_Controller {
         $this->load->view($this->folder . '/view_footer');
     }
 
-public function ajax_results() {
-    // Sanitize input
-    $page   = max(1, (int) $this->input->get('page'));
-    $limit  = min(100, max(1, (int) $this->input->get('limit')));
-    $offset = ($page - 1) * $limit;
+    public function ajax_results() {
+        // Sanitize input
+        $page   = max(1, (int) $this->input->get('page'));
+        $limit  = min(100, max(1, (int) $this->input->get('limit')));
+        $offset = ($page - 1) * $limit;
 
-    // Search filter
-    $search = $this->input->get('general');
-    $search = ($search !== null && $search !== '') ? trim($search) : null;
+        // Search filter
+        $search = $this->input->get('general');
+        $search = ($search !== null && $search !== '') ? trim($search) : null;
 
-    // Sorting
-    $sort_field = $this->input->get('sort_field') ?: 'id';
-    $sort_order = strtoupper($this->input->get('sort_order') ?: 'ASC');
+        // Sorting
+        $sort_field = $this->input->get('sort_field') ?: 'id';
+        $sort_order = strtoupper($this->input->get('sort_order') ?: 'ASC');
 
-    if (!in_array($sort_field, ['id', 'name'])) {
-        $sort_field = 'id';
-    }
-    if (!in_array($sort_order, ['ASC', 'DESC'])) {
-        $sort_order = 'ASC';
-    }
+        if (!in_array($sort_field, ['id', 'name'])) {
+            $sort_field = 'id';
+        }
+        if (!in_array($sort_order, ['ASC', 'DESC'])) {
+            $sort_order = 'ASC';
+        }
 
-    // CORRECT TABLE NAME
-    $this->db->from('sys_form_schemas');
-    $this->db->where('removed', 0);
-    $this->db->where('deleted_at IS NULL');
+        // CORRECT TABLE NAME
+        $this->db->from('sys_form_schemas');
+        $this->db->where('removed', 0);
+        $this->db->where('deleted_at IS NULL');
 
-    // ✅ FIXED: STRICT AGENCY FILTERING
-    $agency_id = $this->session->userdata('agency_id');
-    
-    if ($agency_id) {
-        log_message('debug', 'Filtering forms for agency: ' . $agency_id);
-        // Show ONLY agency's forms OR public forms
-        $this->db->where("(agency_id = $agency_id OR is_public = 1)");
-    } else {
-        log_message('debug', 'No agency ID - showing only public forms');
-        // Show only public forms if no agency ID
-        $this->db->where('is_public', 1);
-    }
-
-    if ($search) {
-        $this->db->like('name', $search);
-    }
-
-    $this->db->order_by($sort_field, $sort_order);
-    $this->db->limit($limit, $offset);
-
-    $query = $this->db->get();
-    $rows = $query->result();
-
-    // Total count
-    $total_query = clone $this->db;
-    $total = $total_query->count_all_results();
-
-    log_message('debug', 'ajax_results: Found ' . count($rows) . ' rows, total=' . $total);
-    log_message('debug', 'Final SQL Query: ' . $this->db->last_query());
-
-    // Format each row
-    $data = array_map(function ($row) {
-        $row->schema = json_decode($row->schema, true) ?: [];
-        $row->scripts = json_decode($row->scripts, true) ?: [];
-        $row->styling = json_decode($row->styling, true) ?: [];
-        $row->enabled = !empty($row->enabled) ? 1 : 0;
-        return $row;
-    }, $rows);
-
-    // Send response
-    $response = [
-        'success' => true,
-        'data' => $data,
-        'pagination' => [
-            'current_page' => $page,
-            'per_page' => $limit,
-            'total' => $total,
-            'last_page' => ceil($total / $limit)
-        ]
-    ];
-
-    $this->output_json($response);
-}
-    public function quick_manage_extra($id, $row) {
-        log_message('debug', '=== QUICK_MANAGE_EXTRA CALLED ===');
-        log_message('debug', 'ID: ' . $id);
-        log_message('debug', 'Row ID: ' . ($row->id ?? 'NO ROW ID'));
+        // FIXED: STRICT AGENCY FILTERING
+        $agency_id = $this->session->userdata('agency_id');
         
-        // ✅ DETECT SOURCE
+        if ($agency_id) {
+            // Show ONLY agency's forms OR public forms
+            $this->db->where("(agency_id = $agency_id OR is_public = 1)");
+        } else {
+            // Show only public forms if no agency ID
+            $this->db->where('is_public', 1);
+        }
+
+        if ($search) {
+            $this->db->like('name', $search);
+        }
+
+        $this->db->order_by($sort_field, $sort_order);
+        $this->db->limit($limit, $offset);
+
+        $query = $this->db->get();
+        $rows = $query->result();
+
+        // Total count
+        $total_query = clone $this->db;
+        $total = $total_query->count_all_results();
+        // Format each row
+        $data = array_map(function ($row) {
+            $row->schema = json_decode($row->schema, true) ?: [];
+            $row->scripts = json_decode($row->scripts, true) ?: [];
+            $row->styling = json_decode($row->styling, true) ?: [];
+            $row->enabled = !empty($row->enabled) ? 1 : 0;
+            return $row;
+        }, $rows);
+
+        // Send response
+        $response = [
+            'success' => true,
+            'data' => $data,
+            'pagination' => [
+                'current_page' => $page,
+                'per_page' => $limit,
+                'total' => $total,
+                'last_page' => ceil($total / $limit)
+            ]
+        ];
+
+        $this->output_json($response);
+    }
+
+    public function quick_manage_extra($id, $row) {
+        //  DETECT SOURCE
         $source = 'form_builder'; // Default source
         $return_url = $this->session->userdata('return_to_template_sections');
         
         if ($return_url) {
             $source = 'template_sections';
-            log_message('debug', 'Form builder opened from template sections');
         }
 
         // Get field suggestions from database tables
         $field_suggestions = $this->{$this->model}->get_field_suggestions();
         $db_fields = $this->{$this->model}->get_table_fields();
         $field_type_mapping = $this->{$this->model}->get_db_field_type_mapping();
-        $medical_recommendations = $this->{$this->model}->get_medical_field_recommendations(); // ✅ ADD MEDICAL RECOMMENDATIONS
-
-        log_message('debug', 'Field suggestions count: ' . count($field_suggestions));
-        log_message('debug', 'DB fields count: ' . count($db_fields));
-        log_message('debug', 'Medical recommendations: ' . count($medical_recommendations));
+        $medical_recommendations = $this->{$this->model}->get_medical_field_recommendations(); //  ADD MEDICAL RECOMMENDATIONS
 
         $default = [
             'form' => '',
@@ -237,37 +220,33 @@ public function ajax_results() {
             'df' => [],
             'current_fields' => [],
             'source' => $source,
-            'field_suggestions' => $field_suggestions, // ✅ FIXED: was 'field_schemas'
+            'field_suggestions' => $field_suggestions, //  FIXED: was 'field_schemas'
             'db_fields' => $db_fields,
             'field_type_mapping' => $field_type_mapping,
             'medical_recommendations' => $medical_recommendations,
-            'agency_id' => $this->session->userdata('agency_id'), // ✅ ADD AGENCY INFO
-            'is_agency_user' => !empty($this->session->userdata('agency_id')) // ✅ ADD AGENCY FLAG
+            'agency_id' => $this->session->userdata('agency_id'), //  ADD AGENCY INFO
+            'is_agency_user' => !empty($this->session->userdata('agency_id')) //  ADD AGENCY FLAG
         ];
 
         if (empty($id)) {
-            log_message('debug', 'No ID - creating new form from source: ' . $source);
             return $default;
         }
 
-        // ✅ CRITICAL FIX: Ensure we're loading the correct form
+        //  CRITICAL FIX: Ensure we're loading the correct form
         $schema_row = $this->{$this->model}->get_by_id($id, 'sys_form_schemas');
         
         if (!$schema_row) {
-            log_message('error', 'No schema found for id: ' . $id);
             return $default;
         }
 
-        log_message('debug', 'Loaded schema from DB - name: ' . $schema_row->name);
 
         $decoded = json_decode($schema_row->schema ?? '{}', true);
         
         if (json_last_error() !== JSON_ERROR_NONE) {
-            log_message('error', 'Invalid JSON in schema: ' . json_last_error_msg());
             return $default;
         }
 
-        // ✅ EXTRACT CURRENT FIELDS FOR DISPLAY
+        //  EXTRACT CURRENT FIELDS FOR DISPLAY
         $current_fields = [];
         if (isset($decoded['meta_data']['df']['form-rows'])) {
             foreach ($decoded['meta_data']['df']['form-rows'] as $form_row) {
@@ -291,7 +270,6 @@ public function ajax_results() {
             }
         }
 
-        log_message('debug', 'Found ' . count($current_fields) . ' current fields');
 
         // Repair schema for form generation
         if (!isset($decoded[0])) {
@@ -322,7 +300,7 @@ public function ajax_results() {
                 $layout_row = new stdClass();
             }
 
-            // ✅ CRITICAL: Ensure the row has ALL required properties including NAME
+            //  CRITICAL: Ensure the row has ALL required properties including NAME
             $merged_row = (object)array_merge((array)$row, [
                 'id' => $id,
                 'name' => $schema_row->name ?? $row->name ?? 'Unnamed Form',
@@ -331,7 +309,6 @@ public function ajax_results() {
                 'form_action' => $decoded['form']['action'] ?? $row->form_action ?? ''
             ]);
 
-            log_message('debug', 'Final merged row - ID: ' . ($merged_row->id ?? 'NO ID') . ', Name: ' . ($merged_row->name ?? 'NO NAME'));
 
             $result = [
                 'form' => $form->form_view,
@@ -346,21 +323,16 @@ public function ajax_results() {
                 'df' => [],
                 'current_fields' => $current_fields,
                 'source' => $source,
-                'field_suggestions' => $field_suggestions, // ✅ Include field suggestions
-                'db_fields' => $db_fields, // ✅ Include detailed field info
-                'field_type_mapping' => $field_type_mapping, // ✅ Include type mapping
-                'agency_id' => $this->session->userdata('agency_id'), // ✅ ADD AGENCY INFO
-                'is_agency_user' => !empty($this->session->userdata('agency_id')) // ✅ ADD AGENCY FLAG
+                'field_suggestions' => $field_suggestions, //  Include field suggestions
+                'db_fields' => $db_fields, //  Include detailed field info
+                'field_type_mapping' => $field_type_mapping, //  Include type mapping
+                'agency_id' => $this->session->userdata('agency_id'), //  ADD AGENCY INFO
+                'is_agency_user' => !empty($this->session->userdata('agency_id')) //  ADD AGENCY FLAG
             ];
-
-            log_message('debug', 'Returning data with source: ' . $source);
-            log_message('debug', 'Field suggestions included: ' . count($field_suggestions) . ' groups');
-            log_message('debug', 'DB fields included: ' . count($db_fields) . ' fields');
 
             return $result;
 
         } catch (Exception $e) {
-            log_message('error', 'Form builder error: ' . $e->getMessage());
             // Return default with source included even on error
             $default['source'] = $source;
             return $default;
@@ -368,19 +340,13 @@ public function ajax_results() {
     }
 
     public function verify_database_data($id) {
-        log_message('debug', '=== VERIFYING DATABASE DATA ===');
         
         $this->db->select('id, name, schema, updated_at');
         $this->db->where('id', $id);
         $row = $this->db->get('sys_form_schemas')->row();
         
         if ($row) {
-            log_message('debug', 'DB Row - ID: ' . $row->id);
-            log_message('debug', 'DB Row - Name: ' . $row->name);
-            log_message('debug', 'DB Row - Updated: ' . $row->updated_at);
-            log_message('debug', 'DB Row - Schema: ' . substr($row->schema ?? 'EMPTY', 0, 500));
         } else {
-            log_message('debug', 'No row found in database for ID: ' . $id);
         }
         
         return $row;
@@ -405,7 +371,6 @@ public function ajax_results() {
                 'row' => $row
             ];
         } catch (Exception $e) {
-            log_message('error', 'Fallback failed: ' . $e->getMessage());
             return [
                 'form' => '<div class="error">Could not load form. Please try again.</div>',
                 'schema' => [],
@@ -421,19 +386,18 @@ public function ajax_results() {
     }
 
     public function update_success_extra($id) {
-        log_message('debug', '=== UPDATE SUCCESS EXTRA CALLED ===');
-        
+
         // Clear any session cache for this form
         $this->session->unset_userdata('form_builder_cache_' . $id);
         
-        // ✅ UPDATE existing template section with new form data
+        //  UPDATE existing template section with new form data
         $form_data = [
             'name' => $this->input->post('name'),
             'description' => $this->input->post('description')
         ];
         $this->create_or_update_template_section($id, $form_data);
 
-        // ✅ USE REPLACE TO UPDATE OR CREATE TEMPLATE
+        //  USE REPLACE TO UPDATE OR CREATE TEMPLATE
         $template_data = [
             'schema_id' => $id,
             'name' => $this->input->post('name') ?: '',
@@ -451,9 +415,7 @@ public function ajax_results() {
         }
         
         $this->db->replace('mod_layouts', $template_data);
-        log_message('debug', '✅ Replaced template for schema_id: ' . $id);
 
-        log_message('debug', '=== UPDATE SUCCESS EXTRA COMPLETED ===');
     }
 
     public function cleanup_duplicate_templates() {
@@ -486,7 +448,7 @@ public function ajax_results() {
                          ->where('id !=', $keep->id)
                          ->delete('mod_layouts');
                 $deleted = $this->db->affected_rows();
-                echo "✅ Kept template ID: {$keep->id}, deleted {$deleted} duplicates for schema_id: {$dup->schema_id}\n";
+                echo " Kept template ID: {$keep->id}, deleted {$deleted} duplicates for schema_id: {$dup->schema_id}\n";
             }
             echo "---\n";
         }
@@ -500,7 +462,6 @@ public function ajax_results() {
     }
 
     public function create_success_extra($id) {
-        log_message('debug', '=== CREATE SUCCESS EXTRA CALLED ===');
         
         // Get form data
         $form_data = [
@@ -508,10 +469,10 @@ public function ajax_results() {
             'description' => $this->input->post('description')
         ];
 
-        // ✅ AUTO-CREATE TEMPLATE SECTION ONLY FOR NEW FORMS
+        //  AUTO-CREATE TEMPLATE SECTION ONLY FOR NEW FORMS
         $this->create_or_update_template_section($id, $form_data);
 
-        // ✅ CHECK IF TEMPLATE ALREADY EXISTS (shouldn't for new forms, but just in case)
+        //  CHECK IF TEMPLATE ALREADY EXISTS (shouldn't for new forms, but just in case)
         $existing_template = $this->db->get_where('mod_layouts', ['schema_id' => $id])->row();
         
         if (!$existing_template) {
@@ -525,104 +486,85 @@ public function ajax_results() {
                 'enabled' => 1,
                 'created_at' => date('Y-m-d H:i:s')
             ]);
-            log_message('debug', '✅ Created new template for new form ID: ' . $id);
         } else {
-            log_message('debug', '⚠️ Template already exists for new form ID: ' . $id . ' - skipping template creation');
         }
 
-        // ✅ FORCE CLEAR ANY CACHE
+        //  FORCE CLEAR ANY CACHE
         $this->output->delete_cache();
     }
 
-public function store_df_data($data) {
-    $df = $this->input->post('df');
-    
-    log_message('debug', '=== STORE_DF_DATA START ===');
-    log_message('debug', 'Input data agency_id: ' . ($data['agency_id'] ?? 'NOT IN DATA'));
-    log_message('debug', 'Input data is_public: ' . ($data['is_public'] ?? 'NOT IN DATA'));
-    log_message('debug', 'DF data received: ' . (!empty($df) ? 'YES' : 'NO'));
+    public function store_df_data($data) {
+        $df = $this->input->post('df');
+        //  FIX: Initialize variables to prevent undefined errors
+        $compiled_schema = [];
+        $clean_df = [];
 
-    // ✅ FIX: Initialize variables to prevent undefined errors
-    $compiled_schema = [];
-    $clean_df = [];
+        // Process DF data if it exists
+        if (!empty($df) && is_array($df)) {
+            
+            $clean_df = $df; // Use the DF data as is
+            
+            // Compile the schema from DF data
+            $compiled_schema = [
+                'form' => [
+                    'id' => $data['form_element_id'] ?? 'form_' . time(),
+                    'class' => $data['form_classes'] ?? '',
+                    'action' => $data['form_action'] ?? ''
+                ],
+                'meta_data' => [
+                    'df' => $clean_df
+                ]
+            ];
 
-    // Process DF data if it exists
-    if (!empty($df) && is_array($df)) {
-        log_message('debug', 'Processing DF data with keys: ' . implode(', ', array_keys($df)));
-        
-        $clean_df = $df; // Use the DF data as is
-        
-        // Compile the schema from DF data
-        $compiled_schema = [
-            'form' => [
-                'id' => $data['form_element_id'] ?? 'form_' . time(),
-                'class' => $data['form_classes'] ?? '',
-                'action' => $data['form_action'] ?? ''
-            ],
-            'meta_data' => [
-                'df' => $clean_df
-            ]
-        ];
+            // Convert DF to actual form schema
+            $form_schema = $this->df_to_schema($clean_df, 'form-rows');
+            if (!empty($form_schema)) {
+                $compiled_schema = array_merge($compiled_schema, $form_schema);
+            }
 
-        // Convert DF to actual form schema
-        $form_schema = $this->df_to_schema($clean_df, 'form-rows');
-        if (!empty($form_schema)) {
-            $compiled_schema = array_merge($compiled_schema, $form_schema);
+        } else {
+            
+            // Create basic empty form structure
+            $compiled_schema = [
+                'form' => [
+                    'id' => $data['form_element_id'] ?? 'form_' . time(),
+                    'class' => $data['form_classes'] ?? '',
+                    'action' => $data['form_action'] ?? ''
+                ],
+                'meta_data' => [
+                    'df' => []
+                ]
+            ];
         }
 
-        log_message('debug', 'Compiled schema structure ready');
-    } else {
-        log_message('debug', 'No DF data found - creating empty form structure');
-        
-        // Create basic empty form structure
-        $compiled_schema = [
-            'form' => [
-                'id' => $data['form_element_id'] ?? 'form_' . time(),
-                'class' => $data['form_classes'] ?? '',
-                'action' => $data['form_action'] ?? ''
-            ],
-            'meta_data' => [
-                'df' => []
-            ]
+        $result = [
+            'name' => $data['name'] ?? 'Untitled Form',
+            'schema' => json_encode($compiled_schema, JSON_UNESCAPED_UNICODE),
+            'styling' => json_encode($this->df_to_styling($clean_df), JSON_UNESCAPED_UNICODE),
+            'scripts' => json_encode($this->df_to_scripts($clean_df), JSON_UNESCAPED_UNICODE),
+            'form_element_id' => $data['form_element_id'] ?? '',
+            'form_classes' => $data['form_classes'] ?? '',
+            'form_action' => $data['form_action'] ?? '',
+            'enabled' => 1,
+            'is_public' => isset($data['is_public']) ? (int)$data['is_public'] : 0 //  DEFAULT TO PRIVATE
         ];
+                
+        //  PRESERVE AGENCY ID
+        if (isset($data['agency_id']) && $data['agency_id']) {
+            $result['agency_id'] = $data['agency_id'];
+        }
+        
+        return $result;
     }
-
-    $result = [
-        'name' => $data['name'] ?? 'Untitled Form',
-        'schema' => json_encode($compiled_schema, JSON_UNESCAPED_UNICODE),
-        'styling' => json_encode($this->df_to_styling($clean_df), JSON_UNESCAPED_UNICODE),
-        'scripts' => json_encode($this->df_to_scripts($clean_df), JSON_UNESCAPED_UNICODE),
-        'form_element_id' => $data['form_element_id'] ?? '',
-        'form_classes' => $data['form_classes'] ?? '',
-        'form_action' => $data['form_action'] ?? '',
-        'enabled' => 1,
-        'is_public' => isset($data['is_public']) ? (int)$data['is_public'] : 0 // ✅ DEFAULT TO PRIVATE
-    ];
-    
-    log_message('debug', 'Setting is_public to: ' . $result['is_public']);
-    
-    // ✅ PRESERVE AGENCY ID
-    if (isset($data['agency_id']) && $data['agency_id']) {
-        $result['agency_id'] = $data['agency_id'];
-        log_message('debug', '✅ Preserving agency_id in store_df_data: ' . $result['agency_id']);
-    }
-    
-    log_message('debug', 'Final store_df_data result - Schema length: ' . strlen($result['schema']));
-    log_message('debug', 'Schema preview: ' . substr($result['schema'], 0, 200));
-    
-    return $result;
-}
     /**
      * Clean up fields that were deleted from the form builder
      */
     private function cleanup_deleted_fields($form_id, &$new_df) {
-        log_message('debug', '=== CLEANUP DELETED FIELDS ===');
         
         // Get current schema from database
         $current_row = $this->db->get_where('sys_form_schemas', ['id' => $form_id])->row();
         
         if (!$current_row || empty($current_row->schema)) {
-            log_message('debug', 'No current schema found for cleanup');
             return;
         }
         
@@ -630,7 +572,6 @@ public function store_df_data($data) {
         $current_df = $current_schema['meta_data']['df'] ?? [];
         
         if (empty($current_df['form-rows'])) {
-            log_message('debug', 'No current DF rows found for cleanup');
             return;
         }
         
@@ -661,30 +602,21 @@ public function store_df_data($data) {
         // Find fields that were deleted
         $deleted_fields = array_diff($current_field_names, $new_field_names);
         
-        log_message('debug', 'Current fields: ' . implode(', ', $current_field_names));
-        log_message('debug', 'New fields: ' . implode(', ', $new_field_names));
-        log_message('debug', 'Deleted fields: ' . implode(', ', $deleted_fields));
-        
         if (!empty($deleted_fields)) {
-            log_message('debug', 'Cleaning up deleted fields: ' . implode(', ', $deleted_fields));
             
             // Remove these fields from mod_layouts if they exist
             foreach ($deleted_fields as $field_name) {
                 // Check if column exists before trying to update
                 if ($this->db->field_exists($field_name, 'mod_layouts')) {
                     $this->db->set($field_name, null);
-                    log_message('debug', 'Setting field to NULL: ' . $field_name);
                 } else {
-                    log_message('debug', 'Field does not exist in mod_layouts: ' . $field_name);
                 }
             }
             
             // Execute the update
             $this->db->where('schema_id', $form_id);
             $update_result = $this->db->update('mod_layouts');
-            log_message('debug', 'Cleanup update result: ' . ($update_result ? 'SUCCESS' : 'FAILED'));
         } else {
-            log_message('debug', 'No fields to cleanup');
         }
     }
 
@@ -699,183 +631,149 @@ public function store_df_data($data) {
         return $table_list;
     }
 
-public function update($id) {
-    log_message('debug', '=== UPDATE METHOD START ===');
-    log_message('debug', 'ID from URL: ' . $id);
-    log_message('debug', 'POST ID: ' . $this->input->post('id'));
-    
-    // ✅ CRITICAL FIX: Use POST ID instead of URL parameter if they differ
-    $post_id = $this->input->post('id');
-    if ($post_id && $post_id != $id) {
-        log_message('debug', 'ID MISMATCH DETECTED: URL=' . $id . ', POST=' . $post_id);
-        $id = $post_id; // Use the POST ID
-    }
-    
-    // ECMS no longer supports a direct form post
-    if (!is_ajax()) {
-        flash_notification(lang('not_ajax_error'), 'error');
-        redir($this->pageName);
+    public function update($id) {
+        //  CRITICAL FIX: Use POST ID instead of URL parameter if they differ
+        $post_id = $this->input->post('id');
+        if ($post_id && $post_id != $id) {
+            $id = $post_id; // Use the POST ID
+        }
+        
+        // ECMS no longer supports a direct form post
+        if (!is_ajax()) {
+            flash_notification(lang('not_ajax_error'), 'error');
+            redir($this->pageName);
+            return;
+        }
+
+        $this->setup_validation('edit');
+        $identifier = $this->input->post($this->identifierField);
+
+        if ($this->form_validation->run()) {
+            
+            //  VERIFY THE FORM EXISTS BEFORE UPDATING
+            $existing_form = $this->{$this->model}->get_by_id($id);
+            if (!$existing_form) {
+                ajax_return(array(
+                    'success' => FALSE,
+                    'error' => 'Form not found. Please refresh and try again.'
+                ));
+                return;
+            }
+            
+            $this->load->helper('string');
+            $messageParams = array('name' => $identifier);
+
+            //If you want to add extra data to the post
+            $extra = $this->update_extra_params($id);
+
+            $params = $this->build_params($extra);
+
+            //Check if we included the slug as an editable field
+            if($this->sluggify && !empty($params['slug'])) {
+                $params['slug'] = $this->sluggify($params['slug'], null, $id);
+            }
+
+            //If you want to modify the existing post data
+            $params = $this->update_modify_params($params);
+
+            $this->db->trans_start();
+            $updateResult = $this->{$this->model}->update($params, $id);
+            
+            //  VERIFY DATABASE UPDATE
+            $this->verify_database_data($id);
+        
+            $this->process_dynamic_fields($id);
+            $this->process_multi_selects($id);
+            $this->process_uploads($id);
+
+            //Run extra update functionality
+            $this->update_success_extra($id);
+
+            $this->db->trans_complete();
+
+            if ($this->db->trans_status() !== FALSE) {
+                ajax_return(array(
+                    'success' => TRUE,
+                    'flasherbody' => langs($this->pageName . '_update_success_description', $messageParams),
+                    'extra' => $this->update_return_extra($id)
+                ));
+            } else {
+                Anomalies::log('Failed to edit ' . $this->singular, $this->db->last_query());
+                ajax_return(array(
+                    'success' => FALSE,
+                    'error' => langs($this->pageName . '_update_failed_description', $messageParams)
+                ));
+            }
+        } else {
+         
+            ajax_return(array(
+                'success' => FALSE,
+                'error' => langs('validation_errors_ajax', ['errors' => validation_errors()]),
+                'fields' => $this->form_validation->get_errors()
+            ));
+        }
+        
         return;
     }
 
-    $this->setup_validation('edit');
-    $identifier = $this->input->post($this->identifierField);
-
-    if ($this->form_validation->run()) {
-        log_message('debug', '=== VALIDATION PASSED ===');
+    public function create_modify_params($params){
         
-        // ✅ VERIFY THE FORM EXISTS BEFORE UPDATING
-        $existing_form = $this->{$this->model}->get_by_id($id);
-        if (!$existing_form) {
-            log_message('error', 'Form with ID ' . $id . ' does not exist');
-            ajax_return(array(
-                'success' => FALSE,
-                'error' => 'Form not found. Please refresh and try again.'
-            ));
-            return;
-        }
+        $agency_id = $this->session->userdata('agency_id');
         
-        $this->load->helper('string');
-        $messageParams = array('name' => $identifier);
-
-        //If you want to add extra data to the post
-        $extra = $this->update_extra_params($id);
-        log_message('debug', 'Extra params: ' . print_r($extra, true));
-
-        $params = $this->build_params($extra);
-        log_message('debug', 'Built params before modify: ' . print_r($params, true));
-
-        //Check if we included the slug as an editable field
-        if($this->sluggify && !empty($params['slug'])) {
-            $params['slug'] = $this->sluggify($params['slug'], null, $id);
-        }
-
-        //If you want to modify the existing post data
-        log_message('debug', '=== CALLING UPDATE_MODIFY_PARAMS ===');
-        $params = $this->update_modify_params($params);
-        log_message('debug', 'Params after modify: ' . print_r($params, true));
-
-        $this->db->trans_start();
-        $updateResult = $this->{$this->model}->update($params, $id);
-        log_message('debug', 'Update result: ' . $updateResult);
-        
-        // ✅ VERIFY DATABASE UPDATE
-        $this->verify_database_data($id);
-    
-        $this->process_dynamic_fields($id);
-        $this->process_multi_selects($id);
-        $this->process_uploads($id);
-
-        //Run extra update functionality
-        $this->update_success_extra($id);
-
-        $this->db->trans_complete();
-
-        if ($this->db->trans_status() !== FALSE) {
-            log_message('debug', '=== UPDATE SUCCESS ===');
-            ajax_return(array(
-                'success' => TRUE,
-                'flasherbody' => langs($this->pageName . '_update_success_description', $messageParams),
-                'extra' => $this->update_return_extra($id)
-            ));
+        if ($agency_id) {
+            $params['agency_id'] = $agency_id;
         } else {
-            log_message('error', '=== UPDATE FAILED ===');
-            Anomalies::log('Failed to edit ' . $this->singular, $this->db->last_query());
-            ajax_return(array(
-                'success' => FALSE,
-                'error' => langs($this->pageName . '_update_failed_description', $messageParams)
-            ));
         }
-    } else {
-        log_message('debug', '=== VALIDATION FAILED ===');
-        log_message('debug', 'Validation errors: ' . validation_errors());
-        ajax_return(array(
-            'success' => FALSE,
-            'error' => langs('validation_errors_ajax', ['errors' => validation_errors()]),
-            'fields' => $this->form_validation->get_errors()
-        ));
+        
+        //  ENSURE IS_PUBLIC IS SET (default to 0 for private)
+        if (!isset($params['is_public'])) {
+            $params['is_public'] = 0;
+        }
+        
+        // ADD VALIDATION BEFORE PROCESSING
+        if (empty($params['name'])) {
+            $params['name'] = 'Untitled Form ' . date('Y-m-d H:i:s');
+        }
+        
+        if (empty($params['form_element_id'])) {
+            $params['form_element_id'] = 'form_' . time();
+        }
+        
+        $result = $this->store_df_data($params);
+        return $result;
     }
-    
-    log_message('debug', '=== UPDATE METHOD END ===');
-    return;
-}
-public function create_modify_params($params){
-    log_message('debug', '=== CREATE_MODIFY_PARAMS CALLED ===');
-    
-     $agency_id = $this->session->userdata('agency_id');
-    
-    if ($agency_id) {
-        $params['agency_id'] = $agency_id;
-        log_message('debug', '✅ Setting agency_id in create: ' . $params['agency_id']);
-    } else {
-        log_message('debug', '❌ No agency_id found in session');
-    }
-    
-    // ✅ ENSURE IS_PUBLIC IS SET (default to 0 for private)
-    if (!isset($params['is_public'])) {
-        $params['is_public'] = 0;
-    }
-    
-    log_message('debug', 'Original params: ' . print_r($params, true));
-        log_message('debug', 'Setting is_public to: ' . $params['is_public']);
-    log_message('debug', 'Original params: ' . print_r($params, true));
-    
-    // ✅ ADD VALIDATION BEFORE PROCESSING
-    if (empty($params['name'])) {
-        $params['name'] = 'Untitled Form ' . date('Y-m-d H:i:s');
-    }
-    
-    if (empty($params['form_element_id'])) {
-        $params['form_element_id'] = 'form_' . time();
-    }
-    
-    $result = $this->store_df_data($params);
-    log_message('debug', 'After store_df_data: ' . print_r($result, true));
-    return $result;
-}
 
-public function update_modify_params($params){
-    log_message('debug', '=== UPDATE_MODIFY_PARAMS CALLED ===');
-    
-    // ✅ FIXED: Get agency_id from session
-    $agency_id = $this->session->userdata('agency_id');
-    
-    if ($agency_id) {
-        $params['agency_id'] = $agency_id;
-        log_message('debug', '✅ Setting agency_id in update: ' . $params['agency_id']);
-    } else {
-        log_message('debug', '❌ No agency_id found in session');
+    public function update_modify_params($params){
+        
+        //  FIXED: Get agency_id from session
+        $agency_id = $this->session->userdata('agency_id');
+        
+        if ($agency_id) {
+            $params['agency_id'] = $agency_id;
+        } else {
+        }
+        
+        // ENSURE IS_PUBLIC IS SET (default to 0 for private)
+        if (!isset($params['is_public'])) {
+            $params['is_public'] = 0;
+        }
+        
+        if (!empty($this->input->post('df'))) {
+        }
+        
+        //  ADD VALIDATION BEFORE PROCESSING
+        if (empty($params['name'])) {
+            $params['name'] = 'Untitled Form ' . date('Y-m-d H:i:s');
+        }
+        
+        if (empty($params['form_element_id'])) {
+            $params['form_element_id'] = 'form_' . time();
+        }
+        
+        $result = $this->store_df_data($params);
+        
+        return $result;
     }
-    
-    // ✅ ENSURE IS_PUBLIC IS SET (default to 0 for private)
-    if (!isset($params['is_public'])) {
-        $params['is_public'] = 0;
-    }
-    
-    log_message('debug', 'Setting is_public to: ' . $params['is_public']);
-    log_message('debug', 'Original params: ' . print_r($params, true));
-    
-    log_message('debug', 'Original params: ' . print_r($params, true));
-    log_message('debug', 'DF data exists: ' . (!empty($this->input->post('df')) ? 'YES' : 'NO'));
-    
-    if (!empty($this->input->post('df'))) {
-        log_message('debug', 'DF data: ' . print_r($this->input->post('df'), true));
-    }
-    
-    // ✅ ADD VALIDATION BEFORE PROCESSING
-    if (empty($params['name'])) {
-        $params['name'] = 'Untitled Form ' . date('Y-m-d H:i:s');
-    }
-    
-    if (empty($params['form_element_id'])) {
-        $params['form_element_id'] = 'form_' . time();
-    }
-    
-    $result = $this->store_df_data($params);
-    log_message('debug', 'After store_df_data: ' . print_r($result, true));
-    
-    return $result;
-}
 
     public function get_all_dynamic_field_data($rowID = 0){        
         $df = array();
@@ -892,7 +790,7 @@ public function update_modify_params($params){
     }
 
     public function df_to_schema($df, $sub_field) {
-        // ✅ EXTRA SAFETY CHECKS
+        //  EXTRA SAFETY CHECKS
         if(!isset($df[$sub_field]) || !is_array($df[$sub_field])){
             return [];
         }
@@ -901,7 +799,7 @@ public function update_modify_params($params){
         $row_index = 0;
         
         foreach ($df[$sub_field] as $field) {
-            // ✅ SKIP MALFORMED ROWS
+            //  SKIP MALFORMED ROWS
             if (!is_array($field)) {
                 continue;
             }
@@ -922,7 +820,7 @@ public function update_modify_params($params){
             $fields = [];
             if(isset($field['df-sub']) && is_array($field['df-sub'])) {
                 foreach ($field['df-sub'] as $key => $input) {
-                    // ✅ VALIDATE EACH INPUT FIELD
+                    // VALIDATE EACH INPUT FIELD
                     if (!is_array($input) || empty($input['field_name'])) {
                         continue; // skip invalid fields
                     }
@@ -947,7 +845,7 @@ public function update_modify_params($params){
                 }
             }
             
-            // ✅ ONLY ADD ROW IF IT HAS FIELDS
+            //  ONLY ADD ROW IF IT HAS FIELDS
             if (!empty($fields)) {
                 $schema[$row_index] = [
                     'row' => $row,
@@ -961,52 +859,54 @@ public function update_modify_params($params){
 
         return $schema;
     }
-public function fix_public_forms()
-{
-    echo "<h2>🔧 Fixing Public/Private Form Settings</h2>";
-    echo "<pre>";
-    
-    $agency_id = $this->session->userdata('agency_id');
-    echo "Current Agency ID: $agency_id\n\n";
-    
-    if (!$agency_id) {
-        echo "❌ No agency ID found in session\n";
-        return;
-    }
-    
-    // Find all forms for this agency that are incorrectly set to public
-    $forms = $this->db->select('id, name, agency_id, is_public')
-                     ->from('sys_form_schemas')
-                     ->where('agency_id', $agency_id)
-                     ->where('is_public', 1)
-                     ->where('removed', 0)
-                     ->get()
-                     ->result();
-    
-    echo "Found " . count($forms) . " forms incorrectly set to public:\n";
-    
-    foreach ($forms as $form) {
-        echo " - {$form->name} (ID: {$form->id}) - Setting to private... ";
+
+    public function fix_public_forms()
+    {
+        echo "<h2> Fixing Public/Private Form Settings</h2>";
+        echo "<pre>";
         
-        $this->db->where('id', $form->id)
-                 ->update('sys_form_schemas', ['is_public' => 0]);
+        $agency_id = $this->session->userdata('agency_id');
+        echo "Current Agency ID: $agency_id\n\n";
         
-        if ($this->db->affected_rows() > 0) {
-            echo "✅ FIXED\n";
-        } else {
-            echo "❌ FAILED\n";
+        if (!$agency_id) {
+            echo " No agency ID found in session\n";
+            return;
         }
+        
+        // Find all forms for this agency that are incorrectly set to public
+        $forms = $this->db->select('id, name, agency_id, is_public')
+                        ->from('sys_form_schemas')
+                        ->where('agency_id', $agency_id)
+                        ->where('is_public', 1)
+                        ->where('removed', 0)
+                        ->get()
+                        ->result();
+        
+        echo "Found " . count($forms) . " forms incorrectly set to public:\n";
+        
+        foreach ($forms as $form) {
+            echo " - {$form->name} (ID: {$form->id}) - Setting to private... ";
+            
+            $this->db->where('id', $form->id)
+                    ->update('sys_form_schemas', ['is_public' => 0]);
+            
+            if ($this->db->affected_rows() > 0) {
+                echo " FIXED\n";
+            } else {
+                echo " FAILED\n";
+            }
+        }
+        
+        if (empty($forms)) {
+            echo " No forms need fixing - all private forms are correctly set!\n";
+        }
+        
+        echo "\n Fix completed!";
+        echo "</pre>";
+        
+        echo "<p><a href='" . site_url('agency/test_form_builder/debug_agency_forms') . "' class='btn btn-primary'>Check Form Visibility</a></p>";
     }
-    
-    if (empty($forms)) {
-        echo "✅ No forms need fixing - all private forms are correctly set!\n";
-    }
-    
-    echo "\n✅ Fix completed!";
-    echo "</pre>";
-    
-    echo "<p><a href='" . site_url('agency/test_form_builder/debug_agency_forms') . "' class='btn btn-primary'>Check Form Visibility</a></p>";
-}
+
     public function df_to_styling($df_styling) {
         if (!is_array($df_styling)) {
             return [];
@@ -1088,8 +988,6 @@ public function fix_public_forms()
                 }
             }
 
-            log_message('debug', 'Generated DF from DB table: ' . print_r($df, true));
-
             $this->output_json([
                 'success' => true,
                 'form_schema' => $from_db->form_schema,
@@ -1099,7 +997,6 @@ public function fix_public_forms()
             ]);
 
         } catch (Exception $e) {
-            log_message('error', 'Failed to generate form from DB: ' . $e->getMessage());
             $this->output_json([
                 'success' => false,
                 'message' => 'Error generating form: ' . $e->getMessage()
@@ -1334,79 +1231,80 @@ public function fix_public_forms()
             ]));
         }
     }
-private function create_or_update_template_section($form_id, $form_data) {
-    // Check if template section already exists for this form
-    $existing_section = $this->db->get_where('mod_template_sections', [
-        'schema_id' => $form_id
-    ])->row();
 
-    // ✅ FIXED: Get agency_id from session
-    $login_data = $this->session->userdata('login');
-    $agency_id = null;
-    
-    if (!empty($login_data['agency'])) {
-        $agency_id = $login_data['agency']['agency_id'] ?? null;
-    }
+    private function create_or_update_template_section($form_id, $form_data) {
+        // Check if template section already exists for this form
+        $existing_section = $this->db->get_where('mod_template_sections', [
+            'schema_id' => $form_id
+        ])->row();
 
-    // ✅ FIX: Generate unique code to prevent duplicates
-    $base_code = strtolower(url_title($form_data['name'] ?? 'unnamed_section'));
-    $code = $base_code;
-    $counter = 1;
-    
-    // ✅ FIXED: Check if code already exists using proper query builder
-    do {
-        // Build query properly
-        $this->db->from('mod_template_sections');
-        $this->db->where('code', $code);
+        //  FIXED: Get agency_id from session
+        $login_data = $this->session->userdata('login');
+        $agency_id = null;
         
-        // Exclude current section if updating
+        if (!empty($login_data['agency'])) {
+            $agency_id = $login_data['agency']['agency_id'] ?? null;
+        }
+
+        //  FIX: Generate unique code to prevent duplicates
+        $base_code = strtolower(url_title($form_data['name'] ?? 'unnamed_section'));
+        $code = $base_code;
+        $counter = 1;
+        
+        //  FIXED: Check if code already exists using proper query builder
+        do {
+            // Build query properly
+            $this->db->from('mod_template_sections');
+            $this->db->where('code', $code);
+            
+            // Exclude current section if updating
+            if ($existing_section) {
+                $this->db->where('id !=', $existing_section->id);
+            }
+            
+            $check_query = $this->db->get();
+            
+            if ($check_query->num_rows() > 0) {
+                $code = $base_code . '_' . $counter;
+                $counter++;
+            } else {
+                break;
+            }
+        } while ($counter < 100); // Safety limit
+
+        $section_data = [
+            'name' => $form_data['name'] ?? 'Unnamed Section',
+            'code' => $code, //  Now guaranteed unique
+            'description' => $form_data['description'] ?? 'Auto-created template section',
+            'section_type' => 'content',
+            'schema_id' => $form_id,
+            'enabled' => 1,
+            'updated_at' => date('Y-m-d H:i:s')
+        ];
+
+        //  ADD AGENCY_ID TO TEMPLATE SECTION
+        if ($agency_id) {
+            $section_data['agency_id'] = $agency_id;
+            log_message('debug', '✅ Setting agency_id in template section: ' . $agency_id);
+        }
+
         if ($existing_section) {
-            $this->db->where('id !=', $existing_section->id);
-        }
-        
-        $check_query = $this->db->get();
-        
-        if ($check_query->num_rows() > 0) {
-            $code = $base_code . '_' . $counter;
-            $counter++;
+            //  UPDATE existing section
+            $this->db->where('id', $existing_section->id);
+            $this->db->update('mod_template_sections', $section_data);
+            log_message('debug', 'Updated existing template section for form ID: ' . $form_id . ' with code: ' . $code . ' and agency_id: ' . ($agency_id ?: 'NULL'));
+            return $existing_section->id;
         } else {
-            break;
+            //  CREATE new section only if it doesn't exist
+            $section_data['sort_order'] = $this->get_next_sort_order();
+            $section_data['created_at'] = date('Y-m-d H:i:s');
+            
+            $this->db->insert('mod_template_sections', $section_data);
+            $section_id = $this->db->insert_id();
+            log_message('debug', 'Created new template section for form ID: ' . $form_id . ' -> Section ID: ' . $section_id . ' with code: ' . $code . ' and agency_id: ' . ($agency_id ?: 'NULL'));
+            return $section_id;
         }
-    } while ($counter < 100); // Safety limit
-
-    $section_data = [
-        'name' => $form_data['name'] ?? 'Unnamed Section',
-        'code' => $code, // ✅ Now guaranteed unique
-        'description' => $form_data['description'] ?? 'Auto-created template section',
-        'section_type' => 'content',
-        'schema_id' => $form_id,
-        'enabled' => 1,
-        'updated_at' => date('Y-m-d H:i:s')
-    ];
-
-    // ✅ ADD AGENCY_ID TO TEMPLATE SECTION
-    if ($agency_id) {
-        $section_data['agency_id'] = $agency_id;
-        log_message('debug', '✅ Setting agency_id in template section: ' . $agency_id);
     }
-
-    if ($existing_section) {
-        // ✅ UPDATE existing section
-        $this->db->where('id', $existing_section->id);
-        $this->db->update('mod_template_sections', $section_data);
-        log_message('debug', 'Updated existing template section for form ID: ' . $form_id . ' with code: ' . $code . ' and agency_id: ' . ($agency_id ?: 'NULL'));
-        return $existing_section->id;
-    } else {
-        // ✅ CREATE new section only if it doesn't exist
-        $section_data['sort_order'] = $this->get_next_sort_order();
-        $section_data['created_at'] = date('Y-m-d H:i:s');
-        
-        $this->db->insert('mod_template_sections', $section_data);
-        $section_id = $this->db->insert_id();
-        log_message('debug', 'Created new template section for form ID: ' . $form_id . ' -> Section ID: ' . $section_id . ' with code: ' . $code . ' and agency_id: ' . ($agency_id ?: 'NULL'));
-        return $section_id;
-    }
-}
 
     public function cleanup_duplicate_codes() {
         echo "<h2>Cleaning up duplicate codes in mod_template_sections:</h2>";
@@ -1432,7 +1330,7 @@ private function create_or_update_template_section($form_id, $form_data) {
                     $new_code = $dup->code . '_' . $section_id;
                     $this->db->where('id', $section_id)
                              ->update('mod_template_sections', ['code' => $new_code]);
-                    echo "✅ Updated section ID {$section_id} with new code: {$new_code}\n";
+                    echo " Updated section ID {$section_id} with new code: {$new_code}\n";
                 }
             }
             echo "---\n";
@@ -1480,7 +1378,7 @@ private function create_or_update_template_section($form_id, $form_data) {
             $this->db->insert('mod_template_sections', $section_data);
             $section_id = $this->db->insert_id();
 
-            echo "✅ Created template section for '{$form->name}' (Form ID: {$form->id}) -> Section ID: {$section_id}\n";
+            echo " Created template section for '{$form->name}' (Form ID: {$form->id}) -> Section ID: {$section_id}\n";
         }
 
         if (empty($missing_sections)) {
@@ -1950,115 +1848,6 @@ private function create_or_update_template_section($form_id, $form_data) {
         log_message('debug', 'Form remove_extra_success called for: ' . $row->name);
         return TRUE;
     }
-    public function debug_agency_forms()
-{
-    $agency_id = $this->session->userdata('agency_id');
-    
-    echo "<h1>🔍 DEBUG AGENCY FORMS</h1>";
-    echo "<p>Current Agency ID: " . ($agency_id ? $agency_id : 'NOT SET') . "</p>";
-    
-    if (!$agency_id) {
-        echo "<p style='color: red;'>❌ NO AGENCY ID IN SESSION</p>";
-        return;
-    }
-    
-    // Test direct query
-    echo "<h2>Direct Database Query (Agency ID: $agency_id)</h2>";
-    $direct_forms = $this->db->select('id, name, agency_id, is_public')
-                            ->from('sys_form_schemas')
-                            ->where('removed', 0)
-                            ->where('deleted_at IS NULL')
-                            ->where("(agency_id = $agency_id OR is_public = 1)")
-                            ->order_by('name', 'ASC')
-                            ->get()
-                            ->result();
-    
-    echo "<p>Direct query found: " . count($direct_forms) . " forms</p>";
-    echo "<table border='1' cellpadding='5'>";
-    echo "<tr><th>ID</th><th>Name</th><th>Agency ID</th><th>Is Public</th></tr>";
-    foreach ($direct_forms as $form) {
-        $style = $form->agency_id == $agency_id ? 'background-color: #e8f5e8;' : 'background-color: #e6f3ff;';
-        echo "<tr style='$style'>";
-        echo "<td>{$form->id}</td>";
-        echo "<td>{$form->name}</td>";
-        echo "<td>{$form->agency_id}</td>";
-        echo "<td>" . ($form->is_public ? 'YES' : 'NO') . "</td>";
-        echo "</tr>";
-    }
-    echo "</table>";
-    
-    // Test model method
-    echo "<h2>Model Method Results</h2>";
-    $model_forms = $this->Model_test_form_builder->get_all()->result();
-    echo "<p>Model get_all() found: " . count($model_forms) . " forms</p>";
-    
-    // Test all forms in database (for comparison)
-    echo "<h2>All Forms in Database (for comparison)</h2>";
-    $all_forms = $this->db->select('id, name, agency_id, is_public')
-                         ->from('sys_form_schemas')
-                         ->where('removed', 0)
-                         ->where('deleted_at IS NULL')
-                         ->order_by('name', 'ASC')
-                         ->get()
-                         ->result();
-    
-    echo "<p>Total forms in database: " . count($all_forms) . "</p>";
-    echo "<table border='1' cellpadding='5'>";
-    echo "<tr><th>ID</th><th>Name</th><th>Agency ID</th><th>Is Public</th><th>Visibility</th></tr>";
-    foreach ($all_forms as $form) {
-        $is_visible = ($form->agency_id == $agency_id || $form->is_public == 1);
-        $style = $is_visible ? 'background-color: #e8f5e8;' : 'background-color: #ffe6e6;';
-        $visibility = $is_visible ? 'VISIBLE' : 'HIDDEN';
-        
-        echo "<tr style='$style'>";
-        echo "<td>{$form->id}</td>";
-        echo "<td>{$form->name}</td>";
-        echo "<td>{$form->agency_id}</td>";
-        echo "<td>" . ($form->is_public ? 'YES' : 'NO') . "</td>";
-        echo "<td>$visibility</td>";
-        echo "</tr>";
-    }
-    echo "</table>";
-    
-    echo "<h3>Legend:</h3>";
-    echo "<p style='background-color: #e8f5e8; padding: 5px;'>✅ Visible to your agency (your forms or public forms)</p>";
-    echo "<p style='background-color: #e6f3ff; padding: 5px;'>🔵 Public forms from other agencies</p>";
-    echo "<p style='background-color: #ffe6e6; padding: 5px;'>❌ Hidden (private forms from other agencies)</p>";
-}
 
-public function debug_form_submission()
-{
-    echo "<h2>🔍 DEBUG FORM SUBMISSION</h2>";
-    
-    if ($_POST) {
-        echo "<h3>POST Data Received:</h3>";
-        echo "<pre>" . print_r($_POST, true) . "</pre>";
-        
-        echo "<h3>Session Data:</h3>";
-        echo "<pre>" . print_r($this->session->userdata(), true) . "</pre>";
-        
-        echo "<h3>Checking is_public field:</h3>";
-        $is_public = $this->input->post('is_public');
-        echo "is_public from POST: " . ($is_public !== null ? $is_public : 'NOT SET') . "<br>";
-        echo "is_public type: " . gettype($is_public) . "<br>";
-    } else {
-        echo "<p>No POST data received. Submit a form to see the data.</p>";
-    }
-    
-    echo "<h3>Test Form:</h3>";
-    echo '<form method="post" action="">';
-    echo '<div class="form-group">';
-    echo '<label for="is_public">Form Visibility</label>';
-    echo '<select name="is_public" id="is_public" class="form-control">';
-    echo '<option value="0">Private (Only my agency)</option>';
-    echo '<option value="1">Public (All agencies can see)</option>';
-    echo '</select>';
-    echo '</div>';
-    echo '<div class="form-group">';
-    echo '<label for="name">Form Name</label>';
-    echo '<input type="text" name="name" id="name" class="form-control" value="Test Form">';
-    echo '</div>';
-    echo '<button type="submit" class="btn btn-primary">Test Submit</button>';
-    echo '</form>';
-}
+
 }

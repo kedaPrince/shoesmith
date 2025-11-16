@@ -71,7 +71,26 @@ $route['images/(:num)/(:any)/(:any)/(:any)/(:any)/(:any)'] = 'files/image/$2/$3/
 $route['images/(:any)/(:any)/(:any)/(:any)/(:any)'] = 'files/image/$1/$2/$3/$4/$5';
 $route['files/(:any)/(:any)/(:any)/(:any)/(:any)'] = 'files/file/$1/$2/$3/$4/$5';
 $route['download/(:any)/(:any)/(:any)/(:any)/(:any)'] = 'files/file/$1/$2/$3/$4/$5';
+// Recruiter Chat Routes
+$route['recruiter/chat'] = 'recruiter/chat';
+$route['recruiter/chat/(:any)'] = 'recruiter/chat/$1';
+$route['recruiter/chat/(:any)/(:any)'] = 'recruiter/chat/$1/$2';
+$route['recruiter/chat/(:any)/(:any)/(:any)'] = 'recruiter/chat/$1/$2/$3';
 
+// Agency Chat Routes  
+$route['agency/chat'] = 'agency/chat';
+$route['agency/chat/(:any)'] = 'agency/chat/$1';
+$route['agency/chat/(:any)/(:any)'] = 'agency/chat/$1/$2';
+$route['agency/chat/(:any)/(:any)/(:any)'] = 'agency/chat/$1/$2/$3';
+
+// AJAX endpoints
+$route['recruiter/chat/ajax_send_message'] = 'recruiter/chat/ajax_send_message';
+$route['recruiter/chat/ajax_get_messages'] = 'recruiter/chat/ajax_get_messages';
+$route['recruiter/chat/ajax_get_unread_count'] = 'recruiter/chat/ajax_get_unread_count';
+
+$route['agency/chat/ajax_send_message'] = 'agency/chat/ajax_send_message';
+$route['agency/chat/ajax_get_messages'] = 'agency/chat/ajax_get_messages';
+$route['agency/chat/ajax_get_unread_count'] = 'agency/chat/ajax_get_unread_count';
 // Debug routes
 $route['debug-session'] = function() {
     $ci =& get_instance();

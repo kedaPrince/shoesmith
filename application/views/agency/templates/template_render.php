@@ -3,7 +3,6 @@ defined('BASEPATH') or exit('No direct script access allowed');
 
 class Templates extends CRUD_Controller 
 {
-    // ... your existing properties ...
 
     public function __construct() 
     {
@@ -91,8 +90,6 @@ class Templates extends CRUD_Controller
             ]);
         }
     }
-
-    // ... keep your other methods as they are ...
     
     private function output_json($data) 
     {

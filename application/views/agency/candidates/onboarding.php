@@ -646,20 +646,20 @@ function formatFileSize($bytes) {
                     <div class="onboarding-content">
                         <?php if (empty($candidate->job_id)): ?>
                         <div class="waiting-assignment-message">
-                            <h4>⏳ Waiting for Job Assignment</h4>
+                            <h4> Waiting for Job Assignment</h4>
                             <p>This candidate needs to be assigned to a job before onboarding can begin.<br>
                                 Please contact a recruiter to assign this candidate to a job.</p>
                         </div>
                         <?php else: ?>
                         <div class="job-assignment-info">
-                            <h5>📋 Job Assignment</h5>
+                            <h5> Job Assignment</h5>
                             <p><strong>Job:</strong> <?= $candidate->job_name ?? 'Not specified' ?></p>
                             <p><strong>Reference:</strong> <?= $candidate->job_ref ?? 'N/A' ?></p>
                         </div>
 
                         <!-- Check if candidate is rejected -->
                         <?php 
-                        // ✅ FIX: Only show rejection notice if BOTH hm_decision is 'rejected' AND status is 'rejected'
+                        //  FIX: Only show rejection notice if BOTH hm_decision is 'rejected' AND status is 'rejected'
                         // When HM decision is reopened, hm_decision becomes null but status might still be 'rejected'
                         $is_rejected = ($candidate->hm_decision === 'rejected' && $candidate->status === 'rejected'); 
                         ?>
@@ -667,7 +667,7 @@ function formatFileSize($bytes) {
                         <!-- Show rejection notice if candidate is rejected -->
                         <?php if ($is_rejected): ?>
                         <div class="rejection-notice">
-                            <h4>❌ Candidate Rejected</h4>
+                            <h4> Candidate Rejected</h4>
                             <p>This candidate has been rejected. The onboarding process has been stopped.<br>
                                 To continue with onboarding, please change the HM decision or candidate status.</p>
                             <?php if ($candidate->hm_decision_at): ?>
@@ -843,7 +843,7 @@ function formatFileSize($bytes) {
                                     <?php if (isset($candidate->stage_documents_decision) && $candidate->stage_documents_decision): ?>
                                     <?php if (isset($candidate->documents_required) && $candidate->documents_required): ?>
                                     <div class="stage-date">
-                                        <strong class="text-warning">📋 Documents Required</strong>
+                                        <strong class="text-warning"> Documents Required</strong>
                                         <?php if (isset($candidate->documents_notes) && $candidate->documents_notes): ?>
                                         <div class="stage-notes mt-2">
                                             <small><strong>Required Documents:</strong>
@@ -853,7 +853,7 @@ function formatFileSize($bytes) {
                                     </div>
                                     <?php else: ?>
                                     <div class="stage-date">
-                                        <strong class="text-success">✅ No Additional Documents Required</strong>
+                                        <strong class="text-success"> No Additional Documents Required</strong>
                                     </div>
                                     <?php endif; ?>
                                     <?php if (isset($candidate->stage_documents_decision_at) && $candidate->stage_documents_decision_at): ?>
@@ -898,7 +898,7 @@ function formatFileSize($bytes) {
                                     <?php elseif ($has_required_docs && !$candidate->stage_requested_docs): ?>
                                     <div class="badge badge-warning">Documents Submitted</div>
                                     <?php elseif (isset($candidate->documents_required) && !$candidate->documents_required): ?>
-                                    <!-- ✅ ADD THIS: Show skipped badge when documents are not required -->
+                                    <!--  ADD THIS: Show skipped badge when documents are not required -->
                                     <div class="badge badge-info">Skipped</div>
                                     <?php elseif (isset($candidate->documents_required) && $candidate->documents_required): ?>
                                     <div class="badge badge-info">Awaiting Documents</div>
@@ -909,13 +909,13 @@ function formatFileSize($bytes) {
                                     <p class="stage-description">Additional documentation requested from candidate</p>
 
                                     <?php if (isset($candidate->documents_required) && !$candidate->documents_required): ?>
-                                    <!-- ✅ ADD THIS: Show skipped message -->
+                                    <!--  ADD THIS: Show skipped message -->
                                     <div class="stage-date text-info">
-                                        <strong>✅ Stage Skipped - No Documents Required</strong>
+                                        <strong> Stage Skipped - No Documents Required</strong>
                                     </div>
                                     <?php elseif ($has_required_docs && !$candidate->stage_requested_docs): ?>
                                     <div class="stage-date text-warning">
-                                        <strong>📄 Documents Submitted - Awaiting Review</strong>
+                                        <strong> Documents Submitted - Awaiting Review</strong>
                                     </div>
                                     <?php elseif (isset($candidate->stage_requested_docs_at) && $candidate->stage_requested_docs_at): ?>
                                     <div class="stage-date">Completed:
@@ -1068,8 +1068,8 @@ function formatFileSize($bytes) {
                             <label for="decision"><strong>Decision</strong></label>
                             <select class="form-control" id="decision" name="decision" required>
                                 <option value="">Select Decision</option>
-                                <option value="accepted">✅ Accept Candidate</option>
-                                <option value="rejected">❌ Reject Candidate</option>
+                                <option value="accepted"> Accept Candidate</option>
+                                <option value="rejected"> Reject Candidate</option>
                             </select>
                         </div>
 
@@ -1107,8 +1107,8 @@ function formatFileSize($bytes) {
                             <label for="documents_required"><strong>Are additional documents required?</strong></label>
                             <select class="form-control" id="documents_required" name="documents_required" required>
                                 <option value="">Select Option</option>
-                                <option value="1">✅ Yes, documents are required</option>
-                                <option value="0">❌ No, no additional documents needed</option>
+                                <option value="1"> Yes, documents are required</option>
+                                <option value="0"> No, no additional documents needed</option>
                             </select>
                         </div>
 
@@ -1131,7 +1131,7 @@ function formatFileSize($bytes) {
     <!-- Documents Section -->
     <div class="card mt-4">
         <div class="card-header bg-warning text-white">
-            <h4 class="card-title mb-0">📋 Required Documents</h4>
+            <h4 class="card-title mb-0"> Required Documents</h4>
         </div>
         <div class="card-body">
             <!-- Documents Status Alert -->

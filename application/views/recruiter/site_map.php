@@ -63,4 +63,18 @@ $this->siteMap = array(
         'show_heading'  => false,
         'active_by'     => 'view',
     ),
+
+    // Add to recruiter sitemap array
+(object) [
+    'group'         => 'Chat',
+    'page'          => 'chat',
+    'label'         => lang('chat_heading'),
+    'icon'          => 'fa-comments',
+    'url'           => url('chat'),
+    'class'         => 'Chat',
+    'show'          => true,
+    'show_heading'  => false,
+    'active_by'     => 'chat',
+    'badge_count'   => true, // This will show unread message count
+],
 );

@@ -179,7 +179,7 @@
 
 <script>
 // HM Decision Notifications - Cleaned Version
-console.log('🚀 Dashboard JavaScript loaded - Cleaned Version');
+console.log(' Dashboard JavaScript loaded - Cleaned Version');
 
 // Base URL for API endpoints
 const BASE_URL = '<?= site_url("") ?>';
@@ -195,10 +195,10 @@ function saveDisplayedNotifications(displayedSet) {
 }
 
 function checkHmNotifications() {
-    console.log('🔔 Checking for HM notifications...');
+    console.log(' Checking for HM notifications...');
 
     const url = BASE_URL + 'recruiter/dashboard/get_hm_decision_notifications';
-    console.log(`🔍 Fetching from: ${url}`);
+    console.log(` Fetching from: ${url}`);
 
     fetch(url, {
             headers: {
@@ -213,10 +213,10 @@ function checkHmNotifications() {
             return response.json();
         })
         .then(data => {
-            console.log('📨 HM notifications response:', data);
+            console.log(' HM notifications response:', data);
 
             if (data.success && Array.isArray(data.notifications) && data.notifications.length > 0) {
-                console.log('🎯 Found ' + data.notifications.length + ' HM notifications');
+                console.log(' Found ' + data.notifications.length + ' HM notifications');
 
                 const displayedNotifications = getDisplayedNotifications();
 
@@ -227,7 +227,7 @@ function checkHmNotifications() {
                     return !alreadyDisplayed;
                 });
 
-                console.log('🆕 New notifications to display:', newNotifications.length);
+                console.log(' New notifications to display:', newNotifications.length);
 
                 newNotifications.forEach((notification, index) => {
                     // Add to displayed set immediately and save to sessionStorage
@@ -240,20 +240,20 @@ function checkHmNotifications() {
                     }, index * 1000);
                 });
             } else {
-                console.log('❌ No HM notifications found');
+                console.log(' No HM notifications found');
             }
         })
         .catch(error => {
-            console.error('💥 Error checking HM notifications:', error);
+            console.error(' Error checking HM notifications:', error);
         });
 }
 
 function showHmNotificationPopup(notification) {
-    console.log('🔄 Showing HM notification popup:', notification);
+    console.log(' Showing HM notification popup:', notification);
 
     // Check if popup already exists for this notification
     if (document.getElementById('hmPopup-' + notification.id)) {
-        console.log('ℹ️ Popup already exists for notification:', notification.id);
+        console.log('ℹ Popup already exists for notification:', notification.id);
         return;
     }
 
@@ -317,7 +317,7 @@ function showHmNotificationPopup(notification) {
 }
 
 function closeHmPopup(notificationId) {
-    console.log('🗑️ Closing popup:', notificationId);
+    console.log(' Closing popup:', notificationId);
     const popup = document.getElementById('hmPopup-' + notificationId);
     if (popup) {
         // Add fade out animation
@@ -334,7 +334,7 @@ function closeHmPopup(notificationId) {
 }
 
 function markHmNotificationAsRead(notificationId) {
-    console.log('📖 Marking notification as read:', notificationId);
+    console.log(' Marking notification as read:', notificationId);
 
     const url = BASE_URL + 'recruiter/dashboard/mark_hm_notification_read';
 
@@ -359,17 +359,17 @@ function markHmNotificationAsRead(notificationId) {
         })
         .then(data => {
             if (data.success) {
-                console.log('✅ HM notification marked as read:', notificationId);
+                console.log(' HM notification marked as read:', notificationId);
                 // Remove from displayed notifications when marked as read
                 const displayedNotifications = getDisplayedNotifications();
                 displayedNotifications.delete(notificationId);
                 saveDisplayedNotifications(displayedNotifications);
             } else {
-                console.log('❌ Failed to mark notification as read');
+                console.log(' Failed to mark notification as read');
             }
         })
         .catch(error => {
-            console.error('💥 Error marking HM notification as read:', error);
+            console.error(' Error marking HM notification as read:', error);
         });
 }
 // Add to your existing HM decision notification system
@@ -463,7 +463,7 @@ function testPopupManually() {
 
     const testNotification = {
         id: 999,
-        title: "🎉 Test Candidate Accepted",
+        title: " Test Candidate Accepted",
         message: "Great news! The hiring manager has accepted Test Candidate for Test Job.",
         candidate_name: "Test Candidate",
         candidate_ref: "CAND-TEST-001",
@@ -481,7 +481,7 @@ function testPopupManually() {
 
 // Single DOMContentLoaded event listener
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('🏠 Dashboard loaded, checking for HM notifications...');
+
 
     // Clear any existing test notifications from session storage on page load
     const displayedNotifications = getDisplayedNotifications();

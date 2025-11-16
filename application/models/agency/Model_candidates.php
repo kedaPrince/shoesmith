@@ -988,334 +988,327 @@ class Model_candidates extends CRUD_Model
             }
         }
         
-        log_message('error', 'No agency_id found in session');
         return null;
     }
 
 
-/**
- * Get agency by ID
- */
-public function get_agency_by_id($agency_id)
-{
-    $this->db->select('*');
-    $this->db->from('agencies');
-    $this->db->where('id', $agency_id);
-    $this->db->where('removed', 0);
-    
-    return $this->db->get()->row();
-}
-/**
- * Calculate and update overall onboarding progress - FIXED VERSION
- */
-public function update_onboarding_progress($candidate_id)
-{
-    $candidate = $this->get_candidate_details($candidate_id);
-    
-    if (!$candidate) {
-        log_message('error', "Candidate {$candidate_id} not found for progress update");
-        return false;
-    }
-
-    // Define all stages
-    $stages = [
-        'stage_under_review',
-        'stage_submitted_to_hm', 
-        'stage_hm_decision',
-        'stage_documents_decision',
-        'stage_requested_docs',
-        'stage_position_offered'
-    ];
-
-    $completed_stages = 0;
-    $total_stages = count($stages);
-    
-    // Count completed stages with special handling for skipped stages
-    foreach ($stages as $stage) {
-        $is_completed = false;
+    /**
+     * Get agency by ID
+     */
+    public function get_agency_by_id($agency_id)
+    {
+        $this->db->select('*');
+        $this->db->from('agencies');
+        $this->db->where('id', $agency_id);
+        $this->db->where('removed', 0);
         
-        // Check if stage property exists
-        if (isset($candidate->$stage)) {
-            // Special case: stage_requested_docs is considered completed if documents are not required
-            if ($stage === 'stage_requested_docs') {
-                if ($candidate->$stage == 1 || 
-                    (isset($candidate->documents_required) && $candidate->documents_required == 0)) {
-                    $is_completed = true;
-                }
-            } 
-            // Regular stage completion check
-            else {
-                $is_completed = ($candidate->$stage == 1);
-            }
-        }
-        
-        if ($is_completed) {
-            $completed_stages++;
-        }
+        return $this->db->get()->row();
     }
+    /**
+     * Calculate and update overall onboarding progress - FIXED VERSION
+     */
+    public function update_onboarding_progress($candidate_id)
+    {
+        $candidate = $this->get_candidate_details($candidate_id);
+        
+        if (!$candidate) {
+            return false;
+        }
 
-    // Determine current stage
-    $current_stage = 'not_started';
-    
-    if ($completed_stages == $total_stages) {
-        $current_stage = 'completed';
-    } elseif ($completed_stages > 0) {
-        // Find the current active stage (first incomplete stage)
+        // Define all stages
+        $stages = [
+            'stage_under_review',
+            'stage_submitted_to_hm', 
+            'stage_hm_decision',
+            'stage_documents_decision',
+            'stage_requested_docs',
+            'stage_position_offered'
+        ];
+
+        $completed_stages = 0;
+        $total_stages = count($stages);
+        
+        // Count completed stages with special handling for skipped stages
         foreach ($stages as $stage) {
-            $is_incomplete = true;
+            $is_completed = false;
             
             // Check if stage property exists
             if (isset($candidate->$stage)) {
-                // Special case: stage_requested_docs is not incomplete if documents are not required
+                // Special case: stage_requested_docs is considered completed if documents are not required
                 if ($stage === 'stage_requested_docs') {
-                    $is_incomplete = ($candidate->$stage == 0 && 
-                                    (!isset($candidate->documents_required) || $candidate->documents_required == 1));
-                } else {
-                    $is_incomplete = ($candidate->$stage == 0);
+                    if ($candidate->$stage == 1 || 
+                        (isset($candidate->documents_required) && $candidate->documents_required == 0)) {
+                        $is_completed = true;
+                    }
+                } 
+                // Regular stage completion check
+                else {
+                    $is_completed = ($candidate->$stage == 1);
                 }
             }
             
-            if ($is_incomplete) {
-                $current_stage = $stage;
-                break;
+            if ($is_completed) {
+                $completed_stages++;
             }
         }
-    }
 
-    // Update completion status
-    if ($completed_stages == $total_stages) {
-        $this->db->where('id', $candidate_id)->update($this->table, [
-            'onboarding_completed_at' => date('Y-m-d H:i:s')
-        ]);
-    } else {
-        $this->db->where('id', $candidate_id)->update($this->table, [
-            'onboarding_completed_at' => null
-        ]);
-    }
-
-    $progress_percentage = round(($completed_stages / $total_stages) * 100);
-
-    $update_data = [
-        'onboarding_stage' => $current_stage,
-        'onboarding_progress' => $progress_percentage,
-        'updated_at' => date('Y-m-d H:i:s')
-    ];
-
-    log_message('debug', "Progress update - Candidate: {$candidate_id}, Stages: {$completed_stages}/{$total_stages}, Progress: {$progress_percentage}%");
-
-    return $this->db->where('id', $candidate_id)->update($this->table, $update_data);
-}
-/**
- * Get jobs by agency - UPDATED for your table structure
- */
-public function get_jobs_by_agency($agency_id)
-{
-    try {
-        $this->db->select('j.*');
-        $this->db->from('mod_jobs j');
-        $this->db->where('j.agency_id', $agency_id); // Your table already has agency_id directly
-        $this->db->where('j.removed', 0);
-        $this->db->where('j.enabled', 1);
-        $this->db->order_by('j.name', 'ASC');
+        // Determine current stage
+        $current_stage = 'not_started';
         
-        $query = $this->db->get();
-        
-        log_message('debug', 'get_jobs_by_agency successful. Found: ' . $query->num_rows() . ' jobs');
-        return $query;
-        
-    } catch (Exception $e) {
-        log_message('error', 'Exception in get_jobs_by_agency: ' . $e->getMessage());
-        return false;
-    }
-}
-/**
- * Get candidate details with job information
- */
-public function get_candidate_details($candidate_id)
-{
-    $this->db->select('c.*, j.name as job_name, j.reference_number as job_ref');
-    $this->db->from('candidates c');
-    $this->db->join('mod_jobs j', 'j.id = c.job_id', 'left');
-    $this->db->where('c.id', $candidate_id);
-    $this->db->where('c.removed', 0);
-    
-    return $this->db->get()->row();
-}
-/**
- * Get agency agents by agency - UPDATED for your table structure
- */
-public function get_agency_agents_by_agency($agency_id)
-{
-    try {
-        $this->db->select('id, first_name, last_name, email, contact_number as phone');
-        $this->db->from('agency_staff');
-        $this->db->where('agency_id', $agency_id);
-        $this->db->where('removed', 0);
-        $this->db->where('enabled', 1);
-        $this->db->order_by('first_name', 'ASC');
-        
-        $query = $this->db->get();
-        
-        log_message('debug', 'get_agency_agents_by_agency successful. Found: ' . $query->num_rows() . ' agents');
-        return $query;
-        
-    } catch (Exception $e) {
-        log_message('error', 'Exception in get_agency_agents_by_agency: ' . $e->getMessage());
-        return false;
-    }
-}
-/**
- * Get candidate details
- */
-public function get_candidate($candidate_id)
-{
-    $this->db->select('*');
-    $this->db->from('candidates');
-    $this->db->where('id', $candidate_id);
-    $this->db->where('removed', 0);
-    
-    return $this->db->get()->row();
-}
+        if ($completed_stages == $total_stages) {
+            $current_stage = 'completed';
+        } elseif ($completed_stages > 0) {
+            // Find the current active stage (first incomplete stage)
+            foreach ($stages as $stage) {
+                $is_incomplete = true;
+                
+                // Check if stage property exists
+                if (isset($candidate->$stage)) {
+                    // Special case: stage_requested_docs is not incomplete if documents are not required
+                    if ($stage === 'stage_requested_docs') {
+                        $is_incomplete = ($candidate->$stage == 0 && 
+                                        (!isset($candidate->documents_required) || $candidate->documents_required == 1));
+                    } else {
+                        $is_incomplete = ($candidate->$stage == 0);
+                    }
+                }
+                
+                if ($is_incomplete) {
+                    $current_stage = $stage;
+                    break;
+                }
+            }
+        }
 
-/**
- * Check if email is unique
- */
-public function is_unique_email($email, $id = null)
-{
-    $this->db->where('email', $email);
-    $this->db->where('removed', 0);
-    
-    if ($id) {
-        $this->db->where('id !=', $id);
-    }
-    
-    $query = $this->db->get('candidates');
-    return $query->num_rows() === 0;
-}
+        // Update completion status
+        if ($completed_stages == $total_stages) {
+            $this->db->where('id', $candidate_id)->update($this->table, [
+                'onboarding_completed_at' => date('Y-m-d H:i:s')
+            ]);
+        } else {
+            $this->db->where('id', $candidate_id)->update($this->table, [
+                'onboarding_completed_at' => null
+            ]);
+        }
 
-/**
- * Generate reference number
- */
-public function generate_reference_number()
-{
-    $prefix = 'CAND-' . date('Y') . '-';
-    
-    $this->db->select('reference_number');
-    $this->db->from('candidates');
-    $this->db->where('reference_number LIKE', $prefix . '%');
-    $this->db->order_by('reference_number', 'DESC');
-    $this->db->limit(1);
-    
-    $last_ref = $this->db->get()->row();
-    
-    if ($last_ref) {
-        $last_number = intval(str_replace($prefix, '', $last_ref->reference_number));
-        $new_number = $last_number + 1;
-    } else {
-        $new_number = 1;
-    }
-    
-    return $prefix . str_pad($new_number, 4, '0', STR_PAD_LEFT);
-}
+        $progress_percentage = round(($completed_stages / $total_stages) * 100);
 
-/**
- * Get agent details
- */
-public function get_agent($agent_id)
-{
-    $this->db->select('*');
-    $this->db->from('agency_staff');
-    $this->db->where('id', $agent_id);
-    $this->db->where('removed', 0);
-    
-    return $this->db->get()->row();
-}
-
-/**
- * Create agent notification
- */
-public function create_agent_notification($notification_data)
-{
-    return $this->db->insert('agent_notifications', $notification_data);
-}
-
-/**
- * Complete onboarding process
- */
-public function complete_onboarding($candidate_id)
-{
-    $data = [
-        'onboarding_stage' => 'completed',
-        'onboarding_progress' => 100,
-        'onboarding_completed_at' => date('Y-m-d H:i:s'),
-        'updated_at' => date('Y-m-d H:i:s')
-    ];
-    
-    $this->db->where('id', $candidate_id);
-    return $this->db->update('candidates', $data);
-}
-
-/**
- * Check and update documents stage
- */
-public function check_and_update_documents_stage($candidate_id)
-{
-    // Check if required documents are submitted
-    $this->db->select('COUNT(*) as doc_count');
-    $this->db->from('candidate_documents');
-    $this->db->where('candidate_id', $candidate_id);
-    $this->db->where('document_type', 'required_document');
-    $this->db->where('removed', 0);
-    
-    $result = $this->db->get()->row();
-    $has_documents = $result && $result->doc_count > 0;
-    
-    if ($has_documents) {
-        // Update the stage
-        $this->db->where('id', $candidate_id);
-        $this->db->update('candidates', [
-            'stage_requested_docs' => 1,
-            'stage_requested_docs_at' => date('Y-m-d H:i:s'),
+        $update_data = [
+            'onboarding_stage' => $current_stage,
+            'onboarding_progress' => $progress_percentage,
             'updated_at' => date('Y-m-d H:i:s')
-        ]);
-        
-        // Update progress
-        $this->update_onboarding_progress($candidate_id);
-        
-        return true;
+        ];
+
+
+        return $this->db->where('id', $candidate_id)->update($this->table, $update_data);
     }
-    
-    return false;
-}
+    /**
+     * Get jobs by agency - UPDATED for your table structure
+     */
+    public function get_jobs_by_agency($agency_id)
+    {
+        try {
+            $this->db->select('j.*');
+            $this->db->from('mod_jobs j');
+            $this->db->where('j.agency_id', $agency_id); // Your table already has agency_id directly
+            $this->db->where('j.removed', 0);
+            $this->db->where('j.enabled', 1);
+            $this->db->order_by('j.name', 'ASC');
+            
+            $query = $this->db->get();
+            
+            return $query;
+            
+        } catch (Exception $e) {
+            return false;
+        }
+    }
+    /**
+     * Get candidate details with job information
+     */
+    public function get_candidate_details($candidate_id)
+    {
+        $this->db->select('c.*, j.name as job_name, j.reference_number as job_ref');
+        $this->db->from('candidates c');
+        $this->db->join('mod_jobs j', 'j.id = c.job_id', 'left');
+        $this->db->where('c.id', $candidate_id);
+        $this->db->where('c.removed', 0);
+        
+        return $this->db->get()->row();
+    }
+    /**
+     * Get agency agents by agency - UPDATED for your table structure
+     */
+    public function get_agency_agents_by_agency($agency_id)
+    {
+        try {
+            $this->db->select('id, first_name, last_name, email, contact_number as phone');
+            $this->db->from('agency_staff');
+            $this->db->where('agency_id', $agency_id);
+            $this->db->where('removed', 0);
+            $this->db->where('enabled', 1);
+            $this->db->order_by('first_name', 'ASC');
+            
+            $query = $this->db->get();
+            
+            return $query;
+            
+        } catch (Exception $e) {
+            return false;
+        }
+    }
+    /**
+     * Get candidate details
+     */
+    public function get_candidate($candidate_id)
+    {
+        $this->db->select('*');
+        $this->db->from('candidates');
+        $this->db->where('id', $candidate_id);
+        $this->db->where('removed', 0);
+        
+        return $this->db->get()->row();
+    }
 
-/**
- * Save candidate document
- */
-public function save_candidate_document($document_data)
-{
-    return $this->db->insert('candidate_documents', $document_data);
-}
+    /**
+     * Check if email is unique
+     */
+    public function is_unique_email($email, $id = null)
+    {
+        $this->db->where('email', $email);
+        $this->db->where('removed', 0);
+        
+        if ($id) {
+            $this->db->where('id !=', $id);
+        }
+        
+        $query = $this->db->get('candidates');
+        return $query->num_rows() === 0;
+    }
 
-/**
- * Get candidate documents
- */
-public function get_candidate_documents($candidate_id)
-{
-    $this->db->select('cd.*, 
-                      CASE 
-                          WHEN cd.uploaded_by_type = "recruiter" THEN CONCAT(r.first_name, " ", r.last_name)
-                          WHEN cd.uploaded_by_type = "agency" THEN CONCAT(a.first_name, " ", a.last_name)
-                          ELSE "System"
-                      END as uploader_name');
-    $this->db->from('candidate_documents cd');
-    $this->db->join('recruiters r', 'r.id = cd.uploaded_by AND cd.uploaded_by_type = "recruiter"', 'left');
-    $this->db->join('agency_staff a', 'a.id = cd.uploaded_by AND cd.uploaded_by_type = "agency"', 'left');
-    $this->db->where('cd.candidate_id', $candidate_id);
-    $this->db->where('cd.removed', 0);
-    $this->db->order_by('cd.created_at', 'DESC');
-    
-    return $this->db->get()->result();
-}
+    /**
+     * Generate reference number
+     */
+    public function generate_reference_number()
+    {
+        $prefix = 'CAND-' . date('Y') . '-';
+        
+        $this->db->select('reference_number');
+        $this->db->from('candidates');
+        $this->db->where('reference_number LIKE', $prefix . '%');
+        $this->db->order_by('reference_number', 'DESC');
+        $this->db->limit(1);
+        
+        $last_ref = $this->db->get()->row();
+        
+        if ($last_ref) {
+            $last_number = intval(str_replace($prefix, '', $last_ref->reference_number));
+            $new_number = $last_number + 1;
+        } else {
+            $new_number = 1;
+        }
+        
+        return $prefix . str_pad($new_number, 4, '0', STR_PAD_LEFT);
+    }
+
+    /**
+     * Get agent details
+     */
+    public function get_agent($agent_id)
+    {
+        $this->db->select('*');
+        $this->db->from('agency_staff');
+        $this->db->where('id', $agent_id);
+        $this->db->where('removed', 0);
+        
+        return $this->db->get()->row();
+    }
+
+    /**
+     * Create agent notification
+     */
+    public function create_agent_notification($notification_data)
+    {
+        return $this->db->insert('agent_notifications', $notification_data);
+    }
+
+    /**
+     * Complete onboarding process
+     */
+    public function complete_onboarding($candidate_id)
+    {
+        $data = [
+            'onboarding_stage' => 'completed',
+            'onboarding_progress' => 100,
+            'onboarding_completed_at' => date('Y-m-d H:i:s'),
+            'updated_at' => date('Y-m-d H:i:s')
+        ];
+        
+        $this->db->where('id', $candidate_id);
+        return $this->db->update('candidates', $data);
+    }
+
+    /**
+     * Check and update documents stage
+     */
+    public function check_and_update_documents_stage($candidate_id)
+    {
+        // Check if required documents are submitted
+        $this->db->select('COUNT(*) as doc_count');
+        $this->db->from('candidate_documents');
+        $this->db->where('candidate_id', $candidate_id);
+        $this->db->where('document_type', 'required_document');
+        $this->db->where('removed', 0);
+        
+        $result = $this->db->get()->row();
+        $has_documents = $result && $result->doc_count > 0;
+        
+        if ($has_documents) {
+            // Update the stage
+            $this->db->where('id', $candidate_id);
+            $this->db->update('candidates', [
+                'stage_requested_docs' => 1,
+                'stage_requested_docs_at' => date('Y-m-d H:i:s'),
+                'updated_at' => date('Y-m-d H:i:s')
+            ]);
+            
+            // Update progress
+            $this->update_onboarding_progress($candidate_id);
+            
+            return true;
+        }
+        
+        return false;
+    }
+
+    /**
+     * Save candidate document
+     */
+    public function save_candidate_document($document_data)
+    {
+        return $this->db->insert('candidate_documents', $document_data);
+    }
+
+    /**
+     * Get candidate documents
+     */
+    public function get_candidate_documents($candidate_id)
+    {
+        $this->db->select('cd.*, 
+                        CASE 
+                            WHEN cd.uploaded_by_type = "recruiter" THEN CONCAT(r.first_name, " ", r.last_name)
+                            WHEN cd.uploaded_by_type = "agency" THEN CONCAT(a.first_name, " ", a.last_name)
+                            ELSE "System"
+                        END as uploader_name');
+        $this->db->from('candidate_documents cd');
+        $this->db->join('recruiters r', 'r.id = cd.uploaded_by AND cd.uploaded_by_type = "recruiter"', 'left');
+        $this->db->join('agency_staff a', 'a.id = cd.uploaded_by AND cd.uploaded_by_type = "agency"', 'left');
+        $this->db->where('cd.candidate_id', $candidate_id);
+        $this->db->where('cd.removed', 0);
+        $this->db->order_by('cd.created_at', 'DESC');
+        
+        return $this->db->get()->result();
+    }
 
 
     public function update_onboarding_stage($candidate_id, $stage, $value)
@@ -1372,7 +1365,6 @@ public function get_candidate_documents($candidate_id)
             $candidate = $this->db->get()->row();
             
             if (!$candidate) {
-                log_message('error', "Candidate {$candidate_id} not found for documents request notification");
                 return false;
             }
 
@@ -1409,7 +1401,6 @@ public function get_candidate_documents($candidate_id)
             $recruiters = $this->db->get()->result();
 
             if (empty($recruiters)) {
-                log_message('error', "No recruiters found for agency {$agency_id} to send documents request notification");
                 return false;
             }
 
@@ -1447,12 +1438,9 @@ public function get_candidate_documents($candidate_id)
                     $notifications_created++;
                 }
             }
-
-            log_message('debug', "Created {$notifications_created} documents request notifications for candidate {$candidate_id}");
             return $notifications_created > 0;
 
         } catch (Exception $e) {
-            log_message('error', 'Error creating documents request notification: ' . $e->getMessage());
             return false;
         }
     }
@@ -1469,7 +1457,6 @@ public function get_candidate_documents($candidate_id)
             $candidate = $this->db->get()->row();
             
             if (!$candidate) {
-                log_message('error', "Candidate {$candidate_id} not found for documents uploaded notification");
                 return false;
             }
 
@@ -1480,7 +1467,6 @@ public function get_candidate_documents($candidate_id)
             $recruiter = $this->db->get()->row();
 
             if (!$recruiter) {
-                log_message('error', "Recruiter {$uploaded_by_recruiter_id} not found for documents uploaded notification");
                 return false;
             }
 
@@ -1493,7 +1479,6 @@ public function get_candidate_documents($candidate_id)
             $agency_users = $this->db->get()->result();
 
             if (empty($agency_users)) {
-                log_message('error', "No agency users found for agency {$candidate->agency_id} to send documents uploaded notification");
                 return false;
             }
 
@@ -1530,12 +1515,9 @@ public function get_candidate_documents($candidate_id)
                     $notifications_created++;
                 }
             }
-
-            log_message('debug', "Created {$notifications_created} documents uploaded notifications for candidate {$candidate_id}");
             return $notifications_created > 0;
 
         } catch (Exception $e) {
-            log_message('error', 'Error creating documents uploaded notification: ' . $e->getMessage());
             return false;
         }
     }
@@ -1552,7 +1534,6 @@ public function get_candidate_documents($candidate_id)
             $candidate = $this->db->get()->row();
             
             if (!$candidate) {
-                log_message('error', "Candidate {$candidate_id} not found for HM decision notification");
                 return false;
             }
 
@@ -1589,7 +1570,6 @@ public function get_candidate_documents($candidate_id)
             $recruiters = $this->db->get()->result();
 
             if (empty($recruiters)) {
-                log_message('error', "No recruiters found for agency {$agency_id} to send HM decision notification");
                 return false;
             }
 
@@ -1630,12 +1610,9 @@ public function get_candidate_documents($candidate_id)
                     $notifications_created++;
                 }
             }
-
-            log_message('debug', "Created {$notifications_created} HM decision notifications for candidate {$candidate_id}");
             return $notifications_created > 0;
 
         } catch (Exception $e) {
-            log_message('error', 'Error creating HM decision notification: ' . $e->getMessage());
             return false;
         }
     }
@@ -1696,18 +1673,14 @@ public function get_candidate_documents($candidate_id)
         $agency_id = $this->get_current_agency_id();
         
         if (!$agency_id) {
-            log_message('error', "No agency ID found for documents query");
             return [];
         }
         
         $has_access = $this->check_agency_candidate_access($agency_id, $candidate_id);
         
         if (!$has_access) {
-            log_message('error', "Agency {$agency_id} attempted to access documents for unauthorized candidate {$candidate_id}");
             return [];
         }
-
-        log_message('debug', "Querying ALL documents for candidate {$candidate_id}");
 
         $this->db->select('cd.*, 
                           CASE 
@@ -1724,11 +1697,9 @@ public function get_candidate_documents($candidate_id)
         
         $result = $this->db->get()->result();
         
-        log_message('debug', "Found " . count($result) . " total documents for candidate {$candidate_id}");
         
         // Log each document found
         foreach ($result as $doc) {
-            log_message('debug', "Document: ID={$doc->id}, Name='{$doc->document_name}', Type='{$doc->document_type}', Created='{$doc->created_at}'");
         }
         
         return $result;
@@ -1844,7 +1815,6 @@ public function get_candidate_documents($candidate_id)
         $agency_id = $agency_id ?: $this->get_current_agency_id();
         
         if (!$agency_id) {
-            log_message('error', 'No agency_id provided for onboarding stats');
             return $this->get_empty_stats_object();
         }
 
@@ -1865,7 +1835,7 @@ public function get_candidate_documents($candidate_id)
             $this->db->from('candidates c');
             $this->db->join('candidate_agencies ca', 'ca.candidate_id = c.id', 'inner');
             
-            // ✅ CRITICAL: Filter ONLY by pivot table agency_id
+            //  CRITICAL: Filter ONLY by pivot table agency_id
             $this->db->where('ca.agency_id', $agency_id);
             $this->db->where('c.removed', 0);
 
@@ -1874,7 +1844,6 @@ public function get_candidate_documents($candidate_id)
             return $result;
 
         } catch (Exception $e) {
-            log_message('error', 'Error getting onboarding stats: ' . $e->getMessage());
             return $this->get_empty_stats_object();
         }
     }

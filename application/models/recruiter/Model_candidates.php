@@ -7,44 +7,44 @@ class Model_candidates extends CRUD_Model
 
     // Override to include joins for agency/job names in listing
    public function get_all($limit = null, $offset = null, $sort_by = 'first_name', $sort_order = 'ASC')
-{
-    // Select base candidate fields
-    $this->db->select('candidates.*');
+    {
+        // Select base candidate fields
+        $this->db->select('candidates.*');
 
-    // Subquery: get all agency names for this candidate
-    $this->db->select("(SELECT GROUP_CONCAT(a.name SEPARATOR ', ')
-                        FROM candidate_agencies ca
-                        JOIN agencies a ON a.id = ca.agency_id
-                        WHERE ca.candidate_id = candidates.id
-                        AND a.removed = 0 AND a.enabled = 1
-                       ) AS agency_name", false);
+        // Subquery: get all agency names for this candidate
+        $this->db->select("(SELECT GROUP_CONCAT(a.name SEPARATOR ', ')
+                            FROM candidate_agencies ca
+                            JOIN agencies a ON a.id = ca.agency_id
+                            WHERE ca.candidate_id = candidates.id
+                            AND a.removed = 0 AND a.enabled = 1
+                        ) AS agency_name", false);
 
-    // Subquery: get all job names for this candidate
-    $this->db->select("(SELECT GROUP_CONCAT(j.name SEPARATOR ', ')
-                        FROM candidate_jobs cj
-                        JOIN mod_jobs j ON j.id = cj.job_id
-                        WHERE cj.candidate_id = candidates.id
-                        AND j.removed = 0 AND j.enabled = 1
-                       ) AS job_name", false);
+        // Subquery: get all job names for this candidate
+        $this->db->select("(SELECT GROUP_CONCAT(j.name SEPARATOR ', ')
+                            FROM candidate_jobs cj
+                            JOIN mod_jobs j ON j.id = cj.job_id
+                            WHERE cj.candidate_id = candidates.id
+                            AND j.removed = 0 AND j.enabled = 1
+                        ) AS job_name", false);
 
-    $this->db->from($this->table);
-    $this->db->where('candidates.removed', 0);
+        $this->db->from($this->table);
+        $this->db->where('candidates.removed', 0);
 
-    // Sorting
-    if ($sort_by) {
-        // Only allow sorting on real fields (not virtual agency_name/job_name for now)
-        if (!in_array($sort_by, ['agency_name', 'job_name'])) {
-            $this->db->order_by("candidates.$sort_by", $sort_order ?: 'ASC');
+        // Sorting
+        if ($sort_by) {
+            // Only allow sorting on real fields (not virtual agency_name/job_name for now)
+            if (!in_array($sort_by, ['agency_name', 'job_name'])) {
+                $this->db->order_by("candidates.$sort_by", $sort_order ?: 'ASC');
+            }
+            // Optional: add complex sorting later if needed
         }
-        // Optional: add complex sorting later if needed
-    }
 
-    if ($limit !== null) {
-        $this->db->limit($limit, $offset);
-    }
+        if ($limit !== null) {
+            $this->db->limit($limit, $offset);
+        }
 
-    return $this->db->get();
-}
+        return $this->db->get();
+    }
 
     public function count_all()
     {
@@ -117,54 +117,54 @@ class Model_candidates extends CRUD_Model
     }
 
     // NEW METHODS - For multi-select options (like skills pattern)
-public function get_additional_agency_options($exclude_id = null)
-{
-    $this->db->select('id, name')
-             ->from('agencies')
-             ->where('enabled', 1)
-             ->where('removed', 0);
-    if ($exclude_id) {
-        $this->db->where('id !=', $exclude_id);
+    public function get_additional_agency_options($exclude_id = null)
+    {
+        $this->db->select('id, name')
+                ->from('agencies')
+                ->where('enabled', 1)
+                ->where('removed', 0);
+        if ($exclude_id) {
+            $this->db->where('id !=', $exclude_id);
+        }
+        return $this->db->order_by('name', 'ASC')->get()->result();
     }
-    return $this->db->order_by('name', 'ASC')->get()->result();
-}
 
-public function get_additional_job_options($exclude_id = null)
-{
-    $this->db->select('id, name, reference_number')
-             ->from('mod_jobs')
-             ->where('enabled', 1)
-             ->where('removed', 0);
-    if ($exclude_id) {
-        $this->db->where('id !=', $exclude_id);
+    public function get_additional_job_options($exclude_id = null)
+    {
+        $this->db->select('id, name, reference_number')
+                ->from('mod_jobs')
+                ->where('enabled', 1)
+                ->where('removed', 0);
+        if ($exclude_id) {
+            $this->db->where('id !=', $exclude_id);
+        }
+        return $this->db->order_by('name', 'ASC')->get()->result();
     }
-    return $this->db->order_by('name', 'ASC')->get()->result();
-}
 
 
-public function get_by_id($id, $table = false)
-{
-    $table = $table ?: $this->table;
-    return $this->db->where($table . '.id', $id)
-                    ->where($table . '.removed', 0)
-                    ->get($table)
-                    ->row();
-}
+    public function get_by_id($id, $table = false)
+    {
+        $table = $table ?: $this->table;
+        return $this->db->where($table . '.id', $id)
+                        ->where($table . '.removed', 0)
+                        ->get($table)
+                        ->row();
+    }
 
-// Add this method to your Model_candidates
-public function get_job_by_id($job_id)
-{
-    return $this->db->select('mj.*, a.name as agency_name')
-                    ->from('mod_jobs mj')
-                    ->join('agencies a', 'a.id = mj.agency_id', 'left')
-                    ->where('mj.id', $job_id)
-                    ->where('mj.enabled', 1)
-                    ->where('mj.removed', 0)
-                    ->get()
-                    ->row();
-}
+    // Add this method to your Model_candidates
+    public function get_job_by_id($job_id)
+    {
+        return $this->db->select('mj.*, a.name as agency_name')
+                        ->from('mod_jobs mj')
+                        ->join('agencies a', 'a.id = mj.agency_id', 'left')
+                        ->where('mj.id', $job_id)
+                        ->where('mj.enabled', 1)
+                        ->where('mj.removed', 0)
+                        ->get()
+                        ->row();
+    }
 
-/**
+    /**
      * Get candidate details
      */
     public function get_candidate($id)
@@ -325,55 +325,51 @@ public function get_job_by_id($job_id)
     }
 
 
+    /**
+     * Check if required documents have been submitted and update stage
+     */
+    public function check_and_update_documents_stage($candidate_id) {
+        // Get required documents
+        $required_documents = $this->get_required_documents($candidate_id);
+        
+        if (!empty($required_documents)) {
+            // Documents have been submitted, update the stage
+            $update_data = array(
+                'stage_requested_docs' => 1,
+                'stage_requested_docs_at' => date('Y-m-d H:i:s'),
+                'updated_at' => date('Y-m-d H:i:s')
+            );
 
+            $result = $this->db->where('id', $candidate_id)->update($this->table, $update_data);
 
-
-/**
- * Check if required documents have been submitted and update stage
- */
-public function check_and_update_documents_stage($candidate_id) {
-    // Get required documents
-    $required_documents = $this->get_required_documents($candidate_id);
-    
-    if (!empty($required_documents)) {
-        // Documents have been submitted, update the stage
-        $update_data = array(
-            'stage_requested_docs' => 1,
-            'stage_requested_docs_at' => date('Y-m-d H:i:s'),
-            'updated_at' => date('Y-m-d H:i:s')
-        );
-
-        $result = $this->db->where('id', $candidate_id)->update($this->table, $update_data);
-
-        if ($result) {
-            $this->update_onboarding_progress($candidate_id);
-            log_message('debug', "Documents stage updated for candidate {$candidate_id}");
-            return true;
+            if ($result) {
+                $this->update_onboarding_progress($candidate_id);
+                return true;
+            }
         }
+        
+        return false;
     }
-    
-    return false;
-}
 
-/**
- * Get required documents for candidate (documents with type 'required_document')
- */
-public function get_required_documents($candidate_id) {
-    $this->db->select('cd.*, 
-                      CASE 
-                          WHEN cd.uploaded_by_type = "recruiter" THEN CONCAT(r.first_name, " ", r.last_name)
-                          WHEN cd.uploaded_by_type = "agency" THEN CONCAT(a.first_name, " ", a.last_name)
-                          ELSE "System"
-                      END as uploader_name');
-    $this->db->from('candidate_documents cd');
-    $this->db->join('recruiters r', 'r.id = cd.uploaded_by AND cd.uploaded_by_type = "recruiter"', 'left');
-    $this->db->join('agency_staff a', 'a.id = cd.uploaded_by AND cd.uploaded_by_type = "agency"', 'left');
-    $this->db->where('cd.candidate_id', $candidate_id);
-    $this->db->where('cd.document_type', 'required_document'); // Filter for required documents
-    $this->db->where('cd.removed', 0);
-    $this->db->order_by('cd.created_at', 'DESC');
-    
-    return $this->db->get()->result();
-}
+    /**
+     * Get required documents for candidate (documents with type 'required_document')
+     */
+    public function get_required_documents($candidate_id) {
+        $this->db->select('cd.*, 
+                        CASE 
+                            WHEN cd.uploaded_by_type = "recruiter" THEN CONCAT(r.first_name, " ", r.last_name)
+                            WHEN cd.uploaded_by_type = "agency" THEN CONCAT(a.first_name, " ", a.last_name)
+                            ELSE "System"
+                        END as uploader_name');
+        $this->db->from('candidate_documents cd');
+        $this->db->join('recruiters r', 'r.id = cd.uploaded_by AND cd.uploaded_by_type = "recruiter"', 'left');
+        $this->db->join('agency_staff a', 'a.id = cd.uploaded_by AND cd.uploaded_by_type = "agency"', 'left');
+        $this->db->where('cd.candidate_id', $candidate_id);
+        $this->db->where('cd.document_type', 'required_document'); // Filter for required documents
+        $this->db->where('cd.removed', 0);
+        $this->db->order_by('cd.created_at', 'DESC');
+        
+        return $this->db->get()->result();
+    }
 
 }

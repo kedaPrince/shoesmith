@@ -570,8 +570,6 @@ function updateSectionStats() {
     sectionStats.textContent = statsText;
 }
 
-// ... rest of your existing JavaScript functions (initializeEventListeners, initializeDragAndDrop, etc.)
-// Keep all your existing JavaScript functions from the previous implementation
 
 function initializeEventListeners() {
     // Section type filter and search are handled in initializeSectionFilters()
@@ -757,14 +755,14 @@ function addSectionToTemplate(sectionId) {
     newSection.dataset.sectionId = sectionId;
     newSection.draggable = true;
     newSection.innerHTML = `
-        <h5 class="section-title">${sectionName}</h5>
-        <div class="section-type small text-muted">${sectionType}</div>
-        <div class="section-controls">
-            <button type="button" class="btn btn-sm btn-danger" onclick="removeSection(this)">
-                <i class="fa fa-times"></i> Remove
-            </button>
-        </div>
-    `;
+            <h5 class="section-title">${sectionName}</h5>
+            <div class="section-type small text-muted">${sectionType}</div>
+            <div class="section-controls">
+                <button type="button" class="btn btn-sm btn-danger" onclick="removeSection(this)">
+                    <i class="fa fa-times"></i> Remove
+                </button>
+            </div>
+        `;
 
     // Remove placeholder if it exists
     const placeholder = document.getElementById('placeholder');
@@ -799,11 +797,11 @@ function removeSection(button) {
         placeholder.className = 'template-section placeholder';
         placeholder.id = 'placeholder';
         placeholder.innerHTML = `
-            <div class="text-center">
-                <i class="fa fa-arrows-alt fa-2x mb-2"></i><br>
-                Drag sections here to build your template
-            </div>
-        `;
+                <div class="text-center">
+                    <i class="fa fa-arrows-alt fa-2x mb-2"></i><br>
+                    Drag sections here to build your template
+                </div>
+            `;
         templateSections.appendChild(placeholder);
     }
 
@@ -839,11 +837,11 @@ function resetTemplate() {
     placeholder.className = 'template-section placeholder';
     placeholder.id = 'placeholder';
     placeholder.innerHTML = `
-        <div class="text-center">
-            <i class="fa fa-arrows-alt fa-2x mb-2"></i><br>
-            Drag sections here to build your template
-        </div>
-    `;
+            <div class="text-center">
+                <i class="fa fa-arrows-alt fa-2x mb-2"></i><br>
+                Drag sections here to build your template
+            </div>
+        `;
     templateSections.appendChild(placeholder);
 
     console.log('Template reset - ready for new template creation');

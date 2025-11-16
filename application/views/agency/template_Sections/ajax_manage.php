@@ -389,7 +389,7 @@ function refreshFormSchemas() {
 
 // Check if we have a newly created form to auto-select
 $(document).ready(function() {
-    console.log('Template Section Quick Manage Loaded');
+
 
     <?php if ($this->session->flashdata('form_created')): ?>
     const newFormId = <?= $this->session->flashdata('new_form_id') ?: 0 ?>;
