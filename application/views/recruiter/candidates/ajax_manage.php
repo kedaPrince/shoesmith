@@ -241,7 +241,7 @@
             'Select agencies (first selected becomes primary)',
             [], // empty array for attributes instead of true
             true // required - moved to the correct parameter position
-        ); ?>
+            ); ?>
                     <small class="text-muted"><?= lang('help_first_agency_primary') ?></small>
                 </div>
                 <div class="col-lg-6">
@@ -249,21 +249,30 @@
             $additional_job_options, 
             $additional_job_ids,
             'Select jobs (first selected becomes primary)'
-        ); ?>
+            ); ?>
                     <small class="text-muted"><?= lang('help_first_job_primary') ?></small>
                 </div>
             </div>
 
             <div class="row">
                 <div class="col-lg-6">
-                    <?= field_dropdown('assigned_agent_id|label_assigned_agent', 
-            !empty($agents_all) ? array_reduce($agents_all, function($carry, $agent) {
-                $carry[$agent->id] = $agent->first_name . ' ' . $agent->last_name;
-                return $carry;
-            }, ['' => lang('select_assigned_agent')]) : ['' => '-- Select Agency First --'], 
-            $row, 
-            ''
-        ); ?>
+                    <div class="form-group">
+                        <label for="assigned_agent_id"><?= lang('label_assigned_agent') ?> *</label>
+                        <select name="assigned_agent_id" id="assigned_agent_id" class="form-control" required>
+                            <option value="">-- Select Recruiter --</option>
+                            <?php if (!empty($agents_all)): ?>
+                            <?php foreach ($agents_all as $agent): ?>
+                            <option value="<?= $agent->id ?>"
+                                <?= (!empty($row->assigned_agent_id) && $row->assigned_agent_id == $agent->id) ? 'selected' : '' ?>>
+                                <?= htmlspecialchars($agent->first_name . ' ' . $agent->last_name . ' (' . $agent->email . ')', ENT_QUOTES, 'UTF-8') ?>
+                            </option>
+                            <?php endforeach; ?>
+                            <?php else: ?>
+                            <option value="">-- No recruiters available --</option>
+                            <?php endif; ?>
+                        </select>
+                        <small class="text-muted">Select which recruiter this candidate is assigned to</small>
+                    </div>
                 </div>
             </div>
         </div>

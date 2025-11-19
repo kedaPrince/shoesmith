@@ -5,58 +5,101 @@ class Model_candidates extends CRUD_Model
 {
     protected $table = 'candidates';
 
-    public function get_all($limit = null, $offset = null, $sort_by = 'first_name', $sort_order = 'ASC', $job_id = null)
-    {
-        // Select base candidate fields
-        $this->db->select('candidates.*');
+    public function get_all($limit = null, $offset = null, $sort_by = 'first_name', $sort_order = 'ASC', $filters = [])
+{
+    // Select base candidate fields
+    $this->db->select('candidates.*');
 
-        // Subquery: get all agency names for this candidate
-        $this->db->select("(SELECT GROUP_CONCAT(a.name SEPARATOR ', ')
-                            FROM candidate_agencies ca
-                            JOIN agencies a ON a.id = ca.agency_id
-                            WHERE ca.candidate_id = candidates.id
-                            AND a.removed = 0 AND a.enabled = 1
-                        ) AS agency_name", false);
+    // Subquery: get all agency names for this candidate
+    $this->db->select("(SELECT GROUP_CONCAT(a.name SEPARATOR ', ')
+                        FROM candidate_agencies ca
+                        JOIN agencies a ON a.id = ca.agency_id
+                        WHERE ca.candidate_id = candidates.id
+                        AND a.removed = 0 AND a.enabled = 1
+                    ) AS agency_name", false);
 
-        // Subquery: get all job names for this candidate
-        $this->db->select("(SELECT GROUP_CONCAT(j.name SEPARATOR ', ')
-                            FROM candidate_jobs cj
-                            JOIN mod_jobs j ON j.id = cj.job_id
-                            WHERE cj.candidate_id = candidates.id
-                            AND j.removed = 0 AND j.enabled = 1
-                        ) AS job_name", false);
+    // Subquery: get all job names for this candidate
+    $this->db->select("(SELECT GROUP_CONCAT(j.name SEPARATOR ', ')
+                        FROM candidate_jobs cj
+                        JOIN mod_jobs j ON j.id = cj.job_id
+                        WHERE cj.candidate_id = candidates.id
+                        AND j.removed = 0 AND j.enabled = 1
+                    ) AS job_name", false);
 
-        $this->db->from($this->table);
-        $this->db->where('candidates.removed', 0);
+    $this->db->from($this->table);
+    $this->db->where('candidates.removed', 0);
 
-        // Add job filtering if job_id is provided
-        if (!empty($job_id)) {
-            $this->db->group_start();
-            $this->db->where('candidates.job_id', $job_id); // Primary job assignment
-            $this->db->or_where("candidates.id IN (SELECT candidate_id FROM candidate_jobs WHERE job_id = $job_id)"); // Additional job assignments
-            $this->db->group_end();
-        }
-
-        // Sorting
-        if ($sort_by) {
-            // Only allow sorting on real fields (not virtual agency_name/job_name for now)
-            if (!in_array($sort_by, ['agency_name', 'job_name'])) {
-                $this->db->order_by("candidates.$sort_by", $sort_order ?: 'ASC');
-            }
-            // Optional: add complex sorting later if needed
-        }
-
-        if ($limit !== null) {
-            $this->db->limit($limit, $offset);
-        }
-
-        return $this->db->get();
+    // ADD THIS: Filter by recruiter's assigned candidates
+    $recruiter_id = $this->get_recruiter_id();
+    if ($recruiter_id) {
+        $this->db->where('candidates.assigned_agent_id', $recruiter_id);
+        log_message('debug', 'Applying access control filter: assigned_agent_id = ' . $recruiter_id);
     }
 
-    public function count_all()
-    {
-        return $this->db->where('removed', 0)->count_all_results($this->table);
+    // Add job filtering if job_id is provided in filters
+    if (!empty($filters['job_id'])) {
+        $job_id = $filters['job_id'];
+        $this->db->group_start();
+        $this->db->where('candidates.job_id', $job_id); // Primary job assignment
+        $this->db->or_where("candidates.id IN (SELECT candidate_id FROM candidate_jobs WHERE job_id = $job_id)"); // Additional job assignments
+        $this->db->group_end();
     }
+
+    // Apply any additional filters from the CRUD system
+    if (!empty($filters['general'])) {
+        $this->db->group_start();
+        foreach (['candidates.first_name', 'candidates.last_name', 'candidates.email', 'candidates.reference_number'] as $field) {
+            $this->db->or_like($field, $filters['general']);
+        }
+        $this->db->group_end();
+    }
+
+    if (!empty($filters['status'])) {
+        $this->db->where('candidates.status', $filters['status']);
+    }
+
+    // Sorting
+    if ($sort_by) {
+        if (!in_array($sort_by, ['agency_name', 'job_name'])) {
+            $this->db->order_by("candidates.$sort_by", $sort_order ?: 'ASC');
+        }
+    }
+
+    if ($limit !== null) {
+        $this->db->limit($limit, $offset);
+    }
+
+    // DEBUG: Log the final query
+    $query = $this->db->get();
+    log_message('debug', 'Candidates query: ' . $this->db->last_query());
+    log_message('debug', 'Candidates found: ' . $query->num_rows());
+
+    return $query;
+}
+
+// Add this helper method to get recruiter ID
+private function get_recruiter_id()
+{
+    $login_data = $this->session->userdata('login');
+    if (!empty($login_data['recruiter'])) {
+        return $login_data['recruiter']['id'];
+    }
+    return null;
+}
+
+   public function count_all() 
+{
+    $this->db->from($this->table);
+    $this->db->where('removed', 0);
+
+    // ADD THIS: Apply the same recruiter filter
+    $recruiter_id = $this->get_recruiter_id();
+    if ($recruiter_id) {
+        $this->db->where('assigned_agent_id', $recruiter_id);
+    }
+
+    return $this->db->count_all_results();
+}
 
  
 
@@ -269,16 +312,18 @@ class Model_candidates extends CRUD_Model
         $this->db->join('mod_jobs', 'mod_jobs.id = candidates.job_id', 'left');
     }
 
-    public function main_wheres()
+   public function main_wheres()
     {
         // Filter by recruiter's agency
         $login_data = $this->session->userdata('login');
         if (!empty($login_data['recruiter'])) {
             $recruiter = $login_data['recruiter'];
-            $agency_id = $recruiter['agency_id'] ?? $recruiter['id'];
+            $agency_id = $recruiter['agency_id'] ?? null;
             
-            $this->db->join('candidate_agencies ca', 'ca.candidate_id = candidates.id', 'inner');
-            $this->db->where('ca.agency_id', $agency_id);
+            if ($agency_id) {
+                $this->db->join('candidate_agencies ca', 'ca.candidate_id = candidates.id', 'inner');
+                $this->db->where('ca.agency_id', $agency_id);
+            }
         }
         
         $this->db->where('candidates.removed', 0);

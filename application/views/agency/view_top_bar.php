@@ -264,13 +264,13 @@ body[data-theme="dark"] .notifications-menu .dropdown-toggle:hover {
                     </li>
 
                     <!-- Dark Mode Toggle -->
-                    <li>
+                    <!-- <li>
                         <a class="dark-mode-toggle icon-menu" href="javascript:toggle_dark_mode()"
                             title="Toggle Dark Mode" data-toggle="tt" data-placement="top">
                             <i class="dark-mode-disabled fa fa-moon-o"></i>
                             <i class="dark-mode-enabled fa fa-sun-o"></i>
                         </a>
-                    </li>
+                    </li> -->
 
                     <!-- Visit Site -->
                     <li>

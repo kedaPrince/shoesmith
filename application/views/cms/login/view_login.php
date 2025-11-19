@@ -51,7 +51,7 @@
             <div class="vertical-align-middle auth-main">
                 <div class="auth-box">
                     <div class="top">
-                        <img class="logo" src="<?=site_url()?>resources/cms/images/hyrevo-logo2.png"
+                        <img class="logo" src="<?=site_url()?>resources/cms/images/logo_black_web.png"
                             alt="<?= $this->config->item('site_name'); ?>" />
                     </div>
                     <div class="card">

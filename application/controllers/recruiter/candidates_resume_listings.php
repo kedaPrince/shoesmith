@@ -84,15 +84,15 @@ class Candidates_resume_listings extends CRUD_Controller
                     'on_hold' => 'On Hold',
                 ),
             ),
-            'has_cv' => array(
-                'label' => lang('label_has_cv'),
-                'type' => 'dropdown',
-                'field' => 'candidates.cv_file',
-                'options' => array(
-                    '1' => 'With CV',
-                    '0' => 'Without CV',
-                ),
-            ),
+            // 'has_cv' => array(
+            //     'label' => lang('label_has_cv'),
+            //     'type' => 'dropdown',
+            //     'field' => 'candidates.cv_file',
+            //     'options' => array(
+            //         '1' => 'With CV',
+            //         '0' => 'Without CV',
+            //     ),
+            // ),
         );
     }
 
