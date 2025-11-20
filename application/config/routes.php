@@ -93,6 +93,8 @@ $route['recruiter/chat/ajax_get_unread_count'] = 'recruiter/chat/ajax_get_unread
 $route['agency/chat/ajax_send_message'] = 'agency/chat/ajax_send_message';
 $route['agency/chat/ajax_get_messages'] = 'agency/chat/ajax_get_messages';
 $route['agency/chat/ajax_get_unread_count'] = 'agency/chat/ajax_get_unread_count';
+
+
 // Debug routes
 $route['debug-session'] = function() {
     $ci =& get_instance();

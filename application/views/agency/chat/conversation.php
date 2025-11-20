@@ -7,7 +7,7 @@
                 <div class="card">
                     <div class="body">
                         <div class="row">
-                            <!-- Conversations List (Left Sidebar) -->
+                            <!-- Sidebar -->
                             <div class="col-md-4 col-lg-3">
                                 <div class="chat-conversations-list">
                                     <div class="list-group">
@@ -15,8 +15,7 @@
                                         <a href="<?php echo site_url('agency/chat/conversation/' . $conv->id); ?>"
                                             class="list-group-item list-group-item-action flex-column align-items-start conversation-item <?php echo ($conversation->id == $conv->id) ? 'active' : ''; ?>">
                                             <div class="d-flex w-100 justify-content-between">
-                                                <h6 class="mb-1">
-                                                    <?php echo htmlspecialchars($conv->recruiter_name); ?>
+                                                <h6 class="mb-1"><?php echo htmlspecialchars($conv->recruiter_name); ?>
                                                 </h6>
                                                 <small><?php echo time_ago($conv->last_message_at); ?></small>
                                             </div>
@@ -33,38 +32,26 @@
                                 </div>
                             </div>
 
-                            <!-- Chat Area (Right Side) -->
+                            <!-- Chat Area -->
                             <div class="col-md-8 col-lg-9">
                                 <div class="chat-container">
-                                    <!-- Chat Header -->
                                     <div class="chat-header border-bottom p-3">
-                                        <div class="d-flex justify-content-between align-items-center">
-                                            <div>
-                                                <h5 class="mb-0">
-                                                    <?php echo htmlspecialchars($conversation->recruiter_name); ?></h5>
-                                                <small
-                                                    class="text-muted"><?php echo $conversation->job_name ? 'Job: ' . htmlspecialchars($conversation->job_name) : 'General Conversation'; ?></small>
-                                            </div>
-                                            <div class="chat-actions">
-                                                <button class="btn btn-sm btn-outline-secondary"
-                                                    title="Conversation Info">
-                                                    <i class="fa fa-info-circle"></i>
-                                                </button>
-                                            </div>
-                                        </div>
+                                        <h5 class="mb-0"><?php echo htmlspecialchars($conversation->recruiter_name); ?>
+                                        </h5>
+                                        <small class="text-muted">
+                                            <?php echo $conversation->job_name ? 'Job: ' . htmlspecialchars($conversation->job_name) : 'General Conversation'; ?>
+                                        </small>
                                     </div>
 
-                                    <!-- Messages Area -->
                                     <div class="chat-messages p-3" id="chatMessages"
-                                        style="height: 400px; overflow-y: auto;">
-                                        <?php if (!empty($messages)): ?>
+                                        style="height: 480px; overflow-y: auto;">
                                         <?php foreach ($messages as $message): ?>
                                         <div class="message-item mb-3 <?php echo $message->sender_type == 'agency' ? 'message-sent' : 'message-received'; ?>"
                                             data-message-id="<?php echo $message->id; ?>">
                                             <div
                                                 class="message-bubble <?php echo $message->sender_type == 'agency' ? 'sent' : 'received'; ?>">
                                                 <div class="message-text">
-                                                    <?php echo htmlspecialchars($message->message); ?></div>
+                                                    <?php echo nl2br(htmlspecialchars($message->message)); ?></div>
                                                 <div class="message-time text-muted">
                                                     <small><?php echo date('H:i', strtotime($message->created_at)); ?></small>
                                                     <?php if ($message->sender_type == 'agency'): ?>
@@ -75,41 +62,22 @@
                                             </div>
                                         </div>
                                         <?php endforeach; ?>
-                                        <?php else: ?>
-                                        <div class="text-center text-muted p-4">
-                                            <p>No messages yet. Start the conversation!</p>
-                                        </div>
-                                        <?php endif; ?>
                                     </div>
 
-                                    <!-- Message Input -->
                                     <div class="chat-input border-top p-3">
                                         <form id="messageForm">
                                             <div class="input-group">
                                                 <input type="text" class="form-control" id="messageInput"
-                                                    placeholder="Type your message..." required>
+                                                    placeholder="Type a message..." autocomplete="off">
                                                 <input type="hidden" id="conversationId"
                                                     value="<?php echo $conversation->id; ?>">
-                                                <input type="hidden" id="lastMessageId"
-                                                    value="<?php echo !empty($messages) ? end($messages)->id : 0; ?>">
                                                 <div class="input-group-append">
-                                                    <button type="submit" class="btn btn-primary" id="sendButton">
+                                                    <button type="submit" class="btn btn-primary">
                                                         <i class="fa fa-paper-plane"></i> Send
                                                     </button>
                                                 </div>
                                             </div>
                                         </form>
-                                    </div>
-                                    <!-- Add this after the message input form for debugging -->
-                                    <div class="mt-2">
-                                        <small class="text-muted">
-                                            Last Message ID: <span
-                                                id="debugLastMessageId"><?php echo !empty($messages) ? end($messages)->id : 0; ?></span>
-                                            | Conversation ID: <span
-                                                id="debugConversationId"><?php echo $conversation->id; ?></span>
-                                            | <button
-                                                class="btn btn-sm btn-outline-secondary refresh-messages">Refresh</button>
-                                        </small>
                                     </div>
                                 </div>
                             </div>
@@ -120,38 +88,19 @@
         </div>
     </div>
 </div>
-
+<!-- Add this debug section to both agency and recruiter conversation views -->
+<div class="debug-info p-2 bg-light border-top">
+    <small class="text-muted">
+        Debug:
+        Conversation ID: <span id="debugConversationId"><?php echo $conversation->id; ?></span> |
+        Last Message ID: <span id="debugLastMessageId"><?php echo !empty($messages) ? end($messages)->id : 0; ?></span>
+        |
+        <button class="btn btn-sm btn-outline-secondary" onclick="fetchNewMessages()">Manual Refresh</button>
+    </small>
+</div>
 <style>
-.chat-conversations-list {
-    border-right: 1px solid #dee2e6;
-    height: 600px;
-    overflow-y: auto;
-}
-
-.conversation-item {
-    border: none;
-    border-bottom: 1px solid #dee2e6;
-    border-radius: 0;
-}
-
-.conversation-item:hover,
-.conversation-item.active {
-    background-color: #f8f9fa;
-}
-
-.conversation-item.active {
-    background-color: #007bff;
-    color: white;
-}
-
-.chat-container {
-    height: 600px;
-    display: flex;
-    flex-direction: column;
-}
-
-.message-item {
-    display: flex;
+.chat-messages {
+    background: #fafafa;
 }
 
 .message-sent {
@@ -170,274 +119,196 @@
 }
 
 .message-bubble.sent {
-    background-color: #007bff;
+    background: #007bff;
     color: white;
-    border-bottom-right-radius: 5px;
+    border-bottom-right-radius: 4px;
 }
 
 .message-bubble.received {
-    background-color: #f1f1f1;
+    background: #e9ecef;
     color: #333;
-    border-bottom-left-radius: 5px;
-}
-
-.message-time {
-    font-size: 0.75rem;
-    margin-top: 5px;
-    text-align: right;
-}
-
-#sendButton:disabled {
-    cursor: not-allowed;
-    opacity: 0.6;
+    border-bottom-left-radius: 4px;
 }
 </style>
 
 <script>
-$(document).ready(function() {
-    let isSending = false;
-    let refreshInterval;
-    let isPolling = false;
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('Agency chat initializing with vanilla JS...');
 
-    // Auto-scroll to bottom of messages
+    let isSending = false;
+    let pollingInterval;
+    let lastMessageId = <?php echo !empty($messages) ? end($messages)->id : 0; ?>;
+
+    const chatMessages = document.getElementById('chatMessages');
+    const messageForm = document.getElementById('messageForm');
+    const messageInput = document.getElementById('messageInput');
+    const conversationId = document.getElementById('conversationId');
+
+    console.log('Agency chat initialized - LastMessageId:', lastMessageId);
+
     function scrollToBottom() {
-        const messagesContainer = $('#chatMessages');
-        messagesContainer.scrollTop(messagesContainer[0].scrollHeight);
+        if (chatMessages) {
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
     }
 
     scrollToBottom();
 
-    // Function to add new message to chat
-    function addMessageToChat(message, isOwnMessage = false) {
-        const messageClass = isOwnMessage ? 'message-sent' : 'message-received';
-        const bubbleClass = isOwnMessage ? 'sent' : 'received';
-        const checkIcon = isOwnMessage ? '<i class="fa fa-check ml-1"></i>' : '';
-
-        const messageHtml = `
-                <div class="message-item mb-3 ${messageClass}" data-message-id="${message.id}">
-                    <div class="message-bubble ${bubbleClass}">
-                        <div class="message-text">${escapeHtml(message.message)}</div>
-                        <div class="message-time text-muted">
-                            <small>${message.time}</small>
-                            ${checkIcon}
-                        </div>
-                    </div>
-                </div>
-            `;
-
-        $('#chatMessages').append(messageHtml);
-        scrollToBottom();
-        updateLastMessageId(message.id);
-    }
-
-    // Function to escape HTML to prevent XSS
-    function escapeHtml(text) {
-        const div = document.createElement('div');
-        div.textContent = text;
-        return div.innerHTML;
-    }
-
-    // Function to update last message ID
-    function updateLastMessageId(messageId) {
-        $('#lastMessageId').val(messageId);
-        console.log('Last message ID updated to:', messageId);
-    }
-
-    // Function to fetch new messages
     function fetchNewMessages() {
-        if (isPolling) {
-            console.log('Already polling, skipping...');
-            return;
-        }
+        console.log('Agency fetching messages - LastMessageId:', lastMessageId);
 
-        const conversationId = $('#conversationId').val();
-        const lastMessageId = $('#lastMessageId').val();
+        const convId = conversationId ? conversationId.value : null;
+        if (!convId) return;
 
-        console.log('Fetching new messages...', {
-            conversationId,
-            lastMessageId
-        });
+        const formData = new FormData();
+        formData.append('conversation_id', convId);
+        formData.append('last_message_id', lastMessageId);
 
-        isPolling = true;
+        // UPDATED: Add proper headers and credentials
+        fetch('<?php echo site_url("agency/chat/ajax_get_messages"); ?>', {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Accept': 'application/json'
+                },
+                credentials: 'same-origin'
+            })
+            .then(response => {
+                console.log('Agency response status:', response.status);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(res => {
+                console.log('Agency poll response:', res);
+                if (res.success && res.has_new_messages && res.html) {
+                    chatMessages.insertAdjacentHTML('beforeend', res.html);
+                    lastMessageId = res.last_message_id;
+                    scrollToBottom();
+                }
+            })
+            .catch(error => {
+                console.error('Agency poll error:', error);
+            });
+    }
 
-        $.ajax({
-            url: '<?php echo site_url("agency/chat/ajax_get_messages"); ?>',
-            type: 'POST',
-            data: {
-                conversation_id: conversationId,
-                last_message_id: lastMessageId
-            },
-            dataType: 'json',
-            success: function(response) {
-                console.log('Poll response:', response);
+    if (messageForm) {
+        messageForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            if (isSending) return;
 
-                if (response.success) {
-                    if (response.has_new_messages && response.html) {
-                        console.log('Adding new messages to chat');
-                        // Update last message ID
-                        updateLastMessageId(response.last_message_id);
+            const msg = messageInput.value.trim();
+            if (!msg) return;
 
-                        // Add new messages to chat
-                        $('#chatMessages').append(response.html);
-                        scrollToBottom();
+            isSending = true;
+            const submitButton = messageForm.querySelector('button[type="submit"]');
+            const originalHtml = submitButton.innerHTML;
+            submitButton.disabled = true;
+            submitButton.innerHTML = '<i class="fa fa-spinner fa-spin"></i>';
 
-                        // Show notification for new messages
-                        if (response.html.includes('message-received')) {
-                            showNewMessageNotification();
-                        }
-                    } else {
-                        console.log('No new messages');
+            const convId = conversationId ? conversationId.value : null;
+
+            // Optimistic UI
+            const tempId = 'tmp' + Date.now();
+            const tempHtml = `<div class="message-item mb-3 message-sent" data-message-id="${tempId}">
+                <div class="message-bubble sent">
+                    <div class="message-text">${msg.replace(/\n/g, '<br>')}</div>
+                    <div class="message-time text-muted"><small>Just now</small></div>
+                </div>
+            </div>`;
+
+            chatMessages.insertAdjacentHTML('beforeend', tempHtml);
+            scrollToBottom();
+            messageInput.value = '';
+
+            const formData = new FormData();
+            formData.append('conversation_id', convId);
+            formData.append('message', msg);
+
+            // UPDATED: Add proper headers and credentials
+            fetch('<?php echo site_url("agency/chat/ajax_send_message"); ?>', {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'Accept': 'application/json'
+                    },
+                    credentials: 'same-origin'
+                })
+                .then(response => {
+                    console.log('Agency send response status:', response.status);
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
                     }
-                } else {
-                    console.error('Poll error:', response.message);
-                }
-            },
-            error: function(xhr, status, error) {
-                console.error('Error fetching messages:', error);
-            },
-            complete: function() {
-                isPolling = false;
-            }
+                    return response.json();
+                })
+                .then(res => {
+                    if (res.success) {
+                        const tempElement = document.querySelector(`[data-message-id="${tempId}"]`);
+                        if (tempElement) {
+                            tempElement.remove();
+                        }
+                        // Force refresh to get the real message with proper ID
+                        setTimeout(fetchNewMessages, 500);
+                    } else {
+                        alert('Failed to send');
+                        const tempElement = document.querySelector(`[data-message-id="${tempId}"]`);
+                        if (tempElement) {
+                            tempElement.remove();
+                        }
+                        messageInput.value = msg;
+                    }
+                })
+                .catch(error => {
+                    alert('Network error');
+                    const tempElement = document.querySelector(`[data-message-id="${tempId}"]`);
+                    if (tempElement) {
+                        tempElement.remove();
+                    }
+                    messageInput.value = msg;
+                })
+                .finally(() => {
+                    isSending = false;
+                    submitButton.disabled = false;
+                    submitButton.innerHTML = originalHtml;
+                });
         });
     }
 
-    // Show notification for new messages
-    function showNewMessageNotification() {
-        // You can add a subtle notification here
-        const notification = document.createElement('div');
-        notification.className = 'alert alert-info alert-dismissible fade show';
-        notification.innerHTML = `
-                <button type="button" class="close" data-dismiss="alert">&times;</button>
-                New message received!
-            `;
-        document.querySelector('.chat-container').prepend(notification);
+    // Poll every 2 seconds
+    pollingInterval = setInterval(fetchNewMessages, 2000);
 
-        // Auto remove after 3 seconds
-        setTimeout(() => {
-            notification.remove();
-        }, 3000);
-    }
-
-    // Send message
-    $('#messageForm').on('submit', function(e) {
-        e.preventDefault();
-
-        if (isSending) return;
-
-        const message = $('#messageInput').val().trim();
-        const conversationId = $('#conversationId').val();
-
-        if (message === '') return;
-
-        isSending = true;
-        const sendButton = $('#sendButton');
-        const originalText = sendButton.html();
-
-        // Disable send button and show loading
-        sendButton.prop('disabled', true).html('<i class="fa fa-spinner fa-spin"></i> Sending...');
-
-        // Add message immediately to chat (optimistic update)
-        const tempMessage = {
-            id: 'temp-' + Date.now(),
-            message: message,
-            time: 'Just now',
-            sender_type: 'agency'
-        };
-        addMessageToChat(tempMessage, true);
-
-        // Clear input
-        $('#messageInput').val('');
-
-        // Send to server
-        $.ajax({
-            url: '<?php echo site_url("agency/chat/ajax_send_message"); ?>',
-            type: 'POST',
-            data: {
-                conversation_id: conversationId,
-                message: message
-            },
-            dataType: 'json',
-            success: function(response) {
-                console.log('Send response:', response);
-
-                if (response.success) {
-                    // Remove temporary message and add real one
-                    $(`[data-message-id="${tempMessage.id}"]`).remove();
-
-                    const realMessage = {
-                        id: response.message_id,
-                        message: message,
-                        time: 'Just now',
-                        sender_type: 'agency'
-                    };
-                    addMessageToChat(realMessage, true);
-
-                    // Force fetch new messages after sending
-                    setTimeout(fetchNewMessages, 1000);
-                } else {
-                    // Remove temporary message if failed
-                    $(`[data-message-id="${tempMessage.id}"]`).remove();
-                    alert('Failed to send message: ' + response.message);
-                    $('#messageInput').val(message); // Restore message
-                }
-            },
-            error: function(xhr, status, error) {
-                // Remove temporary message if error
-                $(`[data-message-id="${tempMessage.id}"]`).remove();
-                alert('Error sending message. Please try again.');
-                $('#messageInput').val(message); // Restore message
-                console.error('Send error:', error);
-            },
-            complete: function() {
-                isSending = false;
-                sendButton.prop('disabled', false).html(originalText);
-            }
-        });
-    });
-
-    // Auto-refresh messages every 2 seconds (more frequent)
-    function startAutoRefresh() {
-        console.log('Starting auto-refresh');
-        refreshInterval = setInterval(fetchNewMessages, 2000);
-    }
-
-    // Stop auto-refresh
-    function stopAutoRefresh() {
-        console.log('Stopping auto-refresh');
-        clearInterval(refreshInterval);
-    }
-
-    // Handle page visibility changes
-    document.addEventListener('visibilitychange', function() {
+    // Pause when tab hidden
+    document.addEventListener('visibilitychange', () => {
         if (document.hidden) {
-            stopAutoRefresh();
+            clearInterval(pollingInterval);
         } else {
-            startAutoRefresh();
-            // Immediately check for new messages when tab becomes visible
+            clearInterval(pollingInterval);
+            pollingInterval = setInterval(fetchNewMessages, 2000);
             setTimeout(fetchNewMessages, 500);
         }
     });
 
-    // Start auto-refresh
-    startAutoRefresh();
+    // Enter = send
+    if (messageInput) {
+        messageInput.addEventListener('keydown', e => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                if (messageForm) {
+                    messageForm.dispatchEvent(new Event('submit'));
+                }
+            }
+        });
+    }
 
-    // Also fetch messages when window gains focus
-    $(window).on('focus', function() {
-        console.log('Window focused, fetching messages');
-        fetchNewMessages();
-    });
+    // Focus on input
+    if (messageInput) {
+        messageInput.focus();
+    }
 
-    // Handle Enter key to send message
-    $('#messageInput').on('keydown', function(e) {
-        if (e.key === 'Enter' && !e.shiftKey) {
-            e.preventDefault();
-            $('#messageForm').submit();
-        }
-    });
-
-    // Manual refresh button (optional - you can add this to your UI)
-    $(document).on('click', '.refresh-messages', function() {
-        fetchNewMessages();
-    });
+    // Make function available for manual refresh
+    window.fetchNewMessages = fetchNewMessages;
 });
 </script>

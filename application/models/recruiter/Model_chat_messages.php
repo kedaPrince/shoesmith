@@ -251,41 +251,7 @@ class Model_chat_messages extends CRUD_Model
         return $this->db->get()->result();
     }
 
-    /**
-     * Send message
-     */
-    public function send_message($conversation_id, $sender_type, $sender_id, $message, $message_type = 'text', $file_data = null)
-    {
-        $message_data = [
-            'conversation_id' => $conversation_id,
-            'sender_type' => $sender_type,
-            'sender_id' => $sender_id,
-            'message' => $message,
-            'message_type' => $message_type,
-            'is_read' => 0,
-            'created_at' => date('Y-m-d H:i:s'),
-            'updated_at' => date('Y-m-d H:i:s'),
-            'enabled' => 1
-        ];
-        
-        if ($file_data) {
-            $message_data['file_name'] = $file_data['file_name'];
-            $message_data['file_path'] = $file_data['file_path'];
-            $message_data['file_size'] = $file_data['file_size'];
-        }
-        
-        $this->db->insert('chat_messages', $message_data);
-        $message_id = $this->db->insert_id();
-        
-        // Update conversation last message time
-        $this->db->where('id', $conversation_id)
-                 ->update('chat_conversations', [
-                     'last_message_at' => date('Y-m-d H:i:s'),
-                     'updated_at' => date('Y-m-d H:i:s')
-                 ]);
-        
-        return $message_id;
-    }
+   
 
     /**
      * Mark messages as read
@@ -389,5 +355,61 @@ class Model_chat_messages extends CRUD_Model
         return $this->db->affected_rows();
     }
 
+    /**
+ * Send message - DEBUG VERSION
+ */
+public function send_message($conversation_id, $sender_type, $sender_id, $message, $message_type = 'text', $file_data = null)
+{
+    log_message('debug', '=== send_message called ===');
+    log_message('debug', "Params: conversation_id: $conversation_id, sender_type: $sender_type, sender_id: $sender_id, message: " . substr($message, 0, 50));
     
+    try {
+        $message_data = [
+            'conversation_id' => $conversation_id,
+            'sender_type' => $sender_type,
+            'sender_id' => $sender_id,
+            'message' => $message,
+            'message_type' => $message_type,
+            'is_read' => 0,
+            'created_at' => date('Y-m-d H:i:s'),
+            'updated_at' => date('Y-m-d H:i:s'),
+            'enabled' => 1
+        ];
+        
+        if ($file_data) {
+            $message_data['file_name'] = $file_data['file_name'];
+            $message_data['file_path'] = $file_data['file_path'];
+            $message_data['file_size'] = $file_data['file_size'];
+        }
+        
+        log_message('debug', 'Inserting message data: ' . print_r($message_data, true));
+        
+        $this->db->insert('chat_messages', $message_data);
+        $message_id = $this->db->insert_id();
+        
+        log_message('debug', "Message inserted with ID: $message_id");
+        
+        if ($this->db->error()['code']) {
+            log_message('error', 'Database error: ' . $this->db->error()['message']);
+            return false;
+        }
+        
+        // Update conversation last message time
+        $this->db->where('id', $conversation_id)
+                 ->update('chat_conversations', [
+                     'last_message_at' => date('Y-m-d H:i:s'),
+                     'updated_at' => date('Y-m-d H:i:s')
+                 ]);
+        
+        log_message('debug', 'Conversation updated successfully');
+        
+        return $message_id;
+    } catch (Exception $e) {
+        log_message('error', 'Error in send_message: ' . $e->getMessage());
+        log_message('error', 'Stack trace: ' . $e->getTraceAsString());
+        return false;
+    }
+
+}
+
 }

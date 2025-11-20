@@ -104,27 +104,30 @@ class Chat extends CRUD_Controller
         $this->load->view($this->folder . '/view_footer');
     }
 
-    /**
-     * AJAX: Send message
-     */
-    public function ajax_send_message()
-    {
-        if (!$this->input->is_ajax_request()) {
-            show_404();
-        }
-        
+/**
+ * AJAX: Send message - FIXED VERSION WITHOUT NOTIFICATIONS
+ */
+public function ajax_send_message()
+{
+    log_message('debug', '=== ajax_send_message called ===');
+    
+    try {
+        // Remove AJAX check since we have explicit routes
         $conversation_id = $this->input->post('conversation_id');
         $message = $this->input->post('message');
         $recruiter_id = $this->get_recruiter_id();
         
+        log_message('debug', "Send params - conversation_id: $conversation_id, message: " . substr($message, 0, 50) . ", recruiter_id: $recruiter_id");
+        
         if (empty($conversation_id) || empty($message)) {
+            log_message('debug', 'Missing required fields');
             ajax_return(['success' => false, 'message' => 'Missing required fields']);
             return;
         }
         
-        // Verify conversation access
         $conversation = $this->{$this->model}->get_conversation_for_recruiter($conversation_id, $recruiter_id);
         if (!$conversation) {
+            log_message('debug', 'Conversation not found');
             ajax_return(['success' => false, 'message' => 'Conversation not found']);
             return;
         }
@@ -137,27 +140,41 @@ class Chat extends CRUD_Controller
         );
         
         if ($message_id) {
-            // Send notification to agency
-            $this->send_chat_notification($conversation, $message, 'recruiter');
+            log_message('debug', "Message sent successfully, ID: $message_id");
+            
+            // TEMPORARILY DISABLE NOTIFICATIONS - COMMENT THIS OUT
+            // $this->send_chat_notification($conversation, $message, 'recruiter');
             
             ajax_return(['success' => true, 'message_id' => $message_id]);
         } else {
+            log_message('debug', 'Failed to send message');
             ajax_return(['success' => false, 'message' => 'Failed to send message']);
         }
+    } catch (Exception $e) {
+        log_message('error', 'Error in ajax_send_message: ' . $e->getMessage());
+        log_message('error', 'Stack trace: ' . $e->getTraceAsString());
+        ajax_return(['success' => false, 'message' => 'Server error: ' . $e->getMessage()]);
     }
+}
 
     /**
-     * AJAX: Get new messages
+     * AJAX: Get new messages - FIXED VERSION
      */
     public function ajax_get_messages()
     {
-        if (!$this->input->is_ajax_request()) {
-            show_404();
-        }
+        log_message('debug', '=== ajax_get_messages called ===');
         
+        // Remove AJAX check since we have explicit routes
         $conversation_id = $this->input->post('conversation_id');
-        $last_message_id = $this->input->post('last_message_id');
+        $last_message_id = $this->input->post('last_message_id') ?: 0;
         $recruiter_id = $this->get_recruiter_id();
+        
+        log_message('debug', "Fetch params - conversation_id: $conversation_id, last_message_id: $last_message_id, recruiter_id: $recruiter_id");
+        
+        if (!$conversation_id) {
+            ajax_return(['success' => false, 'message' => 'Conversation ID required']);
+            return;
+        }
         
         $conversation = $this->{$this->model}->get_conversation_for_recruiter($conversation_id, $recruiter_id);
         if (!$conversation) {
@@ -168,24 +185,52 @@ class Chat extends CRUD_Controller
         // Mark messages as read
         $this->{$this->model}->mark_messages_as_read($conversation_id, 'recruiter');
         
-        $messages = $this->{$this->model}->get_conversation_messages($conversation_id);
+        // Get only new messages
+        $this->db->select('cm.*, 
+                          CASE 
+                              WHEN cm.sender_type = "agency" THEN a.name
+                              WHEN cm.sender_type = "recruiter" THEN CONCAT(r.first_name, " ", r.last_name)
+                          END as sender_name');
+        $this->db->from('chat_messages cm');
+        $this->db->join('agencies a', 'a.id = cm.sender_id AND cm.sender_type = "agency"', 'left');
+        $this->db->join('recruiters r', 'r.id = cm.sender_id AND cm.sender_type = "recruiter"', 'left');
+        $this->db->where('cm.conversation_id', $conversation_id);
         
-        $html = '';
-        $last_id = 0;
-        
-        foreach ($messages as $message) {
-            if ($message->id > $last_message_id) {
-                $html .= $this->load->view('recruiter/chat/message_item', ['message' => $message, 'current_user_type' => 'recruiter'], true);
-            }
-            $last_id = max($last_id, $message->id);
+        if ($last_message_id > 0) {
+            $this->db->where('cm.id >', $last_message_id);
         }
         
-        ajax_return([
+        $this->db->where('cm.enabled', 1);
+        $this->db->where('cm.removed', 0);
+        $this->db->order_by('cm.created_at', 'ASC');
+        
+        $messages = $this->db->get()->result();
+        
+        log_message('debug', 'Found ' . count($messages) . ' new messages');
+        
+        $html = '';
+        $last_id = $last_message_id;
+        $has_new_messages = false;
+        
+        foreach ($messages as $message) {
+            $html .= $this->load->view('recruiter/chat/message_item', [
+                'message' => $message, 
+                'current_user_type' => 'recruiter'
+            ], true);
+            $last_id = max($last_id, $message->id);
+            $has_new_messages = true;
+        }
+        
+        $response = [
             'success' => true,
             'html' => $html,
             'last_message_id' => $last_id,
-            'has_new_messages' => !empty($html)
-        ]);
+            'has_new_messages' => $has_new_messages,
+            'message_count' => count($messages)
+        ];
+        
+        log_message('debug', 'Sending response with ' . count($messages) . ' messages');
+        ajax_return($response);
     }
 
     /**
@@ -193,10 +238,7 @@ class Chat extends CRUD_Controller
      */
     public function ajax_get_unread_count()
     {
-        if (!$this->input->is_ajax_request()) {
-            show_404();
-        }
-        
+        // Remove AJAX check
         $recruiter_id = $this->get_recruiter_id();
         $unread_count = $this->{$this->model}->get_unread_count_for_recruiter($recruiter_id);
         
@@ -208,10 +250,7 @@ class Chat extends CRUD_Controller
      */
     public function ajax_start_conversation()
     {
-        if (!$this->input->is_ajax_request()) {
-            show_404();
-        }
-        
+        // Remove AJAX check
         $agency_id = $this->input->post('agency_id');
         $subject = $this->input->post('subject');
         $initial_message = $this->input->post('initial_message');
