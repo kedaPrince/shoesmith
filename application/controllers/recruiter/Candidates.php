@@ -14,6 +14,7 @@ class Candidates extends CRUD_Controller
     public $identifierField = 'first_name';
     public $hideSubNav = false;
     public $quickManageSize = 3;
+    
 
     public function __construct()
     {
@@ -311,29 +312,44 @@ class Candidates extends CRUD_Controller
     $this->load->view($this->folder . '/' . 'view_footer');
 }
 
-    public function view($id)
-    {
-        $row = $this->{$this->model}->get_candidate($id);
-        
-        if (empty($row)) {
-            show_404();
-        }
-
-        // Check for pending documents requests
-        $documents_request_data = $this->check_pending_documents_request($id);
-        
-        // Pass the data to the view - MAKE SURE $id IS PASSED
-        $this->load->view($this->folder . '/view_header');
-        $this->load->view('cms/crud/view_single', array(
-            'row' => $row,
-            'id' => $id, // ← THIS IS CRITICAL - ADD THIS LINE
-            'heading' => lang('view_candidate_heading'),
-            'has_pending_documents_request' => $documents_request_data['has_request'],
-            'documents_request_notes' => $documents_request_data['notes'],
-            'pending_notification_id' => $documents_request_data['notification_id']
-        ));
-        $this->load->view($this->folder . '/view_footer');
+public function view($id)
+{
+    $row = $this->{$this->model}->get_candidate($id);
+    
+    if (empty($row)) {
+        show_404();
     }
+
+    // Check for pending documents requests
+    $documents_request_data = $this->check_pending_documents_request($id);
+    
+    // Add CSS to hide the Add Candidate button on view pages
+    echo '
+    <style>
+    /* Hide Add Candidate button on candidate view pages */
+    .add-item[href*="/candidates/add"] {
+        display: none !important;
+    }
+    
+    /* Alternative: Hide by button text */
+    .btn-primary.add-item:has(i.fa-plus-circle) {
+        display: none !important;
+    }
+    </style>
+    ';
+    
+    // Pass the data to the view
+    $this->load->view($this->folder . '/view_header');
+    $this->load->view('cms/crud/view_single', array(
+        'row' => $row,
+        'id' => $id,
+        'heading' => lang('view_candidate_heading'),
+        'has_pending_documents_request' => $documents_request_data['has_request'],
+        'documents_request_notes' => $documents_request_data['notes'],
+        'pending_notification_id' => $documents_request_data['notification_id']
+    ));
+    $this->load->view($this->folder . '/view_footer');
+}
 public function filter_by_recruiter($recruiter_id = null)
 {
     if (!$recruiter_id) {
