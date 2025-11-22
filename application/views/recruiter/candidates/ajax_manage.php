@@ -258,6 +258,19 @@
                 <div class="col-lg-6">
                     <div class="form-group">
                         <label for="assigned_agent_id"><?= lang('label_assigned_agent') ?> *</label>
+
+                        <?php if (empty($id) && !empty($logged_in_recruiter)): ?>
+                        <!-- For new candidates: Auto-assign and show as read-only -->
+                        <input type="hidden" name="assigned_agent_id" value="<?= $logged_in_recruiter->id ?>">
+                        <input type="text" class="form-control"
+                            value="<?= htmlspecialchars($logged_in_recruiter->first_name . ' ' . $logged_in_recruiter->last_name . ' (' . $logged_in_recruiter->email . ')', ENT_QUOTES, 'UTF-8') ?>"
+                            readonly>
+                        <small class="text-muted text-success">
+                            <i class="fa fa-user-check"></i> You are automatically assigned as the recruiter for this
+                            candidate
+                        </small>
+                        <?php else: ?>
+                        <!-- For existing candidates: Show dropdown -->
                         <select name="assigned_agent_id" id="assigned_agent_id" class="form-control" required>
                             <option value="">-- Select Recruiter --</option>
                             <?php if (!empty($agents_all)): ?>
@@ -272,6 +285,7 @@
                             <?php endif; ?>
                         </select>
                         <small class="text-muted">Select which recruiter this candidate is assigned to</small>
+                        <?php endif; ?>
                     </div>
                 </div>
             </div>
@@ -397,6 +411,31 @@
 </div>
 
 <script>
+// ========== SMART CLOSE FUNCTION ==========
+function smartCloseForm() {
+    console.log('Smart close triggered...');
+
+    // Check if we're in a modal context
+    if (typeof close_qm === 'function' && !document.body.classList.contains('qm-full-page')) {
+        console.log('Closing modal...');
+        close_qm();
+    }
+    // Check if we're in full-page candidate details
+    else if (window.location.pathname.includes('/view/')) {
+        console.log('Redirecting from candidate details...');
+        window.location.href = '<?= site_url("recruiter/candidates") ?>';
+    }
+    // Fallback: use existing close_qm if available
+    else if (typeof close_qm === 'function') {
+        console.log('Using fallback close_qm...');
+        close_qm();
+    }
+    // Ultimate fallback
+    else {
+        console.log('Using ultimate fallback redirect...');
+        window.location.href = '<?= site_url("recruiter/candidates") ?>';
+    }
+}
 // ========== REFERENCE NUMBER HANDLING ==========
 document.addEventListener('DOMContentLoaded', function() {
     const referenceField = document.getElementById('reference_number');
@@ -621,19 +660,22 @@ document.querySelectorAll('.qm-tabs-header li').forEach(tab => {
 });
 
 // ========== DEBUGGING ==========
-// Add some debugging to see what's happening
-console.log('Candidate form loaded');
-console.log('Form element:', document.getElementById('mainCandidateForm'));
-console.log('ID element:', document.getElementById('id'));
-console.log('Reference element:', document.getElementById('reference_number'));
-console.log('Save button:', document.querySelector('.save-button'));
-console.log('=== CANDIDATE FORM DEBUG INFO ===');
-console.log('Form action:', '<?= !empty($row->id) ? "update" : "create" ?>');
-console.log('Candidate ID:', '<?= !empty($row->id) ? $row->id : "0" ?>');
-console.log('Row data:', <?= json_encode($row) ?>);
-console.log('Additional Jobs:', <?= json_encode($additional_job_ids) ?>);
-console.log('Additional Agencies:', <?= json_encode($additional_agency_ids) ?>);
-console.log('================================');
+// Debug: Check what close functions are available
+console.log('=== DEBUG CLOSE FUNCTIONS ===');
+console.log('close_quick_manage:', typeof close_quick_manage);
+console.log('close_qm:', typeof close_qm);
+console.log('closeQuickManage:', typeof closeQuickManage);
+console.log('jQuery modal:', typeof $ !== 'undefined' ? typeof $.fn.modal : 'jQuery not loaded');
+console.log('Visible modals:', document.querySelectorAll('.modal:not(.hide)').length);
+
+// Override any existing problematic close behavior
+if (typeof close_quick_manage === 'function') {
+    const originalClose = close_quick_manage;
+    close_quick_manage = function() {
+        console.log('close_quick_manage called - redirecting...');
+        window.location.href = '<?= site_url("recruiter/candidates") ?>';
+    };
+}
 
 // Temporary test - add this to your JavaScript
 document.addEventListener('DOMContentLoaded', function() {

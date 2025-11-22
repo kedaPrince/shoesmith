@@ -802,18 +802,34 @@ function qm_prev_button($label = "", $class = "", $attr = array()) {
 	return $html;
 }
 
+// function qm_close_button($label = "", $class = "", $attr = array()) {
+// 	$label = ! empty($label) ? $label : "Cancel";
+
+// 	//Set default attributes
+// 	$attr['title'] = isset($attr['title']) ? $attr['title'] : $label;
+// 	$attr['class'] = isset($attr['class']) ? $attr['class'] : 'qm-btn-close btn btn-light float-right ' . $class;
+// 	$attr['onclick'] = isset($attr['onclick']) ? $attr['onclick'] : 'close_qm()';
+
+// 	//Build html
+// 	$html = '<a ' . build_attributes($attr) . '>' . $label . '</a>';
+
+// 	return $html;
+// }
+
 function qm_close_button($label = "", $class = "", $attr = array()) {
-	$label = ! empty($label) ? $label : "Cancel";
+    $label = ! empty($label) ? $label : "Cancel";
 
-	//Set default attributes
-	$attr['title'] = isset($attr['title']) ? $attr['title'] : $label;
-	$attr['class'] = isset($attr['class']) ? $attr['class'] : 'qm-btn-close btn btn-light float-right ' . $class;
-	$attr['onclick'] = isset($attr['onclick']) ? $attr['onclick'] : 'close_qm()';
+    // Set default attributes
+    $attr['title'] = isset($attr['title']) ? $attr['title'] : $label;
+    $attr['class'] = isset($attr['class']) ? $attr['class'] : 'qm-btn-close btn btn-light float-right ' . $class;
+    
+    // Smart close function that works in both contexts
+    $attr['onclick'] = isset($attr['onclick']) ? $attr['onclick'] : 'smartCloseForm()';
 
-	//Build html
-	$html = '<a ' . build_attributes($attr) . '>' . $label . '</a>';
+    // Build html
+    $html = '<a ' . build_attributes($attr) . '>' . $label . '</a>';
 
-	return $html;
+    return $html;
 }
 
 function qm_save_button($label = "", $class = "", $attr = array()) {

@@ -24,6 +24,10 @@ if ($recruiter_id) {
 }
 
 /* Notification Bell Styling */
+a#notification-bell {
+    padding: 8px 14px;
+}
+
 .notifications-menu {
     position: relative;
 
@@ -94,7 +98,7 @@ if ($recruiter_id) {
 
 /* Ensure other navbar icons have consistent styling */
 .navbar-nav>li>a.icon-menu {
-    padding: 8px 12px;
+    padding: 8px 45px;
     margin: 0 5px;
     border-radius: 25px;
     transition: all 0.3s ease;
@@ -206,19 +210,41 @@ body[data-theme="dark"] .notifications-menu .dropdown-toggle {
                         </a>
                     </li> -->
                     <li>
-                        <a href="<?= site_url(); ?>" target="_blank" class="icon-menu" id="top-bar-return-btn"
-                            data-toggle="tt" data-placement="top" title="Visit Site" data-original-title="Visit Site"
-                            title="Visit Site">
-                            Visit Site
+                        <a href="javascript:void(0);" class="icon-menu" id="top-bar-logout-btn" data-toggle="tt"
+                            data-placement="top" title="Logout" onclick="confirmLogout()">
+                            <i class="fa fa-sign-out"></i> Logout
                         </a>
                     </li>
                 </ul>
             </div>
         </div>
     </div>
+
 </nav>
 
 <script>
+function confirmLogout() {
+    // Use the same pattern as disable_button()
+    Swal.fire({
+        title: 'Confirm Logout',
+        text: 'Are you sure you want to logout from the system?',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#dc3545',
+        cancelButtonColor: '#6c757d',
+        confirmButtonText: 'Yes, Logout',
+        cancelButtonText: 'Cancel',
+        customClass: {
+            confirmButton: 'swal2-confirm swal2-styled',
+            cancelButton: 'swal2-cancel swal2-styled'
+        }
+    }).then((result) => {
+        if (result.isConfirmed) {
+            window.location.href = '<?= site_url(); ?>';
+        }
+    });
+}
+
 function markAsRead(notificationId) {
     fetch('<?php echo site_url("recruiter/dashboard/ajax_mark_notification_read"); ?>', {
             method: 'POST',

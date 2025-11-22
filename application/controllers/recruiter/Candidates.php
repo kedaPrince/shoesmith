@@ -1325,7 +1325,7 @@ public function get_all($limit = null, $offset = null, $sort_by = 'first_name', 
     return $query;
 }
 
-  public function quick_manage_extra($id, $row): array
+public function quick_manage_extra($id, $row): array
 {
     // Safely handle the row parameter
     if (is_string($row) || $row === null || $row === false) {
@@ -1355,7 +1355,15 @@ public function get_all($limit = null, $offset = null, $sort_by = 'first_name', 
     $agencies = $this->{$this->model}->get_agencies_all();
     $jobs = $this->{$this->model}->get_jobs_all();
 
-    // FIX: Get ALL recruiters (not just agency staff)
+    // FIX: Get the logged-in recruiter ID
+    $logged_in_recruiter_id = $this->get_recruiter_id();
+    
+    // For new candidates, auto-assign the logged-in recruiter
+    if (empty($id) && !empty($logged_in_recruiter_id)) {
+        $row->assigned_agent_id = $logged_in_recruiter_id;
+    }
+
+    // Get all recruiters for the dropdown (for existing candidates)
     $agents = $this->get_all_recruiters();
 
     $all_additional_agency_ids = !empty($id) ? $this->{$this->model}->get_candidate_additional_agencies($id) : [];
@@ -1406,7 +1414,7 @@ public function get_all($limit = null, $offset = null, $sort_by = 'first_name', 
     return [
         'agencies_all' => $agencies,
         'jobs_all' => $jobs,
-        'agents_all' => $agents, // Now contains ALL recruiters
+        'agents_all' => $agents,
         'additional_agency_options' => $agency_options_array,
         'additional_job_options' => $job_options_array,
         'additional_agency_ids' => $all_additional_agency_ids,
@@ -1416,8 +1424,35 @@ public function get_all($limit = null, $offset = null, $sort_by = 'first_name', 
         'has_pending_documents_request' => $documents_request_data['has_request'],
         'documents_request_notes' => $documents_request_data['notes'],
         'pending_notification_id' => $documents_request_data['notification_id'],
-        'force_required_tab' => $force_required_tab
+        'force_required_tab' => $force_required_tab,
+        // ADD THIS: Pass the logged-in recruiter ID to the view
+        'logged_in_recruiter_id' => $logged_in_recruiter_id,
+        'logged_in_recruiter' => $this->get_logged_in_recruiter_details($logged_in_recruiter_id),
+        
+
+        
     ];
+    // Temporary debug logging
+log_message('debug', 'quick_manage_extra called - ID: ' . $id);
+log_message('debug', 'Logged in recruiter ID: ' . $logged_in_recruiter_id);
+log_message('debug', 'Row assigned_agent_id: ' . ($row->assigned_agent_id ?? 'null'));
+log_message('debug', 'Is new candidate: ' . (empty($id) ? 'yes' : 'no'));
+}
+
+//get logged-in recruiter details
+private function get_logged_in_recruiter_details($recruiter_id)
+{
+    if (empty($recruiter_id)) {
+        return null;
+    }
+    
+    return $this->db->select('id, first_name, last_name, email')
+                   ->from('recruiters')
+                   ->where('id', $recruiter_id)
+                   ->where('enabled', 1)
+                   ->where('removed', 0)
+                   ->get()
+                   ->row();
 }
 
 // Add this method to get ALL recruiters
