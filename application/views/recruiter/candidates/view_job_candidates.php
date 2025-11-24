@@ -86,6 +86,12 @@
                                         class="btn btn-sm btn-info" title="View Candidate">
                                         <i class="fa fa-eye"></i>
                                     </a>
+                                    <!-- Use Swal modal for remove confirmation - Icon only -->
+                                    <a href="javascript:void(0);" class="btn btn-sm btn-danger"
+                                        title="Remove from this job"
+                                        onclick="confirmRemoveCandidate(<?php echo $candidate->id; ?>, '<?php echo htmlspecialchars($candidate->first_name . ' ' . $candidate->last_name, ENT_QUOTES, 'UTF-8'); ?>', <?php echo $job->id; ?>)">
+                                        <i class="fa fa-times"></i>
+                                    </a>
                                 </td>
                             </tr>
                             <?php endforeach; ?>
@@ -411,6 +417,29 @@ function assignCandidatesToJob(candidateIds) {
         });
 }
 
+function confirmRemoveCandidate(candidateId, candidateName, jobId) {
+    // Use the exact same pattern as confirmLogout()
+    Swal.fire({
+        title: 'Confirm Removal',
+        text: 'Are you sure you want to remove ' + candidateName + ' from this job?',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#dc3545',
+        cancelButtonColor: '#6c757d',
+        confirmButtonText: 'Yes, Remove',
+        cancelButtonText: 'Cancel',
+        customClass: {
+            confirmButton: 'swal2-confirm swal2-styled',
+            cancelButton: 'swal2-cancel swal2-styled'
+        }
+    }).then((result) => {
+        if (result.isConfirmed) {
+            // Redirect to remove action
+            window.location.href = '<?php echo site_url("recruiter/candidates/remove_from_job/"); ?>' +
+                candidateId + '/' + jobId;
+        }
+    });
+}
 // Make sure the function is available globally
 window.showSubmitCandidateModal = showSubmitCandidateModal;
 window.submitNewCandidate = submitNewCandidate;

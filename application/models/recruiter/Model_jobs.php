@@ -71,7 +71,6 @@ class Model_jobs extends CRUD_Model
         return $this->db->count_all_results() == 0;
     }
 
-// In application/models/recruiter/Model_jobs.php
 public function get_candidates_for_job($job_id, $recruiter_id = null)
 {
     $this->db->select('
@@ -88,6 +87,7 @@ public function get_candidates_for_job($job_id, $recruiter_id = null)
     $this->db->from('candidate_job_assignments cja');
     $this->db->join('candidates c', 'c.id = cja.candidate_id');
     $this->db->where('cja.job_id', $job_id);
+    $this->db->where('cja.removed', 0); // Only active assignments
     $this->db->where('c.enabled', 1);
     $this->db->where('c.removed', 0);
     
@@ -105,6 +105,7 @@ public function get_candidate_count_for_job($job_id, $recruiter_id = null)
     $this->db->from('candidate_job_assignments cja');
     $this->db->join('candidates c', 'c.id = cja.candidate_id');
     $this->db->where('cja.job_id', $job_id);
+    $this->db->where('cja.removed', 0); // ADD THIS LINE - filter out removed assignments
     $this->db->where('c.enabled', 1);
     $this->db->where('c.removed', 0);
     
@@ -114,4 +115,5 @@ public function get_candidate_count_for_job($job_id, $recruiter_id = null)
     
     return $this->db->count_all_results();
 }
+
 }

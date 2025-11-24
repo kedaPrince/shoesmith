@@ -559,6 +559,24 @@ function customSaveForm(el) {
         return;
     }
 
+    // REMOVED: No longer require jobs/agencies to be selected
+    // This allows candidates to exist without job assignments
+
+    console.log('Form validation passed, submitting via AJAX...');
+
+    // Submit the form via AJAX
+    submitFormData(form);
+}
+
+function customSaveForm(el) {
+    const form = document.getElementById('mainCandidateForm');
+
+    if (!form) {
+        console.error('Form not found');
+        alert('Form not found. Please refresh the page and try again.');
+        return;
+    }
+
     // Ensure at least one job is selected
     // const jobSelects = form.querySelectorAll('select[name="additional_job_ids[]"] option:checked');
     // if (jobSelects.length === 0) {

@@ -639,4 +639,29 @@ class Model_notifications extends CRUD_Model
         }
     }
 
+    /**
+ * Get candidate's job assignments
+ */
+public function get_candidate_job_assignments($candidate_id)
+{
+    $this->db->select('cj.job_id, j.name as job_name, j.reference_number as job_reference');
+    $this->db->from('candidate_jobs cj');
+    $this->db->join('mod_jobs j', 'j.id = cj.job_id');
+    $this->db->where('cj.candidate_id', $candidate_id);
+    $this->db->where('j.enabled', 1);
+    $this->db->where('j.removed', 0);
+    
+    return $this->db->get()->result();
+}
+
+/**
+ * Check if candidate is assigned to any jobs
+ */
+public function has_job_assignments($candidate_id)
+{
+    $this->db->from('candidate_jobs');
+    $this->db->where('candidate_id', $candidate_id);
+    return $this->db->count_all_results() > 0;
+}
+
 }

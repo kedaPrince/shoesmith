@@ -71,7 +71,7 @@ table tbody tr.job-expired-row:hover td {
             </div>
             <div class="row">
                 <!-- Replace the agency dropdown section -->
-                <!-- Replace the agency dropdown section -->
+              
                 <div class="col-lg-6">
                     <?php 
                         // Determine if we should show agency as static field

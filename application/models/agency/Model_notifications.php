@@ -50,7 +50,7 @@ class Model_notifications extends CRUD_Model
         $this->db->order_by('notifications.created_at', 'DESC');
     }
 
-    /**
+   /**
      * Get notifications for agency
      */
     public function get_agency_notifications($agency_id, $limit = null, $offset = null)
@@ -59,9 +59,9 @@ class Model_notifications extends CRUD_Model
         $this->db->from('notifications');
         $this->db->join('candidates c', 'c.id = notifications.related_entity_id AND notifications.related_entity = "candidate"', 'left');
         
-        // Join to get the job through candidate_jobs pivot table
-        $this->db->join('candidate_jobs cj', 'cj.candidate_id = c.id', 'left');
-        $this->db->join('mod_jobs j', 'j.id = cj.job_id', 'left');
+        //FIXED: Join to get the job through candidate_job_assignments pivot table
+        $this->db->join('candidate_job_assignments cja', 'cja.candidate_id = c.id', 'left');
+        $this->db->join('mod_jobs j', 'j.id = cja.job_id', 'left');
         
         // Join to get recruiter info
         $this->db->join('recruiters r', 'r.id = notifications.sender_id AND notifications.sender_type = "recruiter"', 'left');
