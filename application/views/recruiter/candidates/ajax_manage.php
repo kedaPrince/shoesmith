@@ -73,7 +73,7 @@
                     <?= field_input('phone|label_phone', $row, '', [], 'text', 'Phone Number'); ?>
                 </div>
                 <div class="col-lg-6">
-                    <?= field_input('id_number|label_id_number', $row, '', [], 'text', 'ID Number'); ?>
+                    <?= field_input('id_number|label_security_number', $row, '', [], 'text', 'Security Number'); ?>
                 </div>
             </div>
             <div class="row">
@@ -101,7 +101,7 @@
                     <?= field_input('city|label_city', $row, '', [], 'text', 'City'); ?>
                 </div>
                 <div class="col-lg-4">
-                    <?= field_input('province|label_province', $row, '', [], 'text', 'Province'); ?>
+                    <?= field_input('province|label_state', $row, '', [], 'text', 'State'); ?>
                 </div>
                 <div class="col-lg-4">
                     <?= field_input('postal_code|label_postal_code', $row, '', [], 'text', 'Postal Code'); ?>
@@ -109,7 +109,7 @@
             </div>
             <div class="row">
                 <div class="col-lg-12">
-                    <?= field_input('country|label_country', $row, '', [], 'text', 'Country', 'South Africa'); ?>
+                    <?= field_input('country|label_country', $row, '', [], 'text', 'Country', 'Australia'); ?>
                 </div>
             </div>
         </div>
@@ -194,17 +194,32 @@
         <div rel="3" class="qm-tabs-tab">
             <div class="row">
                 <div class="col-lg-6">
-                    <?= field_dropdown('status|label_status', 
-                [
-                    'new' => 'New',
-                    'reviewed' => 'Reviewed',
-                    'shortlisted' => 'Shortlisted',
-                    'interviewed' => 'Interviewed',
-                    'rejected' => 'Rejected',
-                    'hired' => 'Hired',
-                    'on_hold' => 'On Hold'
-                ], 
-                $row, 'required'); ?>
+                    <div class="form-group">
+                        <label for="status"><?= lang('label_status') ?> *</label>
+                        <select name="status" id="status" class="form-control" required>
+                            <option value="">-- Select Status --</option>
+                            <option value="new"
+                                <?= (!empty($row->status) && $row->status == 'new') ? 'selected' : '' ?>>New</option>
+                            <option value="reviewed"
+                                <?= (!empty($row->status) && $row->status == 'reviewed') ? 'selected' : '' ?>>Reviewed
+                            </option>
+                            <option value="shortlisted"
+                                <?= (!empty($row->status) && $row->status == 'shortlisted') ? 'selected' : '' ?>>
+                                Shortlisted</option>
+                            <option value="interviewed"
+                                <?= (!empty($row->status) && $row->status == 'interviewed') ? 'selected' : '' ?>>
+                                Interviewed</option>
+                            <option value="rejected"
+                                <?= (!empty($row->status) && $row->status == 'rejected') ? 'selected' : '' ?>>Rejected
+                            </option>
+                            <option value="hired"
+                                <?= (!empty($row->status) && $row->status == 'hired') ? 'selected' : '' ?>>Hired
+                            </option>
+                            <option value="on_hold"
+                                <?= (!empty($row->status) && $row->status == 'on_hold') ? 'selected' : '' ?>>On Hold
+                            </option>
+                        </select>
+                    </div>
                 </div>
                 <div class="col-lg-6">
                     <?= field_date('application_date|label_application_date', $row, '', 'yyyy-mm-dd', []); ?>
@@ -213,15 +228,15 @@
             <div class="row">
                 <div class="col-lg-6">
                     <?= field_dropdown('rating|label_rating', 
-                [
-                    '' => '-- Select Rating --',
-                    '1' => '★ (1) Poor',
-                    '2' => '★★ (2) Fair',
-                    '3' => '★★★ (3) Good',
-                    '4' => '★★★★ (4) Very Good',
-                    '5' => '★★★★★ (5) Excellent'
-                ], 
-                $row, ''); ?>
+            [
+                '' => '-- Select Rating --',
+                '1' => '★ (1) Poor',
+                '2' => '★★ (2) Fair', 
+                '3' => '★★★ (3) Good',
+                '4' => '★★★★ (4) Very Good',
+                '5' => '★★★★★ (5) Excellent'
+            ], 
+            $row, ''); ?>
                 </div>
             </div>
             <div class="row">
@@ -236,20 +251,22 @@
             <div class="row">
                 <div class="col-lg-6">
                     <?= field_multi_select('additional_agency_ids|label_agencies', 
-            $additional_agency_options, 
-            $additional_agency_ids,
-            'Select agencies (first selected becomes primary)',
-            [], // empty array for attributes instead of true
-            true // required - moved to the correct parameter position
-            ); ?>
+                $additional_agency_options, 
+                $additional_agency_ids,
+                'Select agencies (first selected becomes primary)',
+                [], // empty array for attributes instead of true
+                false // CHANGED: Make agencies optional
+                ); ?>
                     <small class="text-muted"><?= lang('help_first_agency_primary') ?></small>
                 </div>
                 <div class="col-lg-6">
                     <?= field_multi_select('additional_job_ids|label_jobs', 
-            $additional_job_options, 
-            $additional_job_ids,
-            'Select jobs (first selected becomes primary)'
-            ); ?>
+                $additional_job_options, 
+                $additional_job_ids,
+                'Select jobs (first selected becomes primary)',
+                [], // CHANGED: Remove required parameter
+                false // CHANGED: Make jobs optional
+                ); ?>
                     <small class="text-muted"><?= lang('help_first_job_primary') ?></small>
                 </div>
             </div>
@@ -437,38 +454,89 @@ function smartCloseForm() {
     }
 }
 // ========== REFERENCE NUMBER HANDLING ==========
-document.addEventListener('DOMContentLoaded', function() {
+// ========== REFERENCE NUMBER HANDLING ==========
+function initializeReferenceNumber() {
     const referenceField = document.getElementById('reference_number');
     const refreshBtn = document.getElementById('refresh-reference');
 
+    console.log('Initializing reference number...');
+    console.log('Reference field:', referenceField);
+    console.log('Refresh button:', refreshBtn);
+
     // Generate initial reference if empty
     if (referenceField && !referenceField.value) {
+        console.log('Reference field is empty, generating number...');
         generateReferenceNumber();
+    } else if (referenceField) {
+        console.log('Reference field already has value:', referenceField.value);
     }
 
     // Handle refresh button
     if (refreshBtn) {
-        refreshBtn.addEventListener('click', generateReferenceNumber);
+        refreshBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            console.log('Refresh reference button clicked');
+            generateReferenceNumber();
+        });
+    }
+}
+
+function generateReferenceNumber() {
+    console.log('Generating reference number...');
+
+    const referenceField = document.getElementById('reference_number');
+    if (!referenceField) {
+        console.error('Reference field not found');
+        return;
     }
 
-    function generateReferenceNumber() {
-        fetch('<?= site_url("recruiter/candidates/generate_reference") ?>')
-            .then(response => response.json())
-            .then(data => {
-                if (data.success && referenceField) {
-                    referenceField.value = data.reference;
-                }
-            })
-            .catch(error => {
-                console.error('Error generating reference:', error);
-                // Fallback reference number
-                const timestamp = new Date().getTime();
-                if (referenceField) {
-                    referenceField.value = 'CAND-' + timestamp;
-                }
-            });
-    }
+    // Show loading state
+    referenceField.value = 'Generating...';
+
+    fetch('<?= site_url("recruiter/candidates/generate_reference") ?>')
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Network response was not ok: ' + response.status);
+            }
+            return response.json();
+        })
+        .then(data => {
+            console.log('Reference generation response:', data);
+            if (data.success && referenceField) {
+                referenceField.value = data.reference;
+                console.log('Reference number set to:', data.reference);
+            } else {
+                throw new Error(data.error || 'Failed to generate reference');
+            }
+        })
+        .catch(error => {
+            console.error('Error generating reference:', error);
+            // Fallback reference number
+            const timestamp = new Date().getTime();
+            const random = Math.floor(Math.random() * 1000);
+            const fallbackReference = 'CAND-' + timestamp + '-' + random;
+
+            if (referenceField) {
+                referenceField.value = fallbackReference;
+            }
+            console.log('Using fallback reference:', fallbackReference);
+        });
+}
+
+// Initialize when DOM is loaded
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('DOM loaded, initializing reference number...');
+    initializeReferenceNumber();
 });
+
+// Also initialize when the quick manage modal is opened (for AJAX loading)
+if (typeof initializeReferenceNumber === 'function') {
+    // Try to initialize immediately in case DOM is already ready
+    setTimeout(initializeReferenceNumber, 100);
+
+    // Also try after a longer delay in case the modal takes time to render
+    setTimeout(initializeReferenceNumber, 500);
+}
 
 // ========== FORM VALIDATION & SUBMISSION ==========
 function save_form(el) {
@@ -492,28 +560,28 @@ function customSaveForm(el) {
     }
 
     // Ensure at least one job is selected
-    const jobSelects = form.querySelectorAll('select[name="additional_job_ids[]"] option:checked');
-    if (jobSelects.length === 0) {
-        alert('Please select at least one job for this candidate.');
-        // Switch to Agency & Job tab
-        const jobTab = document.querySelector('.qm-tabs-header li[rel="4"]');
-        if (jobTab) {
-            jobTab.click();
-        }
-        return;
-    }
+    // const jobSelects = form.querySelectorAll('select[name="additional_job_ids[]"] option:checked');
+    // if (jobSelects.length === 0) {
+    //     alert('Please select at least one job for this candidate.');
+    //     // Switch to Agency & Job tab
+    //     const jobTab = document.querySelector('.qm-tabs-header li[rel="4"]');
+    //     if (jobTab) {
+    //         jobTab.click();
+    //     }
+    //     return;
+    // }
 
     // Ensure at least one agency is selected  
-    const agencySelects = form.querySelectorAll('select[name="additional_agency_ids[]"] option:checked');
-    if (agencySelects.length === 0) {
-        alert('Please select at least one agency for this candidate.');
-        // Switch to Agency & Job tab
-        const jobTab = document.querySelector('.qm-tabs-header li[rel="4"]');
-        if (jobTab) {
-            jobTab.click();
-        }
-        return;
-    }
+    // const agencySelects = form.querySelectorAll('select[name="additional_agency_ids[]"] option:checked');
+    // if (agencySelects.length === 0) {
+    //     alert('Please select at least one agency for this candidate.');
+    //     // Switch to Agency & Job tab
+    //     const jobTab = document.querySelector('.qm-tabs-header li[rel="4"]');
+    //     if (jobTab) {
+    //         jobTab.click();
+    //     }
+    //     return;
+    // }
 
     console.log('Form validation passed, submitting via AJAX...');
 
@@ -586,16 +654,27 @@ function submitFormData(form) {
                     alert(successMessage);
                 }
 
-                // Close the quick manage modal
-                if (typeof close_quick_manage === 'function') {
-                    close_quick_manage();
-                } else if (typeof close_qm === 'function') {
-                    close_qm();
-                } else {
-                    // Fallback: reload the page after a short delay
+                // CHECK IF WE'RE ON SINGLE VIEW PAGE
+                const isSingleViewPage = window.location.pathname.includes('/view/');
+
+                if (isSingleViewPage) {
+                    console.log('On single view page - redirecting to listing...');
+                    // Redirect to candidates listing after a short delay
                     setTimeout(() => {
-                        window.location.reload();
-                    }, 1500);
+                        window.location.href = '<?= site_url("recruiter/candidates") ?>';
+                    }, 1000);
+                } else {
+                    // Close the quick manage modal for other contexts
+                    if (typeof close_quick_manage === 'function') {
+                        close_quick_manage();
+                    } else if (typeof close_qm === 'function') {
+                        close_qm();
+                    } else {
+                        // Fallback: reload the page after a short delay
+                        setTimeout(() => {
+                            window.location.reload();
+                        }, 1500);
+                    }
                 }
             } else {
                 // Error handling

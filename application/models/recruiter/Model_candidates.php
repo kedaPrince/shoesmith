@@ -5,8 +5,19 @@ class Model_candidates extends CRUD_Model
 {
     protected $table = 'candidates';
 
-    public function get_all($limit = null, $offset = null, $sort_by = 'first_name', $sort_order = 'ASC', $filters = [])
+public function get_all($limit = null, $offset = null, $sort_by = 'first_name', $sort_order = 'ASC', $filters = [])
 {
+    // DEBUG: Start of get_all
+    
+    // Use current filters if no filters passed
+    if (empty($filters)) {
+        $filters = $this->get_current_filters();
+    } else {
+    }
+    
+    // Log all parameters for debugging
+    
+    // YOUR EXISTING CODE - DON'T CHANGE THIS PART
     // Select base candidate fields
     $this->db->select('candidates.*');
 
@@ -26,26 +37,21 @@ class Model_candidates extends CRUD_Model
                         AND j.removed = 0 AND j.enabled = 1
                     ) AS job_name", false);
 
-    $this->db->from($this->table);
+    $this->db->from('candidates');
     $this->db->where('candidates.removed', 0);
 
-    // ADD THIS: Filter by recruiter's assigned candidates
+    // Filter by recruiter's assigned candidates
     $recruiter_id = $this->get_recruiter_id();
     if ($recruiter_id) {
         $this->db->where('candidates.assigned_agent_id', $recruiter_id);
-        log_message('debug', 'Applying access control filter: assigned_agent_id = ' . $recruiter_id);
     }
 
-    // Add job filtering if job_id is provided in filters
-    if (!empty($filters['job_id'])) {
-        $job_id = $filters['job_id'];
-        $this->db->group_start();
-        $this->db->where('candidates.job_id', $job_id); // Primary job assignment
-        $this->db->or_where("candidates.id IN (SELECT candidate_id FROM candidate_jobs WHERE job_id = $job_id)"); // Additional job assignments
-        $this->db->group_end();
+    // Apply status filter
+    if (!empty($filters['status'])) {
+        $this->db->where('candidates.status', $filters['status']);
     }
 
-    // Apply any additional filters from the CRUD system
+    // Apply search filter
     if (!empty($filters['general'])) {
         $this->db->group_start();
         foreach (['candidates.first_name', 'candidates.last_name', 'candidates.email', 'candidates.reference_number'] as $field) {
@@ -54,8 +60,14 @@ class Model_candidates extends CRUD_Model
         $this->db->group_end();
     }
 
-    if (!empty($filters['status'])) {
-        $this->db->where('candidates.status', $filters['status']);
+    // Apply job_id filter
+    if (!empty($filters['job_id'])) {
+        $job_id = $filters['job_id'];
+        $this->db->group_start();
+        $this->db->where('candidates.job_id', $job_id);
+        $this->db->or_where("candidates.id IN (SELECT candidate_id FROM candidate_jobs WHERE job_id = $job_id)");
+        $this->db->group_end();
+        
     }
 
     // Sorting
@@ -69,14 +81,27 @@ class Model_candidates extends CRUD_Model
         $this->db->limit($limit, $offset);
     }
 
-    // DEBUG: Log the final query
     $query = $this->db->get();
-    log_message('debug', 'Candidates query: ' . $this->db->last_query());
-    log_message('debug', 'Candidates found: ' . $query->num_rows());
-
+ 
     return $query;
 }
+protected $current_filters = [];
 
+/**
+ * Set current filters for the query
+ */
+public function set_current_filters($filters)
+{
+    $this->current_filters = $filters;
+}
+
+/**
+ * Get current filters
+ */
+public function get_current_filters()
+{
+    return $this->current_filters;
+}
 // Add this helper method to get recruiter ID
 private function get_recruiter_id()
 {
@@ -338,28 +363,37 @@ private function get_recruiter_id()
      * Generate reference number for candidate
      */
     public function generate_reference_number()
-    {
-        $prefix = 'CAND';
-        $year = date('Y');
-        
-        // Get the last reference number
-        $this->db->select('reference_number')
-                 ->from('candidates')
-                 ->like('reference_number', $prefix . '-' . $year, 'after')
-                 ->order_by('id', 'DESC')
-                 ->limit(1);
-        
-        $last_ref = $this->db->get()->row();
-        
-        if ($last_ref) {
-            $last_number = intval(substr($last_ref->reference_number, -4));
-            $new_number = $last_number + 1;
+{
+    $prefix = 'CAND';
+    $year = date('Y');
+    $month = date('m');
+    
+    // Get the latest reference number for this year/month
+    $this->db->select('reference_number')
+             ->from('candidates')
+             ->where('YEAR(created_at)', $year)
+             ->where('MONTH(created_at)', $month)
+             ->order_by('id', 'DESC')
+             ->limit(1);
+    
+    $last_ref = $this->db->get()->row();
+    
+    if ($last_ref && !empty($last_ref->reference_number)) {
+        // Extract sequence number from last reference
+        $pattern = '/^' . $prefix . '-' . $year . $month . '-(\d+)$/';
+        if (preg_match($pattern, $last_ref->reference_number, $matches)) {
+            $sequence = intval($matches[1]) + 1;
         } else {
-            $new_number = 1;
+            // If pattern doesn't match, start from 1
+            $sequence = 1;
         }
-        
-        return $prefix . '-' . $year . '-' . str_pad($new_number, 4, '0', STR_PAD_LEFT);
+    } else {
+        // First candidate for this month
+        $sequence = 1;
     }
+    
+    return $prefix . '-' . $year . $month . '-' . str_pad($sequence, 4, '0', STR_PAD_LEFT);
+}
 
     /**
      * Check if email is unique
