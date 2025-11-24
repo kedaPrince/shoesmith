@@ -1,7 +1,6 @@
 <?php defined('BASEPATH') || exit('No direct script access allowed'); ?>
 
 <div id="main-content">
-    <!-- Header Section -->
     <header class="page-header">
         <div class="container-fluid">
             <div class="row clearfix">
@@ -22,7 +21,7 @@
                                 </a>
                             </li>
                             <li class="breadcrumb-item active" aria-current="page">
-                                Candidates
+                                My Candidates (<?php echo $total_candidates; ?>)
                             </li>
                         </ol>
                     </nav>
@@ -31,254 +30,490 @@
         </div>
     </header>
 
-    <!-- Main Content Area -->
     <div class="container-fluid">
-        <div class="row">
-            <div class="col-12">
-                <!-- Quick Manage Style Container -->
-                <div class="quick-manage-form-container">
-                    <div class="quick-manage-heading">
-                        <h2>
-                            <i class="fa fa-users"></i>
-                            <?php echo $heading; ?>
-                        </h2>
-                        <p class="text-muted mb-0">
-                            Reference: <strong><?php echo htmlspecialchars($job->reference_number); ?></strong> |
-                            Candidates: <strong><?php echo count($candidates); ?></strong>
-                        </p>
-                    </div>
-
-                    <!-- Job Info Card -->
-                    <div class="form-field-container">
-                        <div class="card mb-4">
-                            <div class="card-body">
-                                <div class="row">
-                                    <div class="col-md-6">
-                                        <h5><i class="fa fa-info-circle text-primary"></i> Job Details</h5>
-                                        <p><strong>Department:</strong>
-                                            <?php echo htmlspecialchars($job->department ?: 'Not specified'); ?></p>
-                                        <p><strong>Employment Type:</strong>
-                                            <?php echo ucfirst($job->employment_type); ?></p>
-                                        <p><strong>Industry:</strong>
-                                            <?php echo htmlspecialchars(isset($job->industry_name) ? $job->industry_name : ($job->industry_id ? 'Industry #' . $job->industry_id : 'Not specified')); ?>
-                                        </p>
-                                        <p><strong>Agency:</strong>
-                                            <?php echo htmlspecialchars(isset($job->agency_name) ? $job->agency_name : ($job->agency_id ? 'Agency #' . $job->agency_id : 'Not specified')); ?>
-                                        </p>
-                                    </div>
-                                    <div class="col-md-6">
-                                        <h5><i class="fa fa-cog text-success"></i> Actions</h5>
-                                        <div class="action-buttons">
-                                            <a href="<?php echo site_url('recruiter/candidates/add/' . $job->id); ?>"
-                                                class="btn btn-success btn-sm mb-2">
-                                                <i class="fa fa-user-plus"></i> Add Candidate to this Job
-                                            </a>
-                                            <a href="<?php echo site_url('recruiter/jobs/view/' . $job->id); ?>"
-                                                class="btn btn-info btn-sm mb-2">
-                                                <i class="fa fa-eye"></i> View Job Details
-                                            </a>
-                                            <a href="<?php echo site_url('recruiter/jobs'); ?>"
-                                                class="btn btn-secondary btn-sm mb-2">
-                                                <i class="fa fa-arrow-left"></i> Back to Jobs
-                                            </a>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Candidates Listing -->
-                        <div class="card">
-                            <div class="card-header bg-light">
-                                <h5 class="card-title mb-0">
-                                    <i class="fa fa-list"></i>
-                                    Candidates (<?php echo count($candidates); ?>)
-                                </h5>
-                            </div>
-                            <div class="card-body">
-                                <?php if (!empty($candidates)): ?>
-                                <div class="table-responsive">
-                                    <table class="table table-striped table-hover">
-                                        <thead class="thead-light">
-                                            <tr>
-                                                <th>Reference</th>
-                                                <th>Name</th>
-                                                <th>Email</th>
-                                                <th>Status</th>
-                                                <th>Application Date</th>
-                                                <th>Actions</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            <?php foreach ($candidates as $candidate): ?>
-                                            <tr>
-                                                <td>
-                                                    <strong><?php echo htmlspecialchars($candidate->reference_number); ?></strong>
-                                                </td>
-                                                <td>
-                                                    <?php echo htmlspecialchars($candidate->first_name . ' ' . $candidate->last_name); ?>
-                                                </td>
-                                                <td>
-                                                    <?php echo htmlspecialchars($candidate->email); ?>
-                                                </td>
-                                                <td>
-                                                    <span class="badge badge-<?php 
-                                                            switch($candidate->status) {
-                                                                case 'new': echo 'secondary'; break;
-                                                                case 'reviewed': echo 'info'; break;
-                                                                case 'shortlisted': echo 'warning'; break;
-                                                                case 'interviewed': echo 'primary'; break;
-                                                                case 'hired': echo 'success'; break;
-                                                                case 'rejected': echo 'danger'; break;
-                                                                default: echo 'secondary';
-                                                            }
-                                                        ?>">
-                                                        <?php echo ucfirst($candidate->status); ?>
-                                                    </span>
-                                                </td>
-                                                <td>
-                                                    <?php echo $candidate->application_date ? date('M j, Y', strtotime($candidate->application_date)) : 'N/A'; ?>
-                                                </td>
-                                                <td>
-                                                    <div class="btn-group btn-group-sm" role="group">
-                                                        <a href="<?php echo site_url('recruiter/candidates/view/' . $candidate->id); ?>"
-                                                            class="btn btn-info" title="View Candidate">
-                                                            <i class="fa fa-eye"></i>
-                                                        </a>
-                                                        <a href="<?php echo site_url('recruiter/candidates/edit/' . $candidate->id); ?>"
-                                                            class="btn btn-warning" title="Edit Candidate">
-                                                            <i class="fa fa-edit"></i>
-                                                        </a>
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                            <?php endforeach; ?>
-                                        </tbody>
-                                    </table>
-                                </div>
-                                <?php else: ?>
-                                <div class="text-center py-5">
-                                    <i class="fa fa-users fa-4x text-muted mb-4"></i>
-                                    <h4>No Candidates Found</h4>
-                                    <p class="text-muted mb-4">There are no candidates assigned to this job yet.</p>
-                                    <a href="<?php echo site_url('recruiter/candidates/add/' . $job->id); ?>"
-                                        class="btn btn-success btn-lg">
-                                        <i class="fa fa-user-plus"></i> Add First Candidate
-                                    </a>
-                                </div>
-                                <?php endif; ?>
-                            </div>
-                        </div>
-                    </div>
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="fa fa-users mr-2"></i>
+                    My Candidates for: <?php echo htmlspecialchars($job->name); ?>
+                    <span class="badge badge-primary ml-2"><?php echo $total_candidates; ?></span>
+                </h5>
+            </div>
+            <div class="card-body">
+                <?php if (!empty($candidates) && $total_candidates > 0): ?>
+                <div class="alert alert-info">
+                    <i class="fa fa-info-circle"></i>
+                    Showing only your candidates for this job. Other recruiters may have submitted their own candidates.
                 </div>
+
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Reference</th>
+                                <th>Email</th>
+                                <th>Phone</th>
+                                <th>Status</th>
+                                <th>Assigned Date</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($candidates as $candidate): ?>
+                            <tr>
+                                <td>
+                                    <strong><?php echo htmlspecialchars($candidate->first_name . ' ' . $candidate->last_name); ?></strong>
+                                </td>
+                                <td><?php echo htmlspecialchars($candidate->reference_number); ?></td>
+                                <td><?php echo htmlspecialchars($candidate->email); ?></td>
+                                <td><?php echo htmlspecialchars($candidate->phone ?? 'N/A'); ?></td>
+                                <td>
+                                    <span class="badge badge-<?php 
+                                                switch($candidate->assignment_status) {
+                                                    case 'submitted': echo 'info'; break;
+                                                    case 'shortlisted': echo 'success'; break;
+                                                    case 'rejected': echo 'danger'; break;
+                                                    default: echo 'secondary';
+                                                }
+                                            ?>">
+                                        <?php echo ucfirst($candidate->assignment_status); ?>
+                                    </span>
+                                </td>
+                                <td><?php echo date('M j, Y', strtotime($candidate->assigned_at)); ?></td>
+                                <td>
+                                    <a href="<?php echo site_url('recruiter/candidates/view/' . $candidate->id); ?>"
+                                        class="btn btn-sm btn-info" title="View Candidate">
+                                        <i class="fa fa-eye"></i>
+                                    </a>
+                                </td>
+                            </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+                <?php else: ?>
+                <div class="text-center py-5">
+                    <i class="fa fa-users fa-3x text-muted mb-3"></i>
+                    <h5 class="text-muted">No Candidates Submitted</h5>
+                    <p class="text-muted">You haven't submitted any candidates for this job yet.</p>
+                    <p class="text-muted small mb-3">
+                        <i class="fa fa-info-circle"></i>
+                        Other recruiters may have submitted candidates, but you can only see your own submissions.
+                    </p>
+                    <!-- Updated button to show modal instead of redirecting -->
+                    <button type="button" class="btn btn-primary" onclick="showSubmitCandidateModal()">
+                        <i class="fa fa-user-plus"></i> Submit My Candidate(s)
+                    </button>
+                </div>
+                <?php endif; ?>
             </div>
         </div>
     </div>
 </div>
 
+<!-- Add the JavaScript for the modal functionality -->
+<script>
+// Define jobId at the top to avoid PHP in JavaScript string issues
+const jobId = <?php echo $job->id; ?>;
+const baseUrl = '<?php echo site_url(); ?>';
+const csrfTokenName = '<?php echo $this->security->get_csrf_token_name(); ?>';
+const csrfTokenHash = '<?php echo $this->security->get_csrf_hash(); ?>';
+const recruiterId = '<?php echo $current_recruiter_id; ?>';
+
+// Use Jobs controller URLs instead of Candidates
+const getCandidatesUrl = baseUrl + 'recruiter/jobs/ajax_get_candidates_for_job';
+const assignCandidateUrl = baseUrl + 'recruiter/jobs/ajax_assign_candidate_to_job';
+
+function showSubmitCandidateModal() {
+    Swal.fire({
+        title: 'Submit Candidate',
+        html: `
+            <div class="text-center">
+                <p class="mb-4">How would you like to submit a candidate for this job?</p>
+                <div class="row">
+                    <div class="col-6">
+                        <button type="button" class="btn btn-primary btn-block py-3" onclick="submitNewCandidate()">
+                            <i class="fa fa-user-plus fa-2x mb-2"></i><br>
+                            New Candidate
+                        </button>
+                    </div>
+                    <div class="col-6">
+                        <button type="button" class="btn btn-info btn-block py-3" onclick="showExistingCandidateModal()">
+                            <i class="fa fa-users fa-2x mb-2"></i><br>
+                            Existing Candidate
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `,
+        showCancelButton: true,
+        confirmButtonColor: '#6c757d',
+        confirmButtonText: 'Cancel',
+        showConfirmButton: true,
+        cancelButtonText: 'Close',
+        customClass: {
+            confirmButton: 'swal2-confirm swal2-styled',
+            cancelButton: 'swal2-cancel swal2-styled'
+        },
+        width: '600px'
+    });
+}
+
+function submitNewCandidate() {
+    // Close the current modal
+    Swal.close();
+
+    // Redirect to add candidate page with job ID
+    window.location.href = baseUrl + 'recruiter/candidates/add/' + jobId;
+}
+
+function showExistingCandidateModal() {
+    // First close the current modal
+    Swal.close();
+
+    console.log('Making AJAX request to:', getCandidatesUrl);
+    console.log('Job ID:', jobId);
+
+    // Show loading state while fetching candidates
+    Swal.fire({
+        title: 'Loading Candidates...',
+        text: 'Please wait while we load your candidates',
+        allowOutsideClick: false,
+        allowEscapeKey: false,
+        showConfirmButton: false,
+        didOpen: () => {
+            Swal.showLoading();
+        }
+    });
+
+    // Create form data
+    const formData = new FormData();
+    formData.append('job_id', jobId);
+    formData.append(csrfTokenName, csrfTokenHash);
+
+    // Fetch existing candidates via AJAX with proper headers
+    fetch(getCandidatesUrl, {
+            method: 'POST',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: formData
+        })
+        .then(response => {
+            console.log('Response status:', response.status);
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            return response.text().then(text => {
+                try {
+                    return JSON.parse(text);
+                } catch (e) {
+                    console.error('Failed to parse JSON:', text);
+                    throw new Error('Invalid JSON response from server');
+                }
+            });
+        })
+        .then(data => {
+            console.log('AJAX response data:', data);
+            Swal.close();
+
+            if (data.success && data.candidates && data.candidates.length > 0) {
+                showCandidateSelectionModal(data.candidates);
+            } else {
+                let message = data.message || 'No candidates found.';
+                Swal.fire({
+                    title: 'No Candidates Found',
+                    html: `
+                    <div class="text-center">
+                        <i class="fa fa-users fa-3x text-muted mb-3"></i>
+                        <p>${message}</p>
+                        <p>Would you like to create a new candidate instead?</p>
+                    </div>
+                `,
+                    showCancelButton: true,
+                    confirmButtonText: 'Create New Candidate',
+                    cancelButtonText: 'Cancel',
+                    confirmButtonColor: '#28a745',
+                    customClass: {
+                        confirmButton: 'swal2-confirm swal2-styled',
+                        cancelButton: 'swal2-cancel swal2-styled'
+                    }
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        submitNewCandidate();
+                    }
+                });
+            }
+        })
+        .catch(error => {
+            Swal.close();
+            console.error('Error fetching candidates:', error);
+
+            let errorMessage = 'Failed to load candidates. Please try again.';
+            if (error.message.includes('404')) {
+                errorMessage = 'AJAX endpoint not found (404). Please contact support.';
+            } else if (error.message.includes('Invalid JSON')) {
+                errorMessage = 'Server returned an invalid response. Please try again.';
+            }
+
+            Swal.fire({
+                title: 'Error',
+                text: errorMessage,
+                icon: 'error',
+                confirmButtonText: 'OK'
+            });
+        });
+}
+
+function showCandidateSelectionModal(candidates) {
+    let optionsHtml = candidates.map(candidate =>
+        `<div class="candidate-option">
+            <input type="checkbox" id="candidate_${candidate.id}" name="candidates[]" value="${candidate.id}" class="candidate-checkbox">
+            <label for="candidate_${candidate.id}" class="candidate-label">
+                <strong>${candidate.first_name} ${candidate.last_name}</strong>
+                <br>
+                <small class="text-muted">${candidate.reference_number} • ${candidate.email}</small>
+            </label>
+        </div>`
+    ).join('');
+
+    Swal.fire({
+        title: 'Select Candidates to Assign',
+        html: `
+            <div class="text-left">
+                <p class="mb-3">Choose one or more candidates to assign to this job:</p>
+                <div class="candidates-list" style="max-height: 400px; overflow-y: auto; border: 1px solid #e9ecef; border-radius: 8px; padding: 15px;">
+                    ${optionsHtml}
+                </div>
+                <div class="mt-3 text-muted small">
+                    <i class="fa fa-info-circle"></i> You can select multiple candidates. Only showing candidates not already assigned to this job.
+                </div>
+                <div class="mt-2 selected-count text-primary" style="font-weight: 600;">
+                    Selected: 0 candidates
+                </div>
+            </div>
+        `,
+        showCancelButton: true,
+        confirmButtonText: 'Assign Selected Candidates',
+        cancelButtonText: 'Cancel',
+        confirmButtonColor: '#17a2b8',
+        customClass: {
+            confirmButton: 'swal2-confirm swal2-styled',
+            cancelButton: 'swal2-cancel swal2-styled'
+        },
+        width: '700px',
+        preConfirm: () => {
+            const selectedCandidates = Array.from(document.querySelectorAll('.candidate-checkbox:checked'))
+                .map(checkbox => checkbox.value);
+
+            if (selectedCandidates.length === 0) {
+                Swal.showValidationMessage('Please select at least one candidate');
+                return false;
+            }
+            return selectedCandidates;
+        },
+        didOpen: () => {
+            // Add event listeners to update selected count
+            const checkboxes = document.querySelectorAll('.candidate-checkbox');
+            const selectedCount = document.querySelector('.selected-count');
+
+            checkboxes.forEach(checkbox => {
+                checkbox.addEventListener('change', function() {
+                    const selected = document.querySelectorAll(
+                        '.candidate-checkbox:checked').length;
+                    selectedCount.textContent =
+                        `Selected: ${selected} candidate${selected !== 1 ? 's' : ''}`;
+                });
+            });
+        }
+    }).then((result) => {
+        if (result.isConfirmed) {
+            assignCandidatesToJob(result.value);
+        }
+    });
+}
+
+function assignCandidatesToJob(candidateIds) {
+    if (!Array.isArray(candidateIds) || candidateIds.length === 0) {
+        console.error('No candidate IDs provided');
+        return;
+    }
+
+    // Show loading state
+    Swal.fire({
+        title: 'Assigning Candidates...',
+        html: `Assigning ${candidateIds.length} candidate${candidateIds.length !== 1 ? 's' : ''} to job<br><small>Please wait</small>`,
+        allowOutsideClick: false,
+        allowEscapeKey: false,
+        showConfirmButton: false,
+        didOpen: () => {
+            Swal.showLoading();
+        }
+    });
+
+    // Create form data
+    const formData = new FormData();
+    candidateIds.forEach(id => {
+        formData.append('candidate_ids[]', id);
+    });
+    formData.append('job_id', jobId);
+    formData.append(csrfTokenName, csrfTokenHash);
+
+    // Assign candidates to job via AJAX
+    fetch(assignCandidateUrl, {
+            method: 'POST',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: formData
+        })
+        .then(response => {
+            return response.text().then(text => {
+                try {
+                    return JSON.parse(text);
+                } catch (e) {
+                    console.error('Failed to parse JSON:', text);
+                    throw new Error('Invalid JSON response from server');
+                }
+            });
+        })
+        .then(data => {
+            if (data.success) {
+                Swal.fire({
+                    title: 'Success!',
+                    html: `Successfully assigned ${candidateIds.length} candidate${candidateIds.length !== 1 ? 's' : ''} to this job.`,
+                    icon: 'success',
+                    confirmButtonText: 'View Candidates'
+                }).then(() => {
+                    // Refresh the page to show the new candidates
+                    window.location.reload();
+                });
+            } else {
+                Swal.fire({
+                    title: 'Error',
+                    text: data.message || 'Failed to assign candidates to job.',
+                    icon: 'error',
+                    confirmButtonText: 'OK'
+                });
+            }
+        })
+        .catch(error => {
+            console.error('Error assigning candidates:', error);
+            Swal.fire({
+                title: 'Error',
+                text: 'Failed to assign candidates. Please try again.',
+                icon: 'error',
+                confirmButtonText: 'OK'
+            });
+        });
+}
+
+// Make sure the function is available globally
+window.showSubmitCandidateModal = showSubmitCandidateModal;
+window.submitNewCandidate = submitNewCandidate;
+window.showExistingCandidateModal = showExistingCandidateModal;
+window.showCandidateSelectionModal = showCandidateSelectionModal;
+window.assignCandidatesToJob = assignCandidatesToJob;
+</script>
+
+<!-- Add the CSS for the modal styling -->
 <style>
-.quick-manage-form-container {
-    background: var(--card-color);
+/* Multi-select Candidate Styles */
+.candidate-option {
+    padding: 12px 15px;
+    margin: 8px 0;
+    border: 2px solid #e9ecef;
     border-radius: 8px;
-    padding: 25px;
-    border: 1px solid var(--border-color);
-    margin-bottom: 20px;
+    transition: all 0.3s ease;
+    background: white;
 }
 
-.quick-manage-heading {
-    margin-bottom: 25px;
-    border-bottom: 1px solid var(--border-color);
-    padding-bottom: 15px;
+.candidate-option:hover {
+    border-color: #17a2b8;
+    background: #f8f9fa;
 }
 
-.quick-manage-heading h2 {
-    color: var(--primary-color);
-    margin-bottom: 5px;
-    font-size: 1.8rem;
+.candidate-option:has(.candidate-checkbox:checked) {
+    border-color: #17a2b8;
+    background: #e7f7ff;
 }
 
-.form-field-container {
-    margin-top: 20px;
+.candidate-checkbox {
+    margin-right: 12px;
+    transform: scale(1.2);
 }
 
-.card {
-    border: 1px solid var(--border-color);
-    border-radius: 8px;
+.candidate-label {
+    cursor: pointer;
+    margin: 0;
+    flex: 1;
 }
 
-.card-header {
-    background: var(--light-bg) !important;
-    border-bottom: 1px solid var(--border-color);
-    padding: 15px 20px;
+.candidates-list {
+    scrollbar-width: thin;
+    scrollbar-color: #17a2b8 #f1f1f1;
 }
 
-.card-header h5 {
-    color: var(--font-color);
-    margin-bottom: 0;
-    font-weight: 600;
+.candidates-list::-webkit-scrollbar {
+    width: 6px;
 }
 
-.table th {
-    background: var(--light-bg);
-    border-bottom: 1px solid var(--border-color);
-    font-weight: 600;
-    color: var(--font-color);
+.candidates-list::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 3px;
 }
 
-.btn-group .btn {
-    border-radius: 4px;
-    margin-right: 5px;
+.candidates-list::-webkit-scrollbar-thumb {
+    background: #17a2b8;
+    border-radius: 3px;
 }
 
-.action-buttons .btn {
-    margin-right: 8px;
-    margin-bottom: 8px;
+.candidates-list::-webkit-scrollbar-thumb:hover {
+    background: #138496;
 }
 
-.breadcrumb {
-    background: transparent;
-    margin-bottom: 0;
-    padding: 0;
+.selected-count {
+    padding: 8px 12px;
+    background: #e7f7ff;
+    border-radius: 6px;
+    border-left: 4px solid #17a2b8;
 }
 
-.page-header {
-    padding: 20px 0;
-    margin-bottom: 20px;
+/* Submit Candidate Button Styles */
+.btn-success,
+.btn-primary {
+    position: relative;
+    z-index: 10;
+    cursor: pointer !important;
+    pointer-events: auto !important;
 }
 
-.page-header h1 {
-    color: var(--font-color);
-    margin-bottom: 5px;
-    font-size: 1.8rem;
+.btn-success:hover,
+.btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(40, 167, 69, 0.3);
 }
 
-.text-muted {
-    color: var(--muted-color) !important;
+/* Swal Modal Customizations */
+.swal2-popup {
+    border-radius: 15px !important;
 }
 
-/* Badge colors matching your theme */
-.badge-secondary {
-    background-color: #6c757d;
+.swal2-title {
+    color: #2C3639 !important;
+    font-weight: 700 !important;
 }
 
-.badge-info {
-    background-color: #17a2b8;
+.swal2-confirm {
+    border-radius: 8px !important;
+    font-weight: 600 !important;
 }
 
-.badge-warning {
-    background-color: #ffc107;
-    color: #212529;
-}
-
-.badge-primary {
-    background-color: #007bff;
-}
-
-.badge-success {
-    background-color: #28a745;
-}
-
-.badge-danger {
-    background-color: #dc3545;
+.swal2-cancel {
+    border-radius: 8px !important;
+    font-weight: 600 !important;
 }
 </style>

@@ -1337,211 +1337,148 @@ class Candidates extends CRUD_Controller
         }
 
     public function quick_manage_extra($id, $row): array
-        {
-            // Safely handle the row parameter
-            if (is_string($row) || $row === null || $row === false) {
-                $row = new stdClass();
-                $row->id = 0;
-                $row->job_id = null;
-                $row->agency_id = null;
-                $row->first_name = null;
-                $row->last_name = null;
-                $row->assigned_agent_id = null;
+    {
+        // Safely handle the row parameter
+        if (is_string($row) || $row === null || $row === false) {
+            $row = new stdClass();
+            $row->id = 0;
+            $row->job_id = null;
+            $row->agency_id = null;
+            $row->first_name = null;
+            $row->last_name = null;
+            $row->assigned_agent_id = null;
+        }
+
+        $agencies = $this->{$this->model}->get_agencies_all();
+        $jobs = $this->{$this->model}->get_jobs_all();
+        $pre_selected_job_id = $this->session->userdata('pre_selected_job_id');
+        
+        if (empty($id) && $pre_selected_job_id) {
+            $job = $this->{$this->model}->get_job_by_id($pre_selected_job_id);
+            if ($job) {
+                $row->job_id = $job->id;
+                $row->agency_id = $job->agency_id;
+                $this->session->unset_userdata('pre_selected_job_id');
             }
+        }
 
-            $agencies = $this->{$this->model}->get_agencies_all();
-            $jobs = $this->{$this->model}->get_jobs_all();
-            $pre_selected_job_id = $this->session->userdata('pre_selected_job_id');
-            
-            if (empty($id) && $pre_selected_job_id) {
-                $job = $this->{$this->model}->get_job_by_id($pre_selected_job_id);
-                if ($job) {
-                    $row->job_id = $job->id;
-                    $row->agency_id = $job->agency_id;
-                    $this->session->unset_userdata('pre_selected_job_id');
-                }
-            }
+        // Get existing data
+        $agencies = $this->{$this->model}->get_agencies_all();
+        $jobs = $this->{$this->model}->get_jobs_all();
 
-            // Get existing data
-            $agencies = $this->{$this->model}->get_agencies_all();
-            $jobs = $this->{$this->model}->get_jobs_all();
+        // FIX: Get the logged-in recruiter ID
+        $logged_in_recruiter_id = $this->get_recruiter_id();
+        
+        // For new candidates, auto-assign the logged-in recruiter
+        if (empty($id) && !empty($logged_in_recruiter_id)) {
+            $row->assigned_agent_id = $logged_in_recruiter_id;
+        }
 
-            // FIX: Get the logged-in recruiter ID
-            $logged_in_recruiter_id = $this->get_recruiter_id();
-            
-            // For new candidates, auto-assign the logged-in recruiter
-            if (empty($id) && !empty($logged_in_recruiter_id)) {
-                $row->assigned_agent_id = $logged_in_recruiter_id;
-            }
+        // Get all recruiters for the dropdown (for existing candidates)
+        $agents = $this->get_all_recruiters();
 
-            // Get all recruiters for the dropdown (for existing candidates)
-            $agents = $this->get_all_recruiters();
+        $all_additional_agency_ids = !empty($id) ? $this->{$this->model}->get_candidate_additional_agencies($id) : [];
+        $all_additional_job_ids = !empty($id) ? $this->{$this->model}->get_candidate_additional_jobs($id) : [];
+        
+        if (empty($all_additional_agency_ids) && !empty($row->agency_id)) {
+            $all_additional_agency_ids[] = $row->agency_id;
+        }
+        if (empty($all_additional_job_ids) && !empty($row->job_id)) {
+            $all_additional_job_ids[] = $row->job_id;
+        }
 
-            $all_additional_agency_ids = !empty($id) ? $this->{$this->model}->get_candidate_additional_agencies($id) : [];
-            $all_additional_job_ids = !empty($id) ? $this->{$this->model}->get_candidate_additional_jobs($id) : [];
-            
-            if (empty($all_additional_agency_ids) && !empty($row->agency_id)) {
-                $all_additional_agency_ids[] = $row->agency_id;
-            }
-            if (empty($all_additional_job_ids) && !empty($row->job_id)) {
-                $all_additional_job_ids[] = $row->job_id;
-            }
+        $additional_agency_options = $this->{$this->model}->get_additional_agency_options();
+        $additional_job_options = $this->{$this->model}->get_additional_job_options();
 
-            $additional_agency_options = $this->{$this->model}->get_additional_agency_options();
-            $additional_job_options = $this->{$this->model}->get_additional_job_options();
-
-            $agency_options_array = [];
-            if (!empty($additional_agency_options)) {
-                foreach ($additional_agency_options as $agency) {
-                    $agency_options_array[] = [
-                        'id' => $agency->id,
-                        'name' => $agency->name
-                    ];
-                }
-            }
-
-            $job_options_array = [];
-            if (!empty($additional_job_options)) {
-                foreach ($additional_job_options as $job) {
-                    $job_options_array[] = [
-                        'id' => $job->id,
-                        'name' => $job->name . ' (' . $job->reference_number . ')'
-                    ];
-                }
-            }
-
-            // Check for pending documents requests
-            $documents_request_data = $this->check_pending_documents_request($id);
-            $force_required_tab = $this->input->get('tab') === 'required';
-
-            if ($force_required_tab && !$documents_request_data['has_request']) {
-                $documents_request_data = [
-                    'has_request' => true,
-                    'notes' => 'Additional documents are required for this candidate.',
-                    'notification_id' => null
+        $agency_options_array = [];
+        if (!empty($additional_agency_options)) {
+            foreach ($additional_agency_options as $agency) {
+                $agency_options_array[] = [
+                    'id' => $agency->id,
+                    'name' => $agency->name
                 ];
             }
-
-            return [
-                'agencies_all' => $agencies,
-                'jobs_all' => $jobs,
-                'agents_all' => $agents,
-                'additional_agency_options' => $agency_options_array,
-                'additional_job_options' => $job_options_array,
-                'additional_agency_ids' => $all_additional_agency_ids,
-                'additional_job_ids' => $all_additional_job_ids,
-                'primary_agency_id' => $row->agency_id ?? null,
-                'primary_job_id' => $row->job_id ?? null,
-                'has_pending_documents_request' => $documents_request_data['has_request'],
-                'documents_request_notes' => $documents_request_data['notes'],
-                'pending_notification_id' => $documents_request_data['notification_id'],
-                'force_required_tab' => $force_required_tab,
-                // ADD THIS: Pass the logged-in recruiter ID to the view
-                'logged_in_recruiter_id' => $logged_in_recruiter_id,
-                'logged_in_recruiter' => $this->get_logged_in_recruiter_details($logged_in_recruiter_id),
-                
-
-                
-            ];
-            // Temporary debug logging
-       
         }
+
+        $job_options_array = [];
+        if (!empty($additional_job_options)) {
+            foreach ($additional_job_options as $job) {
+                $job_options_array[] = [
+                    'id' => $job->id,
+                    'name' => $job->name . ' (' . $job->reference_number . ')'
+                ];
+            }
+        }
+
+        // Check for pending documents requests
+        $documents_request_data = $this->check_pending_documents_request($id);
+        $force_required_tab = $this->input->get('tab') === 'required';
+
+        if ($force_required_tab && !$documents_request_data['has_request']) {
+            $documents_request_data = [
+                'has_request' => true,
+                'notes' => 'Additional documents are required for this candidate.',
+                'notification_id' => null
+            ];
+        }
+
+        return [
+            'agencies_all' => $agencies,
+            'jobs_all' => $jobs,
+            'agents_all' => $agents,
+            'additional_agency_options' => $agency_options_array,
+            'additional_job_options' => $job_options_array,
+            'additional_agency_ids' => $all_additional_agency_ids,
+            'additional_job_ids' => $all_additional_job_ids,
+            'primary_agency_id' => $row->agency_id ?? null,
+            'primary_job_id' => $row->job_id ?? null,
+            'has_pending_documents_request' => $documents_request_data['has_request'],
+            'documents_request_notes' => $documents_request_data['notes'],
+            'pending_notification_id' => $documents_request_data['notification_id'],
+            'force_required_tab' => $force_required_tab,
+            // ADD THIS: Pass the logged-in recruiter ID to the view
+            'logged_in_recruiter_id' => $logged_in_recruiter_id,
+            'logged_in_recruiter' => $this->get_logged_in_recruiter_details($logged_in_recruiter_id),
+            
+
+            
+        ];
+        // Temporary debug logging
+    
+    }
 
     //get logged-in recruiter details
     private function get_logged_in_recruiter_details($recruiter_id)
-        {
-            if (empty($recruiter_id)) {
-                return null;
-            }
-            
-            return $this->db->select('id, first_name, last_name, email')
-                        ->from('recruiters')
-                        ->where('id', $recruiter_id)
-                        ->where('enabled', 1)
-                        ->where('removed', 0)
-                        ->get()
-                        ->row();
+    {
+        if (empty($recruiter_id)) {
+            return null;
         }
+        
+        return $this->db->select('id, first_name, last_name, email')
+                    ->from('recruiters')
+                    ->where('id', $recruiter_id)
+                    ->where('enabled', 1)
+                    ->where('removed', 0)
+                    ->get()
+                    ->row();
+    }
 
     // Add this method to get ALL recruiters
     private function get_all_recruiters()
-        {
-            return $this->db->select('id, first_name, last_name, email, agency_id')
-                        ->from('recruiters')
-                        ->where('enabled', 1)
-                        ->where('removed', 0)
-                        ->order_by('first_name', 'ASC')
-                        ->get()
-                        ->result();
-        }
+    {
+        return $this->db->select('id, first_name, last_name, email, agency_id')
+                    ->from('recruiters')
+                    ->where('enabled', 1)
+                    ->where('removed', 0)
+                    ->order_by('first_name', 'ASC')
+                    ->get()
+                    ->result();
+    }
 
     private function check_pending_documents_request($candidate_id)
-        {
-            // If it's a new candidate (id = 0), no documents request
-            if (empty($candidate_id) || $candidate_id == 0) {
-                return [
-                    'has_request' => false,
-                    'notes' => '',
-                    'notification_id' => null
-                ];
-            }
-
-            $this->load->model('recruiter/Model_notifications');
-            
-            $recruiter_id = $this->get_recruiter_id();
-            if (empty($recruiter_id)) {
-                return [
-                    'has_request' => false,
-                    'notes' => '',
-                    'notification_id' => null
-                ];
-            }
-
-            // Get all notifications for this recruiter
-            $notifications = $this->Model_notifications->get_hm_decision_notifications($recruiter_id, 100);
-            
-
-            foreach ($notifications as $notification) {
-                
-                if ($notification->related_entity_id == $candidate_id) {
-                    $metadata = !empty($notification->metadata) ? json_decode($notification->metadata, true) : [];
-                    
-                    
-                    // Check if this is a documents request - look for specific indicators
-                    $is_documents_request = false;
-                    $required_documents = '';
-                    
-                    // Check multiple indicators for documents request
-                    if (isset($metadata['notification_type']) && $metadata['notification_type'] === 'documents_request') {
-                        $is_documents_request = true;
-                        $required_documents = $metadata['required_documents'] ?? $metadata['notes'] ?? 'Additional documents are required';
-                    } 
-                    elseif (isset($metadata['decision']) && $metadata['decision'] === 'documents_required') {
-                        $is_documents_request = true;
-                        $required_documents = $metadata['required_documents'] ?? $metadata['notes'] ?? 'Additional documents are required';
-                    }
-                    elseif (strpos($notification->title, 'Additional Documents') !== false || 
-                            strpos($notification->title, 'Documents Required') !== false ||
-                            strpos($notification->title, 'Documents Requested') !== false) {
-                        $is_documents_request = true;
-                        $required_documents = $metadata['required_documents'] ?? $metadata['notes'] ?? 'Additional documents are required';
-                    }
-                    elseif (isset($metadata['required_documents']) && !empty($metadata['required_documents'])) {
-                        $is_documents_request = true;
-                        $required_documents = $metadata['required_documents'];
-                    }
-                    
-                    // For testing, let's be less strict about the "is_read" check
-                    if ($is_documents_request) {
-                        return [
-                            'has_request' => true,
-                            'notes' => $required_documents,
-                            'notification_id' => $notification->id
-                        ];
-                    }
-                }
-            }
-            
+    {
+        // If it's a new candidate (id = 0), no documents request
+        if (empty($candidate_id) || $candidate_id == 0) {
             return [
                 'has_request' => false,
                 'notes' => '',
@@ -1549,12 +1486,75 @@ class Candidates extends CRUD_Controller
             ];
         }
 
-    public function is_unique_email(string $email): bool
-        {
-            $id = $this->input->post('id');
-            $this->form_validation->set_message('is_unique_email', lang('email_exists'));
-            return $this->{$this->model}->is_unique_email($email, $id);
+        $this->load->model('recruiter/Model_notifications');
+        
+        $recruiter_id = $this->get_recruiter_id();
+        if (empty($recruiter_id)) {
+            return [
+                'has_request' => false,
+                'notes' => '',
+                'notification_id' => null
+            ];
         }
+
+        // Get all notifications for this recruiter
+        $notifications = $this->Model_notifications->get_hm_decision_notifications($recruiter_id, 100);
+        
+
+        foreach ($notifications as $notification) {
+            
+            if ($notification->related_entity_id == $candidate_id) {
+                $metadata = !empty($notification->metadata) ? json_decode($notification->metadata, true) : [];
+                
+                
+                // Check if this is a documents request - look for specific indicators
+                $is_documents_request = false;
+                $required_documents = '';
+                
+                // Check multiple indicators for documents request
+                if (isset($metadata['notification_type']) && $metadata['notification_type'] === 'documents_request') {
+                    $is_documents_request = true;
+                    $required_documents = $metadata['required_documents'] ?? $metadata['notes'] ?? 'Additional documents are required';
+                } 
+                elseif (isset($metadata['decision']) && $metadata['decision'] === 'documents_required') {
+                    $is_documents_request = true;
+                    $required_documents = $metadata['required_documents'] ?? $metadata['notes'] ?? 'Additional documents are required';
+                }
+                elseif (strpos($notification->title, 'Additional Documents') !== false || 
+                        strpos($notification->title, 'Documents Required') !== false ||
+                        strpos($notification->title, 'Documents Requested') !== false) {
+                    $is_documents_request = true;
+                    $required_documents = $metadata['required_documents'] ?? $metadata['notes'] ?? 'Additional documents are required';
+                }
+                elseif (isset($metadata['required_documents']) && !empty($metadata['required_documents'])) {
+                    $is_documents_request = true;
+                    $required_documents = $metadata['required_documents'];
+                }
+                
+                // For testing, let's be less strict about the "is_read" check
+                if ($is_documents_request) {
+                    return [
+                        'has_request' => true,
+                        'notes' => $required_documents,
+                        'notification_id' => $notification->id
+                    ];
+                }
+            }
+        }
+        
+        return [
+            'has_request' => false,
+            'notes' => '',
+            'notification_id' => null
+        ];
+    }
+
+    public function is_unique_email(string $email): bool
+    {
+        $id = $this->input->post('id');
+        $this->form_validation->set_message('is_unique_email', lang('email_exists'));
+        return $this->{$this->model}->is_unique_email($email, $id);
+    }
 
 //     public function create_extra_params(): array
 // {
@@ -1577,40 +1577,41 @@ class Candidates extends CRUD_Controller
 // }
 
     public function create_extra_params(): array
-        {
-            $additional_agencies = $this->input->post('additional_agency_ids') ?: [];
-            $additional_jobs = $this->input->post('additional_job_ids') ?: [];
-            
-            // CHANGED: Handle cases where no agencies/jobs are selected
-            $primary_agency_id = !empty($additional_agencies) ? $additional_agencies[0] : null;
-            $primary_job_id = !empty($additional_jobs) ? $additional_jobs[0] : null;
+    {
+        $additional_agencies = $this->input->post('additional_agency_ids') ?: [];
+        $additional_jobs = $this->input->post('additional_job_ids') ?: [];
+        
+        // CHANGED: Handle cases where no agencies/jobs are selected
+        $primary_agency_id = !empty($additional_agencies) ? $additional_agencies[0] : null;
+        $primary_job_id = !empty($additional_jobs) ? $additional_jobs[0] : null;
 
-            // Get the logged-in recruiter ID
-            $recruiter_id = $this->get_recruiter_id();
+        // Get the logged-in recruiter ID
+        $recruiter_id = $this->get_recruiter_id();
 
-            return [
-                'application_date' => $this->input->post('application_date') ?: date('Y-m-d H:i:s'),
-                'enabled' => 1,
-                'agency_id' => $primary_agency_id, // Can be null
-                'job_id' => $primary_job_id, // Can be null
-                'assigned_agent_id' => $recruiter_id, // Auto-assign to the logged-in recruiter
-            ];
-        }
+        return [
+            'application_date' => $this->input->post('application_date') ?: date('Y-m-d H:i:s'),
+            'enabled' => 1,
+            'agency_id' => $primary_agency_id, // Can be null
+            'job_id' => $primary_job_id, // Can be null
+            'assigned_agent_id' => $recruiter_id, // Auto-assign to the logged-in recruiter
+        ];
+    }
 
+    
     public function update_extra_params($id): array
-        {
-            $additional_agencies = $this->input->post('additional_agency_ids') ?: [];
-            $additional_jobs = $this->input->post('additional_job_ids') ?: [];
-            
-            $primary_agency_id = !empty($additional_agencies) ? $additional_agencies[0] : null;
-            $primary_job_id = !empty($additional_jobs) ? $additional_jobs[0] : null;
+    {
+        $additional_agencies = $this->input->post('additional_agency_ids') ?: [];
+        $additional_jobs = $this->input->post('additional_job_ids') ?: [];
+        
+        $primary_agency_id = !empty($additional_agencies) ? $additional_agencies[0] : null;
+        $primary_job_id = !empty($additional_jobs) ? $additional_jobs[0] : null;
 
-            return [
-                'agency_id' => $primary_agency_id,
-                'job_id' => $primary_job_id,
-                'updated_at' => date('Y-m-d H:i:s')
-            ];
-        }
+        return [
+            'agency_id' => $primary_agency_id,
+            'job_id' => $primary_job_id,
+            'updated_at' => date('Y-m-d H:i:s')
+        ];
+    }
 
     // private function handle_pivot_tables($candidate_id)
     // {
@@ -1648,149 +1649,162 @@ class Candidates extends CRUD_Controller
     // }
 
     private function handle_pivot_tables($candidate_id)
-        {
-            // Handle agencies - only if agencies were selected
-            $additional_agencies = $this->input->post('additional_agency_ids') ?: [];
-            $this->db->where('candidate_id', $candidate_id)->delete('candidate_agencies');
-            
-            if (!empty($additional_agencies)) {
-                $agency_data = [];
-                foreach ($additional_agencies as $agency_id) {
-                    $agency_data[] = [
-                        'candidate_id' => $candidate_id,
-                        'agency_id' => $agency_id,
-                        'created_at' => date('Y-m-d H:i:s')
-                    ];
-                }
-                $this->db->insert_batch('candidate_agencies', $agency_data);
+    {
+        // Handle agencies - only if agencies were selected
+        $additional_agencies = $this->input->post('additional_agency_ids') ?: [];
+        $this->db->where('candidate_id', $candidate_id)->delete('candidate_agencies');
+        
+        if (!empty($additional_agencies)) {
+            $agency_data = [];
+            foreach ($additional_agencies as $agency_id) {
+                $agency_data[] = [
+                    'candidate_id' => $candidate_id,
+                    'agency_id' => $agency_id,
+                    'created_at' => date('Y-m-d H:i:s')
+                ];
             }
-
-            // Handle jobs - only if jobs were selected
-            $additional_jobs = $this->input->post('additional_job_ids') ?: [];
-            $this->db->where('candidate_id', $candidate_id)->delete('candidate_jobs');
-            
-            if (!empty($additional_jobs)) {
-                $job_data = [];
-                foreach ($additional_jobs as $job_id) {
-                    $job_data[] = [
-                        'candidate_id' => $candidate_id,
-                        'job_id' => $job_id,
-                        'created_at' => date('Y-m-d H:i:s')
-                    ];
-                }
-                $this->db->insert_batch('candidate_jobs', $job_data);
-            }
+            $this->db->insert_batch('candidate_agencies', $agency_data);
         }
 
-    public function add($job_id = null)
-        {
-            if (empty($job_id)) {
-                $job_id = $this->input->get('job_id');
+        // Handle jobs - only if jobs were selected
+        $additional_jobs = $this->input->post('additional_job_ids') ?: [];
+        $this->db->where('candidate_id', $candidate_id)->delete('candidate_jobs');
+        
+        if (!empty($additional_jobs)) {
+            $job_data = [];
+            foreach ($additional_jobs as $job_id) {
+                $job_data[] = [
+                    'candidate_id' => $candidate_id,
+                    'job_id' => $job_id,
+                    'created_at' => date('Y-m-d H:i:s')
+                ];
             }
-            
-            if ($job_id && is_numeric($job_id)) {
-                $this->session->set_userdata('pre_selected_job_id', $job_id);
-            }
-            
-            parent::add();
+            $this->db->insert_batch('candidate_jobs', $job_data);
         }
+    }
 
-    public function get_agents($agency_id)
-        {
-            $agents = $this->{$this->model}->get_agency_agents_by_agency((int)$agency_id);
-            echo json_encode($agents);
+   
+        public function add($job_id = null)
+    {
+        if (empty($job_id)) {
+            $job_id = $this->input->get('job_id');
         }
+        
+        if ($job_id && is_numeric($job_id)) {
+            $this->session->set_userdata('pre_selected_job_id', $job_id);
+        }
+        
+        parent::add();
+    }
+
+   
+        public function get_agents($agency_id)
+    {
+        $agents = $this->{$this->model}->get_agency_agents_by_agency((int)$agency_id);
+        echo json_encode($agents);
+    }
 
 
+    
     public function test_quick_manage_data($candidate_id)
-        {
-            // Simulate what happens in quick_manage_extra
-            $row = $this->{$this->model}->get_by_id($candidate_id);
-            
-            echo "<h3>Testing Quick Manage Data for Candidate ID: " . $candidate_id . "</h3>";
-            
-            if (!$row) {
-                echo "<p style='color: red;'>Candidate not found!</p>";
-                return;
-            }
-            
-            echo "<p>Candidate Name: " . $row->first_name . " " . $row->last_name . "</p>";
-            
-            // Test the documents request check
-            $documents_data = $this->check_pending_documents_request($candidate_id);
-            
-            echo "<h4>Documents Request Data:</h4>";
-            echo "<pre>" . print_r($documents_data, true) . "</pre>";
-            
-            echo "<h4>Quick Manage Extra Result:</h4>";
-            $quick_manage_data = $this->quick_manage_extra($candidate_id, $row);
-            
-            echo "<pre>" . print_r([
-                'has_pending_documents_request' => $quick_manage_data['has_pending_documents_request'],
-                'documents_request_notes' => $quick_manage_data['documents_request_notes'],
-                'pending_notification_id' => $quick_manage_data['pending_notification_id']
-            ], true) . "</pre>";
-            
-            echo "<h4>View the candidate:</h4>";
-            echo "<a href='" . site_url('recruiter/candidates/view/' . $candidate_id . '?tab=required') . "' target='_blank'>View Candidate with Required Documents Tab</a>";
+    {
+        // Simulate what happens in quick_manage_extra
+        $row = $this->{$this->model}->get_by_id($candidate_id);
+        
+        echo "<h3>Testing Quick Manage Data for Candidate ID: " . $candidate_id . "</h3>";
+        
+        if (!$row) {
+            echo "<p style='color: red;'>Candidate not found!</p>";
+            return;
         }
+        
+        echo "<p>Candidate Name: " . $row->first_name . " " . $row->last_name . "</p>";
+        
+        // Test the documents request check
+        $documents_data = $this->check_pending_documents_request($candidate_id);
+        
+        echo "<h4>Documents Request Data:</h4>";
+        echo "<pre>" . print_r($documents_data, true) . "</pre>";
+        
+        echo "<h4>Quick Manage Extra Result:</h4>";
+        $quick_manage_data = $this->quick_manage_extra($candidate_id, $row);
+        
+        echo "<pre>" . print_r([
+            'has_pending_documents_request' => $quick_manage_data['has_pending_documents_request'],
+            'documents_request_notes' => $quick_manage_data['documents_request_notes'],
+            'pending_notification_id' => $quick_manage_data['pending_notification_id']
+        ], true) . "</pre>";
+        
+        echo "<h4>View the candidate:</h4>";
+        echo "<a href='" . site_url('recruiter/candidates/view/' . $candidate_id . '?tab=required') . "' target='_blank'>View Candidate with Required Documents Tab</a>";
+    }
 
-    public function for_job($job_id)
-        {
-            // Verify the job exists
-            $this->load->model('recruiter/model_jobs');
-            
-            // Get job with proper joins to include industry name
-            $this->db->select('mod_jobs.*, agencies.name as agency_name, mod_industries.name as industry_name');
-            $this->db->from('mod_jobs');
-            $this->db->join('agencies', 'agencies.id = mod_jobs.agency_id', 'left');
-            $this->db->join('mod_industries', 'mod_industries.id = mod_jobs.industry_id', 'left');
-            $this->db->where('mod_jobs.id', $job_id);
-            $this->db->where('mod_jobs.removed', 0);
-            
-            $job = $this->db->get()->row();
-            
-            if (!$job) {
-                show_404();
-            }
-            
-            // REMOVED: Agency restriction check
-            // All recruiters can now access any job
-            
-            // Get candidates for this specific job
-            $candidates_query = $this->{$this->model}->get_candidates_by_job($job_id);
-            $candidates = $candidates_query->result();
-            
-            // Set breadcrumbs
-            $this->breadcrumbs = array(
-                array(
-                    'title' => 'Jobs',
-                    'url'   => site_url('recruiter/jobs')
-                ),
-                array(
-                    'title' => $job->name,
-                    'url'   => site_url('recruiter/jobs/view/' . $job_id)
-                ),
-                array(
-                    'title' => 'Candidates',
-                    'url'   => '#'
-                ),
-            );
-            
-            // Load the view
-            $this->load->view($this->folder . '/view_header');
-            $this->load->view('recruiter/candidates/view_job_candidates', array(
-                'job' => $job,
-                'candidates' => $candidates,
-                'heading' => 'Candidates for: ' . $job->name
-            ));
-            $this->load->view($this->folder . '/view_footer');
-        }
+// In application/controllers/recruiter/Candidates.php
+public function for_job($job_id)
+{
+    $recruiter_id = $this->get_current_recruiter_id();
+    
+    log_message('debug', 'Candidates::for_job() called with job_id: ' . $job_id);
+    log_message('debug', 'Recruiter ID: ' . $recruiter_id);
+    
+    // Get job details - ALL recruiters can see ALL jobs
+    $this->db->select('mod_jobs.*, agencies.name as agency_name');
+    $this->db->from('mod_jobs');
+    $this->db->join('agencies', 'agencies.id = mod_jobs.agency_id', 'left');
+    $this->db->where('mod_jobs.id', $job_id);
+    
+    $job = $this->db->get()->row();
+    
+    if (!$job) {
+        log_message('error', 'Job not found: ' . $job_id);
+        show_404();
+    }
 
-    /**
+    log_message('debug', 'Job found: ' . $job->name);
+    
+    // Load the jobs model
+    $this->load->model('recruiter/model_jobs');
+    
+    // Get ONLY this recruiter's candidates for this job
+    $candidates = $this->model_jobs->get_candidates_for_job($job_id, $recruiter_id);
+    
+    log_message('debug', 'Found ' . count($candidates) . ' candidates for job ' . $job_id . ' for recruiter ' . $recruiter_id);
+    
+    $data = [
+        'candidates' => $candidates,
+        'job' => $job,
+        'total_candidates' => count($candidates),
+        'current_recruiter_id' => $recruiter_id,
+        'job_id' => $job_id // Pass job_id to the view
+    ];
+
+    // Set breadcrumbs
+    $this->breadcrumbs = array(
+        array(
+            'title' => 'Jobs',
+            'url' => site_url('recruiter/jobs'),
+        ),
+        array(
+            'title' => $job->name,
+            'url' => site_url('recruiter/jobs/view/' . $job->id),
+        ),
+        array(
+            'title' => 'My Candidates (' . count($candidates) . ')',
+            'url' => '#',
+        ),
+    );
+
+    $this->load->view($this->folder . '/view_header');
+    $this->load->view('recruiter/candidates/view_job_candidates', $data);
+    $this->load->view($this->folder . '/view_footer');
+}
+    
+        /**
      * Get the logged-in recruiter's agency ID
      */
-    private function get_user_agency_id()
+    
+    
+        private function get_user_agency_id()
         {
             $login_data = $this->session->userdata('login');
             
@@ -1801,10 +1815,13 @@ class Candidates extends CRUD_Controller
             
             return null;
         }
-    /**
+    
+        /**
      * Check if candidate already exists for email and job
      */
-    private function check_existing_candidate($email, $job_id)
+
+    
+        private function check_existing_candidate($email, $job_id)
         {
             
             $this->db->where('email', $email);
@@ -1817,7 +1834,8 @@ class Candidates extends CRUD_Controller
             return $result;
         }
 
-    private function update_existing_candidate($candidate_id, $data)
+    
+        private function update_existing_candidate($candidate_id, $data)
         {
             
             // Remove fields that shouldn't be updated
@@ -1872,9 +1890,11 @@ class Candidates extends CRUD_Controller
             return false;
         }
 
+
     /**
      * Override the CRUD ajax_get_results to ensure filters are passed - FIXED
      */
+
     public function ajax_get_results()
         {
             
@@ -1889,9 +1909,12 @@ class Candidates extends CRUD_Controller
             parent::ajax_get_results();
         }
 
-    /**
+
+    
+        /**
      * Override the ajax_apply_filters to ensure it works
      */
+    
     public function ajax_apply_filters()
         {
           
@@ -1904,7 +1927,8 @@ class Candidates extends CRUD_Controller
             
         }
 
-    /**
+    
+        /**
      * Get filters from CRUD session - FIXED VERSION
      */
     private function get_filters_from_session()
@@ -1988,5 +2012,115 @@ class Candidates extends CRUD_Controller
         parent::ajax_pager_fetch_batch($batch, $section, $template);
     }
 
+
+
+    /**
+     * AJAX method to get candidates for job assignment
+     */
+    public function ajax_get_candidates_for_job()
+    {
+        if (!$this->input->is_ajax_request()) {
+            show_404();
+        }
+
+        $job_id = $this->input->post('job_id');
+        $recruiter_id = $this->get_current_recruiter_id();
+
+        if (!$recruiter_id) {
+            echo json_encode([
+                'success' => false,
+                'message' => 'Recruiter not found'
+            ]);
+            return;
+        }
+
+        // Get candidates that belong to this recruiter and are not assigned to this job
+        $this->db->select('id, first_name, last_name, reference_number, email');
+        $this->db->from('candidates');
+        $this->db->where('recruiter_id', $recruiter_id);
+        $this->db->where('enabled', 1);
+        $this->db->where('removed', 0);
+        
+        // Exclude candidates already assigned to this job
+        $this->db->group_start();
+        $this->db->where('job_id !=', $job_id);
+        $this->db->or_where('job_id IS NULL');
+        $this->db->group_end();
+        
+        $this->db->order_by('first_name', 'ASC');
+        
+        $query = $this->db->get();
+        $candidates = $query->result_array();
+
+        echo json_encode([
+            'success' => true,
+            'candidates' => $candidates
+        ]);
+    }
+
+    /**
+     * AJAX method to assign candidate to job
+     */
+    public function ajax_assign_candidate_to_job()
+    {
+        if (!$this->input->is_ajax_request()) {
+            show_404();
+        }
+
+        $candidate_id = $this->input->post('candidate_id');
+        $job_id = $this->input->post('job_id');
+        $recruiter_id = $this->get_current_recruiter_id();
+
+        if (!$recruiter_id) {
+            echo json_encode([
+                'success' => false,
+                'message' => 'Recruiter not found'
+            ]);
+            return;
+        }
+
+        // Verify candidate belongs to this recruiter
+        $this->db->select('id');
+        $this->db->from('candidates');
+        $this->db->where('id', $candidate_id);
+        $this->db->where('recruiter_id', $recruiter_id);
+        $candidate_query = $this->db->get();
+
+        if ($candidate_query->num_rows() === 0) {
+            echo json_encode([
+                'success' => false,
+                'message' => 'Candidate not found or access denied'
+            ]);
+            return;
+        }
+
+        // Update candidate's job assignment
+        $this->db->where('id', $candidate_id);
+        $result = $this->db->update('candidates', [
+            'job_id' => $job_id,
+            'updated_at' => date('Y-m-d H:i:s')
+        ]);
+
+        if ($result) {
+            echo json_encode([
+                'success' => true,
+                'message' => 'Candidate assigned to job successfully'
+            ]);
+        } else {
+            echo json_encode([
+                'success' => false,
+                'message' => 'Failed to assign candidate to job'
+            ]);
+        }
+    }
+
+    /**
+     * Get current recruiter ID
+     */
+    private function get_current_recruiter_id()
+    {
+        $login_data = $this->session->userdata('login');
+        return !empty($login_data['recruiter']['id']) ? $login_data['recruiter']['id'] : null;
+    }
 
 }

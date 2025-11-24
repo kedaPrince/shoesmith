@@ -217,7 +217,26 @@ class Model_candidates extends CRUD_Model
 
         return true;
     }
-
+    /**
+     * Get candidates by job ID with recruiter filtering
+     */
+    public function get_candidates_by_job($job_id, $recruiter_id = null)
+    {
+        $this->db->select('candidates.*');
+        $this->db->from('candidates');
+        $this->db->where('candidates.job_id', $job_id);
+        $this->db->where('candidates.enabled', 1);
+        $this->db->where('candidates.removed', 0);
+        
+        // Filter by recruiter if provided
+        if ($recruiter_id) {
+            $this->db->where('candidates.assigned_agent_id', $recruiter_id);
+        }
+        
+        $this->db->order_by('candidates.first_name', 'ASC');
+        
+        return $this->db->get();
+    }
     public function get_id_for_slug($slug, $table = false) {
         $this->db->where('removed', 0);
         $this->db->where('slug', $slug);

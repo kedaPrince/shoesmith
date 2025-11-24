@@ -147,11 +147,20 @@ private function setup_listing()
                 return $agency;
             }
         ),
+
         'candidate_count' => array(
-            'label' => 'Candidates',
+            'label' => 'My Candidates',
             'sort' => true,
             'function' => function($str, $row) {
-                $count = isset($row->candidate_count) ? $row->candidate_count : 0;
+                // Load the model if not already loaded
+                $this->load->model('recruiter/model_jobs');
+                
+                // Get current recruiter ID
+                $recruiter_id = $this->get_current_recruiter_id();
+                
+                // Use the new method to count ONLY this recruiter's candidates
+                $count = $this->model_jobs->get_candidate_count_for_job($row->id, $recruiter_id);
+                
                 $url = site_url('recruiter/candidates/for_job/' . $row->id);
                 $is_expired = $this->is_job_expired($row);
                 
@@ -159,7 +168,7 @@ private function setup_listing()
                     if ($is_expired) {
                         return '<span class="btn btn-sm btn-secondary expired-job-btn" title="Job expired - view only">' . $count . '</span>';
                     }
-                    return '<a href="' . $url . '" class="btn btn-sm btn-info" title="View ' . $count . ' Candidates">' . $count . '</a>';
+                    return '<a href="' . $url . '" class="btn btn-sm btn-info" title="View my ' . $count . ' Candidates">' . $count . '</a>';
                 } else {
                     if ($is_expired) {
                         return '<span class="text-muted expired-job-text">0</span>';
@@ -251,7 +260,7 @@ private function setup_listing()
 
     public function index()
     {
-   
+  
         $this->breadcrumbs = array(
             array(
                 'title' => lang($this->pageName . '_heading'),
@@ -266,6 +275,96 @@ private function setup_listing()
         ));
         $this->load->view($this->folder . '/view_footer');
     }
+
+
+public function ajax_assign_candidate_to_job()
+{
+    if (!$this->input->is_ajax_request()) {
+        show_404();
+    }
+
+    $candidate_ids = $this->input->post('candidate_ids');
+    $job_id = $this->input->post('job_id');
+    $recruiter_id = $this->get_current_recruiter_id();
+
+    if (!$recruiter_id) {
+        echo json_encode([
+            'success' => false,
+            'message' => 'Recruiter not found'
+        ]);
+        return;
+    }
+
+    if (empty($candidate_ids)) {
+        echo json_encode([
+            'success' => false,
+            'message' => 'No candidates selected'
+        ]);
+        return;
+    }
+
+    // Ensure candidate_ids is an array
+    if (!is_array($candidate_ids)) {
+        $candidate_ids = [$candidate_ids];
+    }
+
+    $success_count = 0;
+    $errors = [];
+
+    foreach ($candidate_ids as $candidate_id) {
+        // Check if assignment already exists
+        $existing = $this->db->get_where('candidate_job_assignments', [
+            'candidate_id' => $candidate_id,
+            'job_id' => $job_id
+        ])->row();
+
+        if ($existing) {
+            $errors[] = "Candidate ID $candidate_id is already assigned to this job";
+            continue;
+        }
+
+        // Verify candidate exists and belongs to recruiter
+        $candidate = $this->db->get_where('candidates', [
+            'id' => $candidate_id,
+            'assigned_agent_id' => $recruiter_id,
+            'enabled' => 1,
+            'removed' => 0
+        ])->row();
+
+        if (!$candidate) {
+            $errors[] = "Candidate ID $candidate_id not found or not accessible";
+            continue;
+        }
+
+        // Create new assignment
+        $assignment_data = [
+            'candidate_id' => $candidate_id,
+            'job_id' => $job_id,
+            'assigned_agent_id' => $recruiter_id,
+            'assigned_at' => date('Y-m-d H:i:s'),
+            'status' => 'submitted'
+        ];
+
+        if ($this->db->insert('candidate_job_assignments', $assignment_data)) {
+            $success_count++;
+        } else {
+            $errors[] = "Failed to assign candidate ID $candidate_id";
+        }
+    }
+
+    $response = [
+        'success' => $success_count > 0,
+        'message' => "Successfully assigned $success_count candidate(s) to the job",
+        'assigned_count' => $success_count
+    ];
+
+    if (!empty($errors)) {
+        $response['errors'] = $errors;
+    }
+
+    echo json_encode($response);
+}
+
 
     /**
  * Check if a job has expired based on closing date
@@ -339,52 +438,140 @@ public function get_all($limit = null, $offset = null, $sort_by = null, $sort_or
      * View job details - Only method recruiters can access
      */
 
-    public function view($id)
-    {
-        $user_agency_id = $this->get_user_agency_id();
-        
-        // Get the job with agency filtering and proper joins
-        $this->db->select('mod_jobs.*, agencies.name as agency_name, mod_industries.name as industry_name');
-        $this->db->from('mod_jobs');
-        $this->db->join('agencies', 'agencies.id = mod_jobs.agency_id', 'left');
-        $this->db->join('mod_industries', 'mod_industries.id = mod_jobs.industry_id', 'left');
-        $this->db->where('mod_jobs.id', $id);
-        
-        if ($user_agency_id) {
-            $this->db->where('mod_jobs.agency_id', $user_agency_id);
-        }
-        
-        $job = $this->db->get()->row();
-        
-        if (!$job) {
-            show_404();
-        }
-
-        // Load additional data
-        $data['job'] = $job;
-        $data['skills'] = !empty($job->skills) ? explode(',', $job->skills) : [];
-        $data['qualifications'] = !empty($job->qualifications) ? explode(',', $job->qualifications) : [];
-        $data['skill_options'] = null;
-        $data['qualification_options'] = null;
-        $data['updated_fields'] = $this->get_updated_fields_for_job($id);
-
-        // Set breadcrumbs
-        $this->breadcrumbs = array(
-            array(
-                'title' => lang($this->pageName . '_heading'),
-                'url' => redir($this->pageName, true),
-            ),
-            array(
-                'title' => $job->name,
-                'url' => '#',
-            ),
-        );
-
-        // Load the view
-        $this->load->view($this->folder . '/view_header');
-        $this->load->view('recruiter/jobs/view_job', $data);
-        $this->load->view($this->folder . '/view_footer');
+public function view($id)
+{
+    $user_agency_id = $this->get_user_agency_id();
+    
+    // Get the job with agency filtering and proper joins
+    $this->db->select('mod_jobs.*, agencies.name as agency_name, mod_industries.name as industry_name');
+    $this->db->from('mod_jobs');
+    $this->db->join('agencies', 'agencies.id = mod_jobs.agency_id', 'left');
+    $this->db->join('mod_industries', 'mod_industries.id = mod_jobs.industry_id', 'left');
+    $this->db->where('mod_jobs.id', $id);
+    
+    if ($user_agency_id) {
+        $this->db->where('mod_jobs.agency_id', $user_agency_id);
     }
+    
+    $job = $this->db->get()->row();
+    
+    if (!$job) {
+        show_404();
+    }
+
+    // Load additional data
+    $data['job'] = $job;
+    $data['skills'] = !empty($job->skills) ? explode(',', $job->skills) : [];
+    $data['qualifications'] = !empty($job->qualifications) ? explode(',', $job->qualifications) : [];
+    $data['skill_options'] = null;
+    $data['qualification_options'] = null;
+    $data['updated_fields'] = $this->get_updated_fields_for_job($id);
+    
+    // Only pass recruiter ID to view
+    $data['recruiter_id'] = $this->get_current_recruiter_id();
+
+    // Debug: Log the job agency ID
+    log_message('debug', 'View method - Job Agency ID: ' . $job->agency_id);
+    log_message('debug', 'View method - Recruiter ID: ' . $data['recruiter_id']);
+
+    // Set breadcrumbs
+    $this->breadcrumbs = array(
+        array(
+            'title' => lang($this->pageName . '_heading'),
+            'url' => redir($this->pageName, true),
+        ),
+        array(
+            'title' => $job->name,
+            'url' => '#',
+        ),
+    );
+
+    // Load the view
+    $this->load->view($this->folder . '/view_header');
+    $this->load->view('recruiter/jobs/view_job', $data);
+    $this->load->view($this->folder . '/view_footer');
+}
+
+// In your controller that shows candidates for a job
+public function view_candidates($job_id)
+{
+    $recruiter_id = $this->get_current_recruiter_id();
+    
+    // Get job details
+    $this->db->select('mod_jobs.*, agencies.name as agency_name');
+    $this->db->from('mod_jobs');
+    $this->db->join('agencies', 'agencies.id = mod_jobs.agency_id', 'left');
+    $this->db->where('mod_jobs.id', $job_id);
+    
+    $user_agency_id = $this->get_user_agency_id();
+    if ($user_agency_id) {
+        $this->db->where('mod_jobs.agency_id', $user_agency_id);
+    }
+    
+    $job = $this->db->get()->row();
+    
+    if (!$job) {
+        show_404();
+    }
+
+    // Get candidates using the new method
+    $data['candidates'] = $this->model_jobs->get_candidates_for_job($job_id, $recruiter_id);
+    $data['job'] = $job;
+    $data['total_candidates'] = count($data['candidates']);
+
+    // Load your view
+    $this->load->view($this->folder . '/view_header');
+    $this->load->view('recruiter/jobs/view_job_candidates', $data);
+    $this->load->view($this->folder . '/view_footer');
+}
+
+public function ajax_get_candidates_for_job()
+{
+    log_message('debug', 'ajax_get_candidates_for_job method called');
+    
+    $job_id = $this->input->post('job_id');
+    $recruiter_id = $this->get_current_recruiter_id();
+
+    log_message('debug', 'Job ID: ' . $job_id);
+    log_message('debug', 'Recruiter ID: ' . $recruiter_id);
+
+    if (!$recruiter_id) {
+        log_message('debug', 'No recruiter ID found');
+        echo json_encode([
+            'success' => false,
+            'message' => 'Recruiter not found'
+        ]);
+        return;
+    }
+
+    // Get candidates that belong to this recruiter and are not assigned to this job
+    $this->db->select('c.id, c.first_name, c.last_name, c.reference_number, c.email, c.assigned_agent_id');
+    $this->db->from('candidates c');
+    $this->db->where('c.assigned_agent_id', $recruiter_id);
+    $this->db->where('c.enabled', 1);
+    $this->db->where('c.removed', 0);
+    
+    // Exclude candidates already assigned to this job using LEFT JOIN
+    $this->db->join('candidate_job_assignments cja', 'cja.candidate_id = c.id AND cja.job_id = ' . $this->db->escape($job_id), 'left');
+    $this->db->where('cja.id IS NULL'); // Only get candidates without assignment to this job
+    
+    $this->db->order_by('c.first_name', 'ASC');
+    
+    $query = $this->db->get();
+    $candidates = $query->result_array();
+
+    log_message('debug', 'Found ' . count($candidates) . ' candidates for assigned_agent_id ' . $recruiter_id);
+
+    echo json_encode([
+        'success' => true,
+        'candidates' => $candidates,
+        'debug_info' => [
+            'recruiter_id' => $recruiter_id,
+            'total_candidates' => count($candidates),
+            'candidate_ids' => array_column($candidates, 'id')
+        ]
+    ]);
+}
 
 
     /**
@@ -433,4 +620,6 @@ public function get_all($limit = null, $offset = null, $sort_by = null, $sort_or
         $recruiter_id = !empty($login_data['recruiter']['id']) ? $login_data['recruiter']['id'] : null;
         return $recruiter_id;
     }
+
+
 }

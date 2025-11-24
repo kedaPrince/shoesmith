@@ -243,6 +243,7 @@ window.addEventListener('DOMContentLoaded', (event) => {
 
 
     // Click on row to view
+
     var rowClick = '<?= isset($this->rowClick) ? $this->rowClick : 'edit-row' ?>';
     $('.data-table').on('click', 'tr', function() {
         if (!$(this).hasClass('expanded-list-item')) {
@@ -250,7 +251,23 @@ window.addEventListener('DOMContentLoaded', (event) => {
                 $(this).find('.' + rowClick)[0].click();
             }
         }
+    });
 
+    // Additional functionality: Click anywhere on job row to view (while keeping action buttons)
+    $('.data-table').on('click', 'tr', function(e) {
+        // Don't trigger if clicking on action buttons or expanded items
+        if (!$(this).hasClass('expanded-list-item') &&
+            !$(e.target).closest('a, button, .btn, .action-buttons, .no-click').length) {
+
+            // Find the view button specifically for jobs
+            var viewButton = $(this).find('.view-row');
+            if (viewButton.length && viewButton.attr('href') && viewButton.attr('href').includes(
+                    '/jobs/')) {
+                e.preventDefault();
+                e.stopPropagation();
+                window.location.href = viewButton.attr('href');
+            }
+        }
     });
 
     // Apply red styling to expired jobs
@@ -606,3 +623,22 @@ function clear_filters() {
     });
 }
 </script>
+<style>
+/* Add pointer cursor for clickable job rows */
+.data-table tbody tr {
+    cursor: pointer;
+}
+
+/* Pointer cursor for action buttons */
+.data-table tbody tr .btn,
+.data-table tbody tr a,
+.data-table tbody tr button,
+.data-table tbody tr .action-buttons {
+    cursor: pointer !important;
+}
+
+/* Keep default cursor for expanded items only */
+.data-table tbody tr.expanded-list-item {
+    cursor: default !important;
+}
+</style>

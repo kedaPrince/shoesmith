@@ -70,4 +70,48 @@ class Model_jobs extends CRUD_Model
         }
         return $this->db->count_all_results() == 0;
     }
+
+// In application/models/recruiter/Model_jobs.php
+public function get_candidates_for_job($job_id, $recruiter_id = null)
+{
+    $this->db->select('
+        c.id,
+        c.first_name,
+        c.last_name, 
+        c.reference_number,
+        c.email,
+        c.phone,
+        c.assigned_agent_id,
+        cja.assigned_at,
+        cja.status as assignment_status
+    ');
+    $this->db->from('candidate_job_assignments cja');
+    $this->db->join('candidates c', 'c.id = cja.candidate_id');
+    $this->db->where('cja.job_id', $job_id);
+    $this->db->where('c.enabled', 1);
+    $this->db->where('c.removed', 0);
+    
+    if ($recruiter_id) {
+        $this->db->where('c.assigned_agent_id', $recruiter_id);
+    }
+    
+    $this->db->order_by('c.first_name', 'ASC');
+    
+    return $this->db->get()->result();
+}
+
+public function get_candidate_count_for_job($job_id, $recruiter_id = null)
+{
+    $this->db->from('candidate_job_assignments cja');
+    $this->db->join('candidates c', 'c.id = cja.candidate_id');
+    $this->db->where('cja.job_id', $job_id);
+    $this->db->where('c.enabled', 1);
+    $this->db->where('c.removed', 0);
+    
+    if ($recruiter_id) {
+        $this->db->where('c.assigned_agent_id', $recruiter_id);
+    }
+    
+    return $this->db->count_all_results();
+}
 }

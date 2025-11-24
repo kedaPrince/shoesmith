@@ -27,7 +27,6 @@ its great that everything is showing as expected by the css is broken
         </div>
     </header>
 
-    <!-- Main Content Area with Flex Layout -->
     <div id="main-job-layout">
 
         <!-- Left Navigation Sidebar (20%) -->
@@ -121,24 +120,32 @@ its great that everything is showing as expected by the css is broken
         </nav>
 
         <!-- Main Article Content (60%) -->
+
         <article class="job-main-content">
             <div class="content-header">
                 <div class="d-flex justify-content-between align-items-start">
                     <div>
                         <h1><?php echo htmlspecialchars($job->name); ?></h1>
                         <p class="text-muted">
-                            <?php echo htmlspecialchars($job->department ?? 'No department specified'); ?></p>
+                            <?php echo htmlspecialchars($job->department ?? 'No department specified'); ?>
+                        </p>
                     </div>
-                    <!-- Update Notification Badge -->
-                    <?php if (!empty($updated_fields) && is_array($updated_fields)): ?>
-                    <div class="update-notification-badge">
-                        <span class="badge badge-warning update-badge">
-                            <i class="fa fa-edit"></i> Recently Updated
-                        </span>
+                    <div class="d-flex align-items-center gap-2">
+                        <button type="button" class="btn btn-success" onclick="showSubmitCandidateModal()">
+                            <i class="fa fa-user-plus"></i> Submit My Candidate(s)
+                        </button>
+                        <!-- Update Notification Badge -->
+                        <?php if (!empty($updated_fields) && is_array($updated_fields)): ?>
+                        <div class="update-notification-badge">
+                            <span class="badge badge-warning update-badge">
+                                <i class="fa fa-edit"></i> Recently Updated
+                            </span>
+                        </div>
+                        <?php endif; ?>
                     </div>
-                    <?php endif; ?>
                 </div>
             </div>
+            <!-- Rest of your content continues here... -->
 
             <!-- Tab Navigation -->
             <div class="job-tabs-navigation">
@@ -402,14 +409,14 @@ its great that everything is showing as expected by the css is broken
                             </div>
                             <strong class="text-success">
                                 <?php 
-                                if ($job->salary_min && $job->salary_max) {
-                                    echo htmlspecialchars($job->salary_min) . ' - ' . htmlspecialchars($job->salary_max);
-                                } elseif ($job->salary_min) {
-                                    echo 'From ' . htmlspecialchars($job->salary_min);
-                                } elseif ($job->salary_max) {
-                                    echo 'Up to ' . htmlspecialchars($job->salary_max);
-                                }
-                                ?>
+                                        if ($job->salary_min && $job->salary_max) {
+                                            echo htmlspecialchars($job->salary_min) . ' - ' . htmlspecialchars($job->salary_max);
+                                        } elseif ($job->salary_min) {
+                                            echo 'From ' . htmlspecialchars($job->salary_min);
+                                        } elseif ($job->salary_max) {
+                                            echo 'Up to ' . htmlspecialchars($job->salary_max);
+                                        }
+                                        ?>
                             </strong>
                         </div>
                         <?php endif; ?>
@@ -515,7 +522,432 @@ document.addEventListener('DOMContentLoaded', function() {
     <?php endif; ?>
 });
 </script>
+<script>
+// Define jobId at the top to avoid PHP in JavaScript string issues
+const jobId = <?php echo $job->id; ?>;
+const baseUrl = '<?php echo site_url(); ?>';
+const csrfTokenName = '<?php echo $this->security->get_csrf_token_name(); ?>';
+const csrfTokenHash = '<?php echo $this->security->get_csrf_hash(); ?>';
+const recruiterId = '<?php echo $recruiter_id; ?>'; // Add this line
+
+// Use Jobs controller URLs instead of Candidates
+const getCandidatesUrl = baseUrl + 'recruiter/jobs/ajax_get_candidates_for_job';
+const assignCandidateUrl = baseUrl + 'recruiter/jobs/ajax_assign_candidate_to_job';
+
+function showSubmitCandidateModal() {
+    Swal.fire({
+        title: 'Submit Candidate',
+        html: `
+            <div class="text-center">
+                <p class="mb-4">How would you like to submit a candidate for this job?</p>
+                <div class="row">
+                    <div class="col-6">
+                        <button type="button" class="btn btn-primary btn-block py-3" onclick="submitNewCandidate()">
+                            <i class="fa fa-user-plus fa-2x mb-2"></i><br>
+                            New Candidate
+                        </button>
+                    </div>
+                    <div class="col-6">
+                        <button type="button" class="btn btn-info btn-block py-3" onclick="showExistingCandidateModal()">
+                            <i class="fa fa-users fa-2x mb-2"></i><br>
+                            Existing Candidate
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `,
+        showCancelButton: true,
+        confirmButtonColor: '#6c757d',
+        confirmButtonText: 'Cancel',
+        showConfirmButton: true,
+        cancelButtonText: 'Close',
+        customClass: {
+            confirmButton: 'swal2-confirm swal2-styled',
+            cancelButton: 'swal2-cancel swal2-styled'
+        },
+        width: '600px'
+    });
+}
+
+function submitNewCandidate() {
+    // Close the current modal
+    Swal.close();
+
+    // Redirect to add candidate page with job ID
+    window.location.href = baseUrl + 'recruiter/candidates/add/' + jobId;
+}
+
+function showExistingCandidateModal() {
+    // First close the current modal
+    Swal.close();
+
+    console.log('Making AJAX request to:', getCandidatesUrl);
+    console.log('Job ID:', jobId);
+
+    // Show loading state while fetching candidates
+    Swal.fire({
+        title: 'Loading Candidates...',
+        text: 'Please wait while we load your candidates',
+        allowOutsideClick: false,
+        allowEscapeKey: false,
+        showConfirmButton: false,
+        didOpen: () => {
+            Swal.showLoading();
+        }
+    });
+
+    // Create form data
+    const formData = new FormData();
+    formData.append('job_id', jobId);
+    formData.append(csrfTokenName, csrfTokenHash);
+
+    // Fetch existing candidates via AJAX with proper headers
+    fetch(getCandidatesUrl, {
+            method: 'POST',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: formData
+        })
+        .then(response => {
+            console.log('Response status:', response.status);
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            return response.text().then(text => {
+                try {
+                    return JSON.parse(text);
+                } catch (e) {
+                    console.error('Failed to parse JSON:', text);
+                    throw new Error('Invalid JSON response from server');
+                }
+            });
+        })
+        .then(data => {
+            console.log('AJAX response data:', data);
+            Swal.close();
+
+            if (data.success && data.candidates && data.candidates.length > 0) {
+                showCandidateSelectionModal(data.candidates);
+            } else {
+                let message = data.message || 'No candidates found.';
+                Swal.fire({
+                    title: 'No Candidates Found',
+                    html: `
+                    <div class="text-center">
+                        <i class="fa fa-users fa-3x text-muted mb-3"></i>
+                        <p>${message}</p>
+                        <p>Would you like to create a new candidate instead?</p>
+                    </div>
+                `,
+                    showCancelButton: true,
+                    confirmButtonText: 'Create New Candidate',
+                    cancelButtonText: 'Cancel',
+                    confirmButtonColor: '#28a745',
+                    customClass: {
+                        confirmButton: 'swal2-confirm swal2-styled',
+                        cancelButton: 'swal2-cancel swal2-styled'
+                    }
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        submitNewCandidate();
+                    }
+                });
+            }
+        })
+        .catch(error => {
+            Swal.close();
+            console.error('Error fetching candidates:', error);
+
+            let errorMessage = 'Failed to load candidates. Please try again.';
+            if (error.message.includes('404')) {
+                errorMessage = 'AJAX endpoint not found (404). Please contact support.';
+            } else if (error.message.includes('Invalid JSON')) {
+                errorMessage = 'Server returned an invalid response. Please try again.';
+            }
+
+            Swal.fire({
+                title: 'Error',
+                text: errorMessage,
+                icon: 'error',
+                confirmButtonText: 'OK'
+            });
+        });
+}
+
+function showCandidateSelectionModal(candidates) {
+    let optionsHtml = candidates.map(candidate =>
+        `<div class="candidate-option">
+            <input type="checkbox" id="candidate_${candidate.id}" name="candidates[]" value="${candidate.id}" class="candidate-checkbox">
+            <label for="candidate_${candidate.id}" class="candidate-label">
+                <strong>${candidate.first_name} ${candidate.last_name}</strong>
+                <br>
+                <small class="text-muted">${candidate.reference_number} • ${candidate.email}</small>
+            </label>
+        </div>`
+    ).join('');
+
+    Swal.fire({
+        title: 'Select Candidates to Assign',
+        html: `
+            <div class="text-left">
+                <p class="mb-3">Choose one or more candidates to assign to this job:</p>
+                <div class="candidates-list" style="max-height: 400px; overflow-y: auto; border: 1px solid #e9ecef; border-radius: 8px; padding: 15px;">
+                    ${optionsHtml}
+                </div>
+                <div class="mt-3 text-muted small">
+                    <i class="fa fa-info-circle"></i> You can select multiple candidates. Only showing candidates not already assigned to this job.
+                </div>
+                <div class="mt-2 selected-count text-primary" style="font-weight: 600;">
+                    Selected: 0 candidates
+                </div>
+            </div>
+        `,
+        showCancelButton: true,
+        confirmButtonText: 'Assign Selected Candidates',
+        cancelButtonText: 'Cancel',
+        confirmButtonColor: '#17a2b8',
+        customClass: {
+            confirmButton: 'swal2-confirm swal2-styled',
+            cancelButton: 'swal2-cancel swal2-styled'
+        },
+        width: '700px',
+        preConfirm: () => {
+            const selectedCandidates = Array.from(document.querySelectorAll('.candidate-checkbox:checked'))
+                .map(checkbox => checkbox.value);
+
+            if (selectedCandidates.length === 0) {
+                Swal.showValidationMessage('Please select at least one candidate');
+                return false;
+            }
+            return selectedCandidates;
+        },
+        didOpen: () => {
+            // Add event listeners to update selected count
+            const checkboxes = document.querySelectorAll('.candidate-checkbox');
+            const selectedCount = document.querySelector('.selected-count');
+
+            checkboxes.forEach(checkbox => {
+                checkbox.addEventListener('change', function() {
+                    const selected = document.querySelectorAll(
+                        '.candidate-checkbox:checked').length;
+                    selectedCount.textContent =
+                        `Selected: ${selected} candidate${selected !== 1 ? 's' : ''}`;
+                });
+            });
+        }
+    }).then((result) => {
+        if (result.isConfirmed) {
+            assignCandidatesToJob(result.value);
+        }
+    });
+}
+
+function assignCandidatesToJob(candidateIds) {
+    if (!Array.isArray(candidateIds) || candidateIds.length === 0) {
+        console.error('No candidate IDs provided');
+        return;
+    }
+
+    // Show loading state
+    Swal.fire({
+        title: 'Assigning Candidates...',
+        html: `Assigning ${candidateIds.length} candidate${candidateIds.length !== 1 ? 's' : ''} to job<br><small>Please wait</small>`,
+        allowOutsideClick: false,
+        allowEscapeKey: false,
+        showConfirmButton: false,
+        didOpen: () => {
+            Swal.showLoading();
+        }
+    });
+
+    // Create form data
+    const formData = new FormData();
+    candidateIds.forEach(id => {
+        formData.append('candidate_ids[]', id);
+    });
+    formData.append('job_id', jobId);
+    formData.append(csrfTokenName, csrfTokenHash);
+
+    // Assign candidates to job via AJAX
+    fetch(assignCandidateUrl, {
+            method: 'POST',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: formData
+        })
+        .then(response => {
+            return response.text().then(text => {
+                try {
+                    return JSON.parse(text);
+                } catch (e) {
+                    console.error('Failed to parse JSON:', text);
+                    throw new Error('Invalid JSON response from server');
+                }
+            });
+        })
+        .then(data => {
+            if (data.success) {
+                Swal.fire({
+                    title: 'Success!',
+                    html: `Successfully assigned ${candidateIds.length} candidate${candidateIds.length !== 1 ? 's' : ''} to this job.`,
+                    icon: 'success',
+                    confirmButtonText: 'View Candidates'
+                }).then(() => {
+                    // Redirect to candidates page for this job
+                    window.location.href = baseUrl + 'recruiter/candidates/for_job/' + jobId;
+                });
+            } else {
+                Swal.fire({
+                    title: 'Error',
+                    text: data.message || 'Failed to assign candidates to job.',
+                    icon: 'error',
+                    confirmButtonText: 'OK'
+                });
+            }
+        })
+        .catch(error => {
+            console.error('Error assigning candidates:', error);
+            Swal.fire({
+                title: 'Error',
+                text: 'Failed to assign candidates. Please try again.',
+                icon: 'error',
+                confirmButtonText: 'OK'
+            });
+        });
+}
+
+// Make sure the function is available globally
+window.showSubmitCandidateModal = showSubmitCandidateModal;
+window.submitNewCandidate = submitNewCandidate;
+window.showExistingCandidateModal = showExistingCandidateModal;
+window.showCandidateSelectionModal = showCandidateSelectionModal;
+window.assignCandidateToJob = assignCandidateToJob;
+</script>
+
 <style>
+/* Multi-select Candidate Styles */
+.candidate-option {
+    padding: 12px 15px;
+    margin: 8px 0;
+    border: 2px solid #e9ecef;
+    border-radius: 8px;
+    transition: all 0.3s ease;
+    background: white;
+}
+
+.candidate-option:hover {
+    border-color: #17a2b8;
+    background: #f8f9fa;
+}
+
+.candidate-option:has(.candidate-checkbox:checked) {
+    border-color: #17a2b8;
+    background: #e7f7ff;
+}
+
+.candidate-checkbox {
+    margin-right: 12px;
+    transform: scale(1.2);
+}
+
+.candidate-label {
+    cursor: pointer;
+    margin: 0;
+    flex: 1;
+}
+
+.candidates-list {
+    scrollbar-width: thin;
+    scrollbar-color: #17a2b8 #f1f1f1;
+}
+
+.candidates-list::-webkit-scrollbar {
+    width: 6px;
+}
+
+.candidates-list::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 3px;
+}
+
+.candidates-list::-webkit-scrollbar-thumb {
+    background: #17a2b8;
+    border-radius: 3px;
+}
+
+.candidates-list::-webkit-scrollbar-thumb:hover {
+    background: #138496;
+}
+
+.selected-count {
+    padding: 8px 12px;
+    background: #e7f7ff;
+    border-radius: 6px;
+    border-left: 4px solid #17a2b8;
+}
+
+/* Submit Candidate Button Styles */
+/* Fix for button clickability */
+.btn-success {
+    position: relative;
+    z-index: 10;
+    cursor: pointer !important;
+    pointer-events: auto !important;
+}
+
+/* Ensure no overlapping elements */
+.content-header .d-flex {
+    position: relative;
+    z-index: 5;
+}
+
+/* Make sure button is fully clickable */
+.btn-success * {
+    pointer-events: none;
+    /* Allow clicks to pass through to the button */
+}
+
+.btn-success:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(40, 167, 69, 0.3);
+}
+
+/* Swal Modal Customizations */
+.swal2-popup {
+    border-radius: 15px !important;
+}
+
+.swal2-title {
+    color: var(--palette-earth-4) !important;
+    font-weight: 700 !important;
+}
+
+.swal2-confirm {
+    border-radius: 8px !important;
+    font-weight: 600 !important;
+}
+
+.swal2-cancel {
+    border-radius: 8px !important;
+    font-weight: 600 !important;
+}
+
+/* Candidate Selection Dropdown */
+#candidateSelect {
+    border-radius: 8px;
+    border: 2px solid #e9ecef;
+    transition: border-color 0.3s ease;
+}
+
+#candidateSelect:focus {
+    border-color: #17a2b8;
+    box-shadow: 0 0 0 0.2rem rgba(23, 162, 184, 0.25);
+}
+
 /* Main Layout Structure */
 #main-job-layout {
     min-height: 800px;
