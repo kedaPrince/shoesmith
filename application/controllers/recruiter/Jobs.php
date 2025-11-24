@@ -16,6 +16,7 @@ class Jobs extends CRUD_Controller
     public $allowEdit = false; // Disable editing
     public $sorting = array('name' => 'ASC');
     public $quickManageSize = 4;
+    public $abling                  = TRUE;
 
     public function __construct()
     {
@@ -49,16 +50,102 @@ class Jobs extends CRUD_Controller
 private function setup_listing()
 {
     $this->listFields = array(
-        'name' => array('label' => lang('label_title'), 'sort' => true),
-        'reference_number' => array('label' => lang('label_reference_number'), 'sort' => true),
-        'employment_type' => array('label' => lang('label_job_type'), 'sort' => true),
+        'name' => array(
+            'label' => lang('label_title'), 
+            'sort' => true,
+            'function' => function($str, $row) {
+                $is_expired = $this->is_job_expired($row);
+                $name = htmlspecialchars($str, ENT_QUOTES, 'UTF-8');
+                
+                if ($is_expired) {
+                    return '<span class="expired-job-text">' . $name . '</span>';
+                }
+                return $name;
+            }
+        ),
+        'reference_number' => array(
+            'label' => lang('label_reference_number'), 
+            'sort' => true,
+            'function' => function($str, $row) {
+                $is_expired = $this->is_job_expired($row);
+                $ref = htmlspecialchars($str, ENT_QUOTES, 'UTF-8');
+                
+                if ($is_expired) {
+                    return '<span class="expired-job-text">' . $ref . '</span>';
+                }
+                return $ref;
+            }
+        ),
+        'employment_type' => array(
+            'label' => lang('label_job_type'), 
+            'sort' => true,
+            'function' => function($str, $row) {
+                $is_expired = $this->is_job_expired($row);
+                $employment_types = [
+                    'full-time' => 'Full Time',
+                    'part-time' => 'Part Time', 
+                    'contract' => 'Contract',
+                    'internship' => 'Internship',
+                    'temporary' => 'Temporary'
+                ];
+                $display_value = $employment_types[$str] ?? $str;
+                
+                if ($is_expired) {
+                    return '<span class="expired-job-text">' . $display_value . '</span>';
+                }
+                return $display_value;
+            }
+        ),
+        'closing_date' => array(
+            'label' => 'Closing Date', 
+            'sort' => true,
+            'function' => function($str, $row) {
+                if (empty($row->closing_date) || $row->closing_date == '0000-00-00') {
+                    return '<span class="text-muted">Not set</span>';
+                }
+                
+                $closing_date = date('M j, Y', strtotime($row->closing_date));
+                $today = date('Y-m-d');
+                $is_expired = $this->is_job_expired($row);
+                
+                if ($is_expired) {
+                    return '<span class="text-danger expired-job-text" title="Job expired"><i class="fa fa-exclamation-circle"></i> ' . $closing_date . '</span>';
+                }
+                
+                // Check if closing date is within 7 days
+                $one_week_later = date('Y-m-d', strtotime('+7 days'));
+                if ($row->closing_date <= $one_week_later) {
+                    return '<span class="text-warning" title="Closing soon"><i class="fa fa-clock-o"></i> ' . $closing_date . '</span>';
+                }
+                
+                return '<span class="text-success">' . $closing_date . '</span>';
+            }
+        ),
         'industry_name' => array(
             'label' => lang('label_industry'),
             'sort' => true,
+            'function' => function($str, $row) {
+                $is_expired = $this->is_job_expired($row);
+                $industry = htmlspecialchars($str, ENT_QUOTES, 'UTF-8');
+                
+                if ($is_expired) {
+                    return '<span class="expired-job-text">' . $industry . '</span>';
+                }
+                return $industry;
+            }
         ),
         'agency_name' => array(
             'label' => lang('label_agency'),
             'sort' => true,
+            'function' => function($str, $row) {
+                $is_expired = $this->is_job_expired($row);
+                $agency = htmlspecialchars($str, ENT_QUOTES, 'UTF-8');
+                
+                if ($is_expired) {
+                    return '<span class="expired-job-text">' . $agency . '</span>';
+                }
+                return $agency;
+            }
         ),
         'candidate_count' => array(
             'label' => 'Candidates',
@@ -66,9 +153,17 @@ private function setup_listing()
             'function' => function($str, $row) {
                 $count = isset($row->candidate_count) ? $row->candidate_count : 0;
                 $url = site_url('recruiter/candidates/for_job/' . $row->id);
+                $is_expired = $this->is_job_expired($row);
+                
                 if ($count > 0) {
+                    if ($is_expired) {
+                        return '<span class="btn btn-sm btn-secondary expired-job-btn" title="Job expired - view only">' . $count . '</span>';
+                    }
                     return '<a href="' . $url . '" class="btn btn-sm btn-info" title="View ' . $count . ' Candidates">' . $count . '</a>';
                 } else {
+                    if ($is_expired) {
+                        return '<span class="text-muted expired-job-text">0</span>';
+                    }
                     return '<span class="text-muted">0</span>';
                 }
             }
@@ -83,21 +178,39 @@ private function setup_listing()
             'class'     => 'view-row btn-info',
             'title'     => 'View job details',
         ),
-        'view_candidates' => array(  // FIXED - Use url() instead of site_url()
+        'view_candidates' => array(
             'label'     => 'View Candidates',
-            'url'       => url('candidates/for_job/{id}'),  // CHANGED THIS LINE
+            'url'       => url('candidates/for_job/{id}'),
             'icon'      => 'fa-users',
             'class'     => 'view-candidates-row btn-primary',
             'title'     => 'View candidates for this job',
+            'function'  => function($str, $row) {
+                // Hide Add Candidate button for expired jobs
+                return !$this->is_job_expired($row) ? $str : false;
+            }
         ),
-        'add_candidate' => array(    // FIXED - Use url() instead of site_url()
+        'add_candidate' => array(
             'label'     => 'Add Candidate',
-            'url'       => url('candidates/add/{id}'),  // CHANGED THIS LINE
+            'url'       => url('candidates/add/{id}'),
             'icon'      => 'fa-user-plus',
             'class'     => 'add-candidate-row btn-success',
-            'title'     => 'Add candidate to this job',
+            'function'  => function($str, $row) {
+                // Hide Add Candidate button for expired jobs
+                return !$this->is_job_expired($row) ? $str : false;
+            }
         ),
     );
+
+    //he built-in listRowAttributes for styling
+    $this->listRowAttributes = function($row) {
+        $is_expired = $this->is_job_expired($row);
+        if ($is_expired) {
+            return [
+                'class' => 'disabled'
+            ];
+        }
+        return [];
+    };
 
     $this->filters = array(
         'general' => array(
@@ -154,15 +267,43 @@ private function setup_listing()
         $this->load->view($this->folder . '/view_footer');
     }
 
-    public function get_all($limit = null, $offset = null, $sort_by = null, $sort_order = null)
-    {
-        $user_agency_id = $this->get_user_agency_id();
-        if ($user_agency_id) {
-            $this->db->where('mod_jobs.agency_id', $user_agency_id);
-        }
-        return parent::get_all($limit, $offset, $sort_by, $sort_order);
+    /**
+ * Check if a job has expired based on closing date
+ */
+private function is_job_expired($job) {
+    if (empty($job->closing_date) || $job->closing_date == '0000-00-00') {
+        return false;
     }
+    
+    $today = date('Y-m-d');
+    return $job->closing_date < $today;
+}
 
+   /**
+ * Override get_all to set enabled=0 for expired jobs
+ * This will automatically trigger the red row styling from the CRUD system
+ */
+public function get_all($limit = null, $offset = null, $sort_by = null, $sort_order = null)
+{
+    $user_agency_id = $this->get_user_agency_id();
+    if ($user_agency_id) {
+        $this->db->where('mod_jobs.agency_id', $user_agency_id);
+    }
+    
+    $result = parent::get_all($limit, $offset, $sort_by, $sort_order);
+    
+    // Modify the result objects to set enabled=0 for expired jobs
+    if ($result && method_exists($result, 'result')) {
+        $rows = $result->result();
+        foreach ($rows as $row) {
+            if ($this->is_job_expired($row)) {
+                $row->enabled = 0; // This triggers the automatic red row styling
+            }
+        }
+    }
+    
+    return $result;
+}
     private function get_user_agency_id()
     {
         $login = $this->session->userdata('login');
@@ -219,18 +360,12 @@ private function setup_listing()
             show_404();
         }
 
-        // Load additional data - skills and qualifications are now direct columns
+        // Load additional data
         $data['job'] = $job;
-        
-        // Parse skills and qualifications from the direct columns
         $data['skills'] = !empty($job->skills) ? explode(',', $job->skills) : [];
         $data['qualifications'] = !empty($job->qualifications) ? explode(',', $job->qualifications) : [];
-        
-        // Remove these as they're no longer needed from database
         $data['skill_options'] = null;
         $data['qualification_options'] = null;
-        
-        // Get updated fields for badges
         $data['updated_fields'] = $this->get_updated_fields_for_job($id);
 
         // Set breadcrumbs
@@ -250,6 +385,7 @@ private function setup_listing()
         $this->load->view('recruiter/jobs/view_job', $data);
         $this->load->view($this->folder . '/view_footer');
     }
+
 
     /**
      * Get updated fields from notifications for this job

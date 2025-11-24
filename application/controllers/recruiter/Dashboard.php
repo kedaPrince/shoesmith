@@ -63,30 +63,27 @@ class Dashboard extends CRUD_Controller {
      * AJAX method to mark notification as read
      */
     public function ajax_mark_notification_read() {
-        if (!$this->input->is_ajax_request()) {
-            show_404();
-        }
-
-        $notification_id = $this->input->post('notification_id');
-        $recruiter_id = $this->get_recruiter_id();
-
-        if (empty($notification_id) || empty($recruiter_id)) {
-            echo json_encode(['success' => false, 'message' => 'Invalid parameters']);
-            return;
-        }
-
-        $result = $this->Model_notifications->mark_as_read($notification_id, $recruiter_id);
+    $notification_id = $this->input->post('notification_id');
+    $recruiter_id = $this->session->userdata('login')['recruiter']['id'] ?? null;
+    
+    if ($recruiter_id && $notification_id) {
+        $success = $this->Model_notifications->mark_as_read($notification_id, $recruiter_id);
+        $unread_count = $this->Model_notifications->count_unread_notifications($recruiter_id);
         
-        if ($result) {
-            $unread_count = $this->Model_notifications->count_unread_notifications($recruiter_id);
-            echo json_encode([
-                'success' => true,
-                'unread_count' => $unread_count
-            ]);
-        } else {
-            echo json_encode(['success' => false, 'message' => 'Failed to mark notification as read']);
-        }
+        // Store in session to persist across redirects
+        $this->session->set_userdata('notification_just_read', $notification_id);
+        
+        echo json_encode([
+            'success' => $success,
+            'unread_count' => $unread_count
+        ]);
+    } else {
+        echo json_encode([
+            'success' => false,
+            'unread_count' => 0
+        ]);
     }
+}
 
     /**
      * AJAX method to mark all notifications as read

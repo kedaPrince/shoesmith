@@ -253,6 +253,36 @@ window.addEventListener('DOMContentLoaded', (event) => {
 
     });
 
+    // Apply red styling to expired jobs
+    function styleExpiredJobs() {
+        $('.data-table tbody tr').each(function() {
+            var $row = $(this);
+            var $closingDateCell = $row.find('td').eq(
+                3); // Adjust index based on closing date column position
+
+            // Check if this is an expired job (has danger class or exclamation icon in closing date)
+            var isExpired = $closingDateCell.find('.text-danger').length > 0 ||
+                $closingDateCell.find('.fa-exclamation-circle').length > 0;
+
+            if (isExpired) {
+                $row.addClass('disabled')
+                    .css({
+                        'background-color': 'rgb(185 0 0 / 35%)',
+                        'border-left': '4px solid #dc3545'
+                    });
+            }
+        });
+    }
+
+    // Apply styling when page loads and when new batches are loaded
+    $(document).ready(function() {
+        styleExpiredJobs();
+    });
+
+    $(document).on('batchLoaded', function() {
+        setTimeout(styleExpiredJobs, 100);
+    });
+
     $('.data-table').on('click', '.item-row', function(e) {
         var url = $(this).attr('href');
 

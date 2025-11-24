@@ -1,5 +1,30 @@
 <?php defined('BASEPATH') || exit('No direct script access allowed'); ?>
+<style>
+/* Expired job row styling */
+table tbody tr.job-expired-row {
+    background-color: #6b050580 !important;
+    border-left: 4px solid #dc3545 !important;
+}
 
+table tbody tr.job-expired-row td {
+    background-color: #fff5f5 !important;
+    opacity: 0.7;
+}
+
+table tbody tr.job-expired-row:hover td {
+    background-color: #ffe6e6 !important;
+}
+
+/* Expired job text styling */
+.expired-job-text {
+    opacity: 0.7;
+}
+
+.expired-job-btn {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+</style>
 <a class="close-quick-manage"><i class="fa fa-times"></i></a>
 <div class="quick-manage-form-container qm-tabs">
     <div class="quick-manage-heading">

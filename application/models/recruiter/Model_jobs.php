@@ -6,22 +6,23 @@ class Model_jobs extends CRUD_Model
     protected $table = 'mod_jobs';
 
     public function main_selects() {
-        // Include candidate_count in the selection
-        $this->db->select([
-            'mod_jobs.id',
-            'mod_jobs.enabled', 
-            'mod_jobs.name',
-            'mod_jobs.reference_number',
-            'mod_jobs.employment_type',
-            'mod_jobs.industry_id',
-            'mod_jobs.agency_id',
-            'mod_jobs.candidate_count',
-            'mod_jobs.skills', // Add skills column
-            'mod_jobs.qualifications', // Add qualifications column
-            'agencies.name AS agency_name',
-            'mod_industries.name AS industry_name'
-        ]);
-    }
+    // Include candidate_count and closing_date in the selection
+    $this->db->select([
+        'mod_jobs.id',
+        'mod_jobs.enabled', 
+        'mod_jobs.name',
+        'mod_jobs.reference_number',
+        'mod_jobs.employment_type',
+        'mod_jobs.industry_id',
+        'mod_jobs.agency_id',
+        'mod_jobs.candidate_count',
+        'mod_jobs.closing_date', // ADD THIS LINE
+        'mod_jobs.skills',
+        'mod_jobs.qualifications',
+        'agencies.name AS agency_name',
+        'mod_industries.name AS industry_name'
+    ]);
+}
 
     public function joins()
     {
