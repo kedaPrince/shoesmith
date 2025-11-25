@@ -178,32 +178,42 @@ class Model_notifications extends CRUD_Model
         return $this->db->insert('notifications', $notification_data);
     }
 
-    /**
-     * Override CRUD methods to prevent enable/disable actions
-     */
-    public function enable($whereValue, $whereField = 'id', $table = false)
+ 
+
+
+
+    // In Model_notifications - add this method
+    public function get_notification($notification_id, $agency_id)
     {
-        // Notifications don't have enable/disable functionality
-        return true;
+        $this->db->where('id', $notification_id);
+        $this->db->where('receiver_type', 'agency');
+        $this->db->where('receiver_id', $agency_id);
+        return $this->db->get('notifications')->row();
     }
 
-    public function disable($whereValue, $whereField = 'id', $table = false)
-    {
-        // Notifications don't have enable/disable functionality
-        return true;
-    }
+/**
+ * Remove notification (actual deletion)
+ */
+public function remove($whereValue, $whereField = 'id', $table = false)
+{
+    $this->db->where($whereField, $whereValue);
+    return $this->db->delete('notifications');
+}
 
-    public function remove($whereValue, $whereField = 'id', $table = false)
-    {
-        // Instead of deleting, mark as read or use soft delete
-        $this->db->where($whereField, $whereValue);
-        return $this->db->update('notifications', [
-            'is_read' => 1,
-            'read_at' => date('Y-m-d H:i:s'),
-            'updated_at' => date('Y-m-d H:i:s')
-        ]);
-    }
+/**
+ * Override CRUD methods to prevent enable/disable actions but allow remove
+ */
+public function enable($whereValue, $whereField = 'id', $table = false)
+{
+    // Notifications don't have enable/disable functionality
+    return true;
+}
 
+public function disable($whereValue, $whereField = 'id', $table = false)
+{
+    // Notifications don't have enable/disable functionality
+    return true;
+}
     /**
      * Compatibility methods for Dashboard
      */

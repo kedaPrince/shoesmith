@@ -135,14 +135,14 @@ $this->siteMap = array(
             ),
     
             // ADD TEST FORM BUILDER HERE
-            (object)array(
-                'page' => 'test_form_builder',
-                'view' => 'listing',
-                'label' => 'Test Form Builder',
-                'icon' => 'fa-edit',
-                'url' => url('test_form_builder'),
-                'show' => true,
-            ),
+            // (object)array(
+            //     'page' => 'test_form_builder',
+            //     'view' => 'listing',
+            //     'label' => 'Test Form Builder',
+            //     'icon' => 'fa-edit',
+            //     'url' => url('test_form_builder'),
+            //     'show' => true,
+            // ),
         ),
     ),
 );

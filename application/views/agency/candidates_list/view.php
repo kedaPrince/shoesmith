@@ -302,7 +302,12 @@
                         <?php endif; ?>
                     </div>
                     <div class="footer">
-                        <a href="<?= site_url('agency/candidates_list/index/' . $candidate->job_id) ?>"
+                        <?php 
+                        // Get the current job ID from session, fallback to URI segment if missing
+                        $current_job_id = $this->session->userdata('current_job_id');
+                        $back_job_id = $current_job_id ?: $this->uri->segment(4);
+                        ?>
+                        <a href="<?= site_url('agency/candidates_list/index/' . $back_job_id) ?>"
                             class="btn btn-default">
                             <i class="fa fa-arrow-left"></i> Back to Candidates
                         </a>

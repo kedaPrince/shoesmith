@@ -170,6 +170,7 @@ body[data-theme="dark"] .notifications-menu .dropdown-toggle:hover {
     color: #333 !important;
     text-decoration: none !important;
     transition: background-color 0.2s ease;
+    cursor: pointer;
 }
 
 .notifications-menu .menu li a:hover {
@@ -229,15 +230,23 @@ body[data-theme="dark"] .notifications-menu .dropdown-toggle:hover {
                                     <?php foreach ($notifications as $notification): ?>
                                     <li>
                                         <a href="javascript:void(0);"
-                                            onclick="markAsRead(<?php echo $notification->id; ?>)">
+                                            onclick="handleNotificationClick(<?php echo $notification->id; ?>)"
+                                            style="display: block; padding: 10px 15px; color: #333; text-decoration: none; cursor: pointer;"
+                                            class="notification-item">
                                             <div style="float: left; margin-right: 10px;">
                                                 <i class="fa fa-user" style="color: #007bff;"></i>
                                             </div>
                                             <div style="overflow: hidden;">
                                                 <h4 style="margin: 0 0 5px 0; font-size: 14px; font-weight: bold;">
-                                                    <?php echo $notification->title; ?></h4>
+                                                    <?php echo $notification->title; ?>
+                                                    <?php if (!$notification->is_read): ?>
+                                                    <span
+                                                        style="background: #ff4444; color: white; padding: 1px 6px; border-radius: 10px; font-size: 10px; margin-left: 5px; display: inline-block;">NEW</span>
+                                                    <?php endif; ?>
+                                                </h4>
                                                 <p style="margin: 0 0 5px 0; font-size: 12px; color: #666;">
-                                                    <?php echo character_limiter($notification->message, 50); ?></p>
+                                                    <?php echo character_limiter($notification->message, 50); ?>
+                                                </p>
                                                 <small style="color: #999; font-size: 11px;">
                                                     <i class="fa fa-clock-o"></i>
                                                     <?php echo time_ago($notification->created_at); ?>
@@ -256,7 +265,6 @@ body[data-theme="dark"] .notifications-menu .dropdown-toggle:hover {
                             </li>
                             <li class="footer">
                                 <a href="<?php echo site_url('agency/notifications'); ?>">
-                                    <!-- Fixed URL -->
                                     View All Notifications
                                 </a>
                             </li>
@@ -286,57 +294,122 @@ body[data-theme="dark"] .notifications-menu .dropdown-toggle:hover {
 </nav>
 
 <script>
-function markAsRead(notificationId) {
-    fetch('<?php echo site_url("agency/dashboard/ajax_mark_notification_read"); ?>', {
+function handleNotificationClick(notificationId) {
+    // Close the dropdown first
+    $('.notifications-menu .dropdown-toggle').dropdown('toggle');
+
+    // Immediately update the UI optimistically
+    updateNotificationUI(notificationId);
+
+    // Mark as read via AJAX
+    fetch('<?php echo site_url("agency/notifications/ajax_mark_notification_read"); ?>', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/x-www-form-urlencoded',
             },
             body: 'notification_id=' + notificationId +
                 '&<?php echo $ci->security->get_csrf_token_name(); ?>=<?php echo $ci->security->get_csrf_hash(); ?>'
-        })
-        .then(response => response.json())
+        }).then(response => response.json())
         .then(response => {
             if (response.success) {
-                // Update badge count
-                const badge = document.querySelector('.notification-badge');
-                const count = document.querySelector('.notification-count');
+                // Update badge with actual count from server
+                updateNotificationBadge(response.unread_count);
 
-                if (badge) badge.textContent = response.unread_count;
-                if (count) count.textContent = response.unread_count;
+                // Redirect to notifications page
+                window.location.href = '<?php echo site_url("agency/notifications"); ?>?read=' + notificationId;
+            }
+        }).catch(error => {
+            console.error('Error marking notification as read:', error);
+            // Still redirect even if there's an error
+            window.location.href = '<?php echo site_url("agency/notifications"); ?>';
+        });
+}
 
-                // Hide badge if count is 0
-                if (badge) {
-                    badge.style.display = response.unread_count == 0 ? 'none' : 'flex';
-                }
+function updateNotificationUI(notificationId) {
+    const badge = document.querySelector('.notification-badge');
+    const count = document.querySelector('.notification-count');
 
-                // Remove the notification from dropdown
-                const notificationElement = document.querySelector('[onclick="markAsRead(' + notificationId +
-                    ')"]');
-                if (notificationElement) {
-                    notificationElement.closest('li').remove();
-                }
+    // Update badge count optimistically
+    if (badge && badge.textContent > 0) {
+        const newCount = parseInt(badge.textContent) - 1;
+        badge.textContent = newCount;
+        if (count) count.textContent = newCount;
 
-                // If no notifications left, show "No new notifications"
-                const menu = document.querySelector('.menu');
+        // Hide badge if count is 0
+        if (newCount === 0) {
+            badge.style.display = 'none';
+        }
+    }
+
+    // Remove the "NEW" badge from this notification in the dropdown immediately
+    const notificationElement = document.querySelector('[onclick="handleNotificationClick(' + notificationId + ')"]');
+    if (notificationElement) {
+        const newBadge = notificationElement.querySelector('span[style*="background: #ff4444"]');
+        if (newBadge) {
+            newBadge.remove();
+        }
+
+        // Remove the notification item
+        setTimeout(() => {
+            const listItem = notificationElement.closest('li');
+            if (listItem) {
+                listItem.remove();
+
+                // If no notifications left, show empty message
+                const menu = document.querySelector('.notifications-menu .menu');
                 if (menu && menu.querySelectorAll('li').length === 0) {
                     menu.innerHTML =
                         '<li style="padding: 15px; text-align: center; color: #666;">No new notifications</li>';
                 }
-
-                // Stop pulse animation if no more notifications
-                if (response.unread_count == 0) {
-                    const bell = document.getElementById('notification-bell');
-                    if (bell) {
-                        bell.style.animation = 'none';
-                    }
-                }
             }
-        })
-        .catch(error => {
-            console.error('Error marking notification as read:', error);
-        });
+        }, 100);
+    }
 }
+
+function updateNotificationBadge(count) {
+    const badge = document.querySelector('.notification-badge');
+    const countElement = document.querySelector('.notification-count');
+
+    if (badge) {
+        badge.textContent = count;
+        badge.style.display = count == 0 ? 'none' : 'flex';
+    }
+
+    if (countElement) {
+        countElement.textContent = count;
+    }
+}
+
+// Handle remove button clicks in notifications page
+document.addEventListener('DOMContentLoaded', function() {
+    // Remove notification button handler
+    $(document).on('click', '.remove-notification-btn', function(e) {
+        e.preventDefault();
+
+        const removeUrl = $(this).attr('href');
+        const btn = $(this);
+
+        Swal.fire({
+            title: 'Remove Notification',
+            text: 'Are you sure you want to remove this notification?',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#dc3545',
+            cancelButtonColor: '#6c757d',
+            confirmButtonText: 'Yes, Remove',
+            cancelButtonText: 'Cancel'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                // Show loading state
+                btn.html('<i class="fa fa-spinner fa-spin"></i> Removing...').prop('disabled',
+                    true);
+
+                // Perform removal via page redirect
+                window.location.href = removeUrl;
+            }
+        });
+    });
+});
 
 // Function to refresh notifications (can be called periodically)
 function refreshNotifications() {
@@ -351,4 +424,75 @@ function refreshNotifications() {
 
 // Optional: Auto-refresh notifications every 30 seconds
 setInterval(refreshNotifications, 30000);
+
+
+// Handle notification remove confirmation
+document.addEventListener('DOMContentLoaded', function() {
+    // Remove notification button handler
+    $(document).on('click', '.remove-notification-btn', function(e) {
+        e.preventDefault();
+
+        const removeUrl = $(this).attr('href');
+        const notificationId = $(this).closest('tr').data('id');
+
+        Swal.fire({
+            title: 'Remove Notification',
+            text: 'Are you sure you want to remove this notification?',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#dc3545',
+            cancelButtonColor: '#6c757d',
+            confirmButtonText: 'Yes, Remove',
+            cancelButtonText: 'Cancel',
+            customClass: {
+                confirmButton: 'swal2-confirm swal2-styled',
+                cancelButton: 'swal2-cancel swal2-styled'
+            }
+        }).then((result) => {
+            if (result.isConfirmed) {
+                // Perform the removal via AJAX or redirect
+                window.location.href = removeUrl;
+            }
+        });
+    });
+
+    // If you want to use AJAX for removal instead of page reload:
+    /*
+    $(document).on('click', '.remove-notification-btn', function(e) {
+        e.preventDefault();
+        
+        const removeUrl = $(this).attr('href');
+        const notificationId = $(this).closest('tr').data('id');
+        
+        Swal.fire({
+            title: 'Remove Notification',
+            text: 'Are you sure you want to remove this notification?',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#dc3545',
+            cancelButtonColor: '#6c757d',
+            confirmButtonText: 'Yes, Remove',
+            cancelButtonText: 'Cancel'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                $.post(removeUrl, {
+                    <?php echo $this->security->get_csrf_token_name(); ?>: '<?php echo $this->security->get_csrf_hash(); ?>'
+                }, function(response) {
+                    if (response.success) {
+                        // Remove the row from table
+                        $('tr[data-id="' + notificationId + '"]').fadeOut(300, function() {
+                            $(this).remove();
+                        });
+                        Swal.fire('Removed!', 'Notification has been removed.', 'success');
+                    } else {
+                        Swal.fire('Error!', 'Failed to remove notification.', 'error');
+                    }
+                }).fail(function() {
+                    Swal.fire('Error!', 'Failed to remove notification.', 'error');
+                });
+            }
+        });
+    });
+    */
+});
 </script>

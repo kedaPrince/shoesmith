@@ -12,7 +12,7 @@ class Notifications extends CRUD_Controller
     public $listing = true;
     public $hideSubNav = false;
     public $abling = false;
-    public $deleting = false;
+    public $deleting = true; // Change this from false to true
     public $adding = false;
     public $editing = false;
 
@@ -38,103 +38,129 @@ class Notifications extends CRUD_Controller
     }
 
     private function setup_listing(): void
-    {
-        $this->listFields = array(
-            'title' => array('label' => lang('label_title'), 'sort' => true),
-            'message' => array('label' => lang('label_message'), 'sort' => true),
-            'type' => array(
-                'label' => lang('label_type'),
-                'sort' => true,
-                'type' => 'badge',
-                'options' => array(
-                    'candidate_applied' => array('class' => 'badge-primary', 'label' => 'Candidate Applied'),
-                    'status_changed' => array('class' => 'badge-warning', 'label' => 'Status Changed'),
-                    'job_added' => array('class' => 'badge-success', 'label' => 'New Job'),
-                    'system' => array('class' => 'badge-info', 'label' => 'System')
-                )
-            ),
-            'first_name' => array(
-                'label' => lang('label_candidate'),
-                'sort' => false,
-                'field' => "CONCAT(c.first_name, ' ', c.last_name) AS candidate_name",
-                'function' => function($value, $row) {
-                    if (!empty($row->first_name)) {
-                        return $row->first_name . ' ' . $row->last_name;
-                    }
-                    return '-';
+{
+    $this->listFields = array(
+        'title' => array('label' => lang('label_title'), 'sort' => true),
+        'message' => array('label' => lang('label_message'), 'sort' => true),
+        'type' => array(
+            'label' => lang('label_type'),
+            'sort' => true,
+            'type' => 'badge',
+            'options' => array(
+                'candidate_applied' => array('class' => 'badge-primary', 'label' => 'Candidate Applied'),
+                'status_changed' => array('class' => 'badge-warning', 'label' => 'Status Changed'),
+                'job_added' => array('class' => 'badge-success', 'label' => 'New Job'),
+                'system' => array('class' => 'badge-info', 'label' => 'System')
+            )
+        ),
+        'first_name' => array(
+            'label' => lang('label_candidate'),
+            'sort' => false,
+            'field' => "CONCAT(c.first_name, ' ', c.last_name) AS candidate_name",
+            'function' => function($value, $row) {
+                if (!empty($row->first_name)) {
+                    return $row->first_name . ' ' . $row->last_name;
                 }
-            ),
-            'job_name' => array('label' => lang('label_job'), 'sort' => true),
-            'recruiter_company' => array('label' => lang('label_recruiter'), 'sort' => true),
-            'created_at' => array(
-                'label' => lang('label_created_at'), 
-                'sort' => true, 
-                'type' => 'datetime',
-                'function' => function($value, $row) {
-                    return date('M j, Y g:i A', strtotime($value));
-                }
-            ),
-            'is_read' => array(
-                'label' => lang('label_status'),
-                'sort' => true,
-                'type' => 'badge',
-                'options' => array(
-                    '0' => array('class' => 'badge-danger', 'label' => 'Unread'),
-                    '1' => array('class' => 'badge-secondary', 'label' => 'Read')
-                )
-            ),
-        );
+                return '-';
+            }
+        ),
+        'job_name' => array('label' => lang('label_job'), 'sort' => true),
+        'recruiter_company' => array('label' => lang('label_recruiter'), 'sort' => true),
+        'created_at' => array(
+            'label' => lang('label_created_at'), 
+            'sort' => true, 
+            'type' => 'datetime',
+            'function' => function($value, $row) {
+                return date('M j, Y g:i A', strtotime($value));
+            }
+        ),
+        'is_read' => array(
+            'label' => lang('label_status'),
+            'sort' => true,
+            'type' => 'badge',
+            'options' => array(
+                '0' => array('class' => 'badge-danger', 'label' => 'Unread'),
+                '1' => array('class' => 'badge-secondary', 'label' => 'Read')
+            )
+        ),
+    );
 
-        $this->listActions = array(
-            'mark_read' => array(
-                'label' => lang('label_mark_read'),
-                'url' => url($this->pageName . '/mark_read/{id}'),
-                'icon' => 'fa-eye',
-                'class' => 'mark-read-btn',
-                'function' => function($str, $row) {
-                    return $row->is_read ? false : $str;
-                }
-            ),
-            'view_related' => array(
-                'label' => lang('label_view_related'),
-                'url' => url($this->pageName . '/view_related/{id}'),
-                'icon' => 'fa-external-link',
-                'class' => 'view-related-btn'
-            ),
-        );
+    // Remove view_related and mark_read actions, add remove action
+    $this->listActions = array(
+        'remove' => array(
+            'label' => lang('label_remove'),
+            'url' => url($this->pageName . '/remove/{id}'),
+            'icon' => 'fa-trash',
+            'class' => 'btn-danger remove-notification-btn',
+            'confirmation' => true,
+            'confirmation_msg' => 'Are you sure you want to remove this notification?'
+        )
+    );
 
-        // Get notification types safely
-        $notification_types = array(
-            'candidate_applied' => 'Candidate Applications',
-            'status_changed' => 'Status Changes', 
-            'job_added' => 'New Jobs',
-            'system' => 'System Notifications'
-        );
+    
+    // Get notification types safely
+    $notification_types = array(
+        'candidate_applied' => 'Candidate Applications',
+        'status_changed' => 'Status Changes', 
+        'job_added' => 'New Jobs',
+        'system' => 'System Notifications'
+    );
 
-        $this->filters = array(
-            'type' => array(
-                'label' => lang('label_type'),
-                'type' => 'dropdown',
-                'field' => 'n.type',
-                'options' => $notification_types,
+    $this->filters = array(
+        'type' => array(
+            'label' => lang('label_type'),
+            'type' => 'dropdown',
+            'field' => 'n.type',
+            'options' => $notification_types,
+        ),
+        'is_read' => array(
+            'label' => lang('label_status'),
+            'type' => 'dropdown',
+            'field' => 'n.is_read',
+            'options' => array(
+                '0' => 'Unread',
+                '1' => 'Read'
             ),
-            'is_read' => array(
-                'label' => lang('label_status'),
-                'type' => 'dropdown',
-                'field' => 'n.is_read',
-                'options' => array(
-                    '0' => 'Unread',
-                    '1' => 'Read'
-                ),
-            ),
-            'date_range' => array(
-                'label' => lang('label_date_range'),
-                'type' => 'date_range',
-                'field' => 'n.created_at',
-            ),
-        );
+        ),
+        'date_range' => array(
+            'label' => lang('label_date_range'),
+            'type' => 'date_range',
+            'field' => 'n.created_at',
+        ),
+    );
+}
+/**
+ * Remove notification (actual deletion)
+ */
+public function remove($id)
+{
+    $login_data = $this->session->userdata('login');
+    $agency_id = $login_data['agency']['id'] ?? 0;
+    
+    // Check if notification belongs to this agency
+    $notification = $this->db->where('id', $id)
+                            ->where('receiver_type', 'agency')
+                            ->where('receiver_id', $agency_id)
+                            ->get('notifications')
+                            ->row();
+    
+    if (!$notification) {
+        $this->session->set_flashdata('error', 'Notification not found or you do not have permission to remove it.');
+        redirect(redir($this->pageName, true));
     }
-
+    
+    // ACTUAL DELETION from database
+    $result = $this->db->where('id', $id)->delete('notifications');
+    
+    if ($result) {
+        $this->session->set_flashdata('success', 'Notification removed successfully.');
+    } else {
+        $this->session->set_flashdata('error', 'Failed to remove notification.');
+    }
+    
+    redirect(redir($this->pageName, true));
+}
+    // In your Notifications controller index method, add:
     public function index()
     {
         $this->breadcrumbs = array(
@@ -146,12 +172,16 @@ class Notifications extends CRUD_Controller
         $agency_id = $login_data['agency']['id'] ?? 0;
         $unread_count = $this->{$this->model}->get_unread_count($agency_id);
         
+        // Check for highlighted notification
+        $highlight_notification = $this->input->get('highlight');
+        
         $this->view = 'listing';
         $this->load->view($this->folder . '/view_header');
         $this->load->view('cms/crud/view_list', array(
             'heading' => lang($this->pageName . '_heading') . ($unread_count > 0 ? " <span class='badge badge-danger'>{$unread_count} Unread</span>" : ""),
             'noRows' => lang($this->pageName . '_no_rows'),
             'extra_actions' => $this->get_extra_actions(),
+            'highlight_notification' => $highlight_notification, // Pass to view
         ));
         $this->load->view($this->folder . '/view_footer');
     }
@@ -342,5 +372,66 @@ class Notifications extends CRUD_Controller
             return floor($diff / 86400) . ' days ago';
         }
     }
+
+    /**
+ * View single notification and mark as read
+ */
+public function view_notification($notification_id)
+{
+    $login_data = $this->session->userdata('login');
+    $agency_id = $login_data['agency']['id'] ?? 0;
+    
+    // Mark notification as read
+    $this->{$this->model}->mark_as_read($notification_id, $agency_id);
+    
+    // Get notification details
+    $notification = $this->db->where('id', $notification_id)
+                            ->where('receiver_type', 'agency')
+                            ->where('receiver_id', $agency_id)
+                            ->get('notifications')
+                            ->row();
+    
+    if (!$notification) {
+        show_404();
+    }
+    
+    // Redirect based on notification type or to notifications page
+    if (!empty($notification->related_entity) && !empty($notification->related_entity_id)) {
+        // Redirect to related entity if available
+        $this->view_related($notification_id);
+    } else {
+        // Otherwise redirect to notifications listing with the notification highlighted
+        redirect('agency/notifications?highlight=' . $notification_id);
+    }
+}
+
+/**
+ * AJAX endpoint to mark notification as read when clicked in dropdown
+ */
+public function ajax_mark_notification_read()
+{
+    $login_data = $this->session->userdata('login');
+    $agency_id = $login_data['agency']['id'] ?? 0;
+    
+    $notification_id = $this->input->post('notification_id');
+    
+    if (!$notification_id) {
+        echo json_encode(['success' => false, 'error' => 'Notification ID required']);
+        return;
+    }
+    
+    $result = $this->{$this->model}->mark_as_read($notification_id, $agency_id);
+    
+    if ($result) {
+        $unread_count = $this->{$this->model}->get_unread_count($agency_id);
+        echo json_encode([
+            'success' => true, 
+            'message' => 'Notification marked as read',
+            'unread_count' => $unread_count
+        ]);
+    } else {
+        echo json_encode(['success' => false, 'error' => 'Failed to mark notification as read']);
+    }
+}
 
 }
