@@ -94,7 +94,9 @@ $route['agency/chat/ajax_send_message'] = 'agency/chat/ajax_send_message';
 $route['agency/chat/ajax_get_messages'] = 'agency/chat/ajax_get_messages';
 $route['agency/chat/ajax_get_unread_count'] = 'agency/chat/ajax_get_unread_count';
 
+// In agency routes
 
+$route['agency/chat/conversation/(:num)'] = 'agency/chat/conversation/$1';
 // Debug routes
 $route['debug-session'] = function() {
     $ci =& get_instance();

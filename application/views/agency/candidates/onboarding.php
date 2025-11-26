@@ -625,9 +625,7 @@ function formatFileSize($bytes) {
                             <a href="<?= redir('candidates/edit/' . $candidate->id, true) ?>" class="btn btn-primary">
                                 <i class="fa fa-edit"></i> Edit Candidate
                             </a>
-                            <a href="<?= redir('candidates/view/' . $candidate->id, true) ?>" class="btn btn-info">
-                                <i class="fa fa-user"></i> View Profile
-                            </a>
+
                         </div>
                     </div>
                 </div>

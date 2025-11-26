@@ -31,6 +31,87 @@
     </header>
 
     <div class="container-fluid">
+        <!-- Job Details Header Section -->
+        <div class="card mb-4">
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-8">
+                        <h4 class="card-title mb-3">
+                            <i class="fa fa-briefcase mr-2"></i>
+                            <?php echo htmlspecialchars($job->name); ?>
+                        </h4>
+
+                        <div class="row">
+                            <?php if (!empty($job->department)): ?>
+                            <div class="col-sm-6 col-md-4 mb-2">
+                                <strong>Department:</strong>
+                                <span class="text-muted"><?php echo htmlspecialchars($job->department); ?></span>
+                            </div>
+                            <?php endif; ?>
+
+                            <?php if (!empty($job->employment_type)): ?>
+                            <div class="col-sm-6 col-md-4 mb-2">
+                                <strong>Employment Type:</strong>
+                                <span class="text-muted"><?php echo htmlspecialchars($job->employment_type); ?></span>
+                            </div>
+                            <?php endif; ?>
+
+                            <?php if (!empty($job->industry)): ?>
+                            <div class="col-sm-6 col-md-4 mb-2">
+                                <strong>Industry:</strong>
+                                <span class="text-muted"><?php echo htmlspecialchars($job->industry); ?></span>
+                            </div>
+                            <?php endif; ?>
+
+                            <?php if (!empty($job->location)): ?>
+                            <div class="col-sm-6 col-md-4 mb-2">
+                                <strong>Location:</strong>
+                                <span class="text-muted"><?php echo htmlspecialchars($job->location); ?></span>
+                            </div>
+                            <?php endif; ?>
+
+                            <?php if (!empty($job->reference_number)): ?>
+                            <div class="col-sm-6 col-md-4 mb-2">
+                                <strong>Reference:</strong>
+                                <span class="text-muted"><?php echo htmlspecialchars($job->reference_number); ?></span>
+                            </div>
+                            <?php endif; ?>
+
+                            <?php if (!empty($job->agency_name)): ?>
+                            <div class="col-sm-6 col-md-4 mb-2">
+                                <strong>Agency:</strong>
+                                <span class="text-muted"><?php echo htmlspecialchars($job->agency_name); ?></span>
+                            </div>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+
+                    <div class="col-md-4">
+                        <div class="d-flex flex-column align-items-end h-100">
+                            <div class="btn-group-vertical w-100">
+                                <!-- Add Candidate to this Job Button -->
+                                <button type="button" class="btn btn-primary mb-2" onclick="showSubmitCandidateModal()">
+                                    <i class="fa fa-user-plus mr-2"></i> Add Candidate to this Job
+                                </button>
+
+                                <!-- View Job Details Button -->
+                                <a href="<?php echo site_url('recruiter/jobs/view/' . $job->id); ?>"
+                                    class="btn btn-info mb-2">
+                                    <i class="fa fa-eye mr-2"></i> View Job Details
+                                </a>
+
+                                <!-- Back to Jobs Button -->
+                                <a href="<?php echo site_url('recruiter/jobs'); ?>" class="btn btn-outline-secondary">
+                                    <i class="fa fa-arrow-left mr-2"></i> Back to Jobs
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Candidates List Section -->
         <div class="card">
             <div class="card-header">
                 <h5 class="card-title mb-0">
@@ -544,5 +625,22 @@ window.assignCandidatesToJob = assignCandidatesToJob;
 .swal2-cancel {
     border-radius: 8px !important;
     font-weight: 600 !important;
+}
+
+/* Job Details Header Styles */
+.card-title {
+    color: #ffffffff;
+    font-weight: 600;
+}
+
+.btn-group-vertical .btn {
+    text-align: left;
+    justify-content: flex-start;
+}
+
+.btn-group-vertical .btn i {
+    margin-right: 8px;
+    width: 16px;
+    text-align: center;
 }
 </style>

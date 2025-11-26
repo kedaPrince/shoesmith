@@ -1734,7 +1734,16 @@ function format_menu_items($items_array){
 // Add this to application/helpers/general_helper.php or create a new helper
 if (!function_exists('time_ago')) {
     function time_ago($datetime) {
+        // Handle null, empty, or invalid dates
+        if (empty($datetime) || $datetime === '0000-00-00 00:00:00' || $datetime === '1970-01-01 00:00:01') {
+            return 'Never';
+        }
+
         $time = strtotime($datetime);
+        if ($time === false) {
+            return 'Invalid date';
+        }
+
         $now = time();
         $diff = $now - $time;
 

@@ -45,6 +45,7 @@ class Hybrid_Query_Result {
         public $seoFields = false;
         public $quickManage = true;
         public $quickManageSize = 5;
+        public $adding     = false;
 
     public function __construct() 
     {

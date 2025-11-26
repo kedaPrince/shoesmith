@@ -24,61 +24,132 @@ class Chat extends CRUD_Controller
         }
     }
 
-    public function index()
-    {
-        $recruiter_id = $this->get_recruiter_id();
-        $conversations = $this->{$this->model}->get_recruiter_conversations($recruiter_id);
-        
-        $this->breadcrumbs = [
-            ['title' => lang('chat_heading'), 'url' => '']
-        ];
-        
-        $this->load->view($this->folder . '/view_header');
-        $this->load->view('recruiter/chat/index', [
-            'conversations' => $conversations,
-            'heading' => lang('chat_heading'),
-            'recruiter_id' => $recruiter_id
-        ]);
-        $this->load->view($this->folder . '/view_footer');
+    
+    /**
+ * Main chat page - redirects to first conversation or shows available agencies
+ */
+public function index()
+{
+    $recruiter_id = $this->get_recruiter_id();
+    
+    // Get all conversations
+    $conversations = $this->{$this->model}->get_recruiter_conversations($recruiter_id);
+    
+    // Get available agencies for new chats
+    $available_agencies = $this->{$this->model}->get_available_agencies_simple($recruiter_id);
+    
+    // If user has conversations, redirect to the first one
+    if (!empty($conversations)) {
+        redirect('recruiter/chat/conversation/' . $conversations[0]->id);
+        return;
     }
-
-    public function conversation($conversation_id = null)
-    {
-        $recruiter_id = $this->get_recruiter_id();
+    
+    // If no conversations but has agencies, create first conversation with first agency
+    if (!empty($available_agencies)) {
+        $conversation = $this->{$this->model}->get_or_create_conversation(
+            $available_agencies[0]->id, 
+            $recruiter_id
+        );
         
-        if (!$conversation_id) {
-            show_404();
+        if ($conversation) {
+            redirect('recruiter/chat/conversation/' . $conversation->id);
+            return;
         }
-        
-        $conversation = $this->{$this->model}->get_conversation_for_recruiter($conversation_id, $recruiter_id);
-        
-        if (!$conversation) {
-            show_404();
-        }
-        
-        // Mark messages as read
-        $this->{$this->model}->mark_messages_as_read($conversation_id, 'recruiter');
-        
-        $messages = $this->{$this->model}->get_conversation_messages($conversation_id);
-        
-        // Get all conversations for the sidebar
-        $all_conversations = $this->{$this->model}->get_recruiter_conversations($recruiter_id);
-        
-        $this->breadcrumbs = [
-            ['title' => lang('chat_heading'), 'url' => url('chat')],
-            ['title' => $conversation->title, 'url' => '']
-        ];
-        
-        $this->load->view($this->folder . '/view_header');
-        $this->load->view('recruiter/chat/conversation', [
-            'conversation' => $conversation,
-            'messages' => $messages,
-            'all_conversations' => $all_conversations,
-            'heading' => $conversation->title,
-            'recruiter_id' => $recruiter_id
-        ]);
-        $this->load->view($this->folder . '/view_footer');
     }
+    
+    // Fallback: Show chat with agencies list (no conversations available)
+    $this->load_chat_view($conversations, $available_agencies);
+}
+private function load_chat_view($conversations, $agencies)
+{
+    $recruiter_id = $this->get_recruiter_id();
+    
+    $this->breadcrumbs = [
+        ['title' => lang('chat_heading'), 'url' => '']
+    ];
+    
+    $this->load->view($this->folder . '/view_header');
+    $this->load->view('recruiter/chat/conversation', [
+        'conversation' => null,
+        'messages' => [],
+        'all_conversations' => $conversations,
+        'available_agencies' => $agencies,
+        'heading' => lang('chat_heading'),
+        'recruiter_id' => $recruiter_id,
+        'total_unread_count' => 0,
+        'recent_notifications' => [],
+        'total_message_count' => 0
+    ]);
+    $this->load->view($this->folder . '/view_footer');
+}
+   public function conversation($conversation_id = null)
+{
+    $recruiter_id = $this->get_recruiter_id();
+    
+    if (!$conversation_id) {
+        redirect('recruiter/chat');
+        return;
+    }
+    
+    $conversation = $this->{$this->model}->get_conversation_for_recruiter($conversation_id, $recruiter_id);
+    
+    if (!$conversation) {
+        show_404();
+    }
+    
+    // Mark messages as read
+    $this->{$this->model}->mark_messages_as_read($conversation_id, 'recruiter');
+    
+    $messages = $this->{$this->model}->get_conversation_messages($conversation_id);
+    
+    // Get all conversations for the sidebar
+    $all_conversations = $this->{$this->model}->get_recruiter_conversations($recruiter_id);
+    
+    // Get available agencies for new chats
+    $available_agencies = $this->{$this->model}->get_available_agencies_simple($recruiter_id);
+    
+    // Calculate total unread count - ADD THIS
+    $total_unread_count = $this->{$this->model}->get_unread_count_for_recruiter($recruiter_id);
+    
+    // Get recent notifications - ADD THIS (initialize as empty array if method doesn't exist)
+    $recent_notifications = [];
+    if (method_exists($this->{$this->model}, 'get_recent_notifications')) {
+        $recent_notifications = $this->{$this->model}->get_recent_notifications($recruiter_id, 'recruiter');
+    }
+    
+    // Calculate total message count - ADD THIS (initialize as 0 if method doesn't exist)
+    $total_message_count = 0;
+    if (method_exists($this->{$this->model}, 'get_total_message_count')) {
+        $total_message_count = $this->{$this->model}->get_total_message_count($recruiter_id);
+    }
+    
+    // Ensure conversation has required properties
+    if (!isset($conversation->unread_count)) {
+        $conversation->unread_count = 0;
+    }
+    if (!isset($conversation->is_online)) {
+        $conversation->is_online = 0;
+    }
+    
+    $this->breadcrumbs = [
+        ['title' => lang('chat_heading'), 'url' => url('chat')],
+        ['title' => $conversation->agency_name, 'url' => '']
+    ];
+    
+    $this->load->view($this->folder . '/view_header');
+    $this->load->view('recruiter/chat/conversation', [
+        'conversation' => $conversation,
+        'messages' => $messages,
+        'all_conversations' => $all_conversations,
+        'available_agencies' => $available_agencies,
+        'heading' => lang('chat_heading'),
+        'recruiter_id' => $recruiter_id,
+        'total_unread_count' => $total_unread_count, // ADD THIS
+        'recent_notifications' => $recent_notifications, // ADD THIS
+        'total_message_count' => $total_message_count // ADD THIS
+    ]);
+    $this->load->view($this->folder . '/view_footer');
+}
 
     /**
      * Start new conversation
@@ -157,81 +228,93 @@ public function ajax_send_message()
     }
 }
 
-    /**
-     * AJAX: Get new messages - FIXED VERSION
-     */
-    public function ajax_get_messages()
-    {
-        log_message('debug', '=== ajax_get_messages called ===');
-        
-        // Remove AJAX check since we have explicit routes
-        $conversation_id = $this->input->post('conversation_id');
-        $last_message_id = $this->input->post('last_message_id') ?: 0;
-        $recruiter_id = $this->get_recruiter_id();
-        
-        log_message('debug', "Fetch params - conversation_id: $conversation_id, last_message_id: $last_message_id, recruiter_id: $recruiter_id");
-        
-        if (!$conversation_id) {
-            ajax_return(['success' => false, 'message' => 'Conversation ID required']);
-            return;
-        }
-        
-        $conversation = $this->{$this->model}->get_conversation_for_recruiter($conversation_id, $recruiter_id);
-        if (!$conversation) {
-            ajax_return(['success' => false, 'message' => 'Conversation not found']);
-            return;
-        }
-        
-        // Mark messages as read
-        $this->{$this->model}->mark_messages_as_read($conversation_id, 'recruiter');
-        
-        // Get only new messages
-        $this->db->select('cm.*, 
-                          CASE 
-                              WHEN cm.sender_type = "agency" THEN a.name
-                              WHEN cm.sender_type = "recruiter" THEN CONCAT(r.first_name, " ", r.last_name)
-                          END as sender_name');
-        $this->db->from('chat_messages cm');
-        $this->db->join('agencies a', 'a.id = cm.sender_id AND cm.sender_type = "agency"', 'left');
-        $this->db->join('recruiters r', 'r.id = cm.sender_id AND cm.sender_type = "recruiter"', 'left');
-        $this->db->where('cm.conversation_id', $conversation_id);
-        
-        if ($last_message_id > 0) {
-            $this->db->where('cm.id >', $last_message_id);
-        }
-        
-        $this->db->where('cm.enabled', 1);
-        $this->db->where('cm.removed', 0);
-        $this->db->order_by('cm.created_at', 'ASC');
-        
-        $messages = $this->db->get()->result();
-        
-        log_message('debug', 'Found ' . count($messages) . ' new messages');
-        
-        $html = '';
-        $last_id = $last_message_id;
-        $has_new_messages = false;
-        
-        foreach ($messages as $message) {
-            $html .= $this->load->view('recruiter/chat/message_item', [
-                'message' => $message, 
-                'current_user_type' => 'recruiter'
-            ], true);
-            $last_id = max($last_id, $message->id);
-            $has_new_messages = true;
-        }
-        
-        $response = [
-            'success' => true,
-            'html' => $html,
-            'last_message_id' => $last_id,
-            'has_new_messages' => $has_new_messages,
-            'message_count' => count($messages)
-        ];
-        
-        log_message('debug', 'Sending response with ' . count($messages) . ' messages');
-        ajax_return($response);
+public function ajax_get_messages()
+{
+    log_message('debug', '=== RECRUITER ajax_get_messages called ===');
+    
+    $conversation_id = $this->input->post('conversation_id');
+    $last_message_id = $this->input->post('last_message_id') ?: 0;
+    $recruiter_id = $this->get_recruiter_id();
+    
+    log_message('debug', "RECRUITER Fetch params - conversation_id: $conversation_id, last_message_id: $last_message_id, recruiter_id: $recruiter_id");
+    
+    if (!$conversation_id) {
+        ajax_return(['success' => false, 'message' => 'Conversation ID required']);
+        return;
     }
+    
+    $conversation = $this->{$this->model}->get_conversation_for_recruiter($conversation_id, $recruiter_id);
+    if (!$conversation) {
+        log_message('debug', "RECRUITER Conversation not found: $conversation_id");
+        ajax_return(['success' => false, 'message' => 'Conversation not found']);
+        return;
+    }
+    
+    // Mark messages as read
+    $this->{$this->model}->mark_messages_as_read($conversation_id, 'recruiter');
+    
+    // Get ONLY new messages (messages with ID greater than last_message_id)
+    $this->db->select('cm.*, 
+                      CASE 
+                          WHEN cm.sender_type = "agency" THEN a.name
+                          WHEN cm.sender_type = "recruiter" THEN CONCAT(r.first_name, " ", r.last_name)
+                      END as sender_name');
+    $this->db->from('chat_messages cm');
+    $this->db->join('agencies a', 'a.id = cm.sender_id AND cm.sender_type = "agency"', 'left');
+    $this->db->join('recruiters r', 'r.id = cm.sender_id AND cm.sender_type = "recruiter"', 'left');
+    $this->db->where('cm.conversation_id', $conversation_id);
+    
+    // CRITICAL FIX: Only get messages newer than last_message_id
+    if ($last_message_id > 0) {
+        $this->db->where('cm.id >', $last_message_id);
+    }
+    
+    $this->db->where('cm.enabled', 1);
+    $this->db->where('cm.removed', 0);
+    $this->db->order_by('cm.created_at', 'ASC');
+    
+    $query = $this->db->get();
+    $messages = $query->result();
+    
+    log_message('debug', "RECRUITER SQL Query: " . $this->db->last_query());
+    log_message('debug', "RECRUITER Found new messages: " . count($messages));
+    
+    $html = '';
+    $last_id = $last_message_id;
+    $has_new_messages = false;
+    
+    foreach ($messages as $message) {
+        $message_html = $this->load->view('recruiter/chat/message_item', [
+            'message' => $message, 
+            'current_user_type' => 'recruiter'
+        ], true);
+        
+        $html .= $message_html;
+        $has_new_messages = true;
+        
+        // Update last_id to the highest message ID
+        if ($message->id > $last_id) {
+            $last_id = $message->id;
+        }
+    }
+    
+    $response = [
+        'success' => true,
+        'html' => $html,
+        'last_message_id' => $last_id,
+        'has_new_messages' => $has_new_messages,
+        'message_count' => count($messages),
+        'debug' => [
+            'requested_last_id' => $last_message_id,
+            'returned_last_id' => $last_id,
+            'new_messages_found' => count($messages)
+        ]
+    ];
+    
+    log_message('debug', 'RECRUITER Sending response - HTML length: ' . strlen($html) . ', Last ID: ' . $last_id);
+    ajax_return($response);
+}
+
 
     /**
      * AJAX: Get unread count for menu badge
@@ -328,4 +411,27 @@ public function ajax_send_message()
         $login_data = $this->session->userdata('login');
         return !empty($login_data['recruiter']['id']) ? $login_data['recruiter']['id'] : null;
     }
+
+
+public function debug_messages($conversation_id)
+{
+    $recruiter_id = $this->get_recruiter_id();
+    
+    echo "=== DEBUG MESSAGES FOR CONVERSATION: $conversation_id ===<br>";
+    
+    // Get all messages for this conversation
+    $this->db->select('id, sender_type, message, created_at, enabled, removed')
+             ->from('chat_messages')
+             ->where('conversation_id', $conversation_id)
+             ->order_by('id', 'ASC');
+    
+    $all_messages = $this->db->get()->result();
+    
+    echo "Total messages: " . count($all_messages) . "<br>";
+    foreach ($all_messages as $msg) {
+        echo "ID: {$msg->id}, Type: {$msg->sender_type}, Enabled: {$msg->enabled}, Removed: {$msg->removed}, Message: " . substr($msg->message, 0, 30) . "...<br>";
+    }
+    
+    die();
+}
 }

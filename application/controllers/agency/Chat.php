@@ -223,31 +223,35 @@ class Chat extends CRUD_Controller
     }
 
    private function send_chat_notification($conversation, $message, $sender_type)
-    {
-        // Debug: Check if model exists
-        if (!class_exists('Model_notifications')) {
-            return;
+        {
+            // Debug: Check if model exists
+            if (!class_exists('Model_notifications')) {
+                log_message('debug', 'Model_notifications class not found');
+                return;
+            }
+            
+            $this->load->model('agency/Model_notifications');
+            
+            // Debug: Check if method exists
+            if (!method_exists($this->Model_notifications, 'create_chat_notification')) {
+                log_message('debug', 'create_chat_notification method not found in Model_notifications');
+                return;
+            }
+            
+            if ($sender_type === 'agency') {
+                log_message('debug', 'Calling create_chat_notification from Model_notifications');
+                $this->Model_notifications->create_chat_notification(
+                    $conversation->id,
+                    $conversation->recruiter_id,
+                    'recruiter',
+                    $message,
+                    $this->get_user_agency_id() // FIXED: Changed from get_agency_id() to get_user_agency_id()
+                );
+            }
         }
-        
-        $this->load->model('agency/Model_notifications');
-        
-        // Debug: Check if method exists
-        if (!method_exists($this->Model_notifications, 'create_chat_notification')) {
-            return;
-        }
-        
-        if ($sender_type === 'agency') {
-            $this->Model_notifications->create_chat_notification(
-                $conversation->id,
-                $conversation->recruiter_id,
-                'recruiter',
-                $message,
-                $this->get_user_agency_id()
-            );
-        }
-    }
 
-   private function get_user_agency_id()
+   
+    private function get_user_agency_id()
     {
         $login = $this->session->userdata('login');
         
@@ -270,45 +274,148 @@ class Chat extends CRUD_Controller
     }
 
 
-    public function ajax_send_message()
-    {
-        log_message('debug', '=== Agency ajax_send_message called ===');
-        
-        // Remove AJAX check
+// In your Agency Chat Controller - FIXED ajax_send_message method
+public function ajax_send_message()
+{
+    log_message('debug', '=== AGENCY ajax_send_message called ===');
+    
+    try {
         $conversation_id = $this->input->post('conversation_id');
         $message = $this->input->post('message');
-        $agency_id = $this->get_user_agency_id();
+        $agency_id = $this->get_user_agency_id(); // FIXED: Changed from get_agency_id() to get_user_agency_id()
         
-        log_message('debug', "Agency send params - conversation_id: $conversation_id, message: " . substr($message, 0, 50) . ", agency_id: $agency_id");
+        log_message('debug', "Agency Send params - conversation_id: $conversation_id, agency_id: $agency_id");
         
         if (empty($conversation_id) || empty($message)) {
             ajax_return(['success' => false, 'message' => 'Missing required fields']);
             return;
         }
         
-        // Verify conversation access
         $conversation = $this->{$this->model}->get_conversation_for_agency($conversation_id, $agency_id);
         if (!$conversation) {
             ajax_return(['success' => false, 'message' => 'Conversation not found']);
             return;
         }
         
+        // ADD DEBUG LOGGING HERE
+        log_message('debug', '=== BEFORE NOTIFICATION CREATION ===');
+        log_message('debug', "Conversation ID: $conversation_id");
+        log_message('debug', "Recruiter ID: " . $conversation->recruiter_id);
+        log_message('debug', "Message: " . substr($message, 0, 100));
+        log_message('debug', "Agency ID: $agency_id");
+        
         $message_id = $this->{$this->model}->send_message(
             $conversation_id, 
             'agency', 
-            $agency_id,
+            $agency_id, 
             $message
         );
         
         if ($message_id) {
             log_message('debug', "Agency message sent successfully, ID: $message_id");
-            // TEMPORARILY DISABLE NOTIFICATIONS FOR TESTING
-            // $this->send_chat_notification($conversation, $message, 'agency');
+            
+            // CRITICAL: Create notification for recruiter
+            log_message('debug', '=== CREATING NOTIFICATION ===');
+            $notification_id = $this->{$this->model}->create_chat_notification(
+                $conversation_id,
+                $conversation->recruiter_id, // Send to recruiter
+                'recruiter', // Receiver type
+                $message,
+                $agency_id // Sender ID (agency)
+            );
+            
+            log_message('debug', "Notification creation result: " . ($notification_id ? "Success ID: $notification_id" : "Failed"));
             
             ajax_return(['success' => true, 'message_id' => $message_id]);
         } else {
-            log_message('debug', 'Agency failed to send message');
+            log_message('debug', 'Failed to send message');
             ajax_return(['success' => false, 'message' => 'Failed to send message']);
         }
+    } catch (Exception $e) {
+        log_message('error', 'Error in agency ajax_send_message: ' . $e->getMessage());
+        ajax_return(['success' => false, 'message' => 'Server error: ' . $e->getMessage()]);
     }
+}
+
+/**
+ * Test notification creation for agency
+ */
+public function test_notification_creation($conversation_id)
+{
+    $agency_id = $this->get_user_agency_id();
+    
+    echo "=== AGENCY NOTIFICATION TEST ===<br>";
+    echo "Agency ID: $agency_id<br>";
+    echo "Conversation ID: $conversation_id<br><br>";
+    
+    // Get conversation
+    $conversation = $this->{$this->model}->get_conversation_for_agency($conversation_id, $agency_id);
+    if (!$conversation) {
+        echo "❌ Conversation not found<br>";
+        return;
+    }
+    
+    echo "✅ Conversation found:<br>";
+    echo "- ID: $conversation->id<br>";
+    echo "- Agency ID: $conversation->agency_id<br>";
+    echo "- Recruiter ID: $conversation->recruiter_id<br>";
+    echo "- Title: $conversation->title<br><br>";
+    
+    // Test sending a message
+    $test_message = "Test message for notification creation";
+    echo "Testing message sending...<br>";
+    
+    $message_id = $this->{$this->model}->send_message(
+        $conversation_id, 
+        'agency', 
+        $agency_id, 
+        $test_message
+    );
+    
+    if ($message_id) {
+        echo "✅ Message sent successfully, ID: $message_id<br><br>";
+        
+        // Test creating notification
+        echo "Testing notification creation...<br>";
+        $notification_id = $this->{$this->model}->create_chat_notification(
+            $conversation_id,
+            $conversation->recruiter_id,
+            'recruiter',
+            $test_message,
+            $agency_id
+        );
+        
+        if ($notification_id) {
+            echo "✅ Notification created successfully, ID: $notification_id<br><br>";
+            
+            // Check if notification exists in database
+            $this->db->select('*')
+                     ->from('notifications')
+                     ->where('id', $notification_id);
+            $notification = $this->db->get()->row();
+            
+            if ($notification) {
+                echo "✅ Notification found in database:<br>";
+                echo "- ID: $notification->id<br>";
+                echo "- Message: $notification->message<br>";
+                echo "- Type: $notification->type<br>";
+                echo "- Receiver ID: $notification->receiver_id<br>";
+                echo "- Receiver Type: $notification->receiver_type<br>";
+                echo "- Created: $notification->created_at<br>";
+            } else {
+                echo "❌ Notification not found in database<br>";
+            }
+        } else {
+            echo "❌ Failed to create notification<br>";
+            
+            // Check for database errors
+            $error = $this->db->error();
+            echo "Database error: " . $error['message'] . "<br>";
+        }
+    } else {
+        echo "❌ Failed to send message<br>";
+    }
+    
+    die();
+}
 }
