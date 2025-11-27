@@ -3,6 +3,7 @@
 // Load notifications directly in the top bar
 $ci =& get_instance();
 $ci->load->model('recruiter/Model_notifications');
+$ci->load->model('recruiter/Model_chat_messages');
 
 // Get recruiter ID from session
 $login_data = $ci->session->userdata('login');
@@ -10,11 +11,16 @@ $recruiter_id = !empty($login_data['recruiter']['id']) ? $login_data['recruiter'
 
 // Load notifications if recruiter is logged in
 if ($recruiter_id) {
-    $notifications = $ci->Model_notifications->get_unread_notifications($recruiter_id);
-    $unread_count = $ci->Model_notifications->count_unread_notifications($recruiter_id);
+    // Get ONLY SYSTEM notifications (exclude chat notifications)
+    $system_notifications = $ci->Model_notifications->get_system_notifications($recruiter_id);
+    $system_unread_count = $ci->Model_notifications->count_system_notifications($recruiter_id);
+    
+    // Get chat-specific unread count
+    $chat_unread_count = $ci->Model_chat_messages->get_unread_count_for_recruiter($recruiter_id);
 } else {
-    $notifications = [];
-    $unread_count = 0;
+    $system_notifications = [];
+    $system_unread_count = 0;
+    $chat_unread_count = 0;
 }
 ?>
 
@@ -74,9 +80,10 @@ a#notification-bell {
     }
 
     /* Pulse animation when there are notifications */
-    <?php if ($unread_count > 0): ?>.dropdown-toggle {
+    <?php if ($system_unread_count > 0): ?>.notifications-menu .dropdown-toggle {
         animation: pulse 2s infinite;
     }
+
 
     @keyframes pulse {
         0% {
@@ -130,6 +137,76 @@ body[data-theme="dark"] .notifications-menu .dropdown-toggle {
     background: #ffffff;
 
 }
+
+/* Chat Notification Bell Styling */
+.chat-notifications-menu {
+    position: relative;
+}
+
+.chat-notifications-menu .dropdown-toggle {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 8px 12px;
+    background-color: #128C7E;
+    border-radius: 25px;
+    color: white;
+    transition: all 0.3s ease;
+    margin: 0 5px;
+}
+
+.chat-notifications-menu .dropdown-toggle .fa-comments {
+    font-size: 18px;
+    color: white;
+}
+
+.chat-notification-badge {
+    position: absolute;
+    top: -8px;
+    right: -2px;
+    background-color: #25D366;
+    color: white;
+    border-radius: 50%;
+    min-width: 20px;
+    height: 20px;
+    font-size: 11px;
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 2px solid white;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+    line-height: 1;
+}
+
+.chat-notifications-menu .dropdown-toggle:hover {
+    background-color: #0d745e;
+    transform: translateY(-1px);
+}
+
+/* Pulse animation for chat notifications */
+<?php if ($chat_unread_count > 0): ?>.chat-notifications-menu .dropdown-toggle {
+    animation: chat-pulse 2s infinite;
+}
+
+
+@keyframes chat-pulse {
+    0% {
+        box-shadow: 0 0 0 0 rgba(37, 211, 102, 0.7);
+    }
+
+    70% {
+        box-shadow: 0 0 0 10px rgba(37, 211, 102, 0);
+    }
+
+    100% {
+        box-shadow: 0 0 0 0 rgba(37, 211, 102, 0);
+    }
+}
+
+<?php endif;
+?>
 </style>
 
 <!-- Top navbar div start -->
@@ -148,8 +225,8 @@ body[data-theme="dark"] .notifications-menu .dropdown-toggle {
                         <a href="javascript:void(0);" class="dropdown-toggle icon-menu" data-toggle="dropdown"
                             aria-expanded="false" id="notification-bell">
                             <i class="fa fa-bell-o"></i>
-                            <?php if ($unread_count > 0): ?>
-                            <span class="notification-badge"><?php echo $unread_count; ?></span>
+                            <?php if ($system_unread_count > 0): ?>
+                            <span class="notification-badge"><?php echo $system_unread_count; ?></span>
                             <?php else: ?>
                             <span class="notification-badge" style="display: none;">0</span>
                             <?php endif; ?>
@@ -158,13 +235,13 @@ body[data-theme="dark"] .notifications-menu .dropdown-toggle {
                             style="width: 350px; padding: 0; border-bottom-left-radius: 23px; border-bottom-right-radius: 23px;">
                             <li class="header"
                                 style="background: #f8f9fa; padding: 10px 15px; border-bottom: 1px solid #dee2e6;color:#000;">
-                                You have <span class="notification-count"><?php echo $unread_count; ?></span>
-                                notifications
+                                You have <span class="notification-count"><?php echo $system_unread_count; ?></span>
+                                system notifications
                             </li>
                             <li style="max-height: 250px; overflow-y: auto;">
                                 <ul class="menu" style="list-style: none; padding: 0; margin: 0;">
-                                    <?php if (!empty($notifications)): ?>
-                                    <?php foreach (array_slice($notifications, 0, 5) as $notification): ?>
+                                    <?php if (!empty($system_notifications)): ?>
+                                    <?php foreach (array_slice($system_notifications, 0, 5) as $notification): ?>
                                     <li style="border-bottom: 1px solid #f0f0f0;">
                                         <a href="javascript:void(0);"
                                             onclick="handleNotificationClick(<?php echo $notification->id; ?>)"
@@ -195,7 +272,7 @@ body[data-theme="dark"] .notifications-menu .dropdown-toggle {
                                     <?php endforeach; ?>
                                     <?php else: ?>
                                     <li style="padding: 15px; text-align: center; color: #666;">
-                                        No new notifications
+                                        No new system notifications
                                     </li>
                                     <?php endif; ?>
                                 </ul>
@@ -209,13 +286,96 @@ body[data-theme="dark"] .notifications-menu .dropdown-toggle {
                             </li>
                         </ul>
                     </li>
-                    <!-- <li>
-                        <a class="dark-mode-toggle icon-menu" href="javascript:toggle_dark_mode()"
-                            title="Toggle Dark Mode" data-toggle="tt" data-placement="top">
-                            <i class="dark-mode-disabled fa fa-moon-o"></i>
-                            <i class="dark-mode-enabled fa fa-sun-o"></i>
+
+
+                    <!-- Chat Notification Bell -->
+                    <li class="dropdown chat-notifications-menu">
+                        <a href="javascript:void(0);" class="dropdown-toggle icon-menu" data-toggle="dropdown"
+                            aria-expanded="false" id="chat-notification-bell">
+                            <i class="fa fa-comments"></i>
+                            <?php 
+                                // Calculate chat-specific unread count
+                                $chat_unread_count = 0;
+                                if ($recruiter_id) {
+                                    $ci->load->model('recruiter/Model_chat_messages');
+                                    $chat_unread_count = $ci->Model_chat_messages->get_unread_count_for_recruiter($recruiter_id);
+                                }
+                                ?>
+                            <?php if ($chat_unread_count > 0): ?>
+                            <span class="chat-notification-badge"><?php echo $chat_unread_count; ?></span>
+                            <?php else: ?>
+                            <span class="chat-notification-badge" style="display: none;">0</span>
+                            <?php endif; ?>
                         </a>
-                    </li> -->
+                        <ul class="dropdown-menu"
+                            style="width: 350px; padding: 0; border-bottom-left-radius: 23px; border-bottom-right-radius: 23px;">
+                            <li class="header"
+                                style="background: #128C7E; padding: 10px 15px; border-bottom: 1px solid #0d745e;color:#fff;">
+                                <i class="fa fa-comments"></i> You have <span
+                                    class="chat-notification-count"><?php echo $chat_unread_count; ?></span>
+                                unread messages
+                            </li>
+                            <li style="max-height: 250px; overflow-y: auto;">
+                                <ul class="menu" style="list-style: none; padding: 0; margin: 0;">
+                                    <?php 
+                                    // Get recent chat conversations with unread messages
+                                    $recent_chats = [];
+                                    if ($recruiter_id) {
+                                        $recent_chats = $ci->Model_chat_messages->get_recruiter_conversations($recruiter_id, 5);
+                                    }
+                                    ?>
+                                    <?php if (!empty($recent_chats)): ?>
+                                    <?php foreach ($recent_chats as $chat): ?>
+                                    <?php if ($chat->unread_count > 0): ?>
+                                    <li style="border-bottom: 1px solid #f0f0f0;">
+                                        <a href="<?php echo site_url('recruiter/chat/conversation/' . $chat->id); ?>"
+                                            style="display: block; padding: 10px 15px; color: #333; text-decoration: none; cursor: pointer;"
+                                            class="chat-notification-item">
+                                            <div style="float: left; margin-right: 10px;">
+                                                <div
+                                                    style="width: 40px; height: 40px; border-radius: 50%; background-color: #128C7E; display: flex; align-items: center; justify-content: center; font-weight: bold; color: #ffffff;">
+                                                    <?php echo substr(htmlspecialchars($chat->agency_name), 0, 1); ?>
+                                                </div>
+                                            </div>
+                                            <div style="overflow: hidden;">
+                                                <h4 style="margin: 0 0 5px 0; font-size: 14px; font-weight: bold;">
+                                                    <?php echo htmlspecialchars($chat->agency_name); ?>
+                                                    <span
+                                                        style="background: #128C7E; color: white; padding: 1px 6px; border-radius: 10px; font-size: 10px; margin-left: 5px; display: inline-block;">
+                                                        <?php echo $chat->unread_count; ?> new
+                                                    </span>
+                                                </h4>
+                                                <p style="margin: 0 0 5px 0; font-size: 12px; color: #666;">
+                                                    <?php echo character_limiter($chat->last_message, 50); ?>
+                                                </p>
+                                                <small style="color: #999; font-size: 11px;">
+                                                    <i class="fa fa-clock-o"></i>
+                                                    <?php echo time_ago($chat->last_message_at); ?>
+                                                </small>
+                                            </div>
+                                            <div style="clear: both;"></div>
+                                        </a>
+                                    </li>
+                                    <?php endif; ?>
+                                    <?php endforeach; ?>
+                                    <?php else: ?>
+                                    <li style="padding: 15px; text-align: center; color: #666;">
+                                        <i class="fa fa-comments"
+                                            style="font-size: 24px; color: #128C7E; margin-bottom: 10px;"></i>
+                                        <p style="margin: 0;">No unread messages</p>
+                                    </li>
+                                    <?php endif; ?>
+                                </ul>
+                            </li>
+                            <li class="footer"
+                                style="background: #25D366;padding: 10px 15px;text-align: center;color: #fff;">
+                                <a href="<?php echo site_url('recruiter/chat'); ?>"
+                                    style="color: #ffffff;text-decoration: none;font-weight: bold;">
+                                    <i class="fa fa-comments"></i> Open Chat
+                                </a>
+                            </li>
+                        </ul>
+                    </li>
                     <li>
                         <a href="javascript:void(0);" class="icon-menu" id="top-bar-logout-btn" data-toggle="tt"
                             data-placement="top" title="Logout" onclick="confirmLogout()">
@@ -253,7 +413,6 @@ function confirmLogout() {
 }
 
 function markAsRead(notificationId) {
-    console.log('Marking as read:', notificationId);
     $.post('<?php echo site_url("recruiter/dashboard/ajax_mark_notification_read"); ?>', {
         notification_id: notificationId,
         <?php echo $this->security->get_csrf_token_name(); ?>: '<?php echo $this->security->get_csrf_hash(); ?>'
@@ -275,7 +434,6 @@ function markAsRead(notificationId) {
             }
         }
     }, 'json').fail(function(xhr, status, error) {
-        console.error('Mark as read error:', error);
         if (!window.suppressNotificationToast) {
             showToast('Error marking notification as read', 'error');
         }
@@ -285,23 +443,23 @@ function markAsRead(notificationId) {
 function handleNotificationClick(notificationId) {
     // Close the dropdown first
     $('.notifications-menu .dropdown-toggle').dropdown('toggle');
-    
+
     // Immediately update the UI optimistically
     const badge = document.querySelector('.notification-badge');
     const count = document.querySelector('.notification-count');
-    
+
     // Update badge count optimistically
     if (badge && badge.textContent > 0) {
         const newCount = parseInt(badge.textContent) - 1;
         badge.textContent = newCount;
         if (count) count.textContent = newCount;
-        
+
         // Hide badge if count is 0
         if (newCount === 0) {
             badge.style.display = 'none';
         }
     }
-    
+
     // Remove the "NEW" badge from this notification in the dropdown immediately
     const notificationElement = document.querySelector('[onclick="handleNotificationClick(' + notificationId + ')"]');
     if (notificationElement) {
@@ -309,38 +467,186 @@ function handleNotificationClick(notificationId) {
         if (newBadge) {
             newBadge.remove();
         }
-        
+
         // Also remove the entire notification item after a delay
         setTimeout(() => {
             notificationElement.closest('li').remove();
         }, 100);
     }
-    
+
     // Mark as read via AJAX
     fetch('<?php echo site_url("recruiter/dashboard/ajax_mark_notification_read"); ?>', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: 'notification_id=' + notificationId +
-            '&<?php echo $ci->security->get_csrf_token_name(); ?>=<?php echo $ci->security->get_csrf_hash(); ?>'
-    }).then(response => response.json())
-    .then(response => {
-        if (response.success) {
-            // Update badge with actual count from server
-            if (badge) {
-                badge.textContent = response.unread_count;
-                if (count) count.textContent = response.unread_count;
-                badge.style.display = response.unread_count == 0 ? 'none' : 'flex';
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: 'notification_id=' + notificationId +
+                '&<?php echo $ci->security->get_csrf_token_name(); ?>=<?php echo $ci->security->get_csrf_hash(); ?>'
+        }).then(response => response.json())
+        .then(response => {
+            if (response.success) {
+                // Update badge with actual count from server
+                if (badge) {
+                    badge.textContent = response.unread_count;
+                    if (count) count.textContent = response.unread_count;
+                    badge.style.display = response.unread_count == 0 ? 'none' : 'flex';
+                }
+
+                // Redirect to notifications page with the specific notification highlighted
+                window.location.href = '<?php echo site_url("recruiter/dashboard/notifications"); ?>?read=' +
+                    notificationId;
             }
-            
-            // Redirect to notifications page with the specific notification highlighted
-            window.location.href = '<?php echo site_url("recruiter/dashboard/notifications"); ?>?read=' + notificationId;
-        }
-    }).catch(error => {
-        console.error('Error marking notification as read:', error);
-        // Still redirect even if there's an error
-        window.location.href = '<?php echo site_url("recruiter/dashboard/notifications"); ?>';
-    });
+        }).catch(error => {
+            // Still redirect even if there's an error
+            window.location.href = '<?php echo site_url("recruiter/dashboard/notifications"); ?>';
+        });
 }
+
+// ===== REAL-TIME NOTIFICATION POLLING =====
+function startRecruiterNotificationPolling() {
+
+    // Poll for new notifications every 3 seconds
+    setInterval(fetchRecruiterNotifications, 3000);
+
+    // Initial fetch
+    setTimeout(fetchRecruiterNotifications, 1000);
+}
+
+function fetchRecruiterNotifications() {
+
+    fetch('<?php echo site_url("recruiter/notifications/ajax_get_notifications"); ?>', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: '<?php echo $this->security->get_csrf_token_name(); ?>=<?php echo $this->security->get_csrf_hash(); ?>'
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.success) {
+                updateRecruiterNotificationUI(data);
+            }
+        })
+        .catch(error => {});
+}
+
+function updateRecruiterNotificationUI(data) {
+    const badge = document.querySelector('.notification-badge');
+    const countElement = document.querySelector('.notification-count');
+    const notificationBell = document.querySelector('.notifications-menu .dropdown-toggle');
+
+    if (data.system_unread_count > 0) {
+        // Update badge
+        if (badge) {
+            badge.textContent = data.system_unread_count > 99 ? '99+' : data.system_unread_count;
+            badge.style.display = 'flex';
+        }
+
+        // Update count text
+        if (countElement) {
+            countElement.textContent = data.system_unread_count;
+        }
+
+        // Add pulse animation
+        if (notificationBell) {
+            notificationBell.style.animation = 'pulse 2s infinite';
+        }
+    } else {
+        // Hide badge if no system notifications
+        if (badge) {
+            badge.style.display = 'none';
+        }
+        if (countElement) {
+            countElement.textContent = '0';
+        }
+
+        // Remove pulse animation
+        if (notificationBell) {
+            notificationBell.style.animation = 'none';
+        }
+    }
+}
+
+// ===== CHAT NOTIFICATION POLLING =====
+function startChatNotificationPolling() {
+
+    // Poll for new chat messages every 3 seconds
+    setInterval(fetchChatNotifications, 3000);
+
+    // Initial fetch
+    setTimeout(fetchChatNotifications, 1000);
+}
+
+function fetchChatNotifications() {
+
+    fetch('<?php echo site_url("recruiter/chat/ajax_get_chat_notifications"); ?>', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: '<?php echo $this->security->get_csrf_token_name(); ?>=<?php echo $this->security->get_csrf_hash(); ?>'
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.success) {
+                updateChatNotificationUI(data);
+            } else {}
+        })
+        .catch(error => {});
+}
+
+function updateChatNotificationUI(data) {
+    const badge = document.querySelector('.chat-notification-badge');
+    const countElement = document.querySelector('.chat-notification-count');
+    const chatBell = document.querySelector('.chat-notifications-menu .dropdown-toggle');
+
+    if (data.unread_count > 0) {
+        // Update badge
+        if (badge) {
+            badge.textContent = data.unread_count > 99 ? '99+' : data.unread_count;
+            badge.style.display = 'flex';
+        }
+
+        // Update count text
+        if (countElement) {
+            countElement.textContent = data.unread_count;
+        }
+
+        // Add pulse animation
+        if (chatBell) {
+            chatBell.style.animation = 'chat-pulse 2s infinite';
+        }
+    } else {
+        // Hide badge if no notifications
+        if (badge) {
+            badge.style.display = 'none';
+        }
+        if (countElement) {
+            countElement.textContent = '0';
+        }
+
+        // Remove pulse animation
+        if (chatBell) {
+            chatBell.style.animation = 'none';
+        }
+    }
+}
+
+// Start both polling when page loads
+document.addEventListener('DOMContentLoaded', function() {
+    startRecruiterNotificationPolling();
+    startChatNotificationPolling();
+});
 </script>

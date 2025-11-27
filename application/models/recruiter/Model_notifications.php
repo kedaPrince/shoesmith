@@ -1,7 +1,7 @@
 <?php
 defined('BASEPATH') || exit('No direct script access allowed');
 
-class Model_notifications extends CRUD_Model
+class Model_notifications extends CRUD_model
 {
     public $table = 'notifications';
     public $pageName = 'notifications';
@@ -77,7 +77,7 @@ class Model_notifications extends CRUD_Model
     }
 
     /**
-     * Mark all notifications as read for recruiter
+     * Mark all notifications as read for recruiter (including chat notifications)
      */
     public function mark_all_as_read($recruiter_id)
     {
@@ -90,7 +90,9 @@ class Model_notifications extends CRUD_Model
             'updated_at' => date('Y-m-d H:i:s')
         ]);
         
-        return $this->db->affected_rows() > 0;
+        $affected_rows = $this->db->affected_rows();
+        
+        return $affected_rows > 0;
     }
 
     /**
@@ -295,13 +297,13 @@ class Model_notifications extends CRUD_Model
             foreach ($recruiters as $recruiter) {
                 // Prepare metadata properly
                 $metadata = [
-                    'decision' => $decision, // THIS WAS MISSING
+                    'decision' => $decision,
                     'candidate_name' => $candidate->first_name . ' ' . $candidate->last_name,
                     'candidate_reference' => $candidate->reference_number,
                     'job_name' => $job_name,
                     'requesting_agency' => $requesting_agency_name,
                     'decision_notes' => $notes,
-                    'notes' => $notes, // Add this for compatibility
+                    'notes' => $notes,
                     'action_required' => $decision === 'accepted' ? 'Continue with onboarding process' : 'No further action required',
                     'notification_type' => 'hm_decision',
                     'action_url' => site_url("recruiter/candidates/view/{$candidate_id}")
@@ -317,7 +319,7 @@ class Model_notifications extends CRUD_Model
                     'receiver_id' => $recruiter->id,
                     'related_entity' => 'candidate',
                     'related_entity_id' => $candidate_id,
-                    'metadata' => json_encode($metadata), // Encode the full metadata array
+                    'metadata' => json_encode($metadata),
                     'is_read' => 0,
                     'created_at' => date('Y-m-d H:i:s'),
                     'updated_at' => date('Y-m-d H:i:s'),
@@ -335,32 +337,6 @@ class Model_notifications extends CRUD_Model
         } catch (Exception $e) {
             return false;
         }
-    }
-
-    /**
-     * Prepare HM Decision notification content
-     */
-    private function prepare_hm_decision_content($decision, $candidate, $job, $notes)
-    {
-        $candidate_name = $candidate->first_name . ' ' . $candidate->last_name;
-        $job_name = $job ? $job->name : 'the position';
-        
-        if ($decision === 'accepted') {
-            $title = "🎉 Candidate Accepted: {$candidate_name}";
-            $message = "Great news! The hiring manager has accepted {$candidate_name} for {$job_name}.";
-        } else {
-            $title = "❌ Candidate Rejected: {$candidate_name}";
-            $message = "The hiring manager has decided not to move forward with {$candidate_name} for {$job_name}.";
-        }
-
-        if (!empty($notes)) {
-            $message .= "\n\n📝 Hiring Manager's Notes:\n" . $notes;
-        }
-
-        return [
-            'title' => $title,
-            'message' => $message
-        ];
     }
 
     /**
@@ -559,6 +535,34 @@ class Model_notifications extends CRUD_Model
     }
 
     /**
+     * Mark chat notifications as read for specific conversation
+     */
+    public function mark_chat_notifications_read($conversation_id, $user_id, $user_type)
+    {
+        
+        // Update chat notifications for this user and conversation
+        $this->db->where('receiver_id', $user_id);
+        $this->db->where('receiver_type', $user_type);
+        $this->db->where('type', 'chat');
+        $this->db->where('is_read', 0);
+        
+        // Also filter by conversation_id in metadata
+        $this->db->where("JSON_EXTRACT(metadata, '$.conversation_id') =", $conversation_id);
+        
+        $update_data = [
+            'is_read' => 1,
+            'read_at' => date('Y-m-d H:i:s'),
+            'updated_at' => date('Y-m-d H:i:s')
+        ];
+        
+        $this->db->update('notifications', $update_data);
+        $affected_rows = $this->db->affected_rows();
+        
+        
+        return $affected_rows;
+    }
+
+    /**
      * Create notification for documents request from agency to recruiter
      */
     public function create_documents_request_notification($candidate_id, $agency_id, $requesting_user_id, $required_documents_notes, $job_id = null) {
@@ -615,7 +619,7 @@ class Model_notifications extends CRUD_Model
                         'candidate_reference' => $candidate->reference_number,
                         'job_name' => $job_name,
                         'required_documents' => $required_documents_notes,
-                        'notes' => $required_documents_notes, // For compatibility
+                        'notes' => $required_documents_notes,
                         'action_required' => 'Upload the requested documents',
                         'notification_type' => 'documents_request',
                         'action_url' => site_url("recruiter/candidates/view/{$candidate_id}?tab=required")
@@ -640,28 +644,85 @@ class Model_notifications extends CRUD_Model
     }
 
     /**
- * Get candidate's job assignments
- */
-public function get_candidate_job_assignments($candidate_id)
-{
-    $this->db->select('cj.job_id, j.name as job_name, j.reference_number as job_reference');
-    $this->db->from('candidate_jobs cj');
-    $this->db->join('mod_jobs j', 'j.id = cj.job_id');
-    $this->db->where('cj.candidate_id', $candidate_id);
-    $this->db->where('j.enabled', 1);
-    $this->db->where('j.removed', 0);
-    
-    return $this->db->get()->result();
-}
+     * Get candidate's job assignments
+     */
+    public function get_candidate_job_assignments($candidate_id)
+    {
+        $this->db->select('cj.job_id, j.name as job_name, j.reference_number as job_reference');
+        $this->db->from('candidate_jobs cj');
+        $this->db->join('mod_jobs j', 'j.id = cj.job_id');
+        $this->db->where('cj.candidate_id', $candidate_id);
+        $this->db->where('j.enabled', 1);
+        $this->db->where('j.removed', 0);
+        
+        return $this->db->get()->result();
+    }
 
-/**
- * Check if candidate is assigned to any jobs
- */
-public function has_job_assignments($candidate_id)
-{
-    $this->db->from('candidate_jobs');
-    $this->db->where('candidate_id', $candidate_id);
-    return $this->db->count_all_results() > 0;
-}
+    /**
+     * Check if candidate is assigned to any jobs
+     */
+    public function has_job_assignments($candidate_id)
+    {
+        $this->db->from('candidate_jobs');
+        $this->db->where('candidate_id', $candidate_id);
+        return $this->db->count_all_results() > 0;
+    }
 
+    /**
+     * Get only system notifications (exclude chat notifications)
+     */
+    public function get_system_notifications($recruiter_id, $limit = null)
+    {
+        $this->db->select('*')
+                 ->from('notifications')
+                 ->where('receiver_id', $recruiter_id)
+                 ->where('receiver_type', 'recruiter')
+                 ->where('is_read', 0)
+                 ->where('enabled', 1)
+                 ->where('removed', 0)
+                 ->where('type !=', 'chat') // Exclude chat notifications
+                 ->order_by('created_at', 'DESC');
+        
+        if ($limit) {
+            $this->db->limit($limit);
+        }
+        
+        return $this->db->get()->result();
+    }
+
+   /**
+     * Count only system notifications (exclude chat notifications)
+     */
+    public function count_system_notifications($recruiter_id)
+    {
+        $this->db->select('COUNT(*) as unread_count')
+                ->from('notifications')
+                ->where('receiver_id', $recruiter_id)
+                ->where('receiver_type', 'recruiter')
+                ->where('is_read', 0)
+                ->where('enabled', 1)
+                ->where('removed', 0)
+                ->where('type !=', 'chat'); // Exclude chat notifications
+        
+        $result = $this->db->get()->row();
+        return $result ? $result->unread_count : 0;
+    }
+
+    /**
+     * Count chat notifications specifically
+     */
+    public function count_chat_notifications($recruiter_id)
+    {
+        $this->db->select('COUNT(*) as unread_count')
+                ->from('notifications')
+                ->where('receiver_id', $recruiter_id)
+                ->where('receiver_type', 'recruiter')
+                ->where('is_read', 0)
+                ->where('enabled', 1)
+                ->where('removed', 0)
+                ->where('type', 'chat'); // Only chat notifications
+        
+        $result = $this->db->get()->row();
+        return $result ? $result->unread_count : 0;
+    }
 }

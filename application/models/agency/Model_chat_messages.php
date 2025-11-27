@@ -249,7 +249,7 @@ class Model_chat_messages extends CRUD_Model
     }
 
 
-    /**
+   /**
      * Create chat notification for your existing table structure
      */
     public function create_chat_notification($conversation_id, $recipient_id, $recipient_type, $message, $sender_id)
@@ -261,17 +261,18 @@ class Model_chat_messages extends CRUD_Model
         $notification_data = [
             'title' => 'New Chat Message',
             'message' => $this->truncate_message($message),
-            'type' => 'system', // Using 'system' type for chat notifications
+            'type' => 'chat', // CHANGED: Use 'chat' type to separate from system notifications
             'sender_type' => $sender_type, // 'agency' or 'recruiter'
             'sender_id' => $sender_id,
             'receiver_type' => $receiver_type, // 'agency' or 'recruiter'
             'receiver_id' => $recipient_id,
-            'related_entity' => 'agency', // or you could create a 'chat' entity type
-            'related_entity_id' => $conversation_id, // Using conversation_id as related entity
+            'related_entity' => 'chat_conversation', // More specific entity type
+            'related_entity_id' => $conversation_id,
             'metadata' => json_encode([
                 'conversation_id' => $conversation_id,
                 'message_preview' => $this->truncate_message($message, 50),
-                'is_chat_notification' => true
+                'is_chat_notification' => true,
+                'sender_type' => $sender_type
             ]),
             'is_read' => 0,
             'created_at' => date('Y-m-d H:i:s'),

@@ -77,7 +77,7 @@ class Model_chat_messages extends CRUD_Model
         $this->db->from('chat_messages cm');
         $this->db->join('chat_conversations cc', 'cc.id = cm.conversation_id');
         $this->db->where('cc.recruiter_id', $recruiter_id);
-        $this->db->where('cm.sender_type', 'agency');
+        $this->db->where('cm.sender_type', 'agency');  // Messages from agencies are unread for recruiter
         $this->db->where('cm.is_read', 0);
         $this->db->where('cm.enabled', 1);
         $this->db->where('cm.removed', 0);
@@ -85,6 +85,7 @@ class Model_chat_messages extends CRUD_Model
         $this->db->where('cc.removed', 0);
         
         $result = $this->db->get()->row();
+                
         return $result ? $result->unread_count : 0;
     }
 
@@ -270,6 +271,29 @@ class Model_chat_messages extends CRUD_Model
         return $this->db->affected_rows();
     }
 
+
+
+    public function mark_chat_notifications_read($conversation_id, $user_id, $user_type)
+    {
+        
+        // Update ALL chat notifications for this user to mark them as read
+        $this->db->where('receiver_id', $user_id);
+        $this->db->where('receiver_type', $user_type);
+        $this->db->where('type', 'chat');
+        $this->db->where('is_read', 0);
+        
+        $update_data = [
+            'is_read' => 1,
+            'read_at' => date('Y-m-d H:i:s'),
+            'updated_at' => date('Y-m-d H:i:s')
+        ];
+        
+        $this->db->update('notifications', $update_data);
+        $affected_rows = $this->db->affected_rows();
+        
+        
+        return $affected_rows;
+    }
     
     /**
      * Create chat notification for your existing table structure
@@ -283,17 +307,18 @@ class Model_chat_messages extends CRUD_Model
         $notification_data = [
             'title' => 'New Chat Message',
             'message' => $this->truncate_message($message),
-            'type' => 'chat', // ← CHANGED THIS LINE from 'system' to 'chat'
+            'type' => 'chat', // CHANGED: Use 'chat' type to separate from system notifications
             'sender_type' => $sender_type, // 'agency' or 'recruiter'
             'sender_id' => $sender_id,
             'receiver_type' => $receiver_type, // 'agency' or 'recruiter'
             'receiver_id' => $recipient_id,
-            'related_entity' => 'agency',
+            'related_entity' => 'chat_conversation', // More specific entity type
             'related_entity_id' => $conversation_id,
             'metadata' => json_encode([
                 'conversation_id' => $conversation_id,
                 'message_preview' => $this->truncate_message($message, 50),
-                'is_chat_notification' => true
+                'is_chat_notification' => true,
+                'sender_type' => $sender_type
             ]),
             'is_read' => 0,
             'created_at' => date('Y-m-d H:i:s'),
@@ -334,82 +359,51 @@ class Model_chat_messages extends CRUD_Model
         return $this->db->get()->result();
     }
 
-    /**
-     * Mark chat notifications as read for a conversation
-     */
-    public function mark_chat_notifications_read($conversation_id, $user_id, $user_type)
-    {
-        $this->db->where('receiver_id', $user_id)
-                 ->where('receiver_type', $user_type)
-                 ->where('related_entity_id', $conversation_id)
-                 ->where('is_read', 0)
-                 ->where('enabled', 1)
-                 ->where('removed', 0);
-        
-        $this->db->update('notifications', [
-            'is_read' => 1,
-            'read_at' => date('Y-m-d H:i:s'),
-            'updated_at' => date('Y-m-d H:i:s')
-        ]);
-        
-        return $this->db->affected_rows();
-    }
 
     /**
- * Send message - DEBUG VERSION
- */
-public function send_message($conversation_id, $sender_type, $sender_id, $message, $message_type = 'text', $file_data = null)
-{
-    log_message('debug', '=== send_message called ===');
-    log_message('debug', "Params: conversation_id: $conversation_id, sender_type: $sender_type, sender_id: $sender_id, message: " . substr($message, 0, 50));
-    
-    try {
-        $message_data = [
-            'conversation_id' => $conversation_id,
-            'sender_type' => $sender_type,
-            'sender_id' => $sender_id,
-            'message' => $message,
-            'message_type' => $message_type,
-            'is_read' => 0,
-            'created_at' => date('Y-m-d H:i:s'),
-            'updated_at' => date('Y-m-d H:i:s'),
-            'enabled' => 1
-        ];
+     * Send message - DEBUG VERSION
+     */
+    public function send_message($conversation_id, $sender_type, $sender_id, $message, $message_type = 'text', $file_data = null)
+    {
         
-        if ($file_data) {
-            $message_data['file_name'] = $file_data['file_name'];
-            $message_data['file_path'] = $file_data['file_path'];
-            $message_data['file_size'] = $file_data['file_size'];
-        }
-        
-        log_message('debug', 'Inserting message data: ' . print_r($message_data, true));
-        
-        $this->db->insert('chat_messages', $message_data);
-        $message_id = $this->db->insert_id();
-        
-        log_message('debug', "Message inserted with ID: $message_id");
-        
-        if ($this->db->error()['code']) {
-            log_message('error', 'Database error: ' . $this->db->error()['message']);
+        try {
+            $message_data = [
+                'conversation_id' => $conversation_id,
+                'sender_type' => $sender_type,
+                'sender_id' => $sender_id,
+                'message' => $message,
+                'message_type' => $message_type,
+                'is_read' => 0,
+                'created_at' => date('Y-m-d H:i:s'),
+                'updated_at' => date('Y-m-d H:i:s'),
+                'enabled' => 1
+            ];
+            
+            if ($file_data) {
+                $message_data['file_name'] = $file_data['file_name'];
+                $message_data['file_path'] = $file_data['file_path'];
+                $message_data['file_size'] = $file_data['file_size'];
+            }
+                    
+            $this->db->insert('chat_messages', $message_data);
+            $message_id = $this->db->insert_id();
+            
+            if ($this->db->error()['code']) {
+                return false;
+            }
+            
+            // Update conversation last message time
+            $this->db->where('id', $conversation_id)
+                    ->update('chat_conversations', [
+                        'last_message_at' => date('Y-m-d H:i:s'),
+                        'updated_at' => date('Y-m-d H:i:s')
+                    ]);
+                    
+            return $message_id;
+        } catch (Exception $e) {
             return false;
         }
-        
-        // Update conversation last message time
-        $this->db->where('id', $conversation_id)
-                 ->update('chat_conversations', [
-                     'last_message_at' => date('Y-m-d H:i:s'),
-                     'updated_at' => date('Y-m-d H:i:s')
-                 ]);
-        
-        log_message('debug', 'Conversation updated successfully');
-        
-        return $message_id;
-    } catch (Exception $e) {
-        log_message('error', 'Error in send_message: ' . $e->getMessage());
-        log_message('error', 'Stack trace: ' . $e->getTraceAsString());
-        return false;
-    }
 
-}
+    }
 
 }

@@ -889,23 +889,347 @@
 .message-bubble {
     margin: 0 !important;
 }
+
+/* Add this to your existing CSS */
+@keyframes pulse {
+    0% {
+        box-shadow: 0 0 0 0 rgba(255, 107, 107, 0.7);
+    }
+
+    70% {
+        box-shadow: 0 0 0 10px rgba(255, 107, 107, 0);
+    }
+
+    100% {
+        box-shadow: 0 0 0 0 rgba(255, 107, 107, 0);
+    }
+}
+
+.notification-bell.has-notifications {
+    animation: pulse 2s infinite;
+}
+</style>
+<style>
+/* Add smooth transition for notification badges */
+.notification-badge,
+.chat-notification-badge {
+    transition: all 0.3s ease;
+}
+
+/* Visual feedback when marking as read */
+.messages-read {
+    background-color: rgba(37, 211, 102, 0.1) !important;
+    transition: background-color 0.5s ease;
+}
+
+/* Pulse animation for new messages */
+@keyframes highlightMessage {
+    0% {
+        background-color: rgba(37, 211, 102, 0.2);
+    }
+
+    100% {
+        background-color: transparent;
+    }
+}
+
+.new-message {
+    animation: highlightMessage 2s ease;
+}
 </style>
 
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    console.log('Recruiter chat initializing with vanilla JS...');
 
-    let isSending = false;
-    let refreshInterval;
-    let isPolling = false;
-    let lastMessageId = <?php echo !empty($messages) ? end($messages)->id : 0; ?>;
+<script>
+// ===== GLOBAL FUNCTIONS =====
+
+// Function to mark notifications as read for CURRENT conversation only
+function markNotificationsAsRead() {
+    const convId = window.currentConversationId;
+    if (!convId) {
+        return;
+    }
+
+    const formData = new FormData();
+    formData.append('conversation_id', convId);
+
+    fetch('<?php echo site_url("recruiter/chat/ajax_mark_notifications_read"); ?>', {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'Accept': 'application/json'
+            },
+            credentials: 'same-origin'
+        })
+        .then(response => response.json())
+        .then(res => {
+            if (res.success) {
+                window.hasMarkedAsRead = true;
+                window.lastMarkedTime = Date.now();
+
+                // Update UI with new unread count
+                if (res.unread_count !== undefined) {
+                    updateAllNotificationBadges(res.unread_count);
+                }
+
+            } else {
+            }
+        })
+        .catch(error => {
+        });
+}
+
+// Function to mark notifications as read ONLY when user is actively engaging
+function markNotificationsOnUserAction() {
+    if (window.currentConversationId && !window.hasMarkedAsRead) {
+        markNotificationsAsRead();
+    }
+}
+
+// Function to reset marked state when new notifications arrive
+function resetMarkedStateForNewMessages() {
+    window.hasMarkedAsRead = false;
+    window.justReceivedNewMessages = true;
+    window.newMessageReceivedTime = Date.now();
+
+    // Also update the UI to show notifications immediately
+    const chatNotifications = document.querySelector('.chat-notification-badge');
+    if (chatNotifications) {
+        chatNotifications.style.display = 'flex';
+        chatNotifications.textContent = '1';
+    }
+}
+
+// Function to check if we should allow marking as read (prevent immediate marking after new messages)
+function shouldAllowMarkAsRead() {
+    if (window.justReceivedNewMessages && window.newMessageReceivedTime) {
+        const timeSinceNewMessage = Date.now() - window.newMessageReceivedTime;
+        // Don't allow marking as read for at least 8 seconds after new messages (increased from 3)
+        if (timeSinceNewMessage < 8000) {
+            return false;
+        }
+    }
+    return true;
+}
+
+// Function to update all notification badges
+function updateAllNotificationBadges(totalUnreadCount) {
+
+    // Update global notification badge in breadcrumb
+    const globalBadge = document.getElementById('globalNotificationBadge');
+    if (globalBadge) {
+        if (totalUnreadCount > 0) {
+            globalBadge.textContent = totalUnread_count > 99 ? '99+' : totalUnreadCount;
+            globalBadge.style.display = 'inline-block';
+        } else {
+            globalBadge.style.display = 'none';
+        }
+    }
+
+    // Update current conversation badge in sidebar
+    updateCurrentConversationBadge();
+
+    // Update total unread count in sidebar section
+    const sectionBadge = document.querySelector('.sidebar-section .section-badge');
+    if (sectionBadge) {
+        if (totalUnreadCount > 0) {
+            sectionBadge.textContent = totalUnreadCount;
+            sectionBadge.style.display = 'inline-block';
+        } else {
+            sectionBadge.style.display = 'none';
+        }
+    }
+
+}
+
+// Function to update current conversation badge in sidebar
+function updateCurrentConversationBadge() {
+    if (!window.currentConversationId) return;
+
+    // Remove badge from current conversation in sidebar
+    const currentConvBadge = document.querySelector(`.conversation-item.active .conversation-badge`);
+    if (currentConvBadge) {
+        currentConvBadge.remove();
+    }
+
+    // Also remove from the specific conversation item
+    const convItemBadge = document.querySelector(
+        `.conversation-item[data-conversation-id="${window.currentConversationId}"] .conversation-badge`);
+    if (convItemBadge) {
+        convItemBadge.remove();
+    }
+}
+
+// ===== CHAT NOTIFICATION POLLING =====
+function startChatNotificationPolling() {
+
+    // Poll for new chat messages every 5 seconds
+    setInterval(fetchChatNotifications, 5000);
+
+    // Initial fetch
+    setTimeout(fetchChatNotifications, 1000);
+}
+
+function fetchChatNotifications() {
+
+    fetch('<?php echo site_url("recruiter/chat/ajax_get_chat_notifications"); ?>', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: '<?php echo $this->security->get_csrf_token_name(); ?>=<?php echo $this->security->get_csrf_hash(); ?>'
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Update the UI with the server response
+                updateChatNotificationUI(data);
+
+                // Reset marked state if we have new unread notifications
+                if (data.unread_count > 0 && !window.hasMarkedAsRead) {
+                    resetMarkedStateForNewMessages();
+                }
+            }
+        })
+        .catch(error => {
+            console.error('Error fetching chat notifications:', error);
+        });
+}
+
+function updateChatNotificationUI(data) {
+    const badge = document.querySelector('.chat-notification-badge');
+    const countElement = document.querySelector('.chat-notification-count');
+    const chatBell = document.querySelector('.chat-notifications-menu .dropdown-toggle');
+
+    if (data.unread_count > 0) {
+        // Update badge
+        if (badge) {
+            badge.textContent = data.unread_count > 99 ? '99+' : data.unread_count;
+            badge.style.display = 'flex';
+        }
+
+        // Update count text
+        if (countElement) {
+            countElement.textContent = data.unread_count;
+        }
+
+        // Add pulse animation
+        if (chatBell) {
+            chatBell.style.animation = 'chat-pulse 2s infinite';
+        }
+    } else {
+        // Hide badge if no notifications
+        if (badge) {
+            badge.style.display = 'none';
+        }
+        if (countElement) {
+            countElement.textContent = '0';
+        }
+
+        // Remove pulse animation
+        if (chatBell) {
+            chatBell.style.animation = 'none';
+        }
+    }
+}
+
+// ===== SYSTEM NOTIFICATION POLLING =====
+function startRecruiterNotificationPolling() {
+
+    // Poll for new notifications every 5 seconds
+    setInterval(fetchRecruiterNotifications, 5000);
+
+    // Initial fetch
+    setTimeout(fetchRecruiterNotifications, 1000);
+}
+
+function fetchRecruiterNotifications() {
+
+    fetch('<?php echo site_url("recruiter/notifications/ajax_get_notifications"); ?>', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: '<?php echo $this->security->get_csrf_token_name(); ?>=<?php echo $this->security->get_csrf_hash(); ?>'
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.success) {
+                updateRecruiterNotificationUI(data);
+            }
+        })
+        .catch(error => {
+        });
+}
+
+function updateRecruiterNotificationUI(data) {
+    const badge = document.querySelector('.notification-badge');
+    const countElement = document.querySelector('.notification-count');
+    const notificationBell = document.querySelector('.notifications-menu .dropdown-toggle');
+
+    if (data.system_unread_count > 0) {
+        // Update badge
+        if (badge) {
+            badge.textContent = data.system_unread_count > 99 ? '99+' : data.system_unread_count;
+            badge.style.display = 'flex';
+        }
+
+        // Update count text
+        if (countElement) {
+            countElement.textContent = data.system_unread_count;
+        }
+
+        // Add pulse animation
+        if (notificationBell) {
+            notificationBell.style.animation = 'pulse 2s infinite';
+        }
+    } else {
+        // Hide badge if no system notifications
+        if (badge) {
+            badge.style.display = 'none';
+        }
+        if (countElement) {
+            countElement.textContent = '0';
+        }
+
+        // Remove pulse animation
+        if (notificationBell) {
+            notificationBell.style.animation = 'none';
+        }
+    }
+}
+
+// ===== MAIN CHAT FUNCTIONALITY =====
+document.addEventListener('DOMContentLoaded', function() {
+
+    // Initialize global state variables
+    window.isSending = false;
+    window.refreshInterval;
+    window.isPolling = false;
+    window.lastMessageId = <?php echo !empty($messages) ? end($messages)->id : 0; ?>;
+    window.hasMarkedAsRead = false;
+    window.currentConversationId = null;
+    window.lastMarkedTime = null;
+    window.userIsActive = false; // Track if user is actively engaging with chat
+    window.justReceivedNewMessages = false; // Track if we just got new messages
+    window.newMessageReceivedTime = null; // Track when new messages were received
+    window.focusTimeout = null; // Track focus timeout
 
     const chatMessages = document.getElementById('chatMessages');
     const messageForm = document.getElementById('messageForm');
     const messageInput = document.getElementById('messageInput');
     const conversationId = document.getElementById('conversationId');
 
-    console.log('Recruiter chat initialized - LastMessageId:', lastMessageId);
+    if (conversationId) {
+        window.currentConversationId = conversationId.value;
+    }
 
     function scrollToBottom() {
         if (chatMessages) {
@@ -958,33 +1282,101 @@ document.addEventListener('DOMContentLoaded', function() {
         scrollToBottom();
 
         // Update lastMessageId for real messages
-        if (message.id && typeof message.id === 'number' && message.id > lastMessageId) {
-            lastMessageId = message.id;
+        if (message.id && typeof message.id === 'number' && message.id > window.lastMessageId) {
+            window.lastMessageId = message.id;
         }
     }
 
+    // ===== CONTROLLED EVENT LISTENERS =====
+
+    // Mark as read when user focuses on message input (typing) - WITH DELAY
+    if (messageInput) {
+        messageInput.addEventListener('focus', function() {
+            window.userIsActive = true;
+
+            // Clear any existing timeout
+            if (window.focusTimeout) {
+                clearTimeout(window.focusTimeout);
+            }
+
+            // Wait 2 seconds before allowing focus to mark as read
+            window.focusTimeout = setTimeout(function() {
+                window.justReceivedNewMessages = false; // Reset new message flag
+
+                if (shouldAllowMarkAsRead()) {
+                    markNotificationsOnUserAction();
+                }
+            }, 2000); // 2 second delay
+        });
+
+        // Clear timeout if user quickly leaves the input
+        messageInput.addEventListener('blur', function() {
+            if (window.focusTimeout) {
+                clearTimeout(window.focusTimeout);
+                window.focusTimeout = null;
+            }
+        });
+    }
+
+    // Mark as read when user starts typing
+    if (messageInput) {
+        messageInput.addEventListener('input', function() {
+            window.userIsActive = true;
+            window.justReceivedNewMessages = false; // Reset new message flag
+
+            if (shouldAllowMarkAsRead()) {
+                markNotificationsOnUserAction();
+            }
+        });
+    }
+
+    // Mark as read when clicking anywhere in chat area
+    if (chatMessages) {
+        chatMessages.addEventListener('click', function() {
+            window.userIsActive = true;
+            window.justReceivedNewMessages = false; // Reset new message flag
+
+            if (shouldAllowMarkAsRead()) {
+                markNotificationsOnUserAction();
+            }
+        });
+    }
+
+    // Scroll event listener to mark as read when user scrolls to view messages
+    if (chatMessages) {
+        chatMessages.addEventListener('scroll', function() {
+            const scrollThreshold = 100;
+            const isNearBottom = chatMessages.scrollHeight - chatMessages.scrollTop - chatMessages
+                .clientHeight <= scrollThreshold;
+
+            if (isNearBottom && !window.hasMarkedAsRead) {
+                window.userIsActive = true;
+
+                // Only mark as read if enough time has passed since new messages
+                if (shouldAllowMarkAsRead()) {
+                    markNotificationsOnUserAction();
+                } else {
+                }
+            }
+        });
+    }
+
     function fetchNewMessages() {
-        if (isPolling) {
-            console.log('Already polling, skipping...');
+        if (window.isPolling) {
             return;
         }
 
-        const convId = conversationId ? conversationId.value : null;
+        const convId = window.currentConversationId;
         if (!convId) {
             console.error('No conversation ID found');
             return;
         }
 
-        console.log('Recruiter fetching messages:', {
-            conversationId: convId,
-            lastMessageId: lastMessageId
-        });
-
-        isPolling = true;
+        window.isPolling = true;
 
         const formData = new FormData();
         formData.append('conversation_id', convId);
-        formData.append('last_message_id', lastMessageId);
+        formData.append('last_message_id', window.lastMessageId);
 
         fetch('<?php echo site_url("recruiter/chat/ajax_get_messages"); ?>', {
                 method: 'POST',
@@ -996,29 +1388,31 @@ document.addEventListener('DOMContentLoaded', function() {
                 credentials: 'same-origin'
             })
             .then(response => {
-                console.log('Response status:', response.status, response.statusText);
                 if (!response.ok) {
                     throw new Error(`HTTP error! status: ${response.status}`);
                 }
                 return response.json();
             })
             .then(res => {
-                console.log('Recruiter poll response:', res);
 
                 if (res.success) {
-                    if (res.last_message_id && res.last_message_id > lastMessageId) {
-                        lastMessageId = parseInt(res.last_message_id);
+                    if (res.last_message_id && res.last_message_id > window.lastMessageId) {
+                        window.lastMessageId = parseInt(res.last_message_id);
                     }
 
                     if (res.has_new_messages && res.html) {
-                        console.log('Adding new messages:', res.message_count);
-
                         document.querySelectorAll('[data-message-id^="temp-"]').forEach(tempMsg => {
                             tempMsg.remove();
                         });
 
                         chatMessages.insertAdjacentHTML('beforeend', res.html);
                         scrollToBottom();
+
+                        // Reset marked state when new messages arrive
+                        if (res.has_new_messages) {
+                            resetMarkedStateForNewMessages();
+                        }
+
                     }
                 }
             })
@@ -1026,7 +1420,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 console.error('Error fetching messages:', error);
             })
             .finally(() => {
-                isPolling = false;
+                window.isPolling = false;
             });
     }
 
@@ -1034,8 +1428,15 @@ document.addEventListener('DOMContentLoaded', function() {
     if (messageForm) {
         messageForm.addEventListener('submit', function(e) {
             e.preventDefault();
-            if (isSending) {
-                console.log('Already sending, please wait...');
+
+            // Mark notifications as read when sending message
+            if (!window.hasMarkedAsRead) {
+                window.userIsActive = true;
+                window.justReceivedNewMessages = false; // Reset new message flag
+                markNotificationsAsRead();
+            }
+
+            if (window.isSending) {
                 return;
             }
 
@@ -1045,13 +1446,13 @@ document.addEventListener('DOMContentLoaded', function() {
                 return;
             }
 
-            isSending = true;
+            window.isSending = true;
             const submitButton = messageForm.querySelector('button[type="submit"]');
             const originalHtml = submitButton.innerHTML;
             submitButton.disabled = true;
             submitButton.innerHTML = '<i class="fa fa-spinner fa-spin"></i>';
 
-            const convId = conversationId ? conversationId.value : null;
+            const convId = window.currentConversationId;
             if (!convId) {
                 alert('Conversation ID missing');
                 submitButton.disabled = false;
@@ -1059,7 +1460,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 return;
             }
 
-            console.log('Sending message:', messageText);
 
             document.querySelectorAll('[data-message-id^="temp-"]').forEach(tempMsg => {
                 tempMsg.remove();
@@ -1087,14 +1487,12 @@ document.addEventListener('DOMContentLoaded', function() {
                     credentials: 'same-origin'
                 })
                 .then(response => {
-                    console.log('Send response status:', response.status);
                     if (!response.ok) {
                         throw new Error(`HTTP error! status: ${response.status}`);
                     }
                     return response.json();
                 })
                 .then(res => {
-                    console.log('Send parsed response:', res);
 
                     if (res.success) {
                         const tempElement = document.querySelector(`[data-message-id="${tempId}"]`);
@@ -1102,13 +1500,13 @@ document.addEventListener('DOMContentLoaded', function() {
                             tempElement.remove();
                         }
 
-                        console.log('Message sent successfully, ID:', res.message_id);
-
                         if (res.message_id && !isNaN(res.message_id)) {
-                            lastMessageId = Math.max(lastMessageId, parseInt(res.message_id));
+                            window.lastMessageId = Math.max(window.lastMessageId, parseInt(res
+                                .message_id));
                         }
 
                         setTimeout(fetchNewMessages, 500);
+
                     } else {
                         const tempElement = document.querySelector(`[data-message-id="${tempId}"]`);
                         if (tempElement) {
@@ -1128,7 +1526,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     messageInput.value = messageText;
                 })
                 .finally(() => {
-                    isSending = false;
+                    window.isSending = false;
                     submitButton.disabled = false;
                     submitButton.innerHTML = originalHtml;
                     messageInput.focus();
@@ -1137,17 +1535,15 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function startPolling() {
-        console.log('Starting recruiter polling interval');
-        if (refreshInterval) {
-            clearInterval(refreshInterval);
+        if (window.refreshInterval) {
+            clearInterval(window.refreshInterval);
         }
-        refreshInterval = setInterval(fetchNewMessages, 3000);
+        window.refreshInterval = setInterval(fetchNewMessages, 3000);
     }
 
     function stopPolling() {
-        console.log('Stopping recruiter polling interval');
-        if (refreshInterval) {
-            clearInterval(refreshInterval);
+        if (window.refreshInterval) {
+            clearInterval(window.refreshInterval);
         }
     }
 
@@ -1163,7 +1559,7 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     window.addEventListener('focus', function() {
-        console.log('Recruiter window focused');
+        window.userIsActive = true;
         fetchNewMessages();
     });
 
@@ -1188,8 +1584,11 @@ document.addEventListener('DOMContentLoaded', function() {
         }, 500);
     }
 
-    window.fetchNewMessages = fetchNewMessages;
+});
 
-    console.log('Recruiter chat initialized successfully');
+// Start all polling when page loads
+document.addEventListener('DOMContentLoaded', function() {
+    startRecruiterNotificationPolling();
+    startChatNotificationPolling();
 });
 </script>
