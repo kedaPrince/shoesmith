@@ -16,6 +16,9 @@
     <link rel="stylesheet" type="text/css"
         href="<?= site_url(); ?>resources/cms/plugins/theme/font-awesome/css/font-awesome.min.css" />
 
+    <!-- Replace your current Font Awesome with this -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
     <!-- <link rel="stylesheet" type="text/css" href="<?= site_url(); ?>resources/cms/plugins/theme/multi-select/css/multi-select.css"> -->
     <link rel="stylesheet" type="text/css"
         href="<?= site_url(); ?>resources/cms/plugins/theme/bootstrap-multiselect/bootstrap-multiselect.css" />

@@ -90,7 +90,7 @@ class Model_chat_messages extends CRUD_Model
     }
 
     /**
-     * Get agencies that recruiter can chat with - FIXED VERSION
+     * Get agencies that recruiter can chat with
      */
     public function get_available_agencies($recruiter_id)
     {
@@ -102,13 +102,13 @@ class Model_chat_messages extends CRUD_Model
                  ->where('a.enabled', 1)
                  ->where('a.removed', 0);
         
-        $this->db->order_by('a.name', 'ASC'); // Fixed order_by syntax
+        $this->db->order_by('a.name', 'ASC');
         
         return $this->db->get()->result();
     }
 
     /**
-     * Simple method: Get all active agencies - FIXED VERSION
+     * Simple method: Get all active agencies
      */
     public function get_available_agencies_simple($recruiter_id)
     {
@@ -117,7 +117,7 @@ class Model_chat_messages extends CRUD_Model
                  ->where('enabled', 1)
                  ->where('removed', 0);
         
-        $this->db->order_by('name', 'ASC'); // Fixed order_by syntax
+        $this->db->order_by('name', 'ASC');
         
         return $this->db->get()->result();
     }
@@ -156,7 +156,7 @@ class Model_chat_messages extends CRUD_Model
                      })
                  ->group_end();
         
-        $this->db->order_by('a.name', 'ASC'); // Fixed order_by syntax
+        $this->db->order_by('a.name', 'ASC');
         
         return $this->db->get()->result();
     }
@@ -252,8 +252,6 @@ class Model_chat_messages extends CRUD_Model
         return $this->db->get()->result();
     }
 
-   
-
     /**
      * Mark messages as read
      */
@@ -271,11 +269,8 @@ class Model_chat_messages extends CRUD_Model
         return $this->db->affected_rows();
     }
 
-
-
     public function mark_chat_notifications_read($conversation_id, $user_id, $user_type)
     {
-        
         // Update ALL chat notifications for this user to mark them as read
         $this->db->where('receiver_id', $user_id);
         $this->db->where('receiver_type', $user_type);
@@ -290,7 +285,6 @@ class Model_chat_messages extends CRUD_Model
         
         $this->db->update('notifications', $update_data);
         $affected_rows = $this->db->affected_rows();
-        
         
         return $affected_rows;
     }
@@ -307,12 +301,12 @@ class Model_chat_messages extends CRUD_Model
         $notification_data = [
             'title' => 'New Chat Message',
             'message' => $this->truncate_message($message),
-            'type' => 'chat', // CHANGED: Use 'chat' type to separate from system notifications
-            'sender_type' => $sender_type, // 'agency' or 'recruiter'
+            'type' => 'chat',
+            'sender_type' => $sender_type,
             'sender_id' => $sender_id,
-            'receiver_type' => $receiver_type, // 'agency' or 'recruiter'
+            'receiver_type' => $receiver_type,
             'receiver_id' => $recipient_id,
-            'related_entity' => 'chat_conversation', // More specific entity type
+            'related_entity' => 'chat_conversation',
             'related_entity_id' => $conversation_id,
             'metadata' => json_encode([
                 'conversation_id' => $conversation_id,
@@ -353,19 +347,17 @@ class Model_chat_messages extends CRUD_Model
                  ->where('is_read', 0)
                  ->where('enabled', 1)
                  ->where('removed', 0)
-                 ->like('metadata', 'is_chat_notification') // Filter chat notifications
+                 ->like('metadata', 'is_chat_notification')
                  ->order_by('created_at', 'DESC');
         
         return $this->db->get()->result();
     }
 
-
     /**
-     * Send message - DEBUG VERSION
+     * Send message
      */
     public function send_message($conversation_id, $sender_type, $sender_id, $message, $message_type = 'text', $file_data = null)
     {
-        
         try {
             $message_data = [
                 'conversation_id' => $conversation_id,
@@ -403,7 +395,46 @@ class Model_chat_messages extends CRUD_Model
         } catch (Exception $e) {
             return false;
         }
-
     }
 
+    /**
+     * Get agency details by ID
+     */
+    public function get_agency_details($agency_id)
+    {
+        $this->db->select('a.*, 
+                          COUNT(DISTINCT r.id) as total_recruiters,
+                          COUNT(DISTINCT j.id) as active_jobs,
+                          (SELECT COUNT(*) FROM chat_conversations cc 
+                           WHERE cc.agency_id = a.id AND cc.enabled = 1) as total_conversations');
+        $this->db->from('agencies a');
+        $this->db->join('recruiters r', 'r.agency_id = a.id AND r.enabled = 1 AND r.removed = 0', 'left');
+        $this->db->join('mod_jobs j', 'j.agency_id = a.id AND j.enabled = 1 AND j.removed = 0', 'left');
+        $this->db->where('a.id', $agency_id);
+        $this->db->where('a.enabled', 1);
+        $this->db->where('a.removed', 0);
+        $this->db->group_by('a.id');
+        
+        return $this->db->get()->row();
+    }
+
+    /**
+     * Get agency online status
+     */
+    public function get_agency_online_status($agency_id)
+    {
+        $this->db->select('last_activity_at, last_login');
+        $this->db->from('agencies');
+        $this->db->where('id', $agency_id);
+        $result = $this->db->get()->row();
+        
+        if (!$result) return false;
+        
+        // Consider online if active within last 5 minutes
+        $last_activity = $result->last_activity_at ? strtotime($result->last_activity_at) : 0;
+        $last_login = $result->last_login ? strtotime($result->last_login) : 0;
+        $last_active = max($last_activity, $last_login);
+        
+        return (time() - $last_active) < 300; // 5 minutes
+    }
 }
