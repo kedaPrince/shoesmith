@@ -9,6 +9,8 @@ class Chat extends CRUD_Controller
     public $quickManage = false;
     public $group = 'Chat';
     
+
+    
     public function __construct()
     {
         parent::__construct();
@@ -26,6 +28,8 @@ class Chat extends CRUD_Controller
             redirect('recruiter/login');
         }
     }
+
+
     
     /**
      * Main chat page - redirects to first conversation or shows available agencies
@@ -63,6 +67,8 @@ class Chat extends CRUD_Controller
         $this->load_chat_view($conversations, $available_agencies);
     }
 
+    
+
     private function load_chat_view($conversations, $agencies)
     {
         $recruiter_id = $this->get_recruiter_id();
@@ -86,84 +92,85 @@ class Chat extends CRUD_Controller
         $this->load->view($this->folder . '/view_footer');
     }
 
-    public function conversation($conversation_id = null)
-    {
-        $recruiter_id = $this->get_recruiter_id();
-        
-        if (!$conversation_id) {
-            redirect('recruiter/chat');
-            return;
-        }
-        
-        $conversation = $this->{$this->model}->get_conversation_for_recruiter($conversation_id, $recruiter_id);
-        
-        if (!$conversation) {
-            show_404();
-        }
-        
-        // Mark messages as read
-        $this->{$this->model}->mark_messages_as_read($conversation_id, 'recruiter');
-        
-        $messages = $this->{$this->model}->get_conversation_messages($conversation_id);
-        
-        // Get all conversations for the sidebar
-        $all_conversations = $this->{$this->model}->get_recruiter_conversations($recruiter_id);
-        
-        // Get available agencies for new chats
-        $available_agencies = $this->{$this->model}->get_available_agencies_simple($recruiter_id);
-        
-        // Calculate total unread count
-        $total_unread_count = $this->{$this->model}->get_unread_count_for_recruiter($recruiter_id);
-        
-        // Get recent notifications (initialize as empty array if method doesn't exist)
-        $recent_notifications = [];
-        if (method_exists($this->{$this->model}, 'get_recent_notifications')) {
-            $recent_notifications = $this->{$this->model}->get_recent_notifications($recruiter_id, 'recruiter');
-        }
-        
-        // Calculate total message count (initialize as 0 if method doesn't exist)
-        $total_message_count = 0;
-        if (method_exists($this->{$this->model}, 'get_total_message_count')) {
-            $total_message_count = $this->{$this->model}->get_total_message_count($recruiter_id);
-        }
-        
-        // Get agency details for the right sidebar
-        $agency_details = $this->{$this->model}->get_agency_details($conversation->agency_id);
-        
-        // Get online status
-        $agency_online = $this->{$this->model}->get_agency_online_status($conversation->agency_id);
-        
-        // Ensure conversation has required properties
-        if (!isset($conversation->unread_count)) {
-            $conversation->unread_count = 0;
-        }
-        if (!isset($conversation->is_online)) {
-            $conversation->is_online = 0;
-        }
-        
-        $this->breadcrumbs = [
-            ['title' => lang('chat_heading'), 'url' => url('chat')],
-            ['title' => $conversation->agency_name, 'url' => '']
-        ];
-        
-        $data = [
-            'conversation' => $conversation,
-            'messages' => $messages,
-            'all_conversations' => $all_conversations,
-            'available_agencies' => $available_agencies,
-            'heading' => lang('chat_heading'),
-            'recruiter_id' => $recruiter_id,
-            'total_unread_count' => $total_unread_count,
-            'recent_notifications' => $recent_notifications,
-            'total_message_count' => $total_message_count,
-            'agency_details' => $agency_details,
-            'agency_online' => $agency_online
-        ];
-        
-        $this->load->view($this->folder . '/view_header');
-        $this->load->view('recruiter/chat/conversation', $data);
-        $this->load->view($this->folder . '/view_footer');
+    public function conversation($uuid = null)
+{
+    $recruiter_id = $this->get_recruiter_id();
+    
+    if (!$uuid) {
+        redirect('recruiter/chat');
+        return;
     }
+    
+    // Get conversation by UUID instead of ID
+    $conversation = $this->{$this->model}->get_conversation_for_recruiter_by_uuid($uuid, $recruiter_id);
+    
+    if (!$conversation) {
+        show_404();
+    }
+    
+    // Mark messages as read
+    $this->{$this->model}->mark_messages_as_read($conversation->id, 'recruiter');
+    
+    $messages = $this->{$this->model}->get_conversation_messages($conversation->id);
+    
+    // Get all conversations for the sidebar
+    $all_conversations = $this->{$this->model}->get_recruiter_conversations($recruiter_id);
+    
+    // Get available agencies for new chats
+    $available_agencies = $this->{$this->model}->get_available_agencies_simple($recruiter_id);
+    
+    // Calculate total unread count
+    $total_unread_count = $this->{$this->model}->get_unread_count_for_recruiter($recruiter_id);
+    
+    // Get recent notifications (initialize as empty array if method doesn't exist)
+    $recent_notifications = [];
+    if (method_exists($this->{$this->model}, 'get_recent_notifications')) {
+        $recent_notifications = $this->{$this->model}->get_recent_notifications($recruiter_id, 'recruiter');
+    }
+    
+    // Calculate total message count (initialize as 0 if method doesn't exist)
+    $total_message_count = 0;
+    if (method_exists($this->{$this->model}, 'get_total_message_count')) {
+        $total_message_count = $this->{$this->model}->get_total_message_count($recruiter_id);
+    }
+    
+    // Get agency details for the right sidebar
+    $agency_details = $this->{$this->model}->get_agency_details($conversation->agency_id);
+    
+    // Get online status
+    $agency_online = $this->{$this->model}->get_agency_online_status($conversation->agency_id);
+    
+    // Ensure conversation has required properties
+    if (!isset($conversation->unread_count)) {
+        $conversation->unread_count = 0;
+    }
+    if (!isset($conversation->is_online)) {
+        $conversation->is_online = 0;
+    }
+    
+    $this->breadcrumbs = [
+        ['title' => lang('chat_heading'), 'url' => url('chat')],
+        ['title' => $conversation->agency_name, 'url' => '']
+    ];
+    
+    $data = [
+        'conversation' => $conversation,
+        'messages' => $messages,
+        'all_conversations' => $all_conversations,
+        'available_agencies' => $available_agencies,
+        'heading' => lang('chat_heading'),
+        'recruiter_id' => $recruiter_id,
+        'total_unread_count' => $total_unread_count,
+        'recent_notifications' => $recent_notifications,
+        'total_message_count' => $total_message_count,
+        'agency_details' => $agency_details,
+        'agency_online' => $agency_online
+    ];
+    
+    $this->load->view($this->folder . '/view_header');
+    $this->load->view('recruiter/chat/conversation', $data);
+    $this->load->view($this->folder . '/view_footer');
+}
 
     /**
      * Start new conversation
@@ -189,130 +196,139 @@ class Chat extends CRUD_Controller
         $this->load->view($this->folder . '/view_footer');
     }
 
-    /**
-     * AJAX: Send message - FIXED VERSION WITH NOTIFICATIONS
-     */
-    public function ajax_send_message()
-    {
-        try {
-            $conversation_id = $this->input->post('conversation_id');
-            $message = $this->input->post('message');
-            $recruiter_id = $this->get_recruiter_id();
-                    
-            if (empty($conversation_id) || empty($message)) {
-                ajax_return(['success' => false, 'message' => 'Missing required fields']);
-                return;
-            }
-            
-            $conversation = $this->{$this->model}->get_conversation_for_recruiter($conversation_id, $recruiter_id);
-            if (!$conversation) {
-                ajax_return(['success' => false, 'message' => 'Conversation not found']);
-                return;
-            }
-            
-            $message_id = $this->{$this->model}->send_message(
-                $conversation_id, 
-                'recruiter', 
-                $recruiter_id, 
-                $message
-            );
-            
-            if ($message_id) {
-                // Create notification for agency
-                $notification_id = $this->{$this->model}->create_chat_notification(
-                    $conversation_id,
-                    $conversation->agency_id, // Send to agency
-                    'agency', // Receiver type
-                    $message,
-                    $recruiter_id // Sender ID (recruiter)
-                );
-                            
-                ajax_return(['success' => true, 'message_id' => $message_id]);
-            } else {
-                ajax_return(['success' => false, 'message' => 'Failed to send message']);
-            }
-        } catch (Exception $e) {
-            ajax_return(['success' => false, 'message' => 'Server error: ' . $e->getMessage()]);
-        }
+/**
+ * AJAX: Send message - FIXED FOR RECRUITER
+ */
+public function ajax_send_message()
+{
+    if (!$this->validate_csrf_token()) {
+        return;
     }
-
-    public function ajax_get_messages()
-    {
-        $conversation_id = $this->input->post('conversation_id');
-        $last_message_id = $this->input->post('last_message_id') ?: 0;
-        $recruiter_id = $this->get_recruiter_id();
-            
-        if (!$conversation_id) {
-            ajax_return(['success' => false, 'message' => 'Conversation ID required']);
-            return;
-        }
-        
-        $conversation = $this->{$this->model}->get_conversation_for_recruiter($conversation_id, $recruiter_id);
-        if (!$conversation) {
-            ajax_return(['success' => false, 'message' => 'Conversation not found']);
-            return;
-        }
-        
-        // Mark messages as read
-        $this->{$this->model}->mark_messages_as_read($conversation_id, 'recruiter');
-        
-        // Get ONLY new messages (messages with ID greater than last_message_id)
-        $this->db->select('cm.*, 
-                        CASE 
-                            WHEN cm.sender_type = "agency" THEN a.name
-                            WHEN cm.sender_type = "recruiter" THEN CONCAT(r.first_name, " ", r.last_name)
-                        END as sender_name');
-        $this->db->from('chat_messages cm');
-        $this->db->join('agencies a', 'a.id = cm.sender_id AND cm.sender_type = "agency"', 'left');
-        $this->db->join('recruiters r', 'r.id = cm.sender_id AND cm.sender_type = "recruiter"', 'left');
-        $this->db->where('cm.conversation_id', $conversation_id);
-        
-        // Only get messages newer than last_message_id
-        if ($last_message_id > 0) {
-            $this->db->where('cm.id >', $last_message_id);
-        }
-        
-        $this->db->where('cm.enabled', 1);
-        $this->db->where('cm.removed', 0);
-        $this->db->order_by('cm.created_at', 'ASC');
-        
-        $query = $this->db->get();
-        $messages = $query->result();
-        
-        $html = '';
-        $last_id = $last_message_id;
-        $has_new_messages = false;
-        
-        foreach ($messages as $message) {
-            $message_html = $this->load->view('recruiter/chat/message_item', [
-                'message' => $message, 
-                'current_user_type' => 'recruiter'
-            ], true);
-            
-            $html .= $message_html;
-            $has_new_messages = true;
-            
-            // Update last_id to the highest message ID
-            if ($message->id > $last_id) {
-                $last_id = $message->id;
-            }
-        }
-        
-        $response = [
+    
+    $conversation_id = $this->input->post('conversation_id');
+    $message_text = $this->input->post('message');
+    $recruiter_id = $this->get_recruiter_id();  // CHANGED: Use recruiter_id
+    
+    if (!$conversation_id || !$message_text || !$recruiter_id) {
+        ajax_return([
+            'success' => false,
+            'message' => 'Missing required parameters'
+        ]);
+        return;
+    }
+    
+    // CRITICAL FIX: Check if conversation belongs to recruiter
+    $conversation = $this->{$this->model}->get_conversation_for_recruiter($conversation_id, $recruiter_id);  // CHANGED: Use recruiter method
+    
+    if (!$conversation) {
+        ajax_return([
+            'success' => false,
+            'message' => 'Access denied'
+        ]);
+        return;
+    }
+    
+    $message_id = $this->{$this->model}->send_message(
+        $conversation_id,
+        'recruiter',  // CHANGED: Send as recruiter
+        $recruiter_id,  // CHANGED: recruiter_id not agency_id
+        $message_text,
+        'text',
+        null
+    );
+    
+    if ($message_id) {
+        ajax_return([
             'success' => true,
-            'html' => $html,
-            'last_message_id' => $last_id,
-            'has_new_messages' => $has_new_messages,
-            'message_count' => count($messages),
-            'debug' => [
-                'requested_last_id' => $last_message_id,
-                'returned_last_id' => $last_id,
-                'new_messages_found' => count($messages)
-            ]
-        ];
-        
-        ajax_return($response);
+            'message_id' => $message_id,
+            'csrf' => $this->security->get_csrf_hash()
+        ]);
+    } else {
+        ajax_return([
+            'success' => false,
+            'message' => 'Failed to save message'
+        ]);
     }
+}
+
+
+public function ajax_get_messages()
+{
+    if (!$this->validate_csrf_token()) {
+        return;
+    }
+    
+    $conversation_id = $this->input->post('conversation_id');
+    $last_message_id = $this->input->post('last_message_id') ?: 0;
+    $recruiter_id = $this->get_recruiter_id();  // CHANGED: Use recruiter_id
+            
+    if (!$conversation_id) {
+        ajax_return(['success' => false, 'message' => 'Conversation ID required']);
+        return;
+    }
+    
+    // CHANGED: Use recruiter permission check
+    $conversation = $this->{$this->model}->get_conversation_for_recruiter($conversation_id, $recruiter_id);
+    
+    if (!$conversation) {
+        ajax_return(['success' => false, 'message' => 'Access denied']);
+        return;
+    }
+    
+    // CHANGED: Mark as read for recruiter
+    $this->{$this->model}->mark_messages_as_read($conversation_id, 'recruiter');
+    
+    $this->db->select('cm.*, 
+                    CASE 
+                        WHEN cm.sender_type = "agency" THEN a.name
+                        WHEN cm.sender_type = "recruiter" THEN CONCAT(r.first_name, " ", r.last_name)
+                    END as sender_name');
+    $this->db->from('chat_messages cm');
+    $this->db->join('agencies a', 'a.id = cm.sender_id AND cm.sender_type = "agency"', 'left');
+    $this->db->join('recruiters r', 'r.id = cm.sender_id AND cm.sender_type = "recruiter"', 'left');
+    $this->db->where('cm.conversation_id', $conversation_id);
+    
+    if ($last_message_id > 0) {
+        $this->db->where('cm.id >', $last_message_id);
+    }
+    
+    $this->db->where('cm.enabled', 1);
+    $this->db->where('cm.removed', 0);
+    $this->db->order_by('cm.created_at', 'ASC');
+    
+    $query = $this->db->get();
+    $messages = $query->result();
+    
+    $html = '';
+    $last_id = $last_message_id;
+    $has_new_messages = false;
+    
+    foreach ($messages as $message) {
+        // CHANGED: Use recruiter view
+        $message_html = $this->load->view('recruiter/chat/message_item', [
+            'message' => $message, 
+            'current_user_type' => 'recruiter'  // CHANGED: Set current user as recruiter
+        ], true);
+        
+        $html .= $message_html;
+        $has_new_messages = true;
+        
+        if ($message->id > $last_id) {
+            $last_id = $message->id;
+        }
+    }
+    
+    $response = [
+        'success' => true,
+        'html' => $html,
+        'last_message_id' => $last_id,
+        'has_new_messages' => $has_new_messages,
+        'csrf' => $this->security->get_csrf_hash()
+    ];
+    
+    ajax_return($response);
+}
+
 
     /**
      * AJAX: Get unread count for menu badge
@@ -409,72 +425,120 @@ class Chat extends CRUD_Controller
     }
 
     public function ajax_get_chat_notifications()
-    {
-        $recruiter_id = $this->get_recruiter_id();
+{
+    $recruiter_id = $this->get_recruiter_id();
+    
+    $response = [
+        'success' => false,
+        'unread_count' => 0
+    ];
+
+    try {        
+        // Load notifications model
+        $this->load->model('recruiter/Model_notifications');
         
-        $response = [
-            'success' => false,
-            'unread_count' => 0
-        ];
+        // Get chat-specific unread count from chat messages
+        $chat_messages_count = $this->Model_chat_messages->get_unread_count_for_recruiter($recruiter_id);
+        
+        // Also count chat notifications from notifications table
+        $chat_notifications_count = $this->Model_notifications->count_chat_notifications($recruiter_id);
+        
+        // Use the larger count (either from chat messages or notifications)
+        $total_chat_unread = max($chat_messages_count, $chat_notifications_count);
+        
+        $response['unread_count'] = $total_chat_unread;
+        $response['success'] = true;
 
-        try {        
-            // Load notifications model
-            $this->load->model('recruiter/Model_notifications');
-            
-            // Get chat-specific unread count from chat messages
-            $chat_messages_count = $this->Model_chat_messages->get_unread_count_for_recruiter($recruiter_id);
-            
-            // Also count chat notifications from notifications table
-            $chat_notifications_count = $this->Model_notifications->count_chat_notifications($recruiter_id);
-            
-            // Use the larger count (either from chat messages or notifications)
-            $total_chat_unread = max($chat_messages_count, $chat_notifications_count);
-            
-            $response['unread_count'] = $total_chat_unread;
-            $response['success'] = true;
-
-        } catch (Exception $e) {
-            // Log error but don't break the functionality
-            log_message('error', 'Error in ajax_get_chat_notifications: ' . $e->getMessage());
-        }
-
-        $this->output
-            ->set_content_type('application/json')
-            ->set_output(json_encode($response));
+    } catch (Exception $e) {
+        // Log error but don't break the functionality
+        log_message('error', 'Error in ajax_get_chat_notifications: ' . $e->getMessage());
     }
 
-    public function ajax_mark_notifications_read()
-    {
-        $conversation_id = $this->input->post('conversation_id');
-        $recruiter_id = $this->get_recruiter_id();
-            
-        if (!$conversation_id || !$recruiter_id) {
-            ajax_return(['success' => false, 'message' => 'Invalid parameters']);
-            return;
+    $this->output
+        ->set_content_type('application/json')
+        ->set_output(json_encode($response));
+}
+private function validate_csrf_token()
+{
+    if ($this->input->is_ajax_request()) {
+        $csrf_name = $this->security->get_csrf_token_name();
+        $csrf_hash = $this->security->get_csrf_hash();
+        
+        $csrf_token = $this->input->post($csrf_name);
+        
+        if (!$csrf_token) {
+            $raw_input = file_get_contents('php://input');
+            if ($raw_input) {
+                parse_str($raw_input, $parsed_input);
+                $csrf_token = isset($parsed_input[$csrf_name]) ? $parsed_input[$csrf_name] : null;
+            }
         }
         
-        try {
-            // Mark chat messages as read
-            $messages_updated = $this->Model_chat_messages->mark_messages_as_read($conversation_id, 'recruiter');
-            
-            // Mark chat notifications as read
-            $this->load->model('recruiter/Model_notifications');
-            $notifications_updated = $this->Model_notifications->mark_chat_notifications_read($conversation_id, $recruiter_id, 'recruiter');
-            
-            // Get updated unread count
-            $unread_count = $this->Model_chat_messages->get_unread_count_for_recruiter($recruiter_id);
-                    
+        if (!$csrf_token) {
             ajax_return([
-                'success' => true,
-                'messages_updated' => $messages_updated,
-                'notifications_updated' => $notifications_updated,
-                'unread_count' => $unread_count
+                'success' => false, 
+                'message' => 'CSRF token missing', 
+                'csrf' => $csrf_hash
             ]);
-            
-        } catch (Exception $e) {
-            ajax_return(['success' => false, 'message' => 'Server error']);
+            return false;
         }
+        
+        if ($csrf_token !== $csrf_hash) {
+            ajax_return([
+                'success' => false, 
+                'message' => 'Invalid CSRF token', 
+                'csrf' => $csrf_hash
+            ]);
+            return false;
+        }
+        
+        return true;
     }
+    
+    return true;
+}
+
+public function ajax_mark_notifications_read()
+{
+    if (!$this->validate_csrf_token()) {
+        return;
+    }
+    
+    $conversation_id = $this->input->post('conversation_id');
+    $recruiter_id = $this->get_recruiter_id();  // CHANGED: Use recruiter_id
+    
+    if (!$conversation_id || !$recruiter_id) {
+        ajax_return([
+            'success' => false,
+            'message' => 'Invalid parameters'
+        ]);
+        return;
+    }
+    
+    // CHANGED: Use recruiter permission check
+    $conversation = $this->{$this->model}->get_conversation_for_recruiter($conversation_id, $recruiter_id);
+    
+    if (!$conversation) {
+        ajax_return([
+            'success' => false,
+            'message' => 'Access denied'
+        ]);
+        return;
+    }
+    
+    // CHANGED: Mark as read for recruiter
+    $this->{$this->model}->mark_messages_as_read($conversation_id, 'recruiter');
+    
+    // CHANGED: Get unread count for recruiter
+    $unread_count = $this->{$this->model}->get_unread_count_for_recruiter($recruiter_id);
+    
+    ajax_return([
+        'success' => true,
+        'message' => 'Notifications marked as read',
+        'unread_count' => $unread_count,
+        'csrf' => $this->security->get_csrf_hash()
+    ]);
+}
 
     public function ajax_get_conversations()
     {

@@ -15,8 +15,6 @@
         href="<?= site_url(); ?>resources/cms/plugins/theme/bootstrap/css/bootstrap.min.css" />
     <link rel="stylesheet" type="text/css"
         href="<?= site_url(); ?>resources/cms/plugins/theme/font-awesome/css/font-awesome.min.css" />
-
-    <!-- <link rel="stylesheet" type="text/css" href="<?= site_url(); ?>resources/cms/plugins/theme/multi-select/css/multi-select.css"> -->
     <link rel="stylesheet" type="text/css"
         href="<?= site_url(); ?>resources/cms/plugins/theme/bootstrap-multiselect/bootstrap-multiselect.css" />
     <link rel="stylesheet" type="text/css"
@@ -38,43 +36,20 @@
     <!-- Extra Plugin CSS -->
     <link rel="stylesheet" type="text/css" href="<?= site_url(); ?>resources/cms/css/cropper.min.css" />
     <link rel="stylesheet" type="text/css" href="<?= site_url(); ?>resources/cms/plugins/flatpickr/flatpickr.min.css" />
-    <!-- Add this line BEFORE other JavaScript files -->
+    <!-- In view_header.php -->
     <script type="text/javascript" src="<?= site_url(); ?>resources/cms/plugins/theme/jquery/jquery.min.js"></script>
+    <!-- FIX THIS LINE: Change from assets/js/core.js to resources/cms/javascript/core.js -->
+    <script type="text/javascript" src="<?= site_url(); ?>resources/cms/javascript/core.js"></script>
+
+
     <?php
-//Add extra page specific css files
-if (!empty($css)) {
-    foreach ($css as $c) {
-        echo '
-            <link rel="stylesheet" type="text/css" href="'.$c.'">
-        ';
-    }
-}
-?>
-
-    <!-- Top Level JS -->
-    <script type="text/javascript"
-        src="<?= site_url(); ?>resources/cms/plugins/ckeditor5/custom/ecms-upload-adapter.js"></script>
-    <script type="text/javascript" src="<?= site_url(); ?>resources/cms/plugins/ckeditor5/ckeditor.js"></script>
-
-
-
-    <script>
-    //Function to check if script has been loaded before executing
-    function on_script_load(scriptName, func) {
-
-        if (window[scriptName]) {
-            //Script is loaded
-            func();
-        } else {
-            //Script is not loaded, retry in .3 seconds.
-            setTimeout(function() {
-                on_script_load(scriptName, func);
-            }, 300);
+    //Add extra page specific css files
+    if (!empty($css)) {
+        foreach ($css as $c) {
+            echo '<link rel="stylesheet" type="text/css" href="'.$c.'">';
         }
     }
-    </script>
-
-
+    ?>
 </head>
 
 <body data-theme="<?= $this->config->item('dark_mode') ? 'dark' : 'light'; ?>"

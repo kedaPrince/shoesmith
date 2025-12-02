@@ -17,245 +17,375 @@ class Chat extends CRUD_Controller
         // Load agency-specific chat model
         $this->load->model('agency/Model_chat_messages');
         
+        // Load notifications model
+        $this->load->model('agency/Model_notifications');
+        
         // Verify agency access
         $login_data = $this->session->userdata('login');
         if (empty($login_data['agency'])) {
             redirect('agency/login');
         }
     }
-
+    
+    /**
+     * Main chat page - redirects to first conversation or shows available recruiters
+     */
     public function index()
     {
         $agency_id = $this->get_user_agency_id();
+        
+        // Get all conversations
         $conversations = $this->{$this->model}->get_agency_conversations($agency_id);
+        
+        // Get available recruiters for new chats
+        $available_recruiters = $this->{$this->model}->get_available_recruiters($agency_id);
+        
+        // If user has conversations, redirect to the first one
+        if (!empty($conversations)) {
+            redirect('agency/chat/conversation/' . $conversations[0]->id);
+            return;
+        }
+        
+        // If no conversations but has recruiters, create first conversation with first recruiter
+        if (!empty($available_recruiters)) {
+            $conversation = $this->{$this->model}->get_or_create_conversation(
+                $agency_id, 
+                $available_recruiters[0]->id
+            );
+            
+            if ($conversation) {
+                redirect('agency/chat/conversation/' . $conversation->id);
+                return;
+            }
+        }
+        
+        // Fallback: Show chat with recruiters list (no conversations available)
+        $this->load_chat_view($conversations, $available_recruiters);
+    }
+
+    private function load_chat_view($conversations, $recruiters)
+    {
+        $agency_id = $this->get_user_agency_id();
         
         $this->breadcrumbs = [
             ['title' => lang('chat_heading'), 'url' => '']
         ];
         
         $this->load->view($this->folder . '/view_header');
-        $this->load->view('agency/chat/index', [
-            'conversations' => $conversations,
-            'heading' => lang('chat_heading'),
-            'agency_id' => $agency_id
-        ]);
-        $this->load->view($this->folder . '/view_footer');
-    }
-
-   public function conversation($conversation_id = null)
-    {
-        $agency_id = $this->get_user_agency_id();
-        
-        if (!$conversation_id) {
-            show_404();
-        }
-        
-        $conversation = $this->{$this->model}->get_conversation_for_agency($conversation_id, $agency_id);
-        
-        if (!$conversation) {
-            show_404();
-        }
-        
-        // Mark messages as read
-        $this->{$this->model}->mark_messages_as_read($conversation_id, 'agency');
-        
-        $messages = $this->{$this->model}->get_conversation_messages($conversation_id);
-        
-        // Get all conversations for the sidebar
-        $all_conversations = $this->{$this->model}->get_agency_conversations($agency_id);
-        
-        $this->breadcrumbs = [
-            ['title' => lang('chat_heading'), 'url' => url('chat')],
-            ['title' => $conversation->title, 'url' => '']
-        ];
-        
-        $this->load->view($this->folder . '/view_header');
         $this->load->view('agency/chat/conversation', [
-            'conversation' => $conversation,
-            'messages' => $messages,
-            'all_conversations' => $all_conversations,
-            'heading' => $conversation->title,
-            'agency_id' => $agency_id
+            'conversation' => null,
+            'messages' => [],
+            'all_conversations' => $conversations,
+            'available_recruiters' => $recruiters,
+            'heading' => lang('chat_heading'),
+            'agency_id' => $agency_id,
+            'total_unread_count' => 0,
+            'recent_notifications' => [],
+            'total_message_count' => 0
         ]);
         $this->load->view($this->folder . '/view_footer');
     }
 
-    /**
-     * Start new conversation
-     */
-    public function start()
-    {
-        $agency_id = $this->get_user_agency_id();
-        $recruiters = $this->{$this->model}->get_available_recruiters($agency_id);
-        
-        $this->breadcrumbs = [
-            ['title' => lang('chat_heading'), 'url' => url('chat')],
-            ['title' => lang('label_start_conversation'), 'url' => '']
-        ];
-        
-        $this->load->view($this->folder . '/view_header');
-        $this->load->view('agency/chat/start', [
-            'recruiters' => $recruiters,
-            'heading' => lang('label_start_conversation'),
-            'agency_id' => $agency_id
-        ]);
-        $this->load->view($this->folder . '/view_footer');
+    
+ public function conversation($uuid = null)
+{
+    $agency_id = $this->get_user_agency_id();
+    
+    if (!$uuid) {
+        redirect('agency/chat');
+        return;
     }
+    
+    // Get conversation by UUID instead of ID
+    $conversation = $this->{$this->model}->get_conversation_for_agency_by_uuid($uuid, $agency_id);
+    
+    if (!$conversation) {
+        show_404();
+    }
+    
+    // Rest of your existing code...
+    // [Keep all your existing conversation method code]
+}
 
-    /**
-     * AJAX: Get new messages - FIXED VERSION
-     */
-    public function ajax_get_messages()
-    {
-        log_message('debug', '=== Agency ajax_get_messages called ===');
-        
-        // Remove AJAX check
-        $conversation_id = $this->input->post('conversation_id');
-        $last_message_id = $this->input->post('last_message_id') ?: 0;
-        $agency_id = $this->get_user_agency_id();
-        
-        log_message('debug', "Agency fetch params - conversation_id: $conversation_id, last_message_id: $last_message_id, agency_id: $agency_id");
-        
-        $conversation = $this->{$this->model}->get_conversation_for_agency($conversation_id, $agency_id);
-        if (!$conversation) {
-            ajax_return(['success' => false, 'message' => 'Conversation not found']);
-            return;
-        }
-        
-        // Mark messages as read
-        $this->{$this->model}->mark_messages_as_read($conversation_id, 'agency');
-        
-        // Get only new messages
-        $this->db->select('cm.*, 
-                          CASE 
-                              WHEN cm.sender_type = "agency" THEN a.name
-                              WHEN cm.sender_type = "recruiter" THEN CONCAT(r.first_name, " ", r.last_name)
-                          END as sender_name');
-        $this->db->from('chat_messages cm');
-        $this->db->join('agencies a', 'a.id = cm.sender_id AND cm.sender_type = "agency"', 'left');
-        $this->db->join('recruiters r', 'r.id = cm.sender_id AND cm.sender_type = "recruiter"', 'left');
-        $this->db->where('cm.conversation_id', $conversation_id);
-        
-        if ($last_message_id > 0) {
-            $this->db->where('cm.id >', $last_message_id);
-        }
-        
-        $this->db->where('cm.enabled', 1);
-        $this->db->where('cm.removed', 0);
-        $this->db->order_by('cm.created_at', 'ASC');
-        
-        $messages = $this->db->get()->result();
-        
-        log_message('debug', 'Agency found ' . count($messages) . ' new messages');
-        
-        $html = '';
-        $last_id = $last_message_id;
-        $has_new_messages = false;
-        
-        foreach ($messages as $message) {
-            $html .= $this->load->view('agency/chat/message_item', [
-                'message' => $message, 
-                'current_user_type' => 'agency'
-            ], true);
-            $last_id = max($last_id, $message->id);
-            $has_new_messages = true;
-        }
-        
-        ajax_return([
-            'success' => true,
-            'html' => $html,
-            'last_message_id' => $last_id,
-            'has_new_messages' => $has_new_messages,
-            'message_count' => count($messages)
-        ]);
+/**
+ * Start new conversation with quick link - USE UUID
+ */
+public function quick_start($recruiter_id = null)
+{
+    $agency_id = $this->get_user_agency_id();
+    
+    if (!$recruiter_id) {
+        show_404();
     }
+    
+    // Create or get conversation
+    $conversation = $this->{$this->model}->get_or_create_conversation($agency_id, $recruiter_id);
+    
+    if ($conversation) {
+        // Redirect using UUID instead of ID
+        redirect('agency/chat/conversation/' . $conversation->uuid);
+    } else {
+        show_error('Failed to create conversation');
+    }
+}
+
+    
+
+  
 
     /**
      * AJAX: Get unread count for menu badge
      */
     public function ajax_get_unread_count()
     {
-        // Remove AJAX check
         $agency_id = $this->get_user_agency_id();
         $unread_count = $this->{$this->model}->get_unread_count_for_agency($agency_id);
         
         ajax_return(['success' => true, 'unread_count' => $unread_count]);
     }
 
-    /**
-     * AJAX: Start new conversation
-     */
-    public function ajax_start_conversation()
-    {
-        // Remove AJAX check
-        $recruiter_id = $this->input->post('recruiter_id');
-        $subject = $this->input->post('subject');
-        $initial_message = $this->input->post('initial_message');
-        $agency_id = $this->get_user_agency_id();
+ 
+private function validate_csrf_token()
+{
+    if ($this->input->is_ajax_request()) {
+        $csrf_name = $this->security->get_csrf_token_name();
+        $csrf_hash = $this->security->get_csrf_hash();
         
-        if (empty($recruiter_id)) {
-            ajax_return(['success' => false, 'message' => 'Please select a recruiter']);
-            return;
+        // First check standard POST
+        $csrf_token = $this->input->post($csrf_name);
+        
+        // If not found in POST, check raw input (for FormData)
+        if (!$csrf_token) {
+            $raw_input = file_get_contents('php://input');
+            if ($raw_input) {
+                // For FormData, we need to parse differently
+                parse_str($raw_input, $parsed_input);
+                $csrf_token = isset($parsed_input[$csrf_name]) ? $parsed_input[$csrf_name] : null;
+            }
         }
         
-        // Create conversation
-        $conversation = $this->{$this->model}->get_or_create_conversation($agency_id, $recruiter_id);
-        
-        if ($conversation) {
-            // Send initial message if provided
-            if (!empty($initial_message)) {
-                $this->{$this->model}->send_message(
-                    $conversation->id,
-                    'agency',
-                    $agency_id,
-                    $initial_message
-                );
-            }
-            
+        if (!$csrf_token) {
             ajax_return([
-                'success' => true, 
-                'conversation_id' => $conversation->id,
-                'redirect_url' => site_url('agency/chat/conversation/' . $conversation->id)
+                'success' => false, 
+                'message' => 'CSRF token missing', 
+                'csrf' => $csrf_hash
             ]);
-        } else {
-            ajax_return(['success' => false, 'message' => 'Failed to create conversation']);
+            return false;
+        }
+        
+        if ($csrf_token !== $csrf_hash) {
+            ajax_return([
+                'success' => false, 
+                'message' => 'Invalid CSRF token', 
+                'csrf' => $csrf_hash
+            ]);
+            return false;
+        }
+        
+        return true;
+    }
+    
+    return true;
+}
+
+public function ajax_mark_notifications_read()
+{
+    if (!$this->validate_csrf_token()) {
+        return;
+    }
+    
+    $conversation_id = $this->input->post('conversation_id');
+    $agency_id = $this->get_user_agency_id();
+    
+    if (!$conversation_id || !$agency_id) {
+        ajax_return([
+            'success' => false,
+            'message' => 'Invalid parameters'
+        ]);
+        return;
+    }
+    
+    // FIX: Check if conversation belongs to agency
+    $conversation = $this->{$this->model}->get_conversation_for_agency($conversation_id, $agency_id);
+    
+    if (!$conversation) {
+        ajax_return([
+            'success' => false,
+            'message' => 'Access denied'
+        ]);
+        return;
+    }
+    
+    $this->{$this->model}->mark_messages_as_read($conversation_id, 'agency');
+    
+    $unread_count = $this->{$this->model}->get_unread_count_for_agency($agency_id);
+    
+    ajax_return([
+        'success' => true,
+        'message' => 'Notifications marked as read',
+        'unread_count' => $unread_count,
+        'csrf' => $this->security->get_csrf_hash()
+    ]);
+}
+
+public function ajax_send_message()
+{
+    if (!$this->validate_csrf_token()) {
+        return;
+    }
+    
+    $conversation_id = $this->input->post('conversation_id');
+    $message_text = $this->input->post('message');
+    $agency_id = $this->get_user_agency_id();
+    
+    if (!$conversation_id || !$message_text || !$agency_id) {
+        ajax_return([
+            'success' => false,
+            'message' => 'Missing required parameters'
+        ]);
+        return;
+    }
+    
+    // CRITICAL FIX: Check if conversation belongs to agency
+    $conversation = $this->{$this->model}->get_conversation_for_agency($conversation_id, $agency_id);
+    
+    if (!$conversation) {
+        ajax_return([
+            'success' => false,
+            'message' => 'Access denied'
+        ]);
+        return;
+    }
+    
+    $message_id = $this->{$this->model}->send_message(
+        $conversation_id,
+        'agency',
+        $agency_id,
+        $message_text,
+        'text',
+        null
+    );
+    
+    if ($message_id) {
+        ajax_return([
+            'success' => true,
+            'message_id' => $message_id,
+            'csrf' => $this->security->get_csrf_hash()
+        ]);
+    } else {
+        ajax_return([
+            'success' => false,
+            'message' => 'Failed to save message'
+        ]);
+    }
+}
+
+
+
+public function ajax_get_messages()
+{
+    if (!$this->validate_csrf_token()) {
+        return;
+    }
+    
+    $conversation_id = $this->input->post('conversation_id');
+    $last_message_id = $this->input->post('last_message_id') ?: 0;
+    $agency_id = $this->get_user_agency_id();
+            
+    if (!$conversation_id) {
+        ajax_return(['success' => false, 'message' => 'Conversation ID required']);
+        return;
+    }
+    
+    $conversation = $this->{$this->model}->get_conversation_for_agency($conversation_id, $agency_id);
+    if (!$conversation) {
+        ajax_return(['success' => false, 'message' => 'Conversation not found']);
+        return;
+    }
+    
+    $this->{$this->model}->mark_messages_as_read($conversation_id, 'agency');
+    
+    $this->db->select('cm.*, 
+                    CASE 
+                        WHEN cm.sender_type = "agency" THEN a.name
+                        WHEN cm.sender_type = "recruiter" THEN CONCAT(r.first_name, " ", r.last_name)
+                    END as sender_name');
+    $this->db->from('chat_messages cm');
+    $this->db->join('agencies a', 'a.id = cm.sender_id AND cm.sender_type = "agency"', 'left');
+    $this->db->join('recruiters r', 'r.id = cm.sender_id AND cm.sender_type = "recruiter"', 'left');
+    $this->db->where('cm.conversation_id', $conversation_id);
+    
+    if ($last_message_id > 0) {
+        $this->db->where('cm.id >', $last_message_id);
+    }
+    
+    $this->db->where('cm.enabled', 1);
+    $this->db->where('cm.removed', 0);
+    $this->db->order_by('cm.created_at', 'ASC');
+    
+    $query = $this->db->get();
+    $messages = $query->result();
+    
+    $html = '';
+    $last_id = $last_message_id;
+    $has_new_messages = false;
+    
+    foreach ($messages as $message) {
+        $message_html = $this->load->view('agency/chat/message_item', [
+            'message' => $message, 
+            'current_user_type' => 'agency'
+        ], true);
+        
+        $html .= $message_html;
+        $has_new_messages = true;
+        
+        if ($message->id > $last_id) {
+            $last_id = $message->id;
         }
     }
+    
+    $response = [
+        'success' => true,
+        'html' => $html,
+        'last_message_id' => $last_id,
+        'has_new_messages' => $has_new_messages,
+        'csrf' => $this->security->get_csrf_hash()
+    ];
+    
+    ajax_return($response);
+}
 
-   private function send_chat_notification($conversation, $message, $sender_type)
-        {
-            // Debug: Check if model exists
-            if (!class_exists('Model_notifications')) {
-                log_message('debug', 'Model_notifications class not found');
-                return;
-            }
-            
-            $this->load->model('agency/Model_notifications');
-            
-            // Debug: Check if method exists
-            if (!method_exists($this->Model_notifications, 'create_chat_notification')) {
-                log_message('debug', 'create_chat_notification method not found in Model_notifications');
-                return;
-            }
-            
-            if ($sender_type === 'agency') {
-                log_message('debug', 'Calling create_chat_notification from Model_notifications');
-                $this->Model_notifications->create_chat_notification(
-                    $conversation->id,
-                    $conversation->recruiter_id,
-                    'recruiter',
-                    $message,
-                    $this->get_user_agency_id() // FIXED: Changed from get_agency_id() to get_user_agency_id()
-                );
-            }
-        }
+public function ajax_get_conversations()
+{
+    // This should validate CSRF too if it's a POST request
+    // Or change it to GET request if it's truly read-only
+    
+    $agency_id = $this->get_user_agency_id();
+    
+    if (!$agency_id) {
+        ajax_return(['success' => false, 'message' => 'Agency not logged in']);
+        return;
+    }
+    
+    $conversations = $this->{$this->model}->get_agency_conversations($agency_id);
+    
+    $total_unread_count = 0;
+    foreach ($conversations as $conv) {
+        $total_unread_count += isset($conv->unread_count) ? $conv->unread_count : 0;
+    }
+    
+    ajax_return([
+        'success' => true,
+        'conversations' => $conversations,
+        'total_unread_count' => $total_unread_count,
+        'csrf' => $this->security->get_csrf_hash()
+    ]);
+}
 
-   
     private function get_user_agency_id()
     {
         $login = $this->session->userdata('login');
         
-        // Debug: Check session data
         if (empty($login['agency'])) {
             return null;
         }
@@ -273,149 +403,41 @@ class Chat extends CRUD_Controller
         return null;
     }
 
-
-// In your Agency Chat Controller - FIXED ajax_send_message method
-public function ajax_send_message()
+public function ajax_test_csrf()
 {
-    log_message('debug', '=== AGENCY ajax_send_message called ===');
+    $csrf_name = $this->security->get_csrf_token_name();
+    $csrf_hash = $this->security->get_csrf_hash();
     
-    try {
-        $conversation_id = $this->input->post('conversation_id');
-        $message = $this->input->post('message');
-        $agency_id = $this->get_user_agency_id(); // FIXED: Changed from get_agency_id() to get_user_agency_id()
-        
-        log_message('debug', "Agency Send params - conversation_id: $conversation_id, agency_id: $agency_id");
-        
-        if (empty($conversation_id) || empty($message)) {
-            ajax_return(['success' => false, 'message' => 'Missing required fields']);
-            return;
-        }
-        
-        $conversation = $this->{$this->model}->get_conversation_for_agency($conversation_id, $agency_id);
-        if (!$conversation) {
-            ajax_return(['success' => false, 'message' => 'Conversation not found']);
-            return;
-        }
-        
-        // ADD DEBUG LOGGING HERE
-        log_message('debug', '=== BEFORE NOTIFICATION CREATION ===');
-        log_message('debug', "Conversation ID: $conversation_id");
-        log_message('debug', "Recruiter ID: " . $conversation->recruiter_id);
-        log_message('debug', "Message: " . substr($message, 0, 100));
-        log_message('debug', "Agency ID: $agency_id");
-        
-        $message_id = $this->{$this->model}->send_message(
-            $conversation_id, 
-            'agency', 
-            $agency_id, 
-            $message
-        );
-        
-        if ($message_id) {
-            log_message('debug', "Agency message sent successfully, ID: $message_id");
-            
-            // CRITICAL: Create notification for recruiter
-            log_message('debug', '=== CREATING NOTIFICATION ===');
-            $notification_id = $this->{$this->model}->create_chat_notification(
-                $conversation_id,
-                $conversation->recruiter_id, // Send to recruiter
-                'recruiter', // Receiver type
-                $message,
-                $agency_id // Sender ID (agency)
-            );
-            
-            log_message('debug', "Notification creation result: " . ($notification_id ? "Success ID: $notification_id" : "Failed"));
-            
-            ajax_return(['success' => true, 'message_id' => $message_id]);
-        } else {
-            log_message('debug', 'Failed to send message');
-            ajax_return(['success' => false, 'message' => 'Failed to send message']);
-        }
-    } catch (Exception $e) {
-        log_message('error', 'Error in agency ajax_send_message: ' . $e->getMessage());
-        ajax_return(['success' => false, 'message' => 'Server error: ' . $e->getMessage()]);
-    }
-}
-
-/**
- * Test notification creation for agency
- */
-public function test_notification_creation($conversation_id)
-{
-    $agency_id = $this->get_user_agency_id();
+    // Check ALL possible ways CSRF could be sent
+    $post_token = $this->input->post($csrf_name);
+    $get_token = $this->input->get($csrf_name);
     
-    echo "=== AGENCY NOTIFICATION TEST ===<br>";
-    echo "Agency ID: $agency_id<br>";
-    echo "Conversation ID: $conversation_id<br><br>";
-    
-    // Get conversation
-    $conversation = $this->{$this->model}->get_conversation_for_agency($conversation_id, $agency_id);
-    if (!$conversation) {
-        echo "❌ Conversation not found<br>";
-        return;
+    // Also check raw input
+    $raw_input = file_get_contents('php://input');
+    $raw_csrf = null;
+    if ($raw_input) {
+        parse_str($raw_input, $parsed_input);
+        $raw_csrf = isset($parsed_input[$csrf_name]) ? $parsed_input[$csrf_name] : null;
     }
     
-    echo "✅ Conversation found:<br>";
-    echo "- ID: $conversation->id<br>";
-    echo "- Agency ID: $conversation->agency_id<br>";
-    echo "- Recruiter ID: $conversation->recruiter_id<br>";
-    echo "- Title: $conversation->title<br><br>";
+    $response = [
+        'success' => true,
+        'message' => 'CSRF Test Complete',
+        'csrf' => $csrf_hash,
+        'debug' => [
+            'csrf_name' => $csrf_name,
+            'csrf_hash' => $csrf_hash,
+            'post_csrf_found' => !empty($post_token),
+            'get_csrf_found' => !empty($get_token),
+            'raw_csrf_found' => !empty($raw_csrf),
+            'input_post_data' => $this->input->post(),
+            '$_POST_data' => $_POST,
+            'raw_input' => $raw_input,
+            'request_method' => $this->input->method(),
+            'content_type' => isset($_SERVER['CONTENT_TYPE']) ? $_SERVER['CONTENT_TYPE'] : 'Not set'
+        ]
+    ];
     
-    // Test sending a message
-    $test_message = "Test message for notification creation";
-    echo "Testing message sending...<br>";
-    
-    $message_id = $this->{$this->model}->send_message(
-        $conversation_id, 
-        'agency', 
-        $agency_id, 
-        $test_message
-    );
-    
-    if ($message_id) {
-        echo "✅ Message sent successfully, ID: $message_id<br><br>";
-        
-        // Test creating notification
-        echo "Testing notification creation...<br>";
-        $notification_id = $this->{$this->model}->create_chat_notification(
-            $conversation_id,
-            $conversation->recruiter_id,
-            'recruiter',
-            $test_message,
-            $agency_id
-        );
-        
-        if ($notification_id) {
-            echo "✅ Notification created successfully, ID: $notification_id<br><br>";
-            
-            // Check if notification exists in database
-            $this->db->select('*')
-                     ->from('notifications')
-                     ->where('id', $notification_id);
-            $notification = $this->db->get()->row();
-            
-            if ($notification) {
-                echo "✅ Notification found in database:<br>";
-                echo "- ID: $notification->id<br>";
-                echo "- Message: $notification->message<br>";
-                echo "- Type: $notification->type<br>";
-                echo "- Receiver ID: $notification->receiver_id<br>";
-                echo "- Receiver Type: $notification->receiver_type<br>";
-                echo "- Created: $notification->created_at<br>";
-            } else {
-                echo "❌ Notification not found in database<br>";
-            }
-        } else {
-            echo "❌ Failed to create notification<br>";
-            
-            // Check for database errors
-            $error = $this->db->error();
-            echo "Database error: " . $error['message'] . "<br>";
-        }
-    } else {
-        echo "❌ Failed to send message<br>";
-    }
-    
-    die();
+    ajax_return($response);
 }
 }

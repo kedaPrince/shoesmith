@@ -57,6 +57,8 @@ if (!empty($css)) {
     <script type="text/javascript"
         src="<?= site_url(); ?>resources/cms/plugins/ckeditor5/custom/ecms-upload-adapter.js"></script>
     <script type="text/javascript" src="<?= site_url(); ?>resources/cms/plugins/ckeditor5/ckeditor.js"></script>
+    <!-- FIX THIS LINE: Change from assets/js/core.js to resources/cms/javascript/core.js -->
+    <script type="text/javascript" src="<?= site_url(); ?>resources/cms/javascript/core.js"></script>
 
 
 

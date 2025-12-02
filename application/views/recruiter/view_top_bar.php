@@ -513,6 +513,13 @@ function startRecruiterNotificationPolling() {
 }
 
 function fetchRecruiterNotifications() {
+    console.log('Fetching system notifications...');
+
+    // Use the global CSRF variables
+    const params = {};
+    params[csrfName] = csrf;
+
+    console.log('Sending CSRF token:', csrfName + ' = ' + csrf);
 
     fetch('<?php echo site_url("recruiter/notifications/ajax_get_notifications"); ?>', {
             method: 'POST',
@@ -520,20 +527,24 @@ function fetchRecruiterNotifications() {
                 'Content-Type': 'application/x-www-form-urlencoded',
                 'X-Requested-With': 'XMLHttpRequest'
             },
-            body: '<?php echo $this->security->get_csrf_token_name(); ?>=<?php echo $this->security->get_csrf_hash(); ?>'
+            body: new URLSearchParams(params).toString()
         })
         .then(response => {
+            console.log('Response status:', response.status, response.statusText);
             if (!response.ok) {
                 throw new Error('Network response was not ok');
             }
             return response.json();
         })
         .then(data => {
+            console.log('System notifications response:', data);
             if (data.success) {
                 updateRecruiterNotificationUI(data);
             }
         })
-        .catch(error => {});
+        .catch(error => {
+            console.error('Error fetching notifications:', error);
+        });
 }
 
 function updateRecruiterNotificationUI(data) {
@@ -584,6 +595,13 @@ function startChatNotificationPolling() {
 }
 
 function fetchChatNotifications() {
+    console.log('Fetching chat notifications...');
+
+    // Use the global CSRF variables like the rest of your app
+    const params = {};
+    params[csrfName] = csrf;
+
+    console.log('Sending CSRF token:', csrfName + ' = ' + csrf);
 
     fetch('<?php echo site_url("recruiter/chat/ajax_get_chat_notifications"); ?>', {
             method: 'POST',
@@ -591,20 +609,29 @@ function fetchChatNotifications() {
                 'Content-Type': 'application/x-www-form-urlencoded',
                 'X-Requested-With': 'XMLHttpRequest'
             },
-            body: '<?php echo $this->security->get_csrf_token_name(); ?>=<?php echo $this->security->get_csrf_hash(); ?>'
+            body: new URLSearchParams(params).toString()
         })
         .then(response => {
+            console.log('Response status:', response.status, response.statusText);
             if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
+                return response.text().then(text => {
+                    console.log('Error response text:', text);
+                    throw new Error(`HTTP error! status: ${response.status}, response: ${text}`);
+                });
             }
             return response.json();
         })
         .then(data => {
+            console.log('Chat notifications response:', data);
             if (data.success) {
                 updateChatNotificationUI(data);
-            } else {}
+            } else {
+                console.error('Chat notification fetch failed:', data.message);
+            }
         })
-        .catch(error => {});
+        .catch(error => {
+            console.error('Error fetching chat notifications:', error);
+        });
 }
 
 function updateChatNotificationUI(data) {
