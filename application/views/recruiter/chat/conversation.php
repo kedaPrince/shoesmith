@@ -1259,6 +1259,11 @@
                             <form id="messageForm" class="h-100">
                                 <input type="hidden" id="conversationUuid"
                                     value="<?php echo isset($conversation) ? $conversation->uuid : ''; ?>">
+                                <!-- Remove or keep conversationId if needed for other purposes -->
+                                <input type="hidden" id="conversationId"
+                                    value="<?php echo isset($conversation) ? $conversation->id : ''; ?>">
+                                <input type="hidden" id="conversationUuid"
+                                    value="<?php echo isset($conversation) ? $conversation->uuid : ''; ?>">
                                 <div class="input-group h-100"
                                     style="background-color: #ffffff; border-radius: 20px; padding: 2px;">
                                     <div class="input-group-prepend h-100">

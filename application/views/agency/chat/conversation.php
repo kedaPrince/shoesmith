@@ -1052,10 +1052,12 @@
                         </h6>
                         <div class="list-group" style="background-color: transparent;">
                             <?php foreach ($all_conversations as $conv): ?>
+                            <!-- Line 249 in your HTML view -->
                             <a href="<?php echo site_url('agency/chat/conversation/' .  $conv->uuid); ?>"
-                                class="list-group-item list-group-item-action d-flex align-items-center conversation-item <?php echo (isset($conversation) && $conversation->id == $conv->id) ? 'active' : ''; ?>"
+                                class="list-group-item list-group-item-action d-flex align-items-center conversation-item <?php echo (isset($conversation) && $conversation->uuid == $conv->uuid) ? 'active' : ''; ?>"
                                 style="border: none; border-radius: 8px; margin-bottom: 5px; padding: 10px 15px; transition: all 0.2s;"
-                                data-conversation-id="<?php $conv->uuid; ?>">
+                                data-conversation-id="<?php echo $conv->uuid; ?>">
+                                <!-- CHANGED: data-conversation-id to uuid -->
 
                                 <div class="conversation-avatar mr-3 position-relative">
                                     <div class="avatar"
@@ -1085,10 +1087,12 @@
                                 <div class="text-right ml-2">
                                     <small class="text-muted d-block conversation-time" style="font-size: 0.7rem;"
                                         data-conversation-id="<?php echo $conv->uuid; ?>">
+                                        <!-- CHANGED to uuid -->
                                         <?php echo time_ago($conv->last_message_at ?: $conv->created_at); ?>
                                     </small>
                                     <?php if (isset($conv->unread_count) && $conv->unread_count > 0): ?>
-                                    <span class="conversation-badge" data-conversation-id="<?php echo$conv->uuid; ?>">
+                                    <span class="conversation-badge" data-conversation-id="<?php echo $conv->uuid; ?>">
+                                        <!-- CHANGED to uuid -->
                                         <?php echo $conv->unread_count > 99 ? '99+' : $conv->unread_count; ?>
                                     </span>
                                     <?php endif; ?>
@@ -1239,7 +1243,8 @@
                         <!-- Message Input -->
                         <div class="border-top p-2"
                             style="border-color: #e0e0e0; background-color: #f0f0f0; height: 60px; flex-shrink: 0; min-height: 60px;">
-                            <form id="messageForm" class="h-100">
+                            <form id="messageForm" class="h-100" onsubmit="return false;">
+
                                 <div class="input-group h-100"
                                     style="background-color: #ffffff; border-radius: 20px; padding: 2px;">
                                     <div class="input-group-prepend h-100">
@@ -1264,6 +1269,15 @@
                                     </div>
                                 </div>
                                 <input type="hidden" id="conversationId" value="<?php echo $conversation->id; ?>">
+
+                                <!-- SECURE: UUID for API calls -->
+                                <input type="hidden" id="conversationUuid"
+                                    value="<?php echo isset($conversation) ? $conversation->uuid : ''; ?>">
+
+                                <!-- Optional: Keep ID for backward compatibility if needed elsewhere -->
+                                <input type="hidden" id="conversationId"
+                                    value="<?php echo isset($conversation) ? $conversation->id : ''; ?>">
+
                                 <input type="hidden" name="<?php echo $this->security->get_csrf_token_name(); ?>"
                                     value="<?php echo $this->security->get_csrf_hash(); ?>">
                             </form>
@@ -1306,103 +1320,12 @@ if (typeof ajax_post === 'undefined') {
     console.error("WARNING: core.js not loaded or ajax_post not defined!");
     console.error("This page needs core.js to be loaded before this script.");
     console.error("Make sure core.js is included in your HTML before this script.");
-
-    // Let's check what scripts are loaded
-    console.log("Loaded scripts:", Array.from(document.querySelectorAll('script[src]')).map(s => s.src));
 }
 
 // Check if we're in the right context
 if (!window.location.href.includes('/agency/chat/')) {
     console.warn("This script is designed for /agency/chat/ pages");
 }
-
-// Create standalone ajax_post if missing
-if (typeof ajax_post === 'undefined') {
-    console.log("Creating complete standalone ajax_post function");
-
-    // ===== IMPROVED AJAX_POST FUNCTION =====
-    // Create standalone ajax_post if missing or override existing one
-    console.log("Creating/updating ajax_post function...");
-
-    // ===== FIXED AJAX_POST FUNCTION =====
-    // ===== SIMPLE AJAX_POST FIX =====
-    // Override ajax_post to ensure CSRF is sent correctly
-    console.log("Fixing ajax_post function...");
-
-    // Override the broken ajax_post function
-    const originalAjaxPost = window.ajax_post;
-
-    window.ajax_post = function(path, params, callback, options) {
-        // Add CSRF token to params
-        const csrfName = window.csrfName || 'csrf_rfid_token';
-        const csrfToken = window.csrf || '';
-
-        params[csrfName] = csrfToken;
-
-        // Build URL
-        let url = path;
-        const dynamicPath = window.dynamicPath || 'http://localhost/shoesmith/agency';
-
-        if (dynamicPath && !path.startsWith('http')) {
-            url = dynamicPath + '/' + path.replace(/^\//, '');
-        }
-
-        // Use FormData to ensure proper form submission
-        const formData = new FormData();
-
-        // Add all params to FormData
-        Object.keys(params).forEach(key => {
-            formData.append(key, params[key]);
-        });
-
-        // Use fetch instead of jQuery for better control
-        fetch(url, {
-                method: 'POST',
-                body: formData,
-                headers: {
-                    'X-Requested-With': 'XMLHttpRequest'
-                }
-            })
-            .then(response => response.json())
-            .then(data => {
-                // Update CSRF if returned
-                if (data.csrf) {
-                    window.csrf = data.csrf;
-                    $('input[name="' + csrfName + '"]').val(data.csrf);
-                }
-
-                if (typeof callback === 'function') {
-                    callback(data);
-                }
-            })
-            .catch(error => {
-                console.error('AJAX error:', error);
-                if (typeof callback === 'function') {
-                    callback({
-                        success: false,
-                        message: 'AJAX error'
-                    });
-                }
-            });
-    };
-
-    console.log('ajax_post function fixed to send CSRF correctly');
-
-    console.log("ajax_post function fixed");
-
-    console.log("✅ ajax_post function updated");
-
-
-    console.log("Standalone ajax_post function created successfully");
-}
-
-// ===== CHECK DEPENDENCIES =====
-console.log("=== CHECKING DEPENDENCIES ===");
-console.log("jQuery:", typeof jQuery !== 'undefined' ? "LOADED" : "MISSING");
-console.log("ajax_post:", typeof ajax_post !== 'undefined' ? "LOADED" : "MISSING");
-console.log("csrfName:", typeof csrfName !== 'undefined' ? csrfName : "MISSING");
-console.log("csrf:", typeof csrf !== 'undefined' ? (csrf ? "LOADED" : "EMPTY") : "MISSING");
-console.log("dynamicPath:", typeof dynamicPath !== 'undefined' ? dynamicPath : "MISSING");
 
 // Fix missing dynamicPath
 if (typeof dynamicPath === 'undefined') {
@@ -1415,8 +1338,8 @@ let chatState = {
     isSending: false,
     isPolling: false,
     lastMessageId: <?php echo !empty($messages) ? end($messages)->id : 0; ?>,
-    currentConversationId: document.getElementById('conversationId') ? document.getElementById('conversationId')
-        .value : null,
+    currentConversationUuid: document.getElementById('conversationUuid') ? document.getElementById(
+        'conversationUuid').value : null,
     hasMarkedAsRead: false,
     userIsActive: false,
     newMessageReceivedTime: null,
@@ -1482,7 +1405,6 @@ function markNotificationsAsRead() {
 
     console.log("Marking notifications as read for conversation:", convId);
 
-    // DON'T add CSRF manually - ajax_post does it automatically
     ajax_post('ajax_mark_notifications_read', {
         conversation_id: convId
     }, function(res) {
@@ -1495,8 +1417,9 @@ function markNotificationsAsRead() {
     });
 }
 
+// ===== MESSAGE FUNCTIONS =====
 function sendMessage() {
-    console.log("=== SEND MESSAGE DEBUG ===");
+    console.log("=== SEND MESSAGE (SECURE WITH UUID) ===");
 
     if (chatState.isSending) {
         console.log("Already sending, skipping");
@@ -1507,19 +1430,29 @@ function sendMessage() {
     const messageText = messageInput.value.trim();
 
     console.log("1. Message text:", messageText);
-    console.log("2. Conversation ID:", chatState.currentConversationId);
+
+    // Get UUID (secure identifier)
+    const conversationUuid = document.getElementById('conversationUuid')?.value;
+
+    console.log("2. Conversation UUID:", conversationUuid);
+    console.log("3. CSRF Name:", csrfName);
+    console.log("4. CSRF Value:", csrf ? "YES (" + csrf.substring(0, 10) + "...)" : "NO");
+    console.log("5. dynamicPath:", dynamicPath);
 
     if (!messageText) {
+        console.log("Empty message, skipping");
         alert("Please type a message first");
         return;
     }
 
-    if (!chatState.currentConversationId) {
+    if (!conversationUuid) {
+        console.error("No conversation UUID found!");
         alert("Please select a conversation first");
         return;
     }
 
     chatState.isSending = true;
+    console.log("6. Setting isSending to true");
 
     const submitButton = document.querySelector('#messageForm button[type="submit"]');
     let originalHtml = '';
@@ -1527,49 +1460,87 @@ function sendMessage() {
         originalHtml = submitButton.innerHTML;
         submitButton.disabled = true;
         submitButton.innerHTML = '<i class="fa fa-spinner fa-spin"></i>';
+        console.log("7. Updated submit button");
     }
 
-    // DON'T add CSRF manually - ajax_post does it automatically
+    console.log("8. Full URL will be:", dynamicPath + '/ajax_send_message');
+
+    // Test params
+    const testParams = {
+        conversation_uuid: conversationUuid,
+        message: messageText,
+        [csrfName]: csrf
+    };
+    console.log("9. Params being sent:", testParams);
+
+    console.log("10. Calling ajax_post...");
+
     ajax_post('ajax_send_message', {
-        conversation_id: chatState.currentConversationId,
+        conversation_uuid: conversationUuid,
         message: messageText
     }, function(res) {
         console.log("=== SEND MESSAGE RESPONSE ===");
-        console.log("Response:", res);
+        console.log("Response received:", res);
+        console.log("Success:", res.success);
+        console.log("Message:", res.message);
+        console.log("Has CSRF in response:", !!res.csrf);
 
         if (res.success) {
             console.log("✅ Message sent successfully!");
+            console.log("Message ID:", res.message_id);
             messageInput.value = '';
+
+            // Update last message ID
+            if (res.message_id) {
+                chatState.lastMessageId = parseInt(res.message_id);
+                console.log("Updated lastMessageId to:", chatState.lastMessageId);
+            }
 
             // Refresh conversations and messages
             setTimeout(function() {
-                fetchUpdatedConversations();
+                console.log("Refreshing messages...");
                 fetchNewMessages();
+                fetchUpdatedConversations();
             }, 300);
         } else {
             console.error("❌ Failed to send message:", res.message);
-            alert("Failed to send message: " + res.message);
+
+            // Show user-friendly error
+            let errorMsg = "Failed to send message";
+            if (res.message) {
+                errorMsg += ": " + res.message;
+            }
+            alert(errorMsg);
+
+            // If CSRF error, try to update token
+            if (res.message && res.message.includes('CSRF')) {
+                console.log("CSRF error detected, updating token...");
+                if (res.csrf) {
+                    csrf = res.csrf;
+                    console.log("CSRF updated to:", csrf.substring(0, 10) + "...");
+                }
+            }
         }
 
         // Reset UI
         if (submitButton) {
             submitButton.disabled = false;
             submitButton.innerHTML = originalHtml;
+            console.log("Reset submit button");
         }
 
         chatState.isSending = false;
+        console.log("Setting isSending to false");
 
         // Refocus on input
         if (messageInput) {
             setTimeout(() => {
                 messageInput.focus();
+                console.log("Refocused on message input");
             }, 100);
         }
     });
 }
-
-
-
 
 function markNotificationsOnUserAction() {
     if (chatState.currentConversationId && !chatState.hasMarkedAsRead) {
@@ -1659,41 +1630,48 @@ function updateSidebarConversationBadges(conversationsData) {
 }
 
 // ===== CHAT FUNCTIONS =====
-
-
 function fetchNewMessages() {
-    if (chatState.isPolling || !chatState.currentConversationId) return;
+    if (chatState.isPolling) return;
+
+    const conversationUuid = document.getElementById('conversationUuid')?.value;
+    if (!conversationUuid) {
+        console.log("No conversation UUID found for polling");
+        return;
+    }
 
     chatState.isPolling = true;
-    console.log("Fetching new messages...");
+    console.log("🔄 Polling for new messages...");
 
+    // Get ALL messages to show incoming recruiter messages
     ajax_post('ajax_get_messages', {
-        conversation_id: chatState.currentConversationId,
-        last_message_id: chatState.lastMessageId
+        conversation_uuid: conversationUuid,
+        last_message_id: 0 // Get ALL messages
     }, function(res) {
-        console.log("New messages response:", res);
-        if (res.success) {
-            if (res.last_message_id && res.last_message_id > chatState.lastMessageId) {
+        console.log("Polling response:", {
+            success: res.success,
+            has_html: !!res.html,
+            html_length: res.html?.length || 0,
+            last_message_id: res.last_message_id
+        });
+
+        if (res.success && res.html) {
+            const chatMessages = document.getElementById('chatMessages');
+            if (chatMessages) {
+                // Update only if HTML is different (to avoid flickering)
+                if (chatMessages.innerHTML !== res.html) {
+                    chatMessages.innerHTML = res.html;
+                    chatMessages.scrollTop = chatMessages.scrollHeight;
+                    console.log("✅ Updated chat with new messages");
+                }
+            }
+
+            if (res.last_message_id) {
                 chatState.lastMessageId = parseInt(res.last_message_id);
             }
-
-            if (res.has_new_messages && res.html) {
-                document.querySelectorAll('[data-message-id^="temp-"]').forEach(tempMsg => {
-                    tempMsg.remove();
-                });
-
-                const chatMessages = document.getElementById('chatMessages');
-                if (chatMessages) {
-                    chatMessages.insertAdjacentHTML('beforeend', res.html);
-                    scrollToBottom();
-                }
-
-                if (res.has_new_messages) {
-                    resetMarkedStateForNewMessages();
-                    setTimeout(fetchUpdatedConversations, 300);
-                }
-            }
+        } else if (!res.success) {
+            console.error("❌ Polling failed:", res.message);
         }
+
         chatState.isPolling = false;
     });
 }
@@ -1708,122 +1686,6 @@ function fetchUpdatedConversations() {
             if (data.total_unread_count !== undefined) {
                 updateAllNotificationBadges(data.total_unread_count);
             }
-        }
-    });
-}
-
-function sendMessage() {
-    console.log("=== SEND MESSAGE DEBUG ===");
-
-    if (chatState.isSending) {
-        console.log("Already sending, skipping");
-        return;
-    }
-
-    const messageInput = document.getElementById('messageInput');
-    const messageText = messageInput.value.trim();
-
-    console.log("1. Message text:", messageText);
-    console.log("2. Conversation ID:", chatState.currentConversationId);
-    console.log("3. CSRF Name:", csrfName);
-    console.log("4. CSRF Value:", csrf ? "YES (" + csrf.substring(0, 10) + "...)" : "NO");
-    console.log("5. dynamicPath:", dynamicPath);
-
-    if (!messageText) {
-        console.log("Empty message, skipping");
-        alert("Please type a message first");
-        return;
-    }
-
-    if (!chatState.currentConversationId) {
-        console.error("No conversation ID selected!");
-        alert("Please select a conversation first");
-        return;
-    }
-
-    chatState.isSending = true;
-    console.log("6. Setting isSending to true");
-
-    const submitButton = document.querySelector('#messageForm button[type="submit"]');
-    let originalHtml = '';
-    if (submitButton) {
-        originalHtml = submitButton.innerHTML;
-        submitButton.disabled = true;
-        submitButton.innerHTML = '<i class="fa fa-spinner fa-spin"></i>';
-        console.log("7. Updated submit button");
-    }
-
-    // Test the exact URL we're calling
-    const testUrl = dynamicPath + '/ajax_send_message';
-    console.log("8. Full URL will be:", testUrl);
-
-    // Test the exact params we're sending
-    const testParams = {
-        conversation_id: chatState.currentConversationId,
-        message: messageText,
-        [csrfName]: csrf // Dynamic CSRF token name
-    };
-    console.log("9. Params being sent:", testParams);
-
-    console.log("10. Calling ajax_post...");
-
-    ajax_post('ajax_send_message', {
-        conversation_id: chatState.currentConversationId,
-        message: messageText
-    }, function(res) {
-        console.log("=== SEND MESSAGE RESPONSE ===");
-        console.log("Response received:", res);
-        console.log("Success:", res.success);
-        console.log("Message:", res.message);
-        console.log("Has CSRF in response:", !!res.csrf);
-
-        if (res.success) {
-            console.log("✅ Message sent successfully!");
-            console.log("Message ID:", res.message_id);
-            messageInput.value = '';
-
-            // Refresh conversations and messages
-            setTimeout(function() {
-                console.log("Refreshing conversations...");
-                fetchUpdatedConversations();
-                fetchNewMessages();
-            }, 300);
-        } else {
-            console.error("❌ Failed to send message:", res.message);
-
-            // Show user-friendly error
-            let errorMsg = "Failed to send message";
-            if (res.message) {
-                errorMsg += ": " + res.message;
-            }
-            alert(errorMsg);
-
-            // If CSRF error, try to update token
-            if (res.message && res.message.includes('CSRF')) {
-                console.log("CSRF error detected, updating token...");
-                if (res.csrf) {
-                    csrf = res.csrf;
-                    console.log("CSRF updated to:", csrf.substring(0, 10) + "...");
-                }
-            }
-        }
-
-        // Reset UI
-        if (submitButton) {
-            submitButton.disabled = false;
-            submitButton.innerHTML = originalHtml;
-            console.log("Reset submit button");
-        }
-
-        chatState.isSending = false;
-        console.log("Setting isSending to false");
-
-        // Refocus on input
-        if (messageInput) {
-            setTimeout(() => {
-                messageInput.focus();
-                console.log("Refocused on message input");
-            }, 100);
         }
     });
 }
@@ -1902,18 +1764,30 @@ function setupEventListeners() {
 
 // ===== POLLING =====
 function startPolling() {
-    console.log("Starting polling...");
-    setInterval(fetchNewMessages, 3000);
-    setInterval(fetchUpdatedConversations, 4000);
+    console.log("🔄 Starting polling for incoming messages...");
+
+    // Clear any existing intervals
+    if (window.pollingInterval) {
+        clearInterval(window.pollingInterval);
+    }
+    if (window.conversationPollingInterval) {
+        clearInterval(window.conversationPollingInterval);
+    }
+
+    // Poll for new messages every 2 seconds (faster for real-time)
+    window.pollingInterval = setInterval(fetchNewMessages, 2000);
+
+    // Poll for conversation updates every 4 seconds
+    window.conversationPollingInterval = setInterval(fetchUpdatedConversations, 4000);
+
+    console.log("✅ Polling started!");
+    console.log("- Message polling: every 2 seconds");
+    console.log("- Conversation polling: every 4 seconds");
 }
 
 // ===== INITIALIZATION =====
 document.addEventListener('DOMContentLoaded', function() {
     console.log('=== AGENCY CHAT SYSTEM INITIALIZING ===');
-
-    // Test CSRF first
-    console.log('Testing CSRF configuration...');
-    testCsrfToken(); // Add this line
 
     // Test CSRF first
     console.log('Testing CSRF configuration...');
@@ -1956,48 +1830,4 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 });
-
-// ===== TEST CSRF FUNCTION =====
-function testCsrfToken() {
-    console.log("🧪 Testing CSRF token transmission...");
-
-    ajax_post('ajax_test_csrf', {
-        test: 'csrf_test',
-        timestamp: new Date().getTime()
-    }, function(response) {
-        console.log("🧪 CSRF Test Result:", response);
-
-        if (response.success) {
-            console.log("✅ CSRF test passed!");
-            console.log("Debug info:", response.debug);
-
-            if (response.csrf) {
-                console.log("🔄 Updating CSRF to:", response.csrf.substring(0, 10) + "...");
-                window.csrf = response.csrf;
-            }
-        } else {
-            console.error("❌ CSRF test failed:", response.message);
-        }
-    });
-}
-
-function testCsrfInPost() {
-    const testForm = new FormData();
-    const csrfName = window.csrfName || 'csrf_rfid_token';
-    const csrfToken = window.csrf || '';
-
-    testForm.append('test', 'csrf_test_post');
-    testForm.append(csrfName, csrfToken);
-
-    fetch(window.dynamicPath + '/ajax_test_csrf', {
-            method: 'POST',
-            body: testForm
-        })
-        .then(response => response.json())
-        .then(data => {
-            console.log('CSRF POST Test:', data);
-        });
-}
-
-testCsrfInPost();
 </script>

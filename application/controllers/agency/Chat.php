@@ -28,40 +28,40 @@ class Chat extends CRUD_Controller
     }
     
     /**
-     * Main chat page - redirects to first conversation or shows available recruiters
-     */
-    public function index()
-    {
-        $agency_id = $this->get_user_agency_id();
+ * Main chat page - redirects to first conversation or shows available recruiters
+ */
+public function index()
+{
+    $agency_id = $this->get_user_agency_id();
+    
+    // Get all conversations
+    $conversations = $this->{$this->model}->get_agency_conversations($agency_id);
+    
+    // Get available recruiters for new chats
+    $available_recruiters = $this->{$this->model}->get_available_recruiters($agency_id);
+    
+    // If user has conversations, redirect to the first one USING UUID
+    if (!empty($conversations)) {
+        redirect('agency/chat/conversation/' . $conversations[0]->uuid); // CHANGED: id → uuid
+        return;
+    }
+    
+    // If no conversations but has recruiters, create first conversation with first recruiter
+    if (!empty($available_recruiters)) {
+        $conversation = $this->{$this->model}->get_or_create_conversation(
+            $agency_id, 
+            $available_recruiters[0]->id
+        );
         
-        // Get all conversations
-        $conversations = $this->{$this->model}->get_agency_conversations($agency_id);
-        
-        // Get available recruiters for new chats
-        $available_recruiters = $this->{$this->model}->get_available_recruiters($agency_id);
-        
-        // If user has conversations, redirect to the first one
-        if (!empty($conversations)) {
-            redirect('agency/chat/conversation/' . $conversations[0]->id);
+        if ($conversation) {
+            redirect('agency/chat/conversation/' . $conversation->uuid); // CHANGED: id → uuid
             return;
         }
-        
-        // If no conversations but has recruiters, create first conversation with first recruiter
-        if (!empty($available_recruiters)) {
-            $conversation = $this->{$this->model}->get_or_create_conversation(
-                $agency_id, 
-                $available_recruiters[0]->id
-            );
-            
-            if ($conversation) {
-                redirect('agency/chat/conversation/' . $conversation->id);
-                return;
-            }
-        }
-        
-        // Fallback: Show chat with recruiters list (no conversations available)
-        $this->load_chat_view($conversations, $available_recruiters);
     }
+    
+    // Fallback: Show chat with recruiters list (no conversations available)
+    $this->load_chat_view($conversations, $available_recruiters);
+}
 
     private function load_chat_view($conversations, $recruiters)
     {
@@ -87,7 +87,7 @@ class Chat extends CRUD_Controller
     }
 
     
- public function conversation($uuid = null)
+public function conversation($uuid = null)
 {
     $agency_id = $this->get_user_agency_id();
     
@@ -103,8 +103,45 @@ class Chat extends CRUD_Controller
         show_404();
     }
     
-    // Rest of your existing code...
-    // [Keep all your existing conversation method code]
+    // Mark messages as read when opening conversation
+    $this->{$this->model}->mark_messages_as_read($conversation->id, 'agency');
+    
+    // Get messages for this conversation
+    $messages = $this->{$this->model}->get_conversation_messages($conversation->id, 100);
+    
+    // Get all conversations for sidebar
+    $all_conversations = $this->{$this->model}->get_agency_conversations($agency_id);
+    
+    // Get available recruiters
+    $available_recruiters = $this->{$this->model}->get_available_recruiters($agency_id);
+    
+    // Get total unread count
+    $total_unread_count = $this->{$this->model}->get_unread_count_for_agency($agency_id);
+    
+    // Get total message count
+    $total_message_count = $this->{$this->model}->get_total_message_count($agency_id);
+    
+    // Get recent notifications
+    $recent_notifications = $this->{$this->model}->get_recent_notifications($agency_id, 'agency');
+    
+    $this->breadcrumbs = [
+        ['title' => lang('chat_heading'), 'url' => site_url('agency/chat')],
+        ['title' => 'Conversation with ' . htmlspecialchars($conversation->recruiter_name), 'url' => '']
+    ];
+    
+    $this->load->view($this->folder . '/view_header');
+    $this->load->view('agency/chat/conversation', [
+        'conversation' => $conversation,
+        'messages' => $messages,
+        'all_conversations' => $all_conversations,
+        'available_recruiters' => $available_recruiters,
+        'heading' => lang('chat_heading'),
+        'agency_id' => $agency_id,
+        'total_unread_count' => $total_unread_count,
+        'recent_notifications' => $recent_notifications,
+        'total_message_count' => $total_message_count
+    ]);
+    $this->load->view($this->folder . '/view_footer');
 }
 
 /**
@@ -234,11 +271,13 @@ public function ajax_send_message()
         return;
     }
     
-    $conversation_id = $this->input->post('conversation_id');
+    // Accept ONLY conversation_uuid (secure)
+    $conversation_uuid = $this->input->post('conversation_uuid');
     $message_text = $this->input->post('message');
     $agency_id = $this->get_user_agency_id();
     
-    if (!$conversation_id || !$message_text || !$agency_id) {
+    // Validate required parameters
+    if (!$conversation_uuid || !$message_text || !$agency_id) {
         ajax_return([
             'success' => false,
             'message' => 'Missing required parameters'
@@ -246,19 +285,20 @@ public function ajax_send_message()
         return;
     }
     
-    // CRITICAL FIX: Check if conversation belongs to agency
-    $conversation = $this->{$this->model}->get_conversation_for_agency($conversation_id, $agency_id);
+    // Get conversation by UUID (secure method)
+    $conversation = $this->{$this->model}->get_conversation_for_agency_by_uuid($conversation_uuid, $agency_id);
     
     if (!$conversation) {
         ajax_return([
             'success' => false,
-            'message' => 'Access denied'
+            'message' => 'Access denied or conversation not found'
         ]);
         return;
     }
     
+    // Send the message using the conversation ID (database ID internally)
     $message_id = $this->{$this->model}->send_message(
-        $conversation_id,
+        $conversation->id, // Use database ID internally
         'agency',
         $agency_id,
         $message_text,
@@ -288,23 +328,27 @@ public function ajax_get_messages()
         return;
     }
     
-    $conversation_id = $this->input->post('conversation_id');
+    // Accept ONLY UUID (secure)
+    $conversation_uuid = $this->input->post('conversation_uuid');
     $last_message_id = $this->input->post('last_message_id') ?: 0;
     $agency_id = $this->get_user_agency_id();
-            
-    if (!$conversation_id) {
-        ajax_return(['success' => false, 'message' => 'Conversation ID required']);
+    
+    if (!$conversation_uuid) {
+        ajax_return(['success' => false, 'message' => 'Conversation UUID required']);
         return;
     }
     
-    $conversation = $this->{$this->model}->get_conversation_for_agency($conversation_id, $agency_id);
+    $conversation = $this->{$this->model}->get_conversation_for_agency_by_uuid($conversation_uuid, $agency_id);
+    
     if (!$conversation) {
-        ajax_return(['success' => false, 'message' => 'Conversation not found']);
+        ajax_return(['success' => false, 'message' => 'Access denied']);
         return;
     }
     
-    $this->{$this->model}->mark_messages_as_read($conversation_id, 'agency');
+    // Mark messages as read
+    $this->{$this->model}->mark_messages_as_read($conversation->id, 'agency');
     
+    // Get messages
     $this->db->select('cm.*, 
                     CASE 
                         WHEN cm.sender_type = "agency" THEN a.name
@@ -313,7 +357,7 @@ public function ajax_get_messages()
     $this->db->from('chat_messages cm');
     $this->db->join('agencies a', 'a.id = cm.sender_id AND cm.sender_type = "agency"', 'left');
     $this->db->join('recruiters r', 'r.id = cm.sender_id AND cm.sender_type = "recruiter"', 'left');
-    $this->db->where('cm.conversation_id', $conversation_id);
+    $this->db->where('cm.conversation_id', $conversation->id);
     
     if ($last_message_id > 0) {
         $this->db->where('cm.id >', $last_message_id);

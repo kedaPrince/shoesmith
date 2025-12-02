@@ -31,41 +31,41 @@ class Chat extends CRUD_Controller
 
 
     
-    /**
-     * Main chat page - redirects to first conversation or shows available agencies
-     */
-    public function index()
-    {
-        $recruiter_id = $this->get_recruiter_id();
+   /**
+ * Main chat page - redirects to first conversation or shows available agencies
+ */
+public function index()
+{
+    $recruiter_id = $this->get_recruiter_id();
+    
+    // Get all conversations
+    $conversations = $this->{$this->model}->get_recruiter_conversations($recruiter_id);
+    
+    // Get available agencies for new chats
+    $available_agencies = $this->{$this->model}->get_available_agencies_simple($recruiter_id);
+    
+    // If user has conversations, redirect to the first one USING UUID
+    if (!empty($conversations)) {
+        redirect('recruiter/chat/conversation/' . $conversations[0]->uuid); // CHANGED: id → uuid
+        return;
+    }
+    
+    // If no conversations but has agencies, create first conversation with first agency
+    if (!empty($available_agencies)) {
+        $conversation = $this->{$this->model}->get_or_create_conversation(
+            $available_agencies[0]->id, 
+            $recruiter_id
+        );
         
-        // Get all conversations
-        $conversations = $this->{$this->model}->get_recruiter_conversations($recruiter_id);
-        
-        // Get available agencies for new chats
-        $available_agencies = $this->{$this->model}->get_available_agencies_simple($recruiter_id);
-        
-        // If user has conversations, redirect to the first one
-        if (!empty($conversations)) {
-            redirect('recruiter/chat/conversation/' . $conversations[0]->id);
+        if ($conversation) {
+            redirect('recruiter/chat/conversation/' . $conversation->uuid); // CHANGED: id → uuid
             return;
         }
-        
-        // If no conversations but has agencies, create first conversation with first agency
-        if (!empty($available_agencies)) {
-            $conversation = $this->{$this->model}->get_or_create_conversation(
-                $available_agencies[0]->id, 
-                $recruiter_id
-            );
-            
-            if ($conversation) {
-                redirect('recruiter/chat/conversation/' . $conversation->id);
-                return;
-            }
-        }
-        
-        // Fallback: Show chat with agencies list (no conversations available)
-        $this->load_chat_view($conversations, $available_agencies);
     }
+    
+    // Fallback: Show chat with agencies list (no conversations available)
+    $this->load_chat_view($conversations, $available_agencies);
+}
 
     
 
@@ -196,20 +196,17 @@ class Chat extends CRUD_Controller
         $this->load->view($this->folder . '/view_footer');
     }
 
-/**
- * AJAX: Send message - FIXED FOR RECRUITER
- */
 public function ajax_send_message()
 {
     if (!$this->validate_csrf_token()) {
         return;
     }
     
-    $conversation_id = $this->input->post('conversation_id');
+    $conversation_uuid = $this->input->post('conversation_uuid'); // CHANGED: from conversation_id
     $message_text = $this->input->post('message');
-    $recruiter_id = $this->get_recruiter_id();  // CHANGED: Use recruiter_id
+    $recruiter_id = $this->get_recruiter_id();
     
-    if (!$conversation_id || !$message_text || !$recruiter_id) {
+    if (!$conversation_uuid || !$message_text || !$recruiter_id) {
         ajax_return([
             'success' => false,
             'message' => 'Missing required parameters'
@@ -217,8 +214,8 @@ public function ajax_send_message()
         return;
     }
     
-    // CRITICAL FIX: Check if conversation belongs to recruiter
-    $conversation = $this->{$this->model}->get_conversation_for_recruiter($conversation_id, $recruiter_id);  // CHANGED: Use recruiter method
+    // CRITICAL FIX: Check if conversation belongs to recruiter BY UUID
+    $conversation = $this->{$this->model}->get_conversation_for_recruiter_by_uuid($conversation_uuid, $recruiter_id); // CHANGED: Use UUID method
     
     if (!$conversation) {
         ajax_return([
@@ -229,9 +226,9 @@ public function ajax_send_message()
     }
     
     $message_id = $this->{$this->model}->send_message(
-        $conversation_id,
-        'recruiter',  // CHANGED: Send as recruiter
-        $recruiter_id,  // CHANGED: recruiter_id not agency_id
+        $conversation->id, // Use the ID for the database
+        'recruiter',
+        $recruiter_id,
         $message_text,
         'text',
         null
@@ -258,26 +255,27 @@ public function ajax_get_messages()
         return;
     }
     
-    $conversation_id = $this->input->post('conversation_id');
+    $conversation_uuid = $this->input->post('conversation_uuid');
     $last_message_id = $this->input->post('last_message_id') ?: 0;
-    $recruiter_id = $this->get_recruiter_id();  // CHANGED: Use recruiter_id
+    $recruiter_id = $this->get_recruiter_id();
             
-    if (!$conversation_id) {
-        ajax_return(['success' => false, 'message' => 'Conversation ID required']);
+    if (!$conversation_uuid) {
+        ajax_return(['success' => false, 'message' => 'Conversation UUID required']);
         return;
     }
     
-    // CHANGED: Use recruiter permission check
-    $conversation = $this->{$this->model}->get_conversation_for_recruiter($conversation_id, $recruiter_id);
+    // Get conversation by UUID
+    $conversation = $this->{$this->model}->get_conversation_for_recruiter_by_uuid($conversation_uuid, $recruiter_id);
     
     if (!$conversation) {
         ajax_return(['success' => false, 'message' => 'Access denied']);
         return;
     }
     
-    // CHANGED: Mark as read for recruiter
-    $this->{$this->model}->mark_messages_as_read($conversation_id, 'recruiter');
+    // Mark messages as read for recruiter
+    $this->{$this->model}->mark_messages_as_read($conversation->id, 'recruiter');
     
+    // Get new messages
     $this->db->select('cm.*, 
                     CASE 
                         WHEN cm.sender_type = "agency" THEN a.name
@@ -286,7 +284,7 @@ public function ajax_get_messages()
     $this->db->from('chat_messages cm');
     $this->db->join('agencies a', 'a.id = cm.sender_id AND cm.sender_type = "agency"', 'left');
     $this->db->join('recruiters r', 'r.id = cm.sender_id AND cm.sender_type = "recruiter"', 'left');
-    $this->db->where('cm.conversation_id', $conversation_id);
+    $this->db->where('cm.conversation_id', $conversation->id);
     
     if ($last_message_id > 0) {
         $this->db->where('cm.id >', $last_message_id);
@@ -304,10 +302,9 @@ public function ajax_get_messages()
     $has_new_messages = false;
     
     foreach ($messages as $message) {
-        // CHANGED: Use recruiter view
         $message_html = $this->load->view('recruiter/chat/message_item', [
             'message' => $message, 
-            'current_user_type' => 'recruiter'  // CHANGED: Set current user as recruiter
+            'current_user_type' => 'recruiter'
         ], true);
         
         $html .= $message_html;
@@ -342,64 +339,85 @@ public function ajax_get_messages()
     }
 
     /**
-     * AJAX: Start new conversation
-     */
-    public function ajax_start_conversation()
-    {
-        $agency_id = $this->input->post('agency_id');
-        $subject = $this->input->post('subject');
-        $initial_message = $this->input->post('initial_message');
-        $recruiter_id = $this->get_recruiter_id();
-        
-        if (empty($agency_id)) {
-            ajax_return(['success' => false, 'message' => 'Please select an agency']);
-            return;
-        }
-        
-        // Create conversation
-        $conversation = $this->{$this->model}->get_or_create_conversation($agency_id, $recruiter_id);
-        
-        if ($conversation) {
-            // Send initial message if provided
-            if (!empty($initial_message)) {
-                $this->{$this->model}->send_message(
-                    $conversation->id,
-                    'recruiter',
-                    $recruiter_id,
-                    $initial_message
-                );
-            }
-            
-            ajax_return([
-                'success' => true, 
-                'conversation_id' => $conversation->id,
-                'redirect_url' => site_url('recruiter/chat/conversation/' . $conversation->id)
-            ]);
-        } else {
-            ajax_return(['success' => false, 'message' => 'Failed to create conversation']);
-        }
+ * AJAX: Start new conversation
+ */
+public function ajax_start_conversation()
+{
+    $agency_id = $this->input->post('agency_id');
+    $subject = $this->input->post('subject');
+    $initial_message = $this->input->post('initial_message');
+    $recruiter_id = $this->get_recruiter_id();
+    
+    if (empty($agency_id)) {
+        ajax_return(['success' => false, 'message' => 'Please select an agency']);
+        return;
     }
-
-    /**
-     * Start new conversation from candidate/job context
-     */
-    public function start_conversation($agency_id, $job_id = null, $candidate_id = null)
-    {
-        $recruiter_id = $this->get_recruiter_id();
-        
-        $conversation = $this->{$this->model}->get_or_create_conversation(
-            $agency_id, 
-            $recruiter_id, 
-            $job_id, 
-            $candidate_id
-        );
-        
-        if ($conversation) {
-            redirect('recruiter/chat/conversation/' . $conversation->id);
-        } else {
-            show_error('Failed to create conversation');
+    
+    // Create conversation
+    $conversation = $this->{$this->model}->get_or_create_conversation($agency_id, $recruiter_id);
+    
+    if ($conversation) {
+        // Send initial message if provided
+        if (!empty($initial_message)) {
+            $this->{$this->model}->send_message(
+                $conversation->id,
+                'recruiter',
+                $recruiter_id,
+                $initial_message
+            );
         }
+        
+        ajax_return([
+            'success' => true, 
+            'conversation_id' => $conversation->id,
+            'conversation_uuid' => $conversation->uuid, // Add this
+            'redirect_url' => site_url('recruiter/chat/conversation/' . $conversation->uuid) // CHANGED: id → uuid
+        ]);
+    } else {
+        ajax_return(['success' => false, 'message' => 'Failed to create conversation']);
     }
+}
+/**
+ * Quick start conversation - USE UUID
+ */
+public function quick_start($agency_id = null)
+{
+    $recruiter_id = $this->get_recruiter_id();
+    
+    if (!$agency_id) {
+        show_404();
+    }
+    
+    // Create or get conversation
+    $conversation = $this->{$this->model}->get_or_create_conversation($agency_id, $recruiter_id);
+    
+    if ($conversation) {
+        // Redirect using UUID instead of ID
+        redirect('recruiter/chat/conversation/' . $conversation->uuid);
+    } else {
+        show_error('Failed to create conversation');
+    }
+}
+   /**
+ * Start new conversation from candidate/job context
+ */
+public function start_conversation($agency_id, $job_id = null, $candidate_id = null)
+{
+    $recruiter_id = $this->get_recruiter_id();
+    
+    $conversation = $this->{$this->model}->get_or_create_conversation(
+        $agency_id, 
+        $recruiter_id, 
+        $job_id, 
+        $candidate_id
+    );
+    
+    if ($conversation) {
+        redirect('recruiter/chat/conversation/' . $conversation->uuid); // CHANGED: id → uuid
+    } else {
+        show_error('Failed to create conversation');
+    }
+}
 
     private function send_chat_notification($conversation, $message, $sender_type)
     {
