@@ -1,6 +1,23 @@
-<IfModule authz_core_module>
-	Require all denied
+RewriteEngine On
+
+# File and directory checks
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^(.*)$ index.php/$1 [L]
+
+# Security headers - only if headers module is loaded
+<IfModule mod_headers.c>
+    # Basic security headers
+    Header set X-Frame-Options "DENY"
+    Header set X-Content-Type-Options "nosniff"
+    
+    # Cache control
+    <FilesMatch "\.(ico|pdf|flv|jpg|jpeg|png|gif|js|css|swf)$">
+        Header set Cache-Control "max-age=29030400, public"
+    </FilesMatch>
 </IfModule>
-<IfModule !authz_core_module>
-	Deny from all
+
+# Compression
+<IfModule mod_deflate.c>
+    AddOutputFilterByType DEFLATE text/html text/plain text/xml text/css text/javascript application/javascript application/x-javascript
 </IfModule>

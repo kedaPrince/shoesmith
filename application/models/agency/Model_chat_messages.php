@@ -140,7 +140,7 @@ public function get_or_create_conversation($agency_id, $recruiter_id, $job_id = 
 /**
  * Generate a proper UUID v4
  */
-private function generate_uuid()
+public function generate_uuid()
 {
     // Generate proper UUID v4
     return sprintf('%04x%04x-%04x-%04x-%04x-%04x%04x%04x',
@@ -486,5 +486,100 @@ private function uuid_exists($uuid)
         
         return $this->db->get()->result();
     }
+// Add this method to Model_chat_messages.php
 
+/**
+ * Get or create candidate-specific conversation
+ */
+public function get_or_create_candidate_conversation($agency_id, $recruiter_id, $candidate_id, $job_id = null)
+{
+    // Check if candidate exists and has a recruiter
+    $this->db->select('c.*, ca.agency_id as candidate_agency_id');
+    $this->db->from('candidates c');
+    $this->db->join('candidate_agencies ca', 'ca.candidate_id = c.id', 'left');
+    $this->db->where('c.id', $candidate_id);
+    $this->db->where('c.removed', 0);
+    $candidate = $this->db->get()->row();
+    
+    if (!$candidate) {
+        return false;
+    }
+    
+    // Check if conversation already exists for this candidate
+    $this->db->where('agency_id', $agency_id);
+    $this->db->where('recruiter_id', $recruiter_id);
+    $this->db->where('candidate_id', $candidate_id);
+    $this->db->where('enabled', 1);
+    $this->db->where('removed', 0);
+    
+    $conversation = $this->db->get('chat_conversations')->row();
+    
+    if ($conversation) {
+        return $conversation;
+    }
+    
+    // Generate UUID
+    $uuid = $this->generate_uuid();
+    $attempts = 0;
+    while ($this->uuid_exists($uuid) && $attempts < 5) {
+        $uuid = $this->generate_uuid();
+        $attempts++;
+    }
+    
+    // Get candidate details for conversation title
+    $candidate_name = $candidate->first_name . ' ' . $candidate->last_name;
+    $candidate_ref = $candidate->reference_number ?? '';
+    
+    // Create new conversation
+    $conversation_data = [
+        'agency_id' => $agency_id,
+        'recruiter_id' => $recruiter_id,
+        'candidate_id' => $candidate_id,
+        'job_id' => $job_id ?: $candidate->job_id,
+        'uuid' => $uuid,
+        'title' => "Candidate: {$candidate_name} ({$candidate_ref})",
+        'created_at' => date('Y-m-d H:i:s'),
+        'updated_at' => date('Y-m-d H:i:s'),
+        'enabled' => 1
+    ];
+    
+    $this->db->insert('chat_conversations', $conversation_data);
+    
+    if ($this->db->error()['code']) {
+        log_message('error', 'Failed to create candidate conversation: ' . $this->db->error()['message']);
+        return false;
+    }
+    
+    $conversation_id = $this->db->insert_id();
+    
+    return $this->db->where('id', $conversation_id)->get('chat_conversations')->row();
+}
+
+public function get_general_conversation($agency_id, $recruiter_id)
+    {
+        $this->db->where('agency_id', $agency_id);
+        $this->db->where('recruiter_id', $recruiter_id);
+        $this->db->where('candidate_id IS NULL', null, false); // General chat has no candidate_id
+        $this->db->where('is_active', 1);
+        $query = $this->db->get('chat_conversations');
+        
+        return $query->row();
+    }
+    
+    public function create_conversation($data)
+    {
+        $this->db->insert('chat_conversations', $data);
+        return $this->db->insert_id();
+    }
+    
+    public function get_conversation_by_id($conversation_id)
+    {
+        $this->db->where('id', $conversation_id);
+        $this->db->where('is_active', 1);
+        $query = $this->db->get('chat_conversations');
+        
+        return $query->row();
+    }
+    
+  
 }

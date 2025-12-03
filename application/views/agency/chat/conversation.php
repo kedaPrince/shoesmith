@@ -944,9 +944,150 @@
     width: 32px;
     border: none !important;
 }
+
+/* Candidate Chat Header Styles */
+.candidate-chat-header {
+    position: relative;
+    overflow: hidden;
+}
+
+.z-index-2 {
+    z-index: 2;
+    position: relative;
+}
+
+/* Badge styling for candidate tags */
+.candidate-badge {
+    background: linear-gradient(135deg, #8B5CF6, #7C3AED);
+    color: white;
+    border-radius: 8px;
+    padding: 4px 8px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    box-shadow: 0 2px 8px rgba(139, 92, 246, 0.3);
+}
+
+/* Progress bar styling */
+.progress {
+    height: 6px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.progress-bar {
+    height: 100%;
+    background: linear-gradient(135deg, #10B981, #059669);
+    border-radius: 3px;
+    transition: width 0.3s ease;
+}
+
+/* Status badge colors */
+.badge-hired {
+    background: linear-gradient(135deg, #10B981, #059669);
+}
+
+.badge-rejected {
+    background: linear-gradient(135deg, #EF4444, #DC2626);
+}
+
+.badge-pending {
+    background: linear-gradient(135deg, #F59E0B, #D97706);
+}
+
+/* Sidebar candidate info */
+.sidebar-candidate-info {
+    background: rgba(139, 92, 246, 0.1);
+    border-radius: 6px;
+    padding: 4px 8px;
+    margin-top: 4px;
+    border-left: 2px solid #8B5CF6;
+}
+
+/* Chat Type Indicators */
+.chat-type-badge {
+    font-size: 0.65rem;
+    padding: 2px 6px;
+    border-radius: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+}
+
+.chat-type-indicator {
+    position: absolute;
+    top: -2px;
+    left: -2px;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    border: 2px solid #202225;
+    z-index: 1;
+}
+
+/* Different colors for chat types */
+.candidate-chat-indicator {
+    background: linear-gradient(135deg, #8B5CF6, #7C3AED);
+    box-shadow: 0 0 8px rgba(139, 92, 246, 0.5);
+}
+
+.general-chat-indicator {
+    background: linear-gradient(135deg, #10B981, #059669);
+    box-shadow: 0 0 8px rgba(16, 185, 129, 0.5);
+}
+
+/* Section headers with icons */
+.sidebar-section h6 i {
+    margin-right: 6px;
+    font-size: 0.8rem;
+}
+
+/* Quick action buttons */
+.chat-quick-actions {
+    display: flex;
+    gap: 6px;
+    margin-top: 8px;
+}
+
+.chat-quick-actions .btn {
+    padding: 4px 8px;
+    font-size: 0.7rem;
+    border-radius: 6px;
+    border: none;
+    font-weight: 500;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    min-width: 70px;
+}
+
+.chat-quick-actions .btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+/* Avatar colors based on chat type */
+.avatar.candidate {
+    background: linear-gradient(135deg, #8B5CF6, #7C3AED) !important;
+}
+
+.avatar.general {
+    background: linear-gradient(135deg, #10B981, #059669) !important;
+}
+
+.avatar.new {
+    background: linear-gradient(135deg, #F59E0B, #D97706) !important;
+}
 </style>
 <div id="main-content">
-
     <!-- Cosmic Chat Header - Dark Theme -->
     <div class="cosmic-chat-header">
         <div class="cosmic-container">
@@ -997,8 +1138,32 @@
                             <h4 class="recruiter-name">
                                 <?php echo htmlspecialchars($conversation->recruiter_name); ?></h4>
                             <p class="conversation-context">
+                                <?php if (!empty($conversation->candidate_id)): ?>
+                                <span style="color: #8B5CF6; margin-right: 8px;">
+                                    <i class="fa fa-user"></i> Candidate Chat
+                                </span>
+                                <?php else: ?>
+                                <span style="color: #10B981; margin-right: 8px;">
+                                    <i class="fa fa-comments"></i> General Chat
+                                </span>
+                                <?php endif; ?>
+
                                 <i class="fa fa-briefcase"></i>
                                 <?php echo $conversation->job_name ? htmlspecialchars($conversation->job_name) : 'Direct Message'; ?>
+
+                                <?php if (!empty($conversation->candidate_id) && !empty($candidate_details)): ?>
+                                <br>
+                                <i class="fa fa-user" style="margin-right: 5px;"></i>
+                                <span style="color: var(--text-accent);">
+                                    <?= htmlspecialchars($candidate_details->first_name . ' ' . $candidate_details->last_name) ?>
+                                </span>
+                                <?php elseif (!empty($conversation->candidate_id)): ?>
+                                <br>
+                                <i class="fa fa-user" style="margin-right: 5px;"></i>
+                                <span style="color: var(--text-accent);">
+                                    Candidate #<?= $conversation->candidate_id ?>
+                                </span>
+                                <?php endif; ?>
                             </p>
                         </div>
                         <?php if (isset($conversation) && isset($conversation->unread_count) && $conversation->unread_count > 0): ?>
@@ -1020,6 +1185,173 @@
             <div class="energy-wave"></div>
         </div>
     </div>
+
+    <!-- Candidate Chat Header -->
+    <?php if (!empty($candidate_details)): ?>
+    <div class="candidate-chat-header cosmic-glow"
+        style="background: linear-gradient(135deg, rgba(139, 92, 246, 0.1), rgba(16, 185, 129, 0.1)); border: 1px solid var(--light-border); border-radius: 16px; padding: 20px; margin: 20px 20px 0 20px; position: relative; overflow: hidden;">
+
+        <div class="cosmic-background" style="opacity: 0.3;">
+            <div class="floating-orb orb-1" style="background: radial-gradient(circle, #10B981, transparent);"></div>
+            <div class="floating-orb orb-2" style="background: radial-gradient(circle, #8B5CF6, transparent);"></div>
+        </div>
+
+        <div class="d-flex justify-content-between align-items-center position-relative z-index-2">
+            <div style="flex: 1;">
+                <h4
+                    style="color: var(--text-primary); font-weight: 600; margin-bottom: 12px; display: flex; align-items: center; gap: 10px;">
+                    <i class="fa fa-user-circle" style="color: #8B5CF6;"></i>
+                    Discussing Candidate
+                    <span class="cosmic-badge" style="background: var(--primary-gradient);">
+                        <i class="fa fa-user"></i> Candidate Chat
+                    </span>
+                </h4>
+
+                <div style="display: flex; flex-wrap: wrap; gap: 20px;">
+                    <!-- Candidate Info -->
+                    <div style="min-width: 200px;">
+                        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
+                            <div
+                                style="width: 40px; height: 40px; background: var(--primary-gradient); border-radius: 10px; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold;">
+                                <?= substr(htmlspecialchars($candidate_details->first_name), 0, 1) ?>
+                            </div>
+                            <div>
+                                <h5 style="color: var(--text-primary); margin: 0; font-size: 1.1rem;">
+                                    <?= htmlspecialchars($candidate_details->first_name . ' ' . $candidate_details->last_name) ?>
+                                </h5>
+                                <small style="color: var(--text-muted);">
+                                    Ref: <?= htmlspecialchars($candidate_details->reference_number) ?>
+                                </small>
+                            </div>
+                        </div>
+
+                        <div style="display: flex; flex-wrap: wrap; gap: 15px; margin-top: 10px;">
+                            <?php if (!empty($candidate_details->email)): ?>
+                            <div style="display: flex; align-items: center; gap: 5px;">
+                                <i class="fa fa-envelope" style="color: var(--text-muted); font-size: 0.8rem;"></i>
+                                <span style="color: var(--text-secondary); font-size: 0.85rem;">
+                                    <?= htmlspecialchars($candidate_details->email) ?>
+                                </span>
+                            </div>
+                            <?php endif; ?>
+
+                            <?php if (!empty($candidate_details->phone)): ?>
+                            <div style="display: flex; align-items: center; gap: 5px;">
+                                <i class="fa fa-phone" style="color: var(--text-muted); font-size: 0.8rem;"></i>
+                                <span style="color: var(--text-secondary); font-size: 0.85rem;">
+                                    <?= htmlspecialchars($candidate_details->phone) ?>
+                                </span>
+                            </div>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+
+                    <!-- Job & Status Info -->
+                    <div style="min-width: 200px;">
+                        <?php if (!empty($candidate_details->job_name)): ?>
+                        <div style="margin-bottom: 10px;">
+                            <div style="display: flex; align-items: center; gap: 5px; margin-bottom: 5px;">
+                                <i class="fa fa-briefcase" style="color: var(--text-muted); font-size: 0.8rem;"></i>
+                                <strong style="color: var(--text-secondary); font-size: 0.85rem;">Job:</strong>
+                            </div>
+                            <div
+                                style="background: rgba(255, 255, 255, 0.05); padding: 8px 12px; border-radius: 8px; border: 1px solid var(--light-border);">
+                                <span style="color: var(--text-primary); font-weight: 500;">
+                                    <?= htmlspecialchars($candidate_details->job_name) ?>
+                                </span>
+                                <?php if (!empty($candidate_details->job_ref)): ?>
+                                <small style="color: var(--text-muted); margin-left: 8px;">
+                                    (<?= htmlspecialchars($candidate_details->job_ref) ?>)
+                                </small>
+                                <?php endif; ?>
+                            </div>
+                        </div>
+                        <?php endif; ?>
+
+                        <?php if (!empty($candidate_details->status)): ?>
+                        <div>
+                            <div style="display: flex; align-items: center; gap: 5px; margin-bottom: 5px;">
+                                <i class="fa fa-chart-line" style="color: var(--text-muted); font-size: 0.8rem;"></i>
+                                <strong style="color: var(--text-secondary); font-size: 0.85rem;">Status:</strong>
+                            </div>
+                            <span class="badge" style="background: <?= 
+                            $candidate_details->status == 'hired' ? 'linear-gradient(135deg, #10B981, #059669)' : 
+                            ($candidate_details->status == 'rejected' ? 'linear-gradient(135deg, #EF4444, #DC2626)' : 
+                            'linear-gradient(135deg, #F59E0B, #D97706)') ?>; 
+                            color: white; padding: 6px 12px; border-radius: 8px; font-size: 0.8rem;">
+                                <?= ucfirst($candidate_details->status) ?>
+                            </span>
+                        </div>
+                        <?php endif; ?>
+                    </div>
+
+                    <!-- Onboarding Progress -->
+                    <?php if (!empty($candidate_details->onboarding_stage) && $candidate_details->onboarding_stage != 'not_started'): ?>
+                    <div style="min-width: 200px;">
+                        <div style="display: flex; align-items: center; gap: 5px; margin-bottom: 5px;">
+                            <i class="fa fa-tasks" style="color: var(--text-muted); font-size: 0.8rem;"></i>
+                            <strong style="color: var(--text-secondary); font-size: 0.85rem;">Onboarding:</strong>
+                        </div>
+                        <div
+                            style="background: rgba(255, 255, 255, 0.05); padding: 10px; border-radius: 8px; border: 1px solid var(--light-border);">
+                            <div
+                                style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                                <span style="color: var(--text-primary); font-size: 0.85rem; font-weight: 500;">
+                                    <?= ucwords(str_replace('_', ' ', $candidate_details->onboarding_stage)) ?>
+                                </span>
+                                <?php if (!empty($candidate_details->onboarding_progress)): ?>
+                                <span style="color: var(--text-accent); font-weight: 600; font-size: 0.9rem;">
+                                    <?= round($candidate_details->onboarding_progress) ?>%
+                                </span>
+                                <?php endif; ?>
+                            </div>
+                            <?php if (!empty($candidate_details->onboarding_progress)): ?>
+                            <div class="progress"
+                                style="height: 6px; background: rgba(255, 255, 255, 0.1); border-radius: 3px; overflow: hidden;">
+                                <div class="progress-bar" role="progressbar"
+                                    style="width: <?= $candidate_details->onboarding_progress ?>%; background: var(--accent-gradient);">
+                                </div>
+                            </div>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+                    <?php endif; ?>
+                </div>
+            </div>
+
+            <!-- View Profile Button -->
+            <div style="margin-left: 20px;">
+                <a href="<?= site_url('agency/candidates/view/' . $candidate_details->id) ?>" target="_blank"
+                    class="btn cosmic-glow"
+                    style="background: var(--primary-gradient); color: white; border: none; padding: 10px 20px; border-radius: 10px; font-weight: 500; display: flex; align-items: center; gap: 8px; text-decoration: none; transition: all 0.3s ease;">
+                    <i class="fa fa-external-link-alt"></i>
+                    View Full Profile
+                </a>
+            </div>
+        </div>
+    </div>
+    <?php elseif (isset($conversation) && !empty($conversation->candidate_id) && empty($candidate_details)): ?>
+    <div class="candidate-chat-header cosmic-glow"
+        style="background: linear-gradient(135deg, rgba(239, 68, 68, 0.1), rgba(220, 38, 38, 0.1)); border: 1px solid var(--light-border); border-radius: 16px; padding: 20px; margin: 20px 20px 0 20px;">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <h5 style="color: var(--text-primary); margin: 0; display: flex; align-items: center; gap: 10px;">
+                    <i class="fa fa-exclamation-triangle" style="color: #EF4444;"></i>
+                    Candidate Discussion
+                </h5>
+                <p style="color: var(--text-muted); margin: 8px 0 0 0;">
+                    <strong>Candidate ID:</strong> <?= $conversation->candidate_id ?>
+                    <small style="margin-left: 8px;">(Profile access restricted)</small>
+                </p>
+            </div>
+            <span class="badge"
+                style="background: var(--warning-gradient); color: white; padding: 6px 12px; border-radius: 8px;">
+                Restricted Access
+            </span>
+        </div>
+    </div>
+    <?php endif; ?>
+
     <div class="container-fluid p-0" style="height: 64vh; overflow: hidden;">
         <div class="row no-gutters" style="height: 100%;">
             <!-- Left Sidebar: Conversations & Recruiters List -->
@@ -1040,28 +1372,85 @@
                     </div>
                 </div>
 
+                <!-- Chat Type Tabs -->
+                <div class="px-3 pt-3" style="border-bottom: 1px solid #36393f;">
+                    <div class="d-flex" style="gap: 5px;">
+                        <button
+                            class="btn btn-sm flex-fill chat-type-tab <?= empty($_GET['chat_type']) || $_GET['chat_type'] == 'all' ? 'active' : '' ?>"
+                            data-chat-type="all" style="background: <?= empty($_GET['chat_type']) || $_GET['chat_type'] == 'all' ? 'linear-gradient(135deg, #7289da, #5b6eae)' : '#2f3136' ?>; 
+                                   color: white; border: none; border-radius: 8px; padding: 8px 0; font-size: 0.8rem;">
+                            <i class="fa fa-comments mr-1"></i> All Chats
+                        </button>
+                        <button
+                            class="btn btn-sm flex-fill chat-type-tab <?= isset($_GET['chat_type']) && $_GET['chat_type'] == 'candidate' ? 'active' : '' ?>"
+                            data-chat-type="candidate" style="background: <?= isset($_GET['chat_type']) && $_GET['chat_type'] == 'candidate' ? 'linear-gradient(135deg, #8B5CF6, #7C3AED)' : '#2f3136' ?>; 
+                                   color: white; border: none; border-radius: 8px; padding: 8px 0; font-size: 0.8rem;">
+                            <i class="fa fa-user mr-1"></i> Candidate
+                        </button>
+                        <button
+                            class="btn btn-sm flex-fill chat-type-tab <?= isset($_GET['chat_type']) && $_GET['chat_type'] == 'general' ? 'active' : '' ?>"
+                            data-chat-type="general" style="background: <?= isset($_GET['chat_type']) && $_GET['chat_type'] == 'general' ? 'linear-gradient(135deg, #10B981, #059669)' : '#2f3136' ?>; 
+                                   color: white; border: none; border-radius: 8px; padding: 8px 0; font-size: 0.8rem;">
+                            <i class="fa fa-comments mr-1"></i> General
+                        </button>
+                    </div>
+                </div>
+
                 <!-- Enhanced Sidebar with Notifications -->
                 <div class="flex-grow-1 overflow-auto" style="padding: 0 10px;">
-                    <!-- Active Conversations with Notifications -->
+                    <?php 
+                    // Filter conversations based on tab selection
+                    $filtered_conversations = $all_conversations;
+                    if (isset($_GET['chat_type']) && $_GET['chat_type'] == 'candidate') {
+                        $filtered_conversations = array_filter($all_conversations, function($conv) {
+                            return !empty($conv->candidate_id);
+                        });
+                    } elseif (isset($_GET['chat_type']) && $_GET['chat_type'] == 'general') {
+                        $filtered_conversations = array_filter($all_conversations, function($conv) {
+                            return empty($conv->candidate_id);
+                        });
+                    }
+                    ?>
+
                     <div class="sidebar-section">
                         <h6 class="text-muted px-3 py-2" style="font-size: 0.8rem; letter-spacing: 0.5px;">
-                            ACTIVE CHATS
+                            <?php if (isset($_GET['chat_type']) && $_GET['chat_type'] == 'candidate'): ?>
+                            <i class="fa fa-user mr-1" style="color: #8B5CF6;"></i> CANDIDATE CHATS
+                            <?php elseif (isset($_GET['chat_type']) && $_GET['chat_type'] == 'general'): ?>
+                            <i class="fa fa-comments mr-1" style="color: #10B981;"></i> GENERAL CHATS
+                            <?php else: ?>
+                            <i class="fa fa-comments mr-1"></i> ALL CHATS
+                            <?php endif; ?>
+
                             <?php if (isset($total_unread_count) && $total_unread_count > 0): ?>
                             <span class="section-badge"><?php echo $total_unread_count; ?></span>
                             <?php endif; ?>
                         </h6>
+
+                        <?php if (empty($filtered_conversations)): ?>
+                        <div class="text-center py-4">
+                            <i class="fa fa-comments fa-2x mb-2" style="color: #7289da;"></i>
+                            <p class="text-muted" style="font-size: 0.8rem;">
+                                <?php if (isset($_GET['chat_type']) && $_GET['chat_type'] == 'candidate'): ?>
+                                No candidate chats yet
+                                <?php elseif (isset($_GET['chat_type']) && $_GET['chat_type'] == 'general'): ?>
+                                No general chats yet
+                                <?php else: ?>
+                                No chats yet
+                                <?php endif; ?>
+                            </p>
+                        </div>
+                        <?php else: ?>
                         <div class="list-group" style="background-color: transparent;">
-                            <?php foreach ($all_conversations as $conv): ?>
-                            <!-- Line 249 in your HTML view -->
+                            <?php foreach ($filtered_conversations as $conv): ?>
                             <a href="<?php echo site_url('agency/chat/conversation/' .  $conv->uuid); ?>"
                                 class="list-group-item list-group-item-action d-flex align-items-center conversation-item <?php echo (isset($conversation) && $conversation->uuid == $conv->uuid) ? 'active' : ''; ?>"
-                                style="border: none; border-radius: 8px; margin-bottom: 5px; padding: 10px 15px; transition: all 0.2s;"
+                                style="border: none; border-radius: 8px; margin-bottom: 5px; padding: 10px 15px; transition: all 0.2s; <?= !empty($conv->candidate_id) ? 'border-left: 3px solid #8B5CF6 !important;' : 'border-left: 3px solid #10B981 !important;' ?>"
                                 data-conversation-id="<?php echo $conv->uuid; ?>">
-                                <!-- CHANGED: data-conversation-id to uuid -->
 
                                 <div class="conversation-avatar mr-3 position-relative">
                                     <div class="avatar"
-                                        style="width: 40px; height: 40px; border-radius: 50%; background-color: #128C7E; display: flex; align-items: center; justify-content: center; font-weight: bold; color: #ffffff;">
+                                        style="width: 40px; height: 40px; border-radius: 50%; background-color: <?= !empty($conv->candidate_id) ? '#8B5CF6' : '#10B981' ?>; display: flex; align-items: center; justify-content: center; font-weight: bold; color: #ffffff;">
                                         <?php echo substr(htmlspecialchars($conv->recruiter_name), 0, 1); ?>
                                     </div>
                                     <?php if (isset($conv->is_online) && $conv->is_online): ?>
@@ -1069,30 +1458,65 @@
                                     <?php endif; ?>
                                 </div>
 
-                                <div class="flex-grow-1">
-                                    <h6 class="mb-0" style="color: #ffffff; font-weight: 500;">
-                                        <?php echo htmlspecialchars($conv->recruiter_name); ?>
-                                    </h6>
+                                <div class="flex-grow-1" style="min-width: 0;">
+                                    <!-- Recruiter Name with Chat Type Badge -->
+                                    <div class="d-flex align-items-center mb-1">
+                                        <h6 class="mb-0" style="color: #ffffff; font-weight: 500; margin-right: 8px;">
+                                            <?php echo htmlspecialchars($conv->recruiter_name); ?>
+                                        </h6>
+
+                                        <!-- Chat Type Badge -->
+                                        <span class="chat-type-badge"
+                                            style="font-size: 0.65rem; padding: 2px 6px; border-radius: 10px; <?= !empty($conv->candidate_id) ? 'background: rgba(139, 92, 246, 0.2); color: #C4B5FD;' : 'background: rgba(16, 185, 129, 0.2); color: #A7F3D0;' ?>">
+                                            <?php if (!empty($conv->candidate_id)): ?>
+                                            <i class="fa fa-user mr-1" style="font-size: 0.6rem;"></i> Candidate
+                                            <?php else: ?>
+                                            <i class="fa fa-comments mr-1" style="font-size: 0.6rem;"></i> General
+                                            <?php endif; ?>
+                                        </span>
+                                    </div>
+
+                                    <!-- Candidate Info (only for candidate chats) -->
+                                    <?php if (!empty($conv->candidate_info)): ?>
+                                    <small class="d-block"
+                                        style="color: #C4B5FD; font-size: 0.7rem; font-weight: 500; margin: 3px 0; display: flex; align-items: center; gap: 4px;">
+                                        <i class="fa fa-user-circle" style="font-size: 0.6rem;"></i>
+                                        <?= htmlspecialchars($conv->candidate_info->first_name . ' ' . $conv->candidate_info->last_name) ?>
+                                        <span
+                                            style="color: rgba(196, 181, 253, 0.7);">(<?= htmlspecialchars($conv->candidate_info->reference_number) ?>)</span>
+                                    </small>
+                                    <?php endif; ?>
+
+                                    <!-- Job Info -->
+                                    <?php if (!empty($conv->job_name)): ?>
+                                    <small class="d-block"
+                                        style="color: #9CA3AF; font-size: 0.7rem; margin: 2px 0; display: flex; align-items: center; gap: 4px;">
+                                        <i class="fa fa-briefcase" style="font-size: 0.6rem;"></i>
+                                        <?= htmlspecialchars($conv->job_name) ?>
+                                    </small>
+                                    <?php endif; ?>
+
+                                    <!-- Message Preview -->
                                     <small class="text-muted d-block conversation-preview"
-                                        style="font-size: 0.75rem; max-width: 150px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"
-                                        data-conversation-id="<?php $conv->uuid; ?>">
+                                        style="font-size: 0.75rem; margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"
+                                        data-conversation-id="<?= $conv->uuid; ?>">
                                         <?php if (isset($conv->unread_count) && $conv->unread_count > 0): ?>
-                                        <strong><?php echo htmlspecialchars($conv->last_message ?: 'New message'); ?></strong>
+                                        <strong
+                                            style="color: #ffffff;"><?php echo htmlspecialchars($conv->last_message ?: 'New message'); ?></strong>
                                         <?php else: ?>
                                         <?php echo htmlspecialchars($conv->last_message ?: 'No messages yet'); ?>
                                         <?php endif; ?>
                                     </small>
                                 </div>
 
-                                <div class="text-right ml-2">
+                                <div class="text-right ml-2" style="min-width: 40px;">
                                     <small class="text-muted d-block conversation-time" style="font-size: 0.7rem;"
                                         data-conversation-id="<?php echo $conv->uuid; ?>">
-                                        <!-- CHANGED to uuid -->
                                         <?php echo time_ago($conv->last_message_at ?: $conv->created_at); ?>
                                     </small>
                                     <?php if (isset($conv->unread_count) && $conv->unread_count > 0): ?>
-                                    <span class="conversation-badge" data-conversation-id="<?php echo $conv->uuid; ?>">
-                                        <!-- CHANGED to uuid -->
+                                    <span class="conversation-badge" data-conversation-id="<?php echo $conv->uuid; ?>"
+                                        style="<?= !empty($conv->candidate_id) ? 'background: linear-gradient(135deg, #8B5CF6, #7C3AED);' : 'background: linear-gradient(135deg, #10B981, #059669);' ?>">
                                         <?php echo $conv->unread_count > 99 ? '99+' : $conv->unread_count; ?>
                                     </span>
                                     <?php endif; ?>
@@ -1100,38 +1524,37 @@
                             </a>
                             <?php endforeach; ?>
                         </div>
+                        <?php endif; ?>
                     </div>
 
-                    <!-- Available Recruiters with Notification Status -->
+                    <!-- Available Recruiters Section -->
                     <?php if (!empty($available_recruiters)): ?>
-                    <div class="sidebar-section">
-                        <h6 class="text-muted px-3 py-2 mt-3" style="font-size: 0.8rem; letter-spacing: 0.5px;">
-                            AVAILABLE RECRUITERS
-                            <span class="section-badge new">New</span>
+                    <div class="sidebar-section" style="margin-top: 15px;">
+                        <h6 class="text-muted px-3 py-2" style="font-size: 0.8rem; letter-spacing: 0.5px;">
+                            START NEW CHAT
+                            <span class="section-badge new"
+                                style="background: linear-gradient(135deg, #F59E0B, #D97706);">New</span>
                         </h6>
                         <div class="list-group" style="background-color: transparent;">
                             <?php foreach ($available_recruiters as $recruiter): ?>
                             <?php 
                             // Check if this recruiter already has a conversation
                             $has_conversation = false;
-                            $recruiter_conversation = null;
                             foreach ($all_conversations as $conv) {
                                 if ($conv->recruiter_id == $recruiter->id) {
                                     $has_conversation = true;
-                                    $recruiter_conversation = $conv;
                                     break;
                                 }
                             }
                             ?>
 
                             <?php if (!$has_conversation): ?>
-                            <a href="<?php echo site_url('agency/chat/quick_start/' . $recruiter->id); ?>"
-                                class="list-group-item list-group-item-action d-flex align-items-center recruiter-item"
-                                style="border: none; border-radius: 8px; margin-bottom: 5px; padding: 10px 15px; transition: all 0.2s; border-left: 3px solid #25D366 !important;">
+                            <div class="list-group-item d-flex align-items-center recruiter-item"
+                                style="border: none; border-radius: 8px; margin-bottom: 5px; padding: 10px 15px; background: rgba(245, 158, 11, 0.05);">
                                 <div class="recruiter-avatar mr-3 position-relative">
                                     <div class="avatar"
-                                        style="width: 40px; height: 40px; border-radius: 50%; background-color: #25D366; display: flex; align-items: center; justify-content: center; font-weight: bold; color: #ffffff;">
-                                        <?php echo substr(htmlspecialchars($recruiter->first_name), 0, 1); ?>
+                                        style="width: 40px; height: 40px; border-radius: 50%; background: linear-gradient(135deg, #F59E0B, #D97706); display: flex; align-items: center; justify-content: center; font-weight: bold; color: #ffffff;">
+                                        <?php echo substr(htmlspecialchars($recruiter->first_name . ' ' . $recruiter->last_name), 0, 1); ?>
                                     </div>
                                     <div class="online-indicator"></div>
                                 </div>
@@ -1139,14 +1562,23 @@
                                     <h6 class="mb-0" style="color: #ffffff; font-weight: 500;">
                                         <?php echo htmlspecialchars($recruiter->first_name . ' ' . $recruiter->last_name); ?>
                                     </h6>
-                                    <small class="text-muted d-block" style="font-size: 0.75rem;">
-                                        <span class="text-success">● Online</span> - Click to start chat
+                                    <small class="text-muted d-block" style="font-size: 0.75rem; margin-top: 3px;">
+                                        <span class="text-warning">● Online</span>
                                     </small>
                                 </div>
-                                <div class="text-right ml-2">
-                                    <i class="fa fa-plus text-success"></i>
+                                <div class="d-flex flex-column ml-2" style="gap: 5px;">
+                                    <a href="<?php echo site_url('agency/chat/quick_start/' . $recruiter->id); ?>"
+                                        class="btn btn-sm"
+                                        style="background: linear-gradient(135deg, #10B981, #059669); color: white; border: none; padding: 4px 8px; border-radius: 6px; font-size: 0.7rem; width: 70px;">
+                                        <i class="fa fa-comments"></i> General
+                                    </a>
+                                    <a href="<?php echo site_url('agency/candidates/start_candidate_chat/' . $recruiter->id); ?>"
+                                        class="btn btn-sm"
+                                        style="background: linear-gradient(135deg, #8B5CF6, #7C3AED); color: white; border: none; padding: 4px 8px; border-radius: 6px; font-size: 0.7rem; width: 70px;">
+                                        <i class="fa fa-user"></i> Candidate
+                                    </a>
                                 </div>
-                            </a>
+                            </div>
                             <?php endif; ?>
                             <?php endforeach; ?>
                         </div>
@@ -1169,7 +1601,7 @@
                 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm57-13c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5
                 5zm-9-21c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM60 91c1.105 0 2-.895 2-2s-.895-2-2-2-2
                 .895-2 2 .895 2 2 2zM35 41c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM12 60c1.105 0 2-.895
-                2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2z' fill=\"%2391a29e\" fill-opacity=\"0.1\"
+                2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2z\' fill=\"%2391a29e\" fill-opacity=\"0.1\"
                 fill-rule=\"evenodd\"/%3E%3C/svg%3E');">
 
                 <?php if (isset($conversation)): ?>
@@ -1192,6 +1624,21 @@
                                     </small>
                                 </div>
                             </div>
+
+                            <!-- Switch Chat Type Button -->
+                            <div class="d-flex align-items-center gap-2">
+                                <?php if (!empty($conversation->candidate_id)): ?>
+                                <!-- Switch from Candidate to General -->
+                                <a href="<?php echo site_url('agency/chat/switch_to_general/' . $conversation->uuid . '/' . $conversation->recruiter_id); ?>"
+                                    class="btn btn-sm"
+                                    style="background: linear-gradient(135deg, #10B981, #059669); color: white; border: none; border-radius: 6px; padding: 5px 10px; font-size: 0.7rem; display: flex; align-items: center; gap: 5px; text-decoration: none;">
+                                    <i class="fa fa-exchange-alt"></i> Switch to General
+                                </a>
+                                <?php else: ?>
+                                <!-- Switch from General to Candidate (show if you want to start a candidate chat) -->
+
+                                <?php endif; ?>
+                            </div>
                         </div>
 
                         <!-- Messages Area - WhatsApp Style -->
@@ -1205,9 +1652,9 @@
                                     <div
                                         class="message-content d-flex align-items-baseline <?php echo $message->sender_type == 'agency' ? 'justify-content-end' : 'justify-content-start'; ?>">
                                         <div class="message-text-time d-inline-flex align-items-baseline" style="background-color: <?php echo $message->sender_type == 'agency' ? '#dcf8c6' : '#ffffff'; ?>; 
-                                    padding: 8px 12px; 
-                                    border-radius: 7.5px;
-                                    box-shadow: 0 1px 0.5px rgba(0,0,0,0.13);">
+                                        padding: 8px 12px; 
+                                        border-radius: 7.5px;
+                                        box-shadow: 0 1px 0.5px rgba(0,0,0,0.13);">
                                             <span class="message-text"
                                                 style="font-size: 14.2px; color: #303030; line-height: 1.3; margin-right: 8px; font-family: 'Segoe UI', 'Helvetica Neue', sans-serif;">
                                                 <?php echo nl2br(htmlspecialchars($message->message)); ?>
@@ -1268,15 +1715,10 @@
                                         </button>
                                     </div>
                                 </div>
-                                <input type="hidden" id="conversationId" value="<?php echo $conversation->id; ?>">
 
                                 <!-- SECURE: UUID for API calls -->
                                 <input type="hidden" id="conversationUuid"
                                     value="<?php echo isset($conversation) ? $conversation->uuid : ''; ?>">
-
-                                <!-- Optional: Keep ID for backward compatibility if needed elsewhere -->
-                                <input type="hidden" id="conversationId"
-                                    value="<?php echo isset($conversation) ? $conversation->id : ''; ?>">
 
                                 <input type="hidden" name="<?php echo $this->security->get_csrf_token_name(); ?>"
                                     value="<?php echo $this->security->get_csrf_hash(); ?>">
@@ -1301,533 +1743,721 @@
     </div>
 </div>
 
+
 <script>
-// ===== CSRF INITIALIZATION =====
-// Ensure CSRF variables exist
-if (typeof csrfName === 'undefined') {
-    window.csrfName = '<?php echo $this->security->get_csrf_token_name(); ?>';
-}
+// ============================================
+// AGENCY CHAT SYSTEM - CLEAN & STRUCTURED
+// ============================================
 
-if (typeof csrf === 'undefined') {
-    window.csrf = '<?php echo $this->security->get_csrf_hash(); ?>';
-}
+'use strict';
 
-// ===== LOADING CHECK =====
-console.log("=== LOADING CHECK ===");
-
-// Check if core.js is loaded
-if (typeof ajax_post === 'undefined') {
-    console.error("WARNING: core.js not loaded or ajax_post not defined!");
-    console.error("This page needs core.js to be loaded before this script.");
-    console.error("Make sure core.js is included in your HTML before this script.");
-}
-
-// Check if we're in the right context
-if (!window.location.href.includes('/agency/chat/')) {
-    console.warn("This script is designed for /agency/chat/ pages");
-}
-
-// Fix missing dynamicPath
-if (typeof dynamicPath === 'undefined') {
-    dynamicPath = window.location.origin + '/shoesmith/agency';
-    console.log("Set dynamicPath to:", dynamicPath);
-}
-
-// ===== GLOBAL STATE =====
-let chatState = {
-    isSending: false,
-    isPolling: false,
-    lastMessageId: <?php echo !empty($messages) ? end($messages)->id : 0; ?>,
-    currentConversationUuid: document.getElementById('conversationUuid') ? document.getElementById(
-        'conversationUuid').value : null,
-    hasMarkedAsRead: false,
-    userIsActive: false,
-    newMessageReceivedTime: null,
-    focusTimeout: null
+// ===== CONFIGURATION =====
+const CONFIG = {
+    POLL_INTERVAL: 3000, // 3 seconds
+    CONVERSATION_POLL: 8000, // 8 seconds
+    CSRF_TOKEN_NAME: '<?php echo $this->security->get_csrf_token_name(); ?>',
+    BASE_PATH: window.dynamicPath || window.location.origin + '/shoesmith/agency'
 };
 
-// ===== UTILITY FUNCTIONS =====
-function scrollToBottom() {
-    const chatMessages = document.getElementById('chatMessages');
-    if (chatMessages) {
-        chatMessages.scrollTop = chatMessages.scrollHeight;
+// ===== STATE MANAGEMENT =====
+class ChatState {
+    constructor() {
+        this.isSending = false;
+        this.isPolling = false;
+        this.lastMessageId = <?php echo !empty($messages) ? end($messages)->id : 0; ?>;
+        this.conversationUuid = document.getElementById('conversationUuid')?.value || null;
+        this.displayedMessageIds = new Set();
+        this.pollInterval = null;
+        this.conversationInterval = null;
+
+        // Initialize CSRF
+        this.initCsrf();
     }
-}
 
-function escapeHtml(text) {
-    if (!text) return '';
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-}
-
-function getTimeAgo(timestamp) {
-    const now = new Date();
-    const messageTime = new Date(timestamp);
-    const diffMs = now - messageTime;
-    const diffMins = Math.floor(diffMs / 60000);
-    const diffHours = Math.floor(diffMs / 3600000);
-    const diffDays = Math.floor(diffMs / 86400000);
-
-    if (diffMins < 1) return 'Just now';
-    if (diffMins < 60) return `${diffMins}m`;
-    if (diffHours < 24) return `${diffHours}h`;
-    if (diffDays < 7) return `${diffDays}d`;
-    return messageTime.toLocaleDateString();
-}
-
-// ===== NOTIFICATION FUNCTIONS =====
-function updateAllNotificationBadges(totalUnreadCount) {
-    const globalBadge = document.getElementById('globalNotificationBadge');
-    if (globalBadge) {
-        if (totalUnreadCount > 0) {
-            globalBadge.textContent = totalUnreadCount > 99 ? '99+' : totalUnreadCount;
-            globalBadge.style.display = 'inline-block';
-        } else {
-            globalBadge.style.display = 'none';
+    initCsrf() {
+        if (typeof csrfName === 'undefined') {
+            window.csrfName = CONFIG.CSRF_TOKEN_NAME;
+        }
+        if (typeof csrf === 'undefined') {
+            window.csrf = '<?php echo $this->security->get_csrf_hash(); ?>';
         }
     }
 
-    const sectionBadge = document.querySelector('.sidebar-section .section-badge');
-    if (sectionBadge) {
-        if (totalUnreadCount > 0) {
-            sectionBadge.textContent = totalUnreadCount;
-            sectionBadge.style.display = 'inline-block';
-        } else {
-            sectionBadge.style.display = 'none';
+    addDisplayedMessageId(id) {
+        if (id && !id.toString().startsWith('temp_')) {
+            this.displayedMessageIds.add(parseInt(id));
         }
+    }
+
+    isMessageDisplayed(id) {
+        return this.displayedMessageIds.has(parseInt(id));
     }
 }
 
-function markNotificationsAsRead() {
-    const convId = chatState.currentConversationId;
-    if (!convId) return;
+// ===== UTILITIES =====
+const Utils = {
+    escapeHtml(text) {
+        if (!text) return '';
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    },
 
-    console.log("Marking notifications as read for conversation:", convId);
-
-    ajax_post('ajax_mark_notifications_read', {
-        conversation_id: convId
-    }, function(res) {
-        console.log("Mark read response:", res);
-        if (res.success) {
-            chatState.hasMarkedAsRead = true;
-            updateAllNotificationBadges(res.unread_count);
-            fetchUpdatedConversations();
-        }
-    });
-}
-
-// ===== MESSAGE FUNCTIONS =====
-function sendMessage() {
-    console.log("=== SEND MESSAGE (SECURE WITH UUID) ===");
-
-    if (chatState.isSending) {
-        console.log("Already sending, skipping");
-        return;
-    }
-
-    const messageInput = document.getElementById('messageInput');
-    const messageText = messageInput.value.trim();
-
-    console.log("1. Message text:", messageText);
-
-    // Get UUID (secure identifier)
-    const conversationUuid = document.getElementById('conversationUuid')?.value;
-
-    console.log("2. Conversation UUID:", conversationUuid);
-    console.log("3. CSRF Name:", csrfName);
-    console.log("4. CSRF Value:", csrf ? "YES (" + csrf.substring(0, 10) + "...)" : "NO");
-    console.log("5. dynamicPath:", dynamicPath);
-
-    if (!messageText) {
-        console.log("Empty message, skipping");
-        alert("Please type a message first");
-        return;
-    }
-
-    if (!conversationUuid) {
-        console.error("No conversation UUID found!");
-        alert("Please select a conversation first");
-        return;
-    }
-
-    chatState.isSending = true;
-    console.log("6. Setting isSending to true");
-
-    const submitButton = document.querySelector('#messageForm button[type="submit"]');
-    let originalHtml = '';
-    if (submitButton) {
-        originalHtml = submitButton.innerHTML;
-        submitButton.disabled = true;
-        submitButton.innerHTML = '<i class="fa fa-spinner fa-spin"></i>';
-        console.log("7. Updated submit button");
-    }
-
-    console.log("8. Full URL will be:", dynamicPath + '/ajax_send_message');
-
-    // Test params
-    const testParams = {
-        conversation_uuid: conversationUuid,
-        message: messageText,
-        [csrfName]: csrf
-    };
-    console.log("9. Params being sent:", testParams);
-
-    console.log("10. Calling ajax_post...");
-
-    ajax_post('ajax_send_message', {
-        conversation_uuid: conversationUuid,
-        message: messageText
-    }, function(res) {
-        console.log("=== SEND MESSAGE RESPONSE ===");
-        console.log("Response received:", res);
-        console.log("Success:", res.success);
-        console.log("Message:", res.message);
-        console.log("Has CSRF in response:", !!res.csrf);
-
-        if (res.success) {
-            console.log("✅ Message sent successfully!");
-            console.log("Message ID:", res.message_id);
-            messageInput.value = '';
-
-            // Update last message ID
-            if (res.message_id) {
-                chatState.lastMessageId = parseInt(res.message_id);
-                console.log("Updated lastMessageId to:", chatState.lastMessageId);
-            }
-
-            // Refresh conversations and messages
-            setTimeout(function() {
-                console.log("Refreshing messages...");
-                fetchNewMessages();
-                fetchUpdatedConversations();
-            }, 300);
-        } else {
-            console.error("❌ Failed to send message:", res.message);
-
-            // Show user-friendly error
-            let errorMsg = "Failed to send message";
-            if (res.message) {
-                errorMsg += ": " + res.message;
-            }
-            alert(errorMsg);
-
-            // If CSRF error, try to update token
-            if (res.message && res.message.includes('CSRF')) {
-                console.log("CSRF error detected, updating token...");
-                if (res.csrf) {
-                    csrf = res.csrf;
-                    console.log("CSRF updated to:", csrf.substring(0, 10) + "...");
-                }
-            }
-        }
-
-        // Reset UI
-        if (submitButton) {
-            submitButton.disabled = false;
-            submitButton.innerHTML = originalHtml;
-            console.log("Reset submit button");
-        }
-
-        chatState.isSending = false;
-        console.log("Setting isSending to false");
-
-        // Refocus on input
-        if (messageInput) {
+    scrollToBottom() {
+        const container = document.getElementById('chatMessages');
+        if (container) {
             setTimeout(() => {
-                messageInput.focus();
-                console.log("Refocused on message input");
+                container.scrollTop = container.scrollHeight;
             }, 100);
         }
-    });
-}
+    },
 
-function markNotificationsOnUserAction() {
-    if (chatState.currentConversationId && !chatState.hasMarkedAsRead) {
-        markNotificationsAsRead();
+    getTimeAgo(timestamp) {
+        const now = new Date();
+        const messageTime = new Date(timestamp);
+        const diffMs = now - messageTime;
+        const diffMins = Math.floor(diffMs / 60000);
+        const diffHours = Math.floor(diffMs / 3600000);
+        const diffDays = Math.floor(diffMs / 86400000);
+
+        if (diffMins < 1) return 'Just now';
+        if (diffMins < 60) return `${diffMins}m`;
+        if (diffHours < 24) return `${diffHours}h`;
+        if (diffDays < 7) return `${diffDays}d`;
+        return messageTime.toLocaleDateString();
+    },
+
+    showNotification(message, type = 'info') {
+        const types = {
+            info: {
+                icon: 'info-circle',
+                color: '#17a2b8'
+            },
+            success: {
+                icon: 'check-circle',
+                color: '#28a745'
+            },
+            error: {
+                icon: 'exclamation-circle',
+                color: '#dc3545'
+            },
+            warning: {
+                icon: 'exclamation-triangle',
+                color: '#ffc107'
+            }
+        };
+
+        const config = types[type] || types.info;
+        console.log(`${type.toUpperCase()}: ${message}`);
     }
-}
+};
 
-function resetMarkedStateForNewMessages() {
-    chatState.hasMarkedAsRead = false;
-    chatState.newMessageReceivedTime = Date.now();
-}
+// ===== MESSAGE MANAGER =====
+class MessageManager {
+    constructor(state) {
+        this.state = state;
+    }
 
-function shouldAllowMarkAsRead() {
-    if (chatState.newMessageReceivedTime) {
-        const timeSinceNewMessage = Date.now() - chatState.newMessageReceivedTime;
-        if (timeSinceNewMessage < 5000) {
+    // Send a message
+    async send(messageText) {
+        if (this.state.isSending || !messageText.trim() || !this.state.conversationUuid) {
             return false;
         }
+
+        this.state.isSending = true;
+        const input = document.getElementById('messageInput');
+        const originalMessage = messageText;
+
+        // Clear input
+        input.value = '';
+
+        // Show optimistic message
+        const tempId = this.showOptimisticMessage(originalMessage);
+
+        try {
+            const response = await this.ajaxRequest('ajax_send_message', {
+                conversation_uuid: this.state.conversationUuid,
+                message: originalMessage
+            });
+
+            if (response.success) {
+                this.updateOptimisticMessage(tempId, response.message_id);
+                this.state.lastMessageId = parseInt(response.message_id);
+                Utils.showNotification('Message sent', 'success');
+                return true;
+            } else {
+                throw new Error(response.message || 'Send failed');
+            }
+
+        } catch (error) {
+            this.handleSendError(tempId, originalMessage, error.message);
+            return false;
+        } finally {
+            this.state.isSending = false;
+            input.focus();
+        }
     }
-    return true;
+
+    // Show optimistic (temporary) message
+    showOptimisticMessage(text) {
+        const container = document.getElementById('chatMessages');
+        if (!container) return null;
+
+        const tempId = Date.now();
+        const message = document.createElement('div');
+        message.className = 'd-flex justify-content-end mb-2';
+        message.dataset.tempId = tempId;
+        message.dataset.messageId = 'temp_' + tempId;
+
+        message.innerHTML = `
+            <div class="message-container" style="max-width: 70%;">
+                <div class="message-content d-flex align-items-baseline justify-content-end">
+                    <div class="message-text-time d-inline-flex align-items-baseline" 
+                         style="background-color: #dcf8c6; padding: 8px 12px; border-radius: 7.5px; box-shadow: 0 1px 0.5px rgba(0,0,0,0.13);">
+                        <span class="message-text" style="font-size: 14.2px; color: #303030; line-height: 1.3; margin-right: 8px;">
+                            ${Utils.escapeHtml(text)}
+                        </span>
+                        <span class="message-meta d-inline-flex align-items-center">
+                            <small class="message-time" style="font-size: 11px; color: #667781;">
+                                Sending...
+                            </small>
+                            <i class="fa fa-clock ml-1" style="font-size: 10px; color: #667781;"></i>
+                        </span>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        container.appendChild(message);
+        Utils.scrollToBottom();
+        return tempId;
+    }
+
+    // Update optimistic message with real ID
+    updateOptimisticMessage(tempId, realId) {
+        const msg = document.querySelector(`[data-temp-id="${tempId}"]`);
+        if (msg) {
+            msg.dataset.messageId = realId;
+            delete msg.dataset.tempId;
+
+            const icon = msg.querySelector('.fa-clock');
+            const time = msg.querySelector('.message-time');
+
+            if (icon) {
+                icon.className = 'fa fa-check ml-1';
+                icon.style.color = '#128C7E';
+            }
+            if (time) time.textContent = 'Sent';
+
+            this.state.addDisplayedMessageId(realId);
+        }
+    }
+
+    // Handle send error
+    handleSendError(tempId, originalMessage, error) {
+        const input = document.getElementById('messageInput');
+        const msg = document.querySelector(`[data-temp-id="${tempId}"]`);
+
+        // Restore message to input
+        input.value = originalMessage;
+
+        // Remove optimistic message
+        if (msg) msg.remove();
+
+        Utils.showNotification(`Send failed: ${error}`, 'error');
+    }
+
+    // Fetch new messages
+    async fetchNew() {
+        if (this.state.isPolling || !this.state.conversationUuid) {
+            return;
+        }
+
+        this.state.isPolling = true;
+
+        try {
+            const response = await this.ajaxRequest('ajax_get_messages', {
+                conversation_uuid: this.state.conversationUuid,
+                last_message_id: this.state.lastMessageId || 0
+            });
+
+            if (response.success && response.html) {
+                this.appendMessages(response.html);
+
+                if (response.last_message_id) {
+                    this.state.lastMessageId = parseInt(response.last_message_id);
+                }
+            }
+
+        } catch (error) {
+            console.error('Poll error:', error.message);
+        } finally {
+            this.state.isPolling = false;
+        }
+    }
+
+    // Append messages to chat
+    appendMessages(html) {
+        const container = document.getElementById('chatMessages');
+        if (!container || !html.trim()) return;
+
+        // Parse HTML
+        const temp = document.createElement('div');
+        temp.innerHTML = html;
+        const newMessages = Array.from(temp.children);
+
+        let added = 0;
+
+        // Filter and append unique messages
+        newMessages.forEach(msg => {
+            const msgId = msg.dataset.messageId;
+
+            if (!msgId || !this.state.isMessageDisplayed(msgId)) {
+                container.appendChild(msg);
+                this.state.addDisplayedMessageId(msgId);
+                added++;
+            }
+        });
+
+        if (added > 0) {
+            Utils.scrollToBottom();
+        }
+    }
+
+    // AJAX request wrapper
+    async ajaxRequest(endpoint, data) {
+        return new Promise((resolve, reject) => {
+            if (typeof ajax_post !== 'function') {
+                reject(new Error('ajax_post not available'));
+                return;
+            }
+
+            // Add CSRF token
+            if (window.csrfName && window.csrf) {
+                data[window.csrfName] = window.csrf;
+            }
+
+            ajax_post(endpoint, data, (response) => {
+                // Update CSRF if provided
+                if (response && response.csrf) {
+                    window.csrf = response.csrf;
+                }
+
+                if (response && !response.success && response.message && response.message.includes(
+                        'CSRF')) {
+                    this.refreshCsrfToken();
+                }
+
+                resolve(response || {
+                    success: false,
+                    message: 'No response'
+                });
+            });
+        });
+    }
+
+    // Refresh CSRF token
+    refreshCsrfToken() {
+        console.log('Refreshing CSRF token...');
+
+        fetch(`${CONFIG.BASE_PATH}/ajax_get_conversations?refresh_csrf=1`, {
+                method: 'GET',
+                credentials: 'same-origin'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.csrf) {
+                    window.csrf = data.csrf;
+                    console.log('CSRF token refreshed');
+                }
+            })
+            .catch(error => console.error('CSRF refresh failed:', error));
+    }
 }
 
-// ===== SIDEBAR FUNCTIONS =====
-function updateSingleConversationBadge(conversationItem, convData) {
-    let badge = conversationItem.querySelector('.conversation-badge');
-
-    if (convData.unread_count > 0) {
-        if (!badge) {
-            badge = document.createElement('span');
-            badge.className = 'conversation-badge';
-            badge.setAttribute('data-conversation-id', convData.id);
-
-            const textRightDiv = conversationItem.querySelector('.text-right');
-            if (textRightDiv) {
-                textRightDiv.appendChild(badge);
-            }
-        }
-
-        badge.textContent = convData.unread_count > 99 ? '99+' : convData.unread_count;
-        badge.style.display = 'flex';
-        conversationItem.classList.add('has-unread-messages');
-
-    } else {
-        if (badge) {
-            badge.style.display = 'none';
-        }
-        conversationItem.classList.remove('has-unread-messages');
+// ===== CONVERSATION MANAGER =====
+class ConversationManager {
+    constructor(state) {
+        this.state = state;
     }
 
-    const previewElement = conversationItem.querySelector('.conversation-preview');
-    if (previewElement) {
-        let previewText = '';
+    // Fetch updated conversations
+    async fetchUpdated() {
+        try {
+            const response = await this.ajaxRequest('ajax_get_conversations', {});
 
-        if (convData.unread_count > 0) {
-            if (convData.last_sender_type === 'recruiter') {
-                previewText =
-                    `<strong>${escapeHtml(convData.recruiter_name || 'Recruiter')}: ${escapeHtml(convData.last_message || 'New message')}</strong>`;
-            } else {
-                previewText = `<strong>You: ${escapeHtml(convData.last_message || 'New message')}</strong>`;
+            if (response.success && response.conversations) {
+                this.updateSidebar(response.conversations);
+
+                // Update notification badges
+                if (response.total_unread_count !== undefined) {
+                    this.updateNotificationBadges(response.total_unread_count);
+                }
             }
+
+        } catch (error) {
+            console.error('Conversation fetch error:', error.message);
+        }
+    }
+
+    // Update sidebar conversations
+    updateSidebar(conversations) {
+        conversations.forEach(conv => {
+            const item = document.querySelector(`.conversation-item[data-conversation-id="${conv.id}"]`);
+            if (item) {
+                this.updateConversationItem(item, conv);
+            }
+        });
+    }
+
+    // Update single conversation item
+    updateConversationItem(item, conv) {
+        // Update badge
+        let badge = item.querySelector('.conversation-badge');
+
+        if (conv.unread_count > 0) {
+            if (!badge) {
+                badge = document.createElement('span');
+                badge.className = 'conversation-badge';
+                badge.dataset.conversationId = conv.id;
+
+                const textRightDiv = item.querySelector('.text-right');
+                if (textRightDiv) textRightDiv.appendChild(badge);
+            }
+
+            badge.textContent = conv.unread_count > 99 ? '99+' : conv.unread_count;
+            badge.style.display = 'flex';
+            item.classList.add('has-unread-messages');
         } else {
-            if (convData.last_sender_type === 'recruiter') {
-                previewText =
-                    `${escapeHtml(convData.recruiter_name || 'Recruiter')}: ${escapeHtml(convData.last_message || 'No messages yet')}`;
+            if (badge) badge.style.display = 'none';
+            item.classList.remove('has-unread-messages');
+        }
+
+        // Update preview
+        const preview = item.querySelector('.conversation-preview');
+        if (preview) {
+            let previewText = '';
+
+            if (conv.unread_count > 0) {
+                const prefix = conv.last_sender_type === 'recruiter' ?
+                    `${Utils.escapeHtml(conv.recruiter_name || 'Recruiter')}: ` :
+                    'You: ';
+                previewText = `<strong>${prefix}${Utils.escapeHtml(conv.last_message || 'New message')}</strong>`;
             } else {
-                previewText = `You: ${escapeHtml(convData.last_message || 'No messages yet')}`;
+                const prefix = conv.last_sender_type === 'recruiter' ?
+                    `${Utils.escapeHtml(conv.recruiter_name || 'Recruiter')}: ` :
+                    'You: ';
+                previewText = `${prefix}${Utils.escapeHtml(conv.last_message || 'No messages yet')}`;
+            }
+
+            preview.innerHTML = previewText;
+        }
+
+        // Update time
+        const time = item.querySelector('.conversation-time');
+        if (time && conv.last_message_at) {
+            time.textContent = Utils.getTimeAgo(conv.last_message_at);
+        }
+    }
+
+    // Update notification badges
+    updateNotificationBadges(totalUnread) {
+        const globalBadge = document.getElementById('globalNotificationBadge');
+        if (globalBadge) {
+            if (totalUnread > 0) {
+                globalBadge.textContent = totalUnread > 99 ? '99+' : totalUnread;
+                globalBadge.style.display = 'inline-block';
+            } else {
+                globalBadge.style.display = 'none';
             }
         }
 
-        previewElement.innerHTML = previewText;
-    }
-
-    const timeElement = conversationItem.querySelector('.conversation-time');
-    if (timeElement && convData.last_message_at) {
-        timeElement.textContent = getTimeAgo(convData.last_message_at);
-    }
-}
-
-function updateSidebarConversationBadges(conversationsData) {
-    conversationsData.forEach(conv => {
-        const conversationItem = document.querySelector(
-            `.conversation-item[data-conversation-id="${conv.id}"]`);
-        if (conversationItem) {
-            updateSingleConversationBadge(conversationItem, conv);
+        const sectionBadge = document.querySelector('.sidebar-section .section-badge');
+        if (sectionBadge) {
+            if (totalUnread > 0) {
+                sectionBadge.textContent = totalUnread;
+                sectionBadge.style.display = 'inline-block';
+            } else {
+                sectionBadge.style.display = 'none';
+            }
         }
-    });
-}
-
-// ===== CHAT FUNCTIONS =====
-function fetchNewMessages() {
-    if (chatState.isPolling) return;
-
-    const conversationUuid = document.getElementById('conversationUuid')?.value;
-    if (!conversationUuid) {
-        console.log("No conversation UUID found for polling");
-        return;
     }
 
-    chatState.isPolling = true;
-    console.log("🔄 Polling for new messages...");
+    // AJAX request wrapper
+    async ajaxRequest(endpoint, data) {
+        return new Promise((resolve) => {
+            if (typeof ajax_post !== 'function') {
+                resolve({
+                    success: false,
+                    message: 'ajax_post not available'
+                });
+                return;
+            }
 
-    // Get ALL messages to show incoming recruiter messages
-    ajax_post('ajax_get_messages', {
-        conversation_uuid: conversationUuid,
-        last_message_id: 0 // Get ALL messages
-    }, function(res) {
-        console.log("Polling response:", {
-            success: res.success,
-            has_html: !!res.html,
-            html_length: res.html?.length || 0,
-            last_message_id: res.last_message_id
+            // Add CSRF token
+            if (window.csrfName && window.csrf) {
+                data[window.csrfName] = window.csrf;
+            }
+
+            ajax_post(endpoint, data, resolve);
         });
-
-        if (res.success && res.html) {
-            const chatMessages = document.getElementById('chatMessages');
-            if (chatMessages) {
-                // Update only if HTML is different (to avoid flickering)
-                if (chatMessages.innerHTML !== res.html) {
-                    chatMessages.innerHTML = res.html;
-                    chatMessages.scrollTop = chatMessages.scrollHeight;
-                    console.log("✅ Updated chat with new messages");
-                }
-            }
-
-            if (res.last_message_id) {
-                chatState.lastMessageId = parseInt(res.last_message_id);
-            }
-        } else if (!res.success) {
-            console.error("❌ Polling failed:", res.message);
-        }
-
-        chatState.isPolling = false;
-    });
+    }
 }
 
-function fetchUpdatedConversations() {
-    console.log("Fetching updated conversations...");
+// ===== EVENT MANAGER =====
+class EventManager {
+    constructor(state, messageManager) {
+        this.state = state;
+        this.messageManager = messageManager;
+    }
 
-    ajax_post('ajax_get_conversations', {}, function(data) {
-        console.log("Conversations response:", data);
-        if (data.success && data.conversations) {
-            updateSidebarConversationBadges(data.conversations);
-            if (data.total_unread_count !== undefined) {
-                updateAllNotificationBadges(data.total_unread_count);
-            }
-        }
-    });
-}
+    // Setup all event listeners
+    setup() {
+        this.setupMessageForm();
+        this.setupTabSwitching();
+        this.setupChatTypeSwitching();
+    }
 
-// ===== EVENT LISTENERS =====
-function setupEventListeners() {
-    const messageInput = document.getElementById('messageInput');
-    const chatMessages = document.getElementById('chatMessages');
-    const messageForm = document.getElementById('messageForm');
+    // Setup message form events
+    setupMessageForm() {
+        const form = document.getElementById('messageForm');
+        const input = document.getElementById('messageInput');
 
-    console.log("Setting up event listeners...");
-
-    // Prevent default form submission
-    if (messageForm) {
-        console.log("Setting up message form listener");
-        messageForm.addEventListener('submit', function(e) {
-            console.log("Form submit event fired");
-            e.preventDefault();
-            e.stopPropagation();
-            console.log("Prevented default form submission");
-            sendMessage();
-            return false;
-        });
-
-        // Also prevent Enter key from submitting form normally
-        if (messageInput) {
-            messageInput.addEventListener('keydown', function(e) {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                    console.log("Enter key pressed in message input");
-                    e.preventDefault();
-                    sendMessage();
-                }
+        if (form) {
+            form.addEventListener('submit', (e) => {
+                e.preventDefault();
+                this.handleSendMessage();
             });
         }
-    }
 
-    if (messageInput) {
-        messageInput.addEventListener('input', function() {
-            chatState.userIsActive = true;
-            if (shouldAllowMarkAsRead()) {
-                markNotificationsOnUserAction();
-            }
-        });
-
-        messageInput.addEventListener('focus', function() {
-            chatState.userIsActive = true;
-            if (chatState.focusTimeout) {
-                clearTimeout(chatState.focusTimeout);
-            }
-            chatState.focusTimeout = setTimeout(() => {
-                if (shouldAllowMarkAsRead()) {
-                    markNotificationsOnUserAction();
+        if (input) {
+            input.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    this.handleSendMessage();
                 }
-            }, 2000);
-        });
+            });
 
-        messageInput.addEventListener('blur', function() {
-            if (chatState.focusTimeout) {
-                clearTimeout(chatState.focusTimeout);
-                chatState.focusTimeout = null;
-            }
+            // Auto-focus
+            setTimeout(() => input.focus(), 500);
+        }
+    }
+
+    // Setup tab switching
+    setupTabSwitching() {
+        const tabs = document.querySelectorAll('.chat-type-tab');
+        tabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                const chatType = tab.dataset.chatType;
+                const url = new URL(window.location.href);
+
+                if (chatType === 'all') {
+                    url.searchParams.delete('chat_type');
+                } else {
+                    url.searchParams.set('chat_type', chatType);
+                }
+
+                window.location.href = url.toString();
+            });
         });
     }
 
-    if (chatMessages) {
-        chatMessages.addEventListener('click', function() {
-            chatState.userIsActive = true;
-            if (shouldAllowMarkAsRead()) {
-                markNotificationsOnUserAction();
-            }
+    // Setup chat type switching
+    setupChatTypeSwitching() {
+        const buttons = document.querySelectorAll('.switch-chat-type');
+        buttons.forEach(button => {
+            button.addEventListener('click', () => {
+                const action = button.dataset.action;
+                const recruiterId = button.dataset.recruiterId;
+                const conversationUuid = button.dataset.conversationUuid;
+
+                if (action === 'switch_to_general' && conversationUuid) {
+                    this.handleSwitchToGeneral(button, conversationUuid, recruiterId);
+                } else if (action === 'start_candidate_chat' && recruiterId) {
+                    window.location.href =
+                        `<?php echo site_url("agency/candidates/start_candidate_chat/"); ?>${recruiterId}`;
+                }
+            });
         });
     }
 
-    console.log("Event listeners setup complete");
+    // Handle send message
+    handleSendMessage() {
+        const input = document.getElementById('messageInput');
+        const message = input.value.trim();
+
+        if (message) {
+            this.messageManager.send(message);
+        }
+    }
+
+    // Handle switch to general chat
+    handleSwitchToGeneral(button, conversationUuid, recruiterId) {
+        const originalText = button.innerHTML;
+        button.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Switching...';
+        button.disabled = true;
+
+        this.messageManager.ajaxRequest('ajax_switch_chat_to_general', {
+            conversation_uuid: conversationUuid,
+            recruiter_id: recruiterId
+        }).then(response => {
+            button.innerHTML = originalText;
+            button.disabled = false;
+
+            if (response.success && response.general_conversation_uuid) {
+                window.location.href =
+                    `<?php echo site_url("agency/chat/conversation/"); ?>${response.general_conversation_uuid}`;
+            } else {
+                Utils.showNotification(response.message || 'Switch failed', 'error');
+            }
+        });
+    }
 }
 
-// ===== POLLING =====
-function startPolling() {
-    console.log("🔄 Starting polling for incoming messages...");
-
-    // Clear any existing intervals
-    if (window.pollingInterval) {
-        clearInterval(window.pollingInterval);
-    }
-    if (window.conversationPollingInterval) {
-        clearInterval(window.conversationPollingInterval);
+// ===== POLLING MANAGER =====
+class PollingManager {
+    constructor(state, messageManager, conversationManager) {
+        this.state = state;
+        this.messageManager = messageManager;
+        this.conversationManager = conversationManager;
     }
 
-    // Poll for new messages every 2 seconds (faster for real-time)
-    window.pollingInterval = setInterval(fetchNewMessages, 2000);
+    // Start all polling
+    start() {
+        this.startMessagePolling();
+        this.startConversationPolling();
+    }
 
-    // Poll for conversation updates every 4 seconds
-    window.conversationPollingInterval = setInterval(fetchUpdatedConversations, 4000);
+    // Start message polling
+    startMessagePolling() {
+        if (this.state.pollInterval) {
+            clearInterval(this.state.pollInterval);
+        }
 
-    console.log("✅ Polling started!");
-    console.log("- Message polling: every 2 seconds");
-    console.log("- Conversation polling: every 4 seconds");
+        this.state.pollInterval = setInterval(() => {
+            this.messageManager.fetchNew();
+        }, CONFIG.POLL_INTERVAL);
+
+        // Initial poll
+        setTimeout(() => this.messageManager.fetchNew(), 1000);
+    }
+
+    // Start conversation polling
+    startConversationPolling() {
+        if (this.state.conversationInterval) {
+            clearInterval(this.state.conversationInterval);
+        }
+
+        this.state.conversationInterval = setInterval(() => {
+            this.conversationManager.fetchUpdated();
+        }, CONFIG.CONVERSATION_POLL);
+
+        // Initial fetch
+        setTimeout(() => this.conversationManager.fetchUpdated(), 1500);
+    }
+
+    // Stop all polling
+    stop() {
+        if (this.state.pollInterval) {
+            clearInterval(this.state.pollInterval);
+            this.state.pollInterval = null;
+        }
+
+        if (this.state.conversationInterval) {
+            clearInterval(this.state.conversationInterval);
+            this.state.conversationInterval = null;
+        }
+    }
+}
+
+// ===== MAIN CHAT SYSTEM =====
+class ChatSystem {
+    constructor() {
+        this.state = new ChatState();
+        this.messageManager = new MessageManager(this.state);
+        this.conversationManager = new ConversationManager(this.state);
+        this.eventManager = new EventManager(this.state, this.messageManager);
+        this.pollingManager = new PollingManager(this.state, this.messageManager, this.conversationManager);
+
+        this.initialize();
+    }
+
+    // Initialize the chat system
+    initialize() {
+        console.log('🚀 Initializing Chat System...');
+
+        // Setup events
+        this.eventManager.setup();
+
+        // Start polling
+        this.pollingManager.start();
+
+        // Initial scroll
+        Utils.scrollToBottom();
+
+        console.log('✅ Chat System Ready');
+    }
+
+    // Public API
+    sendMessage(message) {
+        return this.messageManager.send(message);
+    }
+
+    fetchMessages() {
+        return this.messageManager.fetchNew();
+    }
+
+    stop() {
+        this.pollingManager.stop();
+    }
 }
 
 // ===== INITIALIZATION =====
-document.addEventListener('DOMContentLoaded', function() {
-    console.log('=== AGENCY CHAT SYSTEM INITIALIZING ===');
+document.addEventListener('DOMContentLoaded', () => {
+    // Create global chat instance
+    window.chatSystem = new ChatSystem();
 
-    // Test CSRF first
-    console.log('Testing CSRF configuration...');
-    console.log('CSRF Name:', csrfName);
-    console.log('CSRF Value:', csrf ? csrf.substring(0, 10) + '...' : 'EMPTY');
-
-    // Make initial test call
-    ajax_post('ajax_get_conversations', {
-        init: true
-    }, function(data) {
-        console.log('CSRF Test:', data.success ? 'PASSED ✓' : 'FAILED ✗');
-        console.log('Test response:', data);
-
-        if (data.success) {
-            console.log('Chat system ready! Starting...');
-
-            // Initial scroll
-            setTimeout(scrollToBottom, 100);
-
-            // Setup event listeners
-            setupEventListeners();
-
-            // Start polling
-            startPolling();
-
-            // Focus on input
-            const messageInput = document.getElementById('messageInput');
-            if (messageInput) {
-                setTimeout(() => {
-                    console.log("Focusing on message input");
-                    messageInput.focus();
-                }, 500);
-            }
-
-            console.log('=== AGENCY CHAT SYSTEM INITIALIZED SUCCESSFULLY ===');
-        } else {
-            console.error('CSRF test failed:', data.message);
-            console.error('Please check CSRF configuration');
-            alert('Chat system initialization failed: ' + data.message);
-        }
-    });
+    // Test CSRF
+    testCsrf();
 });
+
+// ===== CSRF TEST FUNCTION =====
+function testCsrf() {
+    console.log('Testing CSRF configuration...');
+
+    if (typeof ajax_post === 'function') {
+        ajax_post('ajax_get_conversations', {
+            test: true
+        }, (response) => {
+            if (response.success) {
+                console.log('✅ CSRF test passed');
+            } else {
+                console.error('❌ CSRF test failed:', response.message);
+            }
+        });
+    } else {
+        console.warn('⚠️ ajax_post not available for CSRF test');
+    }
+}
+
+// ===== PUBLIC API =====
+window.ChatUtils = {
+    sendTestMessage: function() {
+        const input = document.getElementById('messageInput');
+        if (input && window.chatSystem) {
+            input.value = 'Test at ' + new Date().toLocaleTimeString();
+            window.chatSystem.sendMessage(input.value);
+        }
+    },
+
+    refreshMessages: function() {
+        if (window.chatSystem) {
+            window.chatSystem.fetchMessages();
+        }
+    },
+
+    getState: function() {
+        return window.chatSystem ? window.chatSystem.state : null;
+    }
+};
 </script>
