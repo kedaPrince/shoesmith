@@ -15,104 +15,118 @@ class Candidates extends CRUD_Controller
     public $hideSubNav = false;
     public $quickManageSize = 3;
     
+public function __construct()
+{
+    parent::__construct();
+    $this->folder = 'recruiter';
 
-    public function __construct()
-        {
-            parent::__construct();
-            $this->folder = 'recruiter';
+    // Allow only recruiters
+    $login_data = $this->session->userdata('login');
+    if (empty($login_data['recruiter'])) {
+        redirect('recruiter/dashboard');
+    }
 
-            // Allow only recruiters
-            $login_data = $this->session->userdata('login');
-            if (empty($login_data['recruiter'])) {
-                redirect('recruiter/dashboard');
-            }
+    $this->setup_listing();
+    $this->setup_fields();
+    $this->load->model($this->folder . '/' . $this->model);
+    $this->zone = array(
+        'title' => lang($this->pageName . '_heading'),
+        'url' => redir($this->pageName, true),
+    );
+    
+    // Load chat model for recruiter
+    $this->load->model('recruiter/Model_chat_messages');
+     // Load notifications model
+    $this->load->model('recruiter/Model_notifications');
+}
 
-            $this->setup_listing();
-            $this->setup_fields();
-            $this->load->model($this->folder . '/' . $this->model);
-            $this->zone = array(
-                'title' => lang($this->pageName . '_heading'),
-                'url' => redir($this->pageName, true),
-            );
-        }
+   private function setup_listing(): void
+{
+    $this->listFields = array(
+        'reference_number' => array(
+            'label' => lang('label_reference_number'),
+            'sort' => true,
+        ),
+        'first_name' => array(
+            'label' => lang('label_first_name'),
+            'sort' => true,
+        ),
+        'email' => array(
+            'label' => lang('label_email'),
+            'sort' => true,
+        ),
+        'job_name' => array(
+            'label' => lang('label_job'),
+            'sort' => true,
+            'field' => 'mod_jobs.name'
+        ),
+        'status' => array(
+            'label' => lang('label_status'),
+            'sort' => true,
+        ),
+        'application_date' => array(
+            'label' => lang('label_application_date'),
+            'sort' => true,
+            'type' => 'date',
+        ),
+    );
 
-    private function setup_listing(): void
-        {
-            $this->listFields = array(
-                'reference_number' => array(
-                    'label' => lang('label_reference_number'),
-                    'sort' => true,
-                ),
-                'first_name' => array(
-                    'label' => lang('label_first_name'),
-                    'sort' => true,
-                ),
-                'email' => array(
-                    'label' => lang('label_email'),
-                    'sort' => true,
-                ),
-                'job_name' => array(
-                    'label' => lang('label_job'),
-                    'sort' => true,
-                    'field' => 'mod_jobs.name'
-                ),
-                'status' => array(
-                    'label' => lang('label_status'),
-                    'sort' => true,
-                ),
-                'application_date' => array(
-                    'label' => lang('label_application_date'),
-                    'sort' => true,
-                    'type' => 'date',
-                ),
-            );
+    $this->listActions = array(
+        'view' => array(
+            'label'     => lang('label_view'),
+            'url'       => site_url('recruiter/candidates/view/{id}'),
+            'icon'      => 'fa-eye',
+            'class'     => 'view-row',
+            'title'     => 'View detailed candidate profile',
+        ),
+        'edit' => array(
+            'label'     => lang('label_edit'),
+            'url'       => redir($this->pageName . '/edit/{id}', true),
+            'icon'      => 'fa-edit',
+            'class'     => 'edit-row',
+            'title'     => 'Edit candidate information',
+        ),
+        // ADD CHAT ACTION FOR RECRUITER
+        'chat' => array(
+            'label'     => 'Chat',
+            'url'       => site_url('recruiter/candidates/start_candidate_chat/{id}'),
+            'icon'      => 'fa-comments',
+            'class'     => 'chat-row',
+            'title'     => 'Chat with agency about this candidate',
+            'target'    => '_blank'
+        ),
+    );
 
-            $this->listActions = array(
-                'view' => array(
-                    'label'     => lang('label_view'),
-                    'url'       => site_url('recruiter/candidates/view/{id}'),
-                    'icon'      => 'fa-eye',
-                    'class'     => 'view-row',
-                    'title'     => 'View detailed candidate profile',
-                ),
-                'edit' => array(
-                    'label'     => lang('label_edit'),
-                    'url'       => redir($this->pageName . '/edit/{id}', true),
-                    'icon'      => 'fa-edit',
-                    'class'     => 'edit-row',
-                    'title'     => 'Edit candidate information',
-                ),
-            );
+    $this->filters = array(
+        'search' => array(
+            'label' => lang('label_search'),
+            'type' => 'autocomplete',
+            'field' => array(
+                'candidates.first_name',
+                'candidates.last_name',
+                'candidates.email',
+                'candidates.reference_number',
+            ),
+        ),
+        'status' => array(
+            'label' => lang('label_status'),
+            'type' => 'dropdown',
+            'field' => 'candidates.status',
+            'options' => array(
+                'new' => 'New',
+                'reviewed' => 'Reviewed',
+                'shortlisted' => 'Shortlisted',
+                'interviewed' => 'Interviewed',
+                'rejected' => 'Rejected',
+                'hired' => 'Hired',
+                'on_hold' => 'On Hold',
+            ),
+        ),
+    );
+}
 
-            $this->filters = array(
-                'search' => array(
-                    'label' => lang('label_search'),
-                    'type' => 'autocomplete',
-                    'field' => array(
-                        'candidates.first_name',
-                        'candidates.last_name',
-                        'candidates.email',
-                        'candidates.reference_number',
-                    ),
-                ),
-                'status' => array(
-                    'label' => lang('label_status'),
-                    'type' => 'dropdown',
-                    'field' => 'candidates.status',
-                    'options' => array(
-                        'new' => 'New',
-                        'reviewed' => 'Reviewed',
-                        'shortlisted' => 'Shortlisted',
-                        'interviewed' => 'Interviewed',
-                        'rejected' => 'Rejected',
-                        'hired' => 'Hired',
-                        'on_hold' => 'On Hold',
-                    ),
-                ),
-            );
-        }
-
-    public function setup_fields(): void
+   
+        public function setup_fields(): void
         {
             $this->formFields = array(
                 'main' => array(
@@ -290,67 +304,86 @@ class Candidates extends CRUD_Controller
         }
 
     public function index(): void
-        {
-            // Get job_id from URL parameters for filtering
-            $job_id = $this->input->get('job_id');
-            
-            $this->breadcrumbs = array(
-                array(
-                    'title' => lang($this->pageName . '_heading'),
-                    'url'   => redir($this->pageName, true)
-                ),
-            );
-            
-            // Pass job_id to the view for filtering
-            $this->view = 'listing';
-            $this->load->view($this->folder . '/' . 'view_header');
-            $this->load->view('cms/crud/view_list', array(
-                'heading'           => lang($this->pageName . '_heading'),
-                'noRows'            => lang($this->pageName . '_no_rows'),
-                'filter_job_id'     => $job_id, // Pass job_id to the listing
-            ));
-            $this->load->view($this->folder . '/' . 'view_footer');
-        }
+{
+    // Get job_id from URL parameters for filtering
+    $job_id = $this->input->get('job_id');
+    
+    $this->breadcrumbs = array(
+        array(
+            'title' => lang($this->pageName . '_heading'),
+            'url'   => redir($this->pageName, true)
+        ),
+    );
+    
+    // Load the view_list_extra for chat functionality
+    $this->view = 'listing';
+    $this->load->view('recruiter/candidates/view_list_extra'); // Add this line
+    
+    $this->load->view($this->folder . '/' . 'view_header');
+    $this->load->view('cms/crud/view_list', array(
+        'heading'           => lang($this->pageName . '_heading'),
+        'noRows'            => lang($this->pageName . '_no_rows'),
+        'filter_job_id'     => $job_id,
+    ));
+    $this->load->view($this->folder . '/' . 'view_footer');
+}
 
-    public function view($id)
-        {
-            $row = $this->{$this->model}->get_candidate($id);
-            
-            if (empty($row)) {
-                show_404();
-            }
+    
+        public function view($id)
+{
+    $row = $this->{$this->model}->get_candidate($id);
+    
+    if (empty($row)) {
+        show_404();
+    }
 
-            // Check for pending documents requests
-            $documents_request_data = $this->check_pending_documents_request($id);
-            
-            // Add CSS to hide the Add Candidate button on view pages
-            echo '
-            <style>
-            /* Hide Add Candidate button on candidate view pages */
-            .add-item[href*="/candidates/add"] {
-                display: none !important;
-            }
-            
-            /* Alternative: Hide by button text */
-            .btn-primary.add-item:has(i.fa-plus-circle) {
-                display: none !important;
-            }
-            </style>
-            ';
-            
-            // Pass the data to the view
-            $this->load->view($this->folder . '/view_header');
-            $this->load->view('cms/crud/view_single', array(
-                'row' => $row,
-                'id' => $id,
-                'heading' => lang('view_candidate_heading'),
-                'has_pending_documents_request' => $documents_request_data['has_request'],
-                'documents_request_notes' => $documents_request_data['notes'],
-                'pending_notification_id' => $documents_request_data['notification_id']
-            ));
-            $this->load->view($this->folder . '/view_footer');
-        }
-    public function filter_by_recruiter($recruiter_id = null)
+    // Check for pending documents requests
+    $documents_request_data = $this->check_pending_documents_request($id);
+    
+    // Add CSS to hide the Add Candidate button on view pages
+    echo '
+    <style>
+    /* Hide Add Candidate button on candidate view pages */
+    .add-item[href*="/candidates/add"] {
+        display: none !important;
+    }
+    
+    /* Alternative: Hide by button text */
+    .btn-primary.add-item:has(i.fa-plus-circle) {
+        display: none !important;
+    }
+    </style>
+    ';
+    
+    // Add chat button to view page
+    echo '
+    <script>
+    $(document).ready(function() {
+        // Add chat button to the action buttons area
+        var chatButton = \'<a href="\' + base_url + \'recruiter/candidates/start_candidate_chat/' . $id . '\" class="btn btn-info btn-sm chat-row" title="Chat with agency about this candidate" target="_blank"><i class="fa fa-comments"></i> Chat with Agency</a>\';
+        
+        // Find the action buttons container and add chat button
+        setTimeout(function() {
+            $(".action-buttons:first").prepend(chatButton + " ");
+        }, 500);
+    });
+    </script>
+    ';
+    
+    // Pass the data to the view
+    $this->load->view($this->folder . '/view_header');
+    $this->load->view('cms/crud/view_single', array(
+        'row' => $row,
+        'id' => $id,
+        'heading' => lang('view_candidate_heading'),
+        'has_pending_documents_request' => $documents_request_data['has_request'],
+        'documents_request_notes' => $documents_request_data['notes'],
+        'pending_notification_id' => $documents_request_data['notification_id']
+    ));
+    $this->load->view($this->folder . '/view_footer');
+}
+    
+        public function filter_by_recruiter($recruiter_id = null)
         {
             if (!$recruiter_id) {
                 // Get recruiter from session
@@ -2364,4 +2397,318 @@ public function remove_from_job($candidate_id, $job_id)
     redirect('recruiter/candidates/for_job/' . $job_id);
 }
 
+
+/**
+ * Get candidate chat information for recruiter
+ */
+public function ajax_get_candidate_chat_info($candidate_id)
+{
+    if (!$this->input->is_ajax_request()) {
+        show_404();
+    }
+    
+    $recruiter_id = $this->get_recruiter_id();
+    
+    if (!$recruiter_id) {
+        ajax_return([
+            'success' => false,
+            'message' => 'Not logged in'
+        ]);
+        return;
+    }
+    
+    // Get candidate details and agency info
+    $this->db->select('c.*, ca.agency_id')
+             ->from('candidates c')
+             ->join('candidate_agencies ca', 'ca.candidate_id = c.id')
+             ->where('c.id', $candidate_id)
+             ->where('c.removed', 0)
+             ->limit(1);
+    
+    $candidate = $this->db->get()->row();
+    
+    if (!$candidate) {
+        ajax_return([
+            'success' => false,
+            'message' => 'Candidate not found'
+        ]);
+        return;
+    }
+    
+    // Get agency name
+    $this->db->select('name')
+             ->from('agencies')
+             ->where('id', $candidate->agency_id)
+             ->where('removed', 0);
+    $agency = $this->db->get()->row();
+    
+    // Get agency staff (hiring manager) for this candidate
+    $this->db->select('id, first_name, last_name, email')
+             ->from('agency_staff')
+             ->where('agency_id', $candidate->agency_id)
+             ->where('enabled', 1)
+             ->where('removed', 0)
+             ->order_by('id', 'ASC')
+             ->limit(1);
+    
+    $agency_user = $this->db->get()->row();
+    
+    if (!$agency_user) {
+        ajax_return([
+            'success' => false,
+            'message' => 'Agency contact not found for this candidate'
+        ]);
+        return;
+    }
+    
+    // Check if conversation exists or create new one
+    $conversation = $this->Model_chat_messages->get_or_create_candidate_conversation(
+        $candidate->agency_id,
+        $recruiter_id,
+        $candidate_id,
+        $candidate->job_id
+    );
+    
+    if (!$conversation) {
+        ajax_return([
+            'success' => false,
+            'message' => 'Could not create chat conversation'
+        ]);
+        return;
+    }
+    
+    // Return conversation info
+    ajax_return([
+        'success' => true,
+        'conversation' => [
+            'uuid' => $conversation->uuid,
+            'title' => $conversation->title,
+            'agency_name' => $agency ? $agency->name : 'Unknown Agency',
+            'agency_user_name' => $agency_user->first_name . ' ' . $agency_user->last_name,
+            'agency_user_id' => $agency_user->id,
+            'candidate_name' => $candidate->first_name . ' ' . $candidate->last_name,
+            'candidate_ref' => $candidate->reference_number
+        ],
+        'chat_url' => site_url('recruiter/chat/conversation/' . $conversation->uuid)
+    ]);
+}
+
+/**
+ * Start chat for candidate (recruiter side)
+ */
+public function start_candidate_chat($candidate_id)
+{
+    $recruiter_id = $this->get_recruiter_id();
+    
+    if (!$recruiter_id) {
+        show_error('Access denied', 403);
+    }
+    
+    // Get candidate details and verify access
+    $this->db->select('c.*, ca.agency_id')
+             ->from('candidates c')
+             ->join('candidate_agencies ca', 'ca.candidate_id = c.id')
+             ->where('c.id', $candidate_id)
+             ->where('c.removed', 0);
+    
+    $candidate = $this->db->get()->row();
+    
+    if (!$candidate) {
+        show_404();
+    }
+    
+    // Verify recruiter has access to this candidate
+    $has_access = $this->{$this->model}->check_recruiter_candidate_access($recruiter_id, $candidate_id);
+    
+    if (!$has_access) {
+        show_error('Access denied to this candidate', 403);
+    }
+    
+    // Create or get conversation using UUID
+    $conversation = $this->Model_chat_messages->get_or_create_candidate_conversation(
+        $candidate->agency_id,
+        $recruiter_id,
+        $candidate_id,
+        $candidate->job_id
+    );
+    
+    if ($conversation && !empty($conversation->uuid)) {
+        redirect('recruiter/chat/conversation/' . $conversation->uuid);
+    } else {
+        show_error('Failed to create chat conversation');
+    }
+}
+
+public function conversation($uuid = null)
+{
+    $recruiter_id = $this->get_recruiter_id();
+    
+    if (!$uuid) {
+        redirect('recruiter/chat');
+        return;
+    }
+    
+    // Get conversation by UUID instead of ID
+    $conversation = $this->{$this->model}->get_conversation_for_recruiter_by_uuid($uuid, $recruiter_id);
+    
+    if (!$conversation) {
+        show_404();
+    }
+    
+    // Mark messages as read
+    $this->{$this->model}->mark_messages_as_read($conversation->id, 'recruiter');
+    
+    $messages = $this->{$this->model}->get_conversation_messages($conversation->id);
+    
+    // Get all conversations for the sidebar
+    $all_conversations = $this->{$this->model}->get_recruiter_conversations($recruiter_id);
+    
+    // Get available agencies for new chats
+    $available_agencies = $this->{$this->model}->get_available_agencies_simple($recruiter_id);
+    
+    // Calculate total unread count
+    $total_unread_count = $this->{$this->model}->get_unread_count_for_recruiter($recruiter_id);
+    
+    // Get recent notifications (initialize as empty array if method doesn't exist)
+    $recent_notifications = [];
+    if (method_exists($this->{$this->model}, 'get_recent_notifications')) {
+        $recent_notifications = $this->{$this->model}->get_recent_notifications($recruiter_id, 'recruiter');
+    }
+    
+    // Calculate total message count (initialize as 0 if method doesn't exist)
+    $total_message_count = 0;
+    if (method_exists($this->{$this->model}, 'get_total_message_count')) {
+        $total_message_count = $this->{$this->model}->get_total_message_count($recruiter_id);
+    }
+    
+    // Get agency details for the right sidebar
+    $agency_details = $this->{$this->model}->get_agency_details($conversation->agency_id);
+    
+    // Get online status
+    $agency_online = $this->{$this->model}->get_agency_online_status($conversation->agency_id);
+    
+    // ✅ ADD THIS: Get candidate details if conversation has candidate
+    $candidate_details = null;
+    $candidate_documents = [];
+    if ($conversation->candidate_id) {
+        $this->load->model('recruiter/Model_candidates');
+        $candidate_details = $this->Model_candidates->get_candidate($conversation->candidate_id);
+        
+        // Get candidate documents if needed
+        if ($candidate_details && method_exists($this->Model_candidates, 'get_candidate_documents')) {
+            $candidate_documents = $this->Model_candidates->get_candidate_documents($conversation->candidate_id);
+        }
+    }
+    
+    // Ensure conversation has required properties
+    if (!isset($conversation->unread_count)) {
+        $conversation->unread_count = 0;
+    }
+    if (!isset($conversation->is_online)) {
+        $conversation->is_online = 0;
+    }
+    
+    $this->breadcrumbs = [
+        ['title' => lang('chat_heading'), 'url' => url('chat')],
+        ['title' => $conversation->agency_name, 'url' => '']
+    ];
+    
+    $data = [
+        'conversation' => $conversation,
+        'messages' => $messages,
+        'all_conversations' => $all_conversations,
+        'available_agencies' => $available_agencies,
+        'heading' => lang('chat_heading'),
+        'recruiter_id' => $recruiter_id,
+        'total_unread_count' => $total_unread_count,
+        'recent_notifications' => $recent_notifications,
+        'total_message_count' => $total_message_count,
+        'agency_details' => $agency_details,
+        'agency_online' => $agency_online,
+        // ✅ ADD THESE:
+        'candidate_details' => $candidate_details,
+        'candidate_documents' => $candidate_documents,
+    ];
+    
+    $this->load->view($this->folder . '/view_header');
+    $this->load->view('recruiter/chat/conversation', $data);
+    $this->load->view($this->folder . '/view_footer');
+}
+
+/**
+ * AJAX: Switch from candidate-specific chat to general chat
+ */
+public function ajax_switch_chat_to_general()
+{
+    if (!$this->input->is_ajax_request()) {
+        show_404();
+    }
+    
+    $conversation_uuid = $this->input->post('conversation_uuid');
+    $recruiter_id = $this->get_recruiter_id();
+    $agency_id = $this->input->post('agency_id');
+    
+    if (!$recruiter_id) {
+        echo json_encode([
+            'success' => false,
+            'message' => 'Recruiter not logged in',
+            'csrf' => $this->security->get_csrf_hash()
+        ]);
+        return;
+    }
+    
+    if (!$conversation_uuid || !$agency_id) {
+        echo json_encode([
+            'success' => false,
+            'message' => 'Missing required parameters',
+            'csrf' => $this->security->get_csrf_hash()
+        ]);
+        return;
+    }
+    
+    // Check if a general conversation already exists with this agency
+    $existing_general = $this->chat_model->get_general_conversation($agency_id, $recruiter_id);
+    
+    if ($existing_general) {
+        // Redirect to existing general conversation
+        $response = [
+            'success' => true,
+            'general_conversation_uuid' => $existing_general->uuid,
+            'message' => 'Switched to existing general conversation',
+            'csrf' => $this->security->get_csrf_hash()
+        ];
+    } else {
+        // Create a new general conversation
+        $general_data = [
+            'agency_id' => $agency_id,
+            'recruiter_id' => $recruiter_id,
+            'candidate_id' => null, // Null for general chat
+            'job_id' => null,
+            'created_at' => date('Y-m-d H:i:s'),
+            'updated_at' => date('Y-m-d H:i:s'),
+            'uuid' => $this->chat_model->generate_uuid()
+        ];
+        
+        $new_conversation_id = $this->chat_model->create_conversation($general_data);
+        
+        if ($new_conversation_id) {
+            $new_conversation = $this->chat_model->get_conversation_by_id($new_conversation_id);
+            
+            $response = [
+                'success' => true,
+                'general_conversation_uuid' => $new_conversation->uuid,
+                'message' => 'Created new general conversation',
+                'csrf' => $this->security->get_csrf_hash()
+            ];
+        } else {
+            $response = [
+                'success' => false,
+                'message' => 'Failed to create general conversation',
+                'csrf' => $this->security->get_csrf_hash()
+            ];
+        }
+    }
+    
+    echo json_encode($response);
+}
 }

@@ -950,6 +950,292 @@
     width: 32px;
     border: none !important;
 }
+
+/* ===== CANDIDATE CHAT WIDGET ===== */
+.candidate-chat-widget {
+    background: var(--darker-bg);
+    backdrop-filter: blur(10px);
+    border: 1px solid var(--dark-border);
+    border-radius: 16px;
+    padding: 16px;
+    margin: 15px 0;
+    position: relative;
+    overflow: hidden;
+}
+
+.candidate-chat-widget::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: var(--primary-gradient);
+}
+
+.candidate-widget-header {
+    display: flex;
+    align-items: center;
+    margin-bottom: 12px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--light-border);
+}
+
+.candidate-avatar {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #7289da, #424549);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 12px;
+    font-size: 1.2rem;
+    font-weight: bold;
+    color: white;
+    position: relative;
+}
+
+.candidate-avatar::after {
+    content: '';
+    position: absolute;
+    bottom: 2px;
+    right: 2px;
+    width: 10px;
+    height: 10px;
+    background: var(--accent-gradient);
+    border: 2px solid var(--darker-bg);
+    border-radius: 50%;
+}
+
+.candidate-info h5 {
+    margin: 0;
+    color: var(--text-primary);
+    font-size: 1rem;
+    font-weight: 600;
+}
+
+.candidate-info small {
+    color: var(--text-muted);
+    font-size: 0.8rem;
+}
+
+.candidate-details-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+.candidate-detail-item {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--light-border);
+    border-radius: 8px;
+    padding: 8px;
+}
+
+.detail-label {
+    color: var(--text-muted);
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 2px;
+}
+
+.detail-value {
+    color: var(--text-primary);
+    font-size: 0.85rem;
+    font-weight: 500;
+}
+
+.candidate-chat-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.btn-candidate-action {
+    flex: 1;
+    background: var(--primary-gradient);
+    border: none;
+    border-radius: 8px;
+    color: white;
+    padding: 8px 12px;
+    font-size: 0.8rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+}
+
+.btn-candidate-action:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-glow);
+}
+
+.btn-candidate-action.secondary {
+    background: var(--dark-bg);
+    color: var(--text-secondary);
+}
+
+.btn-candidate-action.secondary:hover {
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--text-primary);
+}
+
+/* ===== CANDIDATE CONTEXT BADGE ===== */
+.candidate-context-badge {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    background: var(--accent-gradient);
+    color: white;
+    border-radius: 12px;
+    padding: 4px 8px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    z-index: 2;
+}
+
+/* ===== CANDIDATE DOCUMENTS ===== */
+.candidate-documents {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--light-border);
+}
+
+.documents-header {
+    color: var(--text-muted);
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 8px;
+}
+
+.document-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid var(--light-border);
+    border-radius: 6px;
+    padding: 6px 10px;
+    margin-bottom: 6px;
+    transition: all 0.2s ease;
+}
+
+.document-item:hover {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(139, 92, 246, 0.3);
+}
+
+.document-info {
+    flex: 1;
+}
+
+.document-name {
+    color: var(--text-primary);
+    font-size: 0.8rem;
+    font-weight: 500;
+    margin-bottom: 2px;
+}
+
+.document-meta {
+    color: var(--text-muted);
+    font-size: 0.7rem;
+}
+
+.document-actions {
+    display: flex;
+    gap: 5px;
+}
+
+.btn-document-action {
+    background: transparent;
+    border: 1px solid var(--light-border);
+    border-radius: 4px;
+    color: var(--text-muted);
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.btn-document-action:hover {
+    background: var(--dark-bg);
+    color: var(--text-primary);
+    border-color: var(--text-muted);
+}
+
+.btn-document-action.primary {
+    background: var(--primary-gradient);
+    border-color: rgba(139, 92, 246, 0.5);
+    color: white;
+}
+
+.btn-document-action.primary:hover {
+    background: rgba(139, 92, 246, 0.8);
+}
+
+/* ===== CANDIDATE ONBOARDING STATUS ===== */
+.onboarding-status {
+    margin-top: 12px;
+    padding: 10px;
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.1), rgba(5, 150, 105, 0.05));
+    border: 1px solid rgba(16, 185, 129, 0.2);
+    border-radius: 8px;
+}
+
+.onboarding-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+}
+
+.onboarding-title {
+    color: var(--text-primary);
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
+.onboarding-stage {
+    background: var(--accent-gradient);
+    color: white;
+    border-radius: 6px;
+    padding: 2px 6px;
+    font-size: 0.7rem;
+    font-weight: 600;
+}
+
+.onboarding-progress {
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 4px;
+    height: 6px;
+    overflow: hidden;
+    margin-bottom: 8px;
+}
+
+.onboarding-progress-bar {
+    height: 100%;
+    background: var(--accent-gradient);
+    transition: width 0.3s ease;
+}
+
+.onboarding-info {
+    color: var(--text-muted);
+    font-size: 0.75rem;
+    display: flex;
+    justify-content: space-between;
+}
 </style>
 <div id="main-content">
 
@@ -982,11 +1268,8 @@
                         <span>Messages</span>
                     </div>
 
+                    <!-- In the current conversation section -->
                     <?php if (isset($conversation)): ?>
-                    <div class="nav-separator">
-                        <i class="fa fa-chevron-right"></i>
-                    </div>
-
                     <div class="current-conversation cosmic-glow">
                         <div class="conversation-avatar">
                             <div class="avatar-glow">
@@ -1000,11 +1283,30 @@
                             </div>
                         </div>
                         <div class="conversation-info">
-                            <h4 class="agency-name">
-                                <?php echo htmlspecialchars($conversation->agency_name); ?></h4>
+                            <h4 class="agency-name"><?php echo htmlspecialchars($conversation->agency_name); ?></h4>
                             <p class="conversation-context">
+                                <!-- Add chat type indicator -->
+                                <?php if (!empty($conversation->candidate_id)): ?>
+                                <span style="color: #8B5CF6; margin-right: 8px;">
+                                    <i class="fa fa-user"></i> Candidate Chat
+                                </span>
+                                <?php else: ?>
+                                <span style="color: #10B981; margin-right: 8px;">
+                                    <i class="fa fa-comments"></i> General Chat
+                                </span>
+                                <?php endif; ?>
+
                                 <i class="fa fa-briefcase"></i>
                                 <?php echo $conversation->job_name ? htmlspecialchars($conversation->job_name) : 'Direct Message'; ?>
+
+                                <!-- Show candidate info if this is a candidate chat -->
+                                <?php if (!empty($conversation->candidate_name)): ?>
+                                <br>
+                                <i class="fa fa-user" style="margin-right: 5px;"></i>
+                                <span style="color: var(--text-accent);">
+                                    <?= htmlspecialchars($conversation->candidate_name) ?>
+                                </span>
+                                <?php endif; ?>
                             </p>
                         </div>
                         <?php if (isset($conversation) && isset($conversation->unread_count) && $conversation->unread_count > 0): ?>
@@ -1043,6 +1345,31 @@
                         <input type="text" class="form-control" placeholder="Find or start a conversation"
                             style="background-color: transparent; border: none; color: #ffffff; font-size: 0.9rem;"
                             autocomplete="off">
+                    </div>
+                </div>
+
+                <!-- Add this Chat Type Tabs section after the Search Box -->
+                <!-- Chat Type Tabs -->
+                <div class="px-3 pt-3" style="border-bottom: 1px solid #36393f;">
+                    <div class="d-flex" style="gap: 5px;">
+                        <button
+                            class="btn btn-sm flex-fill chat-type-tab <?= empty($_GET['chat_type']) || $_GET['chat_type'] == 'all' ? 'active' : '' ?>"
+                            data-chat-type="all" style="background: <?= empty($_GET['chat_type']) || $_GET['chat_type'] == 'all' ? 'linear-gradient(135deg, #7289da, #5b6eae)' : '#2f3136' ?>; 
+                   color: white; border: none; border-radius: 8px; padding: 8px 0; font-size: 0.8rem;">
+                            <i class="fa fa-comments mr-1"></i> All Chats
+                        </button>
+                        <button
+                            class="btn btn-sm flex-fill chat-type-tab <?= isset($_GET['chat_type']) && $_GET['chat_type'] == 'candidate' ? 'active' : '' ?>"
+                            data-chat-type="candidate" style="background: <?= isset($_GET['chat_type']) && $_GET['chat_type'] == 'candidate' ? 'linear-gradient(135deg, #8B5CF6, #7C3AED)' : '#2f3136' ?>; 
+                   color: white; border: none; border-radius: 8px; padding: 8px 0; font-size: 0.8rem;">
+                            <i class="fa fa-user mr-1"></i> Candidate
+                        </button>
+                        <button
+                            class="btn btn-sm flex-fill chat-type-tab <?= isset($_GET['chat_type']) && $_GET['chat_type'] == 'general' ? 'active' : '' ?>"
+                            data-chat-type="general" style="background: <?= isset($_GET['chat_type']) && $_GET['chat_type'] == 'general' ? 'linear-gradient(135deg, #10B981, #059669)' : '#2f3136' ?>; 
+                   color: white; border: none; border-radius: 8px; padding: 8px 0; font-size: 0.8rem;">
+                            <i class="fa fa-comments mr-1"></i> General
+                        </button>
                     </div>
                 </div>
 
@@ -1111,52 +1438,136 @@
 
                     <!-- Available Agencies with Notification Status -->
                     <?php if (!empty($available_agencies)): ?>
-                    <div class="sidebar-section">
-                        <h6 class="text-muted px-3 py-2 mt-3" style="font-size: 0.8rem; letter-spacing: 0.5px;">
-                            AVAILABLE AGENCIES
-                            <span class="section-badge new">New</span>
-                        </h6>
-                        <div class="list-group" style="background-color: transparent;">
-                            <?php foreach ($available_agencies as $agency): ?>
-                            <?php 
-                            // Check if this agency already has a conversation
-                            $has_conversation = false;
-                            $agency_conversation = null;
-                            foreach ($all_conversations as $conv) {
-                                if ($conv->agency_id == $agency->id) {
-                                    $has_conversation = true;
-                                    $agency_conversation = $conv;
-                                    break;
-                                }
-                            }
-                            ?>
+                    <?php 
+// Filter conversations based on tab selection
+$filtered_conversations = $all_conversations;
+if (isset($_GET['chat_type']) && $_GET['chat_type'] == 'candidate') {
+    $filtered_conversations = array_filter($all_conversations, function($conv) {
+        return !empty($conv->candidate_id);
+    });
+} elseif (isset($_GET['chat_type']) && $_GET['chat_type'] == 'general') {
+    $filtered_conversations = array_filter($all_conversations, function($conv) {
+        return empty($conv->candidate_id);
+    });
+}
+?>
 
-                            <?php if (!$has_conversation): ?>
-                            <a href="<?php echo site_url('recruiter/chat/quick_start/' . $agency->id); ?>"
-                                class="list-group-item list-group-item-action d-flex align-items-center agency-item"
-                                style="border: none; border-radius: 8px; margin-bottom: 5px; padding: 10px 15px; transition: all 0.2s; border-left: 3px solid #25D366 !important;">
-                                <div class="agency-avatar mr-3 position-relative">
+                    <!-- Update the sidebar section header -->
+                    <div class="sidebar-section">
+                        <h6 class="text-muted px-3 py-2" style="font-size: 0.8rem; letter-spacing: 0.5px;">
+                            <?php if (isset($_GET['chat_type']) && $_GET['chat_type'] == 'candidate'): ?>
+                            <i class="fa fa-user mr-1" style="color: #8B5CF6;"></i> CANDIDATE CHATS
+                            <?php elseif (isset($_GET['chat_type']) && $_GET['chat_type'] == 'general'): ?>
+                            <i class="fa fa-comments mr-1" style="color: #10B981;"></i> GENERAL CHATS
+                            <?php else: ?>
+                            <i class="fa fa-comments mr-1"></i> ALL CHATS
+                            <?php endif; ?>
+
+                            <?php if (isset($total_unread_count) && $total_unread_count > 0): ?>
+                            <span class="section-badge"><?php echo $total_unread_count; ?></span>
+                            <?php endif; ?>
+                        </h6>
+
+                        <?php if (empty($filtered_conversations)): ?>
+                        <div class="text-center py-4">
+                            <i class="fa fa-comments fa-2x mb-2" style="color: #7289da;"></i>
+                            <p class="text-muted" style="font-size: 0.8rem;">
+                                <?php if (isset($_GET['chat_type']) && $_GET['chat_type'] == 'candidate'): ?>
+                                No candidate chats yet
+                                <?php elseif (isset($_GET['chat_type']) && $_GET['chat_type'] == 'general'): ?>
+                                No general chats yet
+                                <?php else: ?>
+                                No chats yet
+                                <?php endif; ?>
+                            </p>
+                        </div>
+                        <?php else: ?>
+                        <div class="list-group" style="background-color: transparent;">
+                            <?php foreach ($filtered_conversations as $conv): ?>
+                            <a href="<?php echo site_url('recruiter/chat/conversation/' . $conv->uuid); ?>"
+                                class="list-group-item list-group-item-action d-flex align-items-center conversation-item <?php echo (isset($conversation) && $conversation->uuid == $conv->uuid) ? 'active' : ''; ?>"
+                                style="border: none; border-radius: 8px; margin-bottom: 5px; padding: 10px 15px; transition: all 0.2s; <?= !empty($conv->candidate_id) ? 'border-left: 3px solid #8B5CF6 !important;' : 'border-left: 3px solid #10B981 !important;' ?>"
+                                data-conversation-uuid="<?php echo $conv->uuid; ?>">
+
+                                <div class="conversation-avatar mr-3 position-relative">
                                     <div class="avatar"
-                                        style="width: 40px; height: 40px; border-radius: 50%; background-color: #25D366; display: flex; align-items: center; justify-content: center; font-weight: bold; color: #ffffff;">
-                                        <?php echo substr(htmlspecialchars($agency->name), 0, 1); ?>
+                                        style="width: 40px; height: 40px; border-radius: 50%; background-color: <?= !empty($conv->candidate_id) ? '#8B5CF6' : '#10B981' ?>; display: flex; align-items: center; justify-content: center; font-weight: bold; color: #ffffff;">
+                                        <?php echo substr(htmlspecialchars($conv->agency_name), 0, 1); ?>
                                     </div>
+                                    <?php if (isset($conv->is_online) && $conv->is_online): ?>
                                     <div class="online-indicator"></div>
+                                    <?php endif; ?>
                                 </div>
-                                <div class="flex-grow-1">
-                                    <h6 class="mb-0" style="color: #ffffff; font-weight: 500;">
-                                        <?php echo htmlspecialchars($agency->name); ?>
-                                    </h6>
-                                    <small class="text-muted d-block" style="font-size: 0.75rem;">
-                                        <span class="text-success">● Online</span> - Click to start chat
+
+                                <div class="flex-grow-1" style="min-width: 0;">
+                                    <!-- Agency Name with Chat Type Badge -->
+                                    <div class="d-flex align-items-center mb-1">
+                                        <h6 class="mb-0" style="color: #ffffff; font-weight: 500; margin-right: 8px;">
+                                            <?php echo htmlspecialchars($conv->agency_name); ?>
+                                        </h6>
+
+                                        <!-- Chat Type Badge -->
+                                        <span class="chat-type-badge"
+                                            style="font-size: 0.65rem; padding: 2px 6px; border-radius: 10px; <?= !empty($conv->candidate_id) ? 'background: rgba(139, 92, 246, 0.2); color: #C4B5FD;' : 'background: rgba(16, 185, 129, 0.2); color: #A7F3D0;' ?>">
+                                            <?php if (!empty($conv->candidate_id)): ?>
+                                            <i class="fa fa-user mr-1" style="font-size: 0.6rem;"></i> Candidate
+                                            <?php else: ?>
+                                            <i class="fa fa-comments mr-1" style="font-size: 0.6rem;"></i> General
+                                            <?php endif; ?>
+                                        </span>
+                                    </div>
+
+                                    <!-- Candidate Info (only for candidate chats) -->
+                                    <?php if (!empty($conv->candidate_name)): ?>
+                                    <small class="d-block"
+                                        style="color: #C4B5FD; font-size: 0.7rem; font-weight: 500; margin: 3px 0; display: flex; align-items: center; gap: 4px;">
+                                        <i class="fa fa-user-circle" style="font-size: 0.6rem;"></i>
+                                        <?= htmlspecialchars($conv->candidate_name) ?>
+                                        <?php if (!empty($conv->candidate_ref)): ?>
+                                        <span
+                                            style="color: rgba(196, 181, 253, 0.7);">(<?= htmlspecialchars($conv->candidate_ref) ?>)</span>
+                                        <?php endif; ?>
+                                    </small>
+                                    <?php endif; ?>
+
+                                    <!-- Job Info -->
+                                    <?php if (!empty($conv->job_name)): ?>
+                                    <small class="d-block"
+                                        style="color: #9CA3AF; font-size: 0.7rem; margin: 2px 0; display: flex; align-items: center; gap: 4px;">
+                                        <i class="fa fa-briefcase" style="font-size: 0.6rem;"></i>
+                                        <?= htmlspecialchars($conv->job_name) ?>
+                                    </small>
+                                    <?php endif; ?>
+
+                                    <!-- Message Preview -->
+                                    <small class="text-muted d-block conversation-preview"
+                                        style="font-size: 0.75rem; margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"
+                                        data-conversation-uuid="<?= $conv->uuid; ?>">
+                                        <?php if (isset($conv->unread_count) && $conv->unread_count > 0): ?>
+                                        <strong
+                                            style="color: #ffffff;"><?php echo htmlspecialchars($conv->last_message ?: 'New message'); ?></strong>
+                                        <?php else: ?>
+                                        <?php echo htmlspecialchars($conv->last_message ?: 'No messages yet'); ?>
+                                        <?php endif; ?>
                                     </small>
                                 </div>
-                                <div class="text-right ml-2">
-                                    <i class="fa fa-plus text-success"></i>
+
+                                <div class="text-right ml-2" style="min-width: 40px;">
+                                    <small class="text-muted d-block conversation-time" style="font-size: 0.7rem;"
+                                        data-conversation-uuid="<?php echo $conv->uuid; ?>">
+                                        <?php echo time_ago($conv->last_message_at ?: $conv->created_at); ?>
+                                    </small>
+                                    <?php if (isset($conv->unread_count) && $conv->unread_count > 0): ?>
+                                    <span class="conversation-badge" data-conversation-uuid="<?php echo $conv->uuid; ?>"
+                                        style="<?= !empty($conv->candidate_id) ? 'background: linear-gradient(135deg, #8B5CF6, #7C3AED);' : 'background: linear-gradient(135deg, #10B981, #059669);' ?>">
+                                        <?php echo $conv->unread_count > 99 ? '99+' : $conv->unread_count; ?>
+                                    </span>
+                                    <?php endif; ?>
                                 </div>
                             </a>
-                            <?php endif; ?>
                             <?php endforeach; ?>
                         </div>
+                        <?php endif; ?>
                     </div>
                     <?php endif; ?>
                 </div>
@@ -1257,13 +1668,7 @@
                             style="border-color: #e0e0e0; background-color: #f0f0f0; height: 60px; flex-shrink: 0; min-height: 60px;">
 
                             <form id="messageForm" class="h-100">
-                                <input type="hidden" id="conversationUuid"
-                                    value="<?php echo isset($conversation) ? $conversation->uuid : ''; ?>">
-                                <!-- Remove or keep conversationId if needed for other purposes -->
-                                <input type="hidden" id="conversationId"
-                                    value="<?php echo isset($conversation) ? $conversation->id : ''; ?>">
-                                <input type="hidden" id="conversationUuid"
-                                    value="<?php echo isset($conversation) ? $conversation->uuid : ''; ?>">
+
                                 <div class="input-group h-100"
                                     style="background-color: #ffffff; border-radius: 20px; padding: 2px;">
                                     <div class="input-group-prepend h-100">
@@ -1287,7 +1692,11 @@
                                         </button>
                                     </div>
                                 </div>
-                                <input type="hidden" id="conversationId" value="<?php echo $conversation->id; ?>">
+                                <input type="hidden" id="conversationUuid"
+                                    value="<?php echo isset($conversation) ? $conversation->uuid : ''; ?>">
+
+                                <input type="hidden" name="<?php echo $this->security->get_csrf_token_name(); ?>"
+                                    value="<?php echo $this->security->get_csrf_hash(); ?>">
                             </form>
                         </div>
                     </div>
@@ -1392,7 +1801,201 @@
                         </div>
 
                         <!-- Conversation Context -->
+                        <!-- Candidate Information (If this is a candidate-specific chat) -->
+                        <?php if (isset($candidate_details) && $candidate_details): ?>
+                        <div class="sidebar-section">
+                            <div class="sidebar-header"
+                                style="display: flex; align-items: center; justify-content: space-between;">
+                                <span>Candidate</span>
+                                <span class="candidate-context-badge">Active Chat</span>
+                            </div>
+
+                            <div class="candidate-chat-widget">
+                                <!-- Candidate Header -->
+                                <div class="candidate-widget-header">
+                                    <div class="candidate-avatar">
+                                        <?php echo substr(htmlspecialchars($candidate_details->first_name), 0, 1) . substr(htmlspecialchars($candidate_details->last_name), 0, 1); ?>
+                                    </div>
+                                    <div class="candidate-info">
+                                        <h5><?php echo htmlspecialchars($candidate_details->first_name . ' ' . $candidate_details->last_name); ?>
+                                        </h5>
+                                        <small>
+                                            <i class="fa fa-id-card"></i>
+                                            <?php echo htmlspecialchars($candidate_details->reference_number); ?>
+                                        </small>
+                                    </div>
+                                </div>
+
+                                <!-- Candidate Details Grid -->
+                                <div class="candidate-details-grid">
+                                    <div class="candidate-detail-item">
+                                        <div class="detail-label">Status</div>
+                                        <div class="detail-value">
+                                            <?php 
+                    $status = $candidate_details->status ?? 'new';
+                    $status_labels = [
+                        'new' => 'New',
+                        'reviewed' => 'Reviewed',
+                        'shortlisted' => 'Shortlisted',
+                        'interviewed' => 'Interviewed',
+                        'rejected' => 'Rejected',
+                        'hired' => 'Hired',
+                        'on_hold' => 'On Hold'
+                    ];
+                    echo isset($status_labels[$status]) ? $status_labels[$status] : ucfirst($status);
+                    ?>
+                                        </div>
+                                    </div>
+
+                                    <div class="candidate-detail-item">
+                                        <div class="detail-label">Email</div>
+                                        <div class="detail-value">
+                                            <?php echo htmlspecialchars($candidate_details->email ?? 'N/A'); ?>
+                                        </div>
+                                    </div>
+
+                                    <div class="candidate-detail-item">
+                                        <div class="detail-label">Phone</div>
+                                        <div class="detail-value">
+                                            <?php echo htmlspecialchars($candidate_details->phone ?? 'N/A'); ?>
+                                        </div>
+                                    </div>
+
+                                    <div class="candidate-detail-item">
+                                        <div class="detail-label">Applied</div>
+                                        <div class="detail-value">
+                                            <?php echo date('M d, Y', strtotime($candidate_details->application_date ?? 'now')); ?>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Candidate Actions -->
+                                <div class="candidate-chat-actions">
+                                    <a href="<?php echo site_url('recruiter/candidates/view/' . $candidate_details->id); ?>"
+                                        class="btn-candidate-action" target="_blank">
+                                        <i class="fa fa-eye"></i>
+                                        View Profile
+                                    </a>
+                                    <a href="<?php echo site_url('recruiter/candidates/edit/' . $candidate_details->id); ?>"
+                                        class="btn-candidate-action secondary" target="_blank">
+                                        <i class="fa fa-edit"></i>
+                                        Edit
+                                    </a>
+                                </div>
+
+                                <!-- Onboarding Status (if available) -->
+                                <?php if (isset($candidate_details->onboarding_stage) && $candidate_details->onboarding_stage !== 'not_started'): ?>
+                                <div class="onboarding-status">
+                                    <div class="onboarding-header">
+                                        <span class="onboarding-title">Onboarding Progress</span>
+                                        <span class="onboarding-stage">
+                                            <?php 
+                    $stage = $candidate_details->onboarding_stage ?? 'not_started';
+                    $stage_labels = [
+                        'not_started' => 'Not Started',
+                        'stage_under_review' => 'Under Review',
+                        'stage_submitted_to_hm' => 'Submitted to HM',
+                        'stage_hm_decision' => 'HM Decision',
+                        'stage_documents_decision' => 'Docs Decision',
+                        'stage_requested_docs' => 'Docs Requested',
+                        'stage_position_offered' => 'Position Offered',
+                        'completed' => 'Completed'
+                    ];
+                    echo isset($stage_labels[$stage]) ? $stage_labels[$stage] : ucfirst(str_replace('_', ' ', $stage));
+                    ?>
+                                        </span>
+                                    </div>
+                                    <div class="onboarding-progress">
+                                        <div class="onboarding-progress-bar"
+                                            style="width: <?php echo min(100, max(0, $candidate_details->onboarding_progress ?? 0)); ?>%">
+                                        </div>
+                                    </div>
+                                    <div class="onboarding-info">
+                                        <span><?php echo min(100, max(0, $candidate_details->onboarding_progress ?? 0)); ?>%
+                                            Complete</span>
+                                        <span>
+                                            <?php if ($candidate_details->onboarding_completed_at): ?>
+                                            Completed:
+                                            <?php echo date('M d', strtotime($candidate_details->onboarding_completed_at)); ?>
+                                            <?php else: ?>
+                                            In Progress
+                                            <?php endif; ?>
+                                        </span>
+                                    </div>
+                                </div>
+                                <?php endif; ?>
+
+                                <!-- Recent Documents (if any) -->
+                                <?php 
+        // You'll need to pass candidate documents to the view
+        if (isset($candidate_documents) && !empty($candidate_documents)): 
+            $recent_docs = array_slice($candidate_documents, 0, 3); // Show only 3 most recent
+        ?>
+                                <div class="candidate-documents">
+                                    <div class="documents-header">
+                                        <i class="fa fa-file-alt"></i>
+                                        Recent Documents
+                                    </div>
+                                    <?php foreach ($recent_docs as $doc): ?>
+                                    <div class="document-item">
+                                        <div class="document-info">
+                                            <div class="document-name">
+                                                <?php echo htmlspecialchars($doc->document_name); ?>
+                                            </div>
+                                            <div class="document-meta">
+                                                <?php echo date('M d', strtotime($doc->created_at)); ?>
+                                                • <?php echo $this->format_file_size($doc->file_size); ?>
+                                            </div>
+                                        </div>
+                                        <div class="document-actions">
+                                            <a href="<?php echo base_url($doc->file_path); ?>"
+                                                class="btn-document-action primary" target="_blank" title="Download">
+                                                <i class="fa fa-download"></i>
+                                            </a>
+                                        </div>
+                                    </div>
+                                    <?php endforeach; ?>
+                                    <?php if (count($candidate_documents) > 3): ?>
+                                    <a href="<?php echo site_url('recruiter/candidates/view/' . $candidate_details->id . '#documents'); ?>"
+                                        class="btn-candidate-action secondary" style="width: 100%; margin-top: 8px;"
+                                        target="_blank">
+                                        <i class="fa fa-folder-open"></i>
+                                        View All Documents (<?php echo count($candidate_documents); ?>)
+                                    </a>
+                                    <?php endif; ?>
+                                </div>
+                                <?php endif; ?>
+
+                                <!-- Switch to General Chat Button -->
+                                <div class="candidate-chat-actions" style="margin-top: 12px;">
+                                    <button class="btn-candidate-action secondary" id="switchToGeneralChat"
+                                        style="width: 100%;">
+                                        <i class="fa fa-exchange-alt"></i>
+                                        Switch to General Chat
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Job Information -->
                         <?php if ($conversation->job_name): ?>
+                        <div class="sidebar-section">
+                            <div class="sidebar-header">Job Information</div>
+                            <div class="info-card">
+                                <div class="info-card-title">Position</div>
+                                <div class="info-card-value"><?php echo htmlspecialchars($conversation->job_name); ?>
+                                </div>
+                                <?php if ($candidate_details->job_ref): ?>
+                                <div class="info-card-description">
+                                    Reference: <?php echo htmlspecialchars($candidate_details->job_ref); ?>
+                                </div>
+                                <?php endif; ?>
+                            </div>
+                        </div>
+                        <?php endif; ?>
+
+                        <?php elseif ($conversation->job_name): ?>
+                        <!-- If not candidate-specific, show regular job context -->
                         <div class="sidebar-section">
                             <div class="sidebar-header">Conversation Context</div>
                             <div class="info-card">
@@ -1448,138 +2051,101 @@
 
 
 <script>
-// ===== CSRF INITIALIZATION =====
-// Ensure CSRF variables exist
-if (typeof csrfName === 'undefined') {
-    window.csrfName = '<?php echo $this->security->get_csrf_token_name(); ?>';
-}
-
-if (typeof csrf === 'undefined') {
-    window.csrf = '<?php echo $this->security->get_csrf_hash(); ?>';
-}
-
-// ===== LOADING CHECK =====
-console.log("=== RECRUITER CHAT LOADING CHECK ===");
-
-// Check if core.js is loaded
-if (typeof ajax_post === 'undefined') {
-    console.error("WARNING: core.js not loaded or ajax_post not defined!");
-    console.error("This page needs core.js to be loaded before this script.");
-    console.error("Make sure core.js is included in your HTML before this script.");
-
-    // Let's check what scripts are loaded
-    console.log("Loaded scripts:", Array.from(document.querySelectorAll('script[src]')).map(s => s.src));
-}
-
-// Check if we're in the right context
-if (!window.location.href.includes('/recruiter/chat/')) {
-    console.warn("This script is designed for /recruiter/chat/ pages");
-}
-
-// Create standalone ajax_post if missing
-if (typeof ajax_post === 'undefined') {
-    console.log("Creating complete standalone ajax_post function");
-
-    // ===== IMPROVED AJAX_POST FUNCTION =====
-    // Create standalone ajax_post if missing or override existing one
-    console.log("Creating/updating ajax_post function...");
-
-    window.ajax_post = function(path, params, callback, options) {
-        // Add CSRF token to params
-        const csrfName = window.csrfName || 'csrf_rfid_token';
-        const csrfToken = window.csrf || '';
-
-        params[csrfName] = csrfToken;
-
-        // Build URL - USE RECRUITER PATH
-        let url = path;
-        const dynamicPath = window.dynamicPath || 'http://localhost/shoesmith/recruiter';
-
-        if (dynamicPath && !path.startsWith('http')) {
-            url = dynamicPath + '/' + path.replace(/^\//, '');
-        }
-
-        // Use FormData to ensure proper form submission
-        const formData = new FormData();
-
-        // Add all params to FormData
-        Object.keys(params).forEach(key => {
-            formData.append(key, params[key]);
-        });
-
-        // Use fetch instead of jQuery for better control
-        fetch(url, {
-                method: 'POST',
-                body: formData,
-                headers: {
-                    'X-Requested-With': 'XMLHttpRequest'
-                }
-            })
-            .then(response => response.json())
-            .then(data => {
-                // Update CSRF if returned
-                if (data.csrf) {
-                    window.csrf = data.csrf;
-                    // Update hidden CSRF field if exists
-                    const csrfInput = document.querySelector('input[name="' + csrfName + '"]');
-                    if (csrfInput) {
-                        csrfInput.value = data.csrf;
-                    }
-                }
-
-                if (typeof callback === 'function') {
-                    callback(data);
-                }
-            })
-            .catch(error => {
-                console.error('AJAX error:', error);
-                if (typeof callback === 'function') {
-                    callback({
-                        success: false,
-                        message: 'AJAX error'
-                    });
-                }
-            });
-    };
-
-    console.log("✅ ajax_post function created successfully");
-}
-
-// ===== CHECK DEPENDENCIES =====
-console.log("=== CHECKING DEPENDENCIES ===");
-console.log("jQuery:", typeof jQuery !== 'undefined' ? "LOADED" : "MISSING");
-console.log("ajax_post:", typeof ajax_post !== 'undefined' ? "LOADED" : "MISSING");
-console.log("csrfName:", typeof csrfName !== 'undefined' ? csrfName : "MISSING");
-console.log("csrf:", typeof csrf !== 'undefined' ? (csrf ? "LOADED" : "EMPTY") : "MISSING");
-console.log("dynamicPath:", typeof dynamicPath !== 'undefined' ? dynamicPath : "MISSING");
-
-// Fix missing dynamicPath for recruiter
-if (typeof dynamicPath === 'undefined') {
-    dynamicPath = window.location.origin + '/shoesmith/recruiter';
-    console.log("Set dynamicPath to:", dynamicPath);
-}
+// ============================================
+// RECRUITER CHAT SYSTEM - FIXED FOR REAL-TIME UPDATES
+// ============================================
 
 // ===== GLOBAL STATE =====
 let chatState = {
     isSending: false,
     isPolling: false,
     lastMessageId: <?php echo !empty($messages) ? end($messages)->id : 0; ?>,
-    currentConversationId: document.getElementById('conversationId') ? document.getElementById('conversationId')
-        .value : null,
-    currentConversationUuid: document.getElementById('conversationUuid') ? document.getElementById(
-        'conversationUuid').value : null, // Read from hidden field
-    hasMarkedAsRead: false,
-    userIsActive: false,
-    newMessageReceivedTime: null,
-    focusTimeout: null
+    currentConversationUuid: null,
+    displayedMessageIds: new Set(),
+    pollInterval: null,
+    conversationInterval: null,
+    activePolling: true,
+    csrfToken: '<?php echo $this->security->get_csrf_hash(); ?>',
+    csrfTokenName: '<?php echo $this->security->get_csrf_token_name(); ?>'
 };
+
+// Initialize displayed message IDs from existing messages
+function initializeDisplayedMessages() {
+    const existingMessages = document.querySelectorAll('#chatMessages [data-message-id]');
+    existingMessages.forEach(msg => {
+        const msgId = msg.dataset.messageId;
+        if (msgId && !msgId.startsWith('temp_')) {
+            chatState.displayedMessageIds.add(parseInt(msgId));
+        }
+    });
+    console.log(`Initialized ${chatState.displayedMessageIds.size} displayed messages`);
+}
 
 // ===== UTILITY FUNCTIONS =====
 function scrollToBottom() {
     const chatMessages = document.getElementById('chatMessages');
     if (chatMessages) {
-        chatMessages.scrollTop = chatMessages.scrollHeight;
+        // Wait for DOM update
+        setTimeout(() => {
+            // Scroll to the very bottom
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+
+            // Force a re-check after a short delay
+            setTimeout(() => {
+                if (chatMessages.scrollTop + chatMessages.clientHeight < chatMessages.scrollHeight -
+                    50) {
+                    chatMessages.scrollTop = chatMessages.scrollHeight;
+                }
+            }, 100);
+        }, 50);
     }
+}
+
+// ===== MESSAGE DISPLAY FUNCTIONS =====
+function createMessageElement(message, isRecruiter = false) {
+    const messageDiv = document.createElement('div');
+    messageDiv.className = `d-flex ${isRecruiter ? 'justify-content-end' : 'justify-content-start'} mb-2`;
+    messageDiv.dataset.messageId = message.id;
+
+    const senderName = isRecruiter ? 'You' : (message.sender_name || 'Agency');
+    const bgColor = isRecruiter ? '#dcf8c6' : '#ffffff';
+    const borderRadius = isRecruiter ? '7.5px 7.5px 0 7.5px' : '7.5px 7.5px 7.5px 0';
+
+    // Format time
+    const messageTime = new Date(message.created_at);
+    const timeString = messageTime.toLocaleTimeString([], {
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+
+    messageDiv.innerHTML = `
+        <div class="message-container" style="max-width: 70%;">
+            <div class="message-content d-flex align-items-baseline ${isRecruiter ? 'justify-content-end' : 'justify-content-start'}">
+                <div class="message-text-time d-inline-flex align-items-baseline" 
+                     style="background-color: ${bgColor}; 
+                            padding: 8px 12px; 
+                            border-radius: ${borderRadius};
+                            box-shadow: 0 1px 0.5px rgba(0,0,0,0.13);">
+                    <span class="message-text" style="font-size: 14.2px; color: #303030; line-height: 1.3; margin-right: 8px;">
+                        ${escapeHtml(message.message)}
+                    </span>
+                    <span class="message-meta d-inline-flex align-items-center">
+                        <small class="message-time" style="font-size: 11px; color: #667781; white-space: nowrap;">
+                            ${timeString}
+                        </small>
+                        ${isRecruiter ? `
+                            <span class="message-status" style="margin-left: 4px;">
+                                <i class="fa fa-check${message.is_read ? '-double' : ''}" 
+                                   style="font-size: 10px; color: ${message.is_read ? '#128C7E' : '#667781'};"></i>
+                            </span>
+                        ` : ''}
+                    </span>
+                </div>
+            </div>
+        </div>
+    `;
+
+    return messageDiv;
 }
 
 function escapeHtml(text) {
@@ -1589,22 +2155,343 @@ function escapeHtml(text) {
     return div.innerHTML;
 }
 
-function getTimeAgo(timestamp) {
-    const now = new Date();
-    const messageTime = new Date(timestamp);
-    const diffMs = now - messageTime;
-    const diffMins = Math.floor(diffMs / 60000);
-    const diffHours = Math.floor(diffMs / 3600000);
-    const diffDays = Math.floor(diffMs / 86400000);
+function addMessageToDisplay(message, isRecruiter = false) {
+    const chatMessages = document.getElementById('chatMessages');
+    if (!chatMessages) return;
 
-    if (diffMins < 1) return 'Just now';
-    if (diffMins < 60) return `${diffMins}m`;
-    if (diffHours < 24) return `${diffHours}h`;
-    if (diffDays < 7) return `${diffDays}d`;
-    return messageTime.toLocaleDateString();
+    // Check if message already displayed
+    if (chatState.displayedMessageIds.has(parseInt(message.id))) {
+        return;
+    }
+
+    // Create message wrapper
+    const messageWrapper = document.createElement('div');
+    messageWrapper.className = `d-flex ${isRecruiter ? 'justify-content-end' : 'justify-content-start'} mb-2`;
+    messageWrapper.style.flexShrink = '0'; // Prevent shrinking
+    messageWrapper.dataset.messageId = message.id;
+
+    // Create message element
+    const messageElement = createMessageElement(message, isRecruiter);
+    messageWrapper.appendChild(messageElement);
+
+    // Add to chat messages
+    chatMessages.appendChild(messageWrapper);
+    chatState.displayedMessageIds.add(parseInt(message.id));
+
+    // Update last message ID
+    if (parseInt(message.id) > chatState.lastMessageId) {
+        chatState.lastMessageId = parseInt(message.id);
+    }
+
+    // Always scroll to bottom for new messages
+    scrollToBottom();
 }
 
-// ===== NOTIFICATION FUNCTIONS =====
+
+// ===== AJAX REQUEST HANDLER WITH PROPER ERROR HANDLING =====
+// ===== FIXED AJAX REQUEST HANDLER =====
+async function makeAjaxRequest(url, data = {}) {
+    // Create FormData
+    const formData = new FormData();
+
+    // Add CSRF token
+    formData.append(chatState.csrfTokenName, chatState.csrfToken);
+
+    // Add other data
+    Object.keys(data).forEach(key => {
+        formData.append(key, data[key]);
+    });
+
+    try {
+        // Build the full URL - FIXED VERSION
+        let fullUrl = url;
+
+        // If URL doesn't start with http, it's a relative URL
+        if (!url.startsWith('http')) {
+            // Get the current page's base URL
+            const currentPath = window.location.pathname;
+
+            // If we're on a conversation page like /recruiter/chat/conversation/UUID
+            // we need to go back to the base chat URL
+            if (currentPath.includes('/conversation/')) {
+                // Extract base URL: remove everything after /conversation/
+                const basePath = currentPath.substring(0, currentPath.indexOf('/conversation/'));
+                fullUrl = basePath + '/' + url.replace(/^\//, '');
+            } else {
+                // Otherwise use the current directory
+                const basePath = window.location.pathname.replace(/\/[^\/]*$/, '');
+                fullUrl = basePath + '/' + url.replace(/^\//, '');
+            }
+
+            // Make it a full URL
+            fullUrl = window.location.origin + fullUrl;
+        }
+
+        console.log(`Making AJAX request to: ${fullUrl}`);
+
+        const response = await fetch(fullUrl, {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        });
+
+        // Check if response is JSON
+        const contentType = response.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+            const text = await response.text();
+
+            // Handle 403 Forbidden (likely CSRF error)
+            if (response.status === 403) {
+                console.error('403 Forbidden - CSRF or session issue');
+
+                // Try to get new CSRF token and retry once
+                const csrfResponse = await fetch(window.location.origin +
+                    '/shoesmith/recruiter/chat/ajax_get_conversations', {
+                        method: 'POST',
+                        headers: {
+                            'X-Requested-With': 'XMLHttpRequest'
+                        }
+                    });
+
+                if (csrfResponse.ok) {
+                    const csrfResult = await csrfResponse.json();
+                    if (csrfResult.csrf) {
+                        // Update CSRF and retry
+                        chatState.csrfToken = csrfResult.csrf;
+                        console.log('CSRF token updated, retrying...');
+                        return await makeAjaxRequest(url, data); // Retry once
+                    }
+                }
+
+                return {
+                    success: false,
+                    message: 'Access forbidden (403)'
+                };
+            }
+
+            return {
+                success: false,
+                message: 'Server returned non-JSON response'
+            };
+        }
+
+        // Parse JSON response
+        const result = await response.json();
+
+        // Update CSRF token if provided
+        if (result.csrf) {
+            chatState.csrfToken = result.csrf;
+
+            // Update hidden input if exists
+            const csrfInput = document.querySelector(`input[name="${chatState.csrfTokenName}"]`);
+            if (csrfInput) {
+                csrfInput.value = result.csrf;
+            }
+        }
+
+        return result;
+    } catch (error) {
+        console.error('AJAX request failed:', error);
+        return {
+            success: false,
+            message: error.message
+        };
+    }
+}
+
+// ===== POLLING FUNCTIONS =====
+async function fetchNewMessages() {
+    if (chatState.isPolling || !chatState.currentConversationUuid || !chatState.activePolling) {
+        return;
+    }
+
+    chatState.isPolling = true;
+
+    try {
+        // First check session
+        const sessionValid = await checkSession();
+        if (!sessionValid) {
+            console.log('Session invalid, stopping polling');
+            stopPolling();
+            return;
+        }
+
+        const response = await makeAjaxRequest('ajax_get_messages', {
+            conversation_uuid: chatState.currentConversationUuid,
+            last_message_id: chatState.lastMessageId
+        });
+
+        console.log("Poll response:", response);
+
+        if (response.success) {
+            // Process messages...
+        } else {
+            console.error("Poll error:", response.message);
+
+            // If session expired, redirect
+            if (response.message && response.message.includes('Session expired')) {
+                stopPolling();
+                window.location.href = '<?php echo site_url("recruiter/login"); ?>';
+            }
+        }
+
+    } catch (error) {
+        console.error("Poll fetch error:", error);
+    } finally {
+        chatState.isPolling = false;
+    }
+}
+
+async function markMessageAsRead(messageId) {
+    try {
+        // Only mark as read if we have a valid message ID
+        if (!messageId || typeof messageId !== 'number') {
+            console.log('Invalid message ID for mark read:', messageId);
+            return;
+        }
+
+        console.log('Marking message as read:', messageId);
+
+        const response = await makeAjaxRequest('ajax_mark_message_read', {
+            message_id: messageId
+        });
+
+        if (response.success) {
+            console.log('Message marked as read successfully');
+        } else {
+            console.log('Failed to mark message as read:', response.message);
+        }
+    } catch (error) {
+        console.error("Mark read error:", error);
+    }
+}
+async function checkSession() {
+    try {
+        const response = await makeAjaxRequest('ajax_check_session', {});
+
+        if (response.success === false && response.message.includes('not logged in')) {
+            console.warn('Session expired, redirecting to login...');
+            window.location.href = '<?php echo site_url("recruiter/login"); ?>';
+            return false;
+        }
+
+        return true;
+    } catch (error) {
+        console.error('Session check failed:', error);
+        return false;
+    }
+}
+async function fetchUpdatedConversations() {
+    if (!chatState.activePolling) return;
+
+    try {
+        const response = await makeAjaxRequest(
+            '<?php echo site_url("recruiter/chat/ajax_get_conversations"); ?>', {});
+
+        if (response.success && response.conversations) {
+            updateSidebarConversationBadges(response.conversations);
+            if (response.total_unread_count !== undefined) {
+                updateAllNotificationBadges(response.total_unread_count);
+            }
+        }
+    } catch (error) {
+        console.error("Conversations fetch error:", error);
+    }
+}
+
+// ===== MESSAGE SENDING =====
+async function sendMessage() {
+    const messageInput = document.getElementById('messageInput');
+    const messageText = messageInput.value.trim();
+
+    if (!messageText || chatState.isSending || !chatState.currentConversationUuid) {
+        return;
+    }
+
+    chatState.isSending = true;
+
+    // Show optimistic message
+    const tempId = Date.now();
+    const tempMessage = {
+        id: 'temp_' + tempId,
+        message: messageText,
+        created_at: new Date().toISOString(),
+        sender_type: 'recruiter',
+        is_read: false,
+        sender_name: 'You'
+    };
+
+    addMessageToDisplay(tempMessage, true);
+    messageInput.value = '';
+    messageInput.focus();
+
+    try {
+        const response = await makeAjaxRequest('<?php echo site_url("recruiter/chat/ajax_send_message"); ?>', {
+            conversation_uuid: chatState.currentConversationUuid,
+            message: messageText
+        });
+
+        console.log("Send response:", response);
+
+        if (response.success) {
+            // Remove temp message
+            const tempMsg = document.querySelector(`[data-message-id="temp_${tempId}"]`);
+            if (tempMsg) tempMsg.remove();
+
+            // Add real message if provided
+            if (response.message_id) {
+                // Create message object from response
+                const messageObj = {
+                    id: response.message_id,
+                    message: messageText,
+                    created_at: new Date().toISOString(),
+                    sender_type: 'recruiter',
+                    is_read: false,
+                    sender_name: 'You'
+                };
+                addMessageToDisplay(messageObj, true);
+
+                // Update last message ID
+                if (response.message_id > chatState.lastMessageId) {
+                    chatState.lastMessageId = parseInt(response.message_id);
+                }
+            }
+
+            // Refresh conversations
+            setTimeout(fetchUpdatedConversations, 500);
+
+            console.log("Message sent successfully");
+        } else {
+            // Handle error - remove optimistic message
+            const tempMsg = document.querySelector(`[data-message-id="temp_${tempId}"]`);
+            if (tempMsg) tempMsg.remove();
+
+            // Restore message to input
+            messageInput.value = messageText;
+
+            console.error("Send error:", response.message);
+            alert(response.message || "Failed to send message");
+        }
+
+    } catch (error) {
+        console.error("Send fetch error:", error);
+
+        // Remove optimistic message
+        const tempMsg = document.querySelector(`[data-message-id="temp_${tempId}"]`);
+        if (tempMsg) tempMsg.remove();
+
+        // Restore message to input
+        messageInput.value = messageText;
+
+        alert("Network error. Please try again.");
+    } finally {
+        chatState.isSending = false;
+    }
+}
+
+// ===== SIDEBAR FUNCTIONS =====
 function updateAllNotificationBadges(totalUnreadCount) {
     const globalBadge = document.getElementById('globalNotificationBadge');
     if (globalBadge) {
@@ -1627,46 +2514,16 @@ function updateAllNotificationBadges(totalUnreadCount) {
     }
 }
 
-function markNotificationsAsRead() {
-    const convUuid = chatState.currentConversationUuid; // Need to add this to chatState
-    if (!convUuid) return;
-
-    console.log("Marking notifications as read for conversation:", convUuid);
-
-    ajax_post('ajax_mark_notifications_read', {
-        conversation_uuid: convUuid // Changed from conversation_id to conversation_uuid
-    }, function(res) {
-        console.log("Mark read response:", res);
-        if (res.success) {
-            chatState.hasMarkedAsRead = true;
-            updateAllNotificationBadges(res.unread_count);
-            fetchUpdatedConversations();
+function updateSidebarConversationBadges(conversationsData) {
+    conversationsData.forEach(conv => {
+        const conversationItem = document.querySelector(
+            `.conversation-item[data-conversation-uuid="${conv.uuid}"]`);
+        if (conversationItem) {
+            updateSingleConversationBadge(conversationItem, conv);
         }
     });
 }
 
-function markNotificationsOnUserAction() {
-    if (chatState.currentConversationUuid && !chatState.hasMarkedAsRead) { // Changed to UUID
-        markNotificationsAsRead();
-    }
-}
-
-function resetMarkedStateForNewMessages() {
-    chatState.hasMarkedAsRead = false;
-    chatState.newMessageReceivedTime = Date.now();
-}
-
-function shouldAllowMarkAsRead() {
-    if (chatState.newMessageReceivedTime) {
-        const timeSinceNewMessage = Date.now() - chatState.newMessageReceivedTime;
-        if (timeSinceNewMessage < 5000) {
-            return false;
-        }
-    }
-    return true;
-}
-
-// ===== SIDEBAR FUNCTIONS =====
 function updateSingleConversationBadge(conversationItem, convData) {
     let badge = conversationItem.querySelector('.conversation-badge');
 
@@ -1674,7 +2531,7 @@ function updateSingleConversationBadge(conversationItem, convData) {
         if (!badge) {
             badge = document.createElement('span');
             badge.className = 'conversation-badge';
-            badge.setAttribute('data-conversation-uuid', convData.uuid); // Changed to uuid
+            badge.setAttribute('data-conversation-uuid', convData.uuid);
 
             const textRightDiv = conversationItem.querySelector('.text-right');
             if (textRightDiv) {
@@ -1715,301 +2572,164 @@ function updateSingleConversationBadge(conversationItem, convData) {
 
         previewElement.innerHTML = previewText;
     }
-
-    const timeElement = conversationItem.querySelector('.conversation-time');
-    if (timeElement && convData.last_message_at) {
-        timeElement.textContent = getTimeAgo(convData.last_message_at);
-    }
-}
-
-function updateSidebarConversationBadges(conversationsData) {
-    conversationsData.forEach(conv => {
-        const conversationItem = document.querySelector(
-            `.conversation-item[data-conversation-uuid="${conv.uuid}"]`);
-        if (conversationItem) {
-            updateSingleConversationBadge(conversationItem, conv);
-        }
-    });
-}
-
-// ===== CHAT FUNCTIONS =====
-function fetchNewMessages() {
-    if (chatState.isPolling || !chatState.currentConversationUuid) return;
-
-    chatState.isPolling = true;
-    console.log("Fetching new messages...");
-
-    ajax_post('ajax_get_messages', {
-        conversation_uuid: chatState.currentConversationUuid,
-        last_message_id: chatState.lastMessageId
-    }, function(res) {
-        console.log("New messages response:", res);
-        if (res.success) {
-            if (res.last_message_id && res.last_message_id > chatState.lastMessageId) {
-                chatState.lastMessageId = parseInt(res.last_message_id);
-            }
-
-            if (res.has_new_messages && res.html) {
-                document.querySelectorAll('[data-message-id^="temp-"]').forEach(tempMsg => {
-                    tempMsg.remove();
-                });
-
-                const chatMessages = document.getElementById('chatMessages');
-                if (chatMessages) {
-                    chatMessages.insertAdjacentHTML('beforeend', res.html);
-                    scrollToBottom();
-                }
-
-                if (res.has_new_messages) {
-                    resetMarkedStateForNewMessages();
-                    setTimeout(fetchUpdatedConversations, 300);
-                }
-            }
-        }
-        chatState.isPolling = false;
-    });
-}
-
-function fetchUpdatedConversations() {
-    console.log("Fetching updated conversations...");
-
-    ajax_post('ajax_get_conversations', {}, function(data) {
-        console.log("Conversations response:", data);
-        if (data.success && data.conversations) {
-            updateSidebarConversationBadges(data.conversations);
-            if (data.total_unread_count !== undefined) {
-                updateAllNotificationBadges(data.total_unread_count);
-            }
-        }
-    });
-}
-
-function sendMessage() {
-    console.log("=== SEND MESSAGE DEBUG ===");
-
-    if (chatState.isSending) {
-        console.log("Already sending, skipping");
-        return;
-    }
-
-    const messageInput = document.getElementById('messageInput');
-    const messageText = messageInput.value.trim();
-
-    console.log("1. Message text:", messageText);
-    console.log("2. Conversation UUID:", chatState.currentConversationUuid);
-    console.log("3. CSRF Name:", csrfName);
-    console.log("4. CSRF Value:", csrf ? "YES (" + csrf.substring(0, 10) + "...)" : "NO");
-    console.log("5. dynamicPath:", dynamicPath);
-
-    if (!messageText) {
-        console.log("Empty message, skipping");
-        alert("Please type a message first");
-        return;
-    }
-
-    if (!chatState.currentConversationId) {
-        console.error("No conversation ID selected!");
-        alert("Please select a conversation first");
-        return;
-    }
-
-    chatState.isSending = true;
-    console.log("6. Setting isSending to true");
-
-    const submitButton = document.querySelector('#messageForm button[type="submit"]');
-    let originalHtml = '';
-    if (submitButton) {
-        originalHtml = submitButton.innerHTML;
-        submitButton.disabled = true;
-        submitButton.innerHTML = '<i class="fa fa-spinner fa-spin"></i>';
-        console.log("7. Updated submit button");
-    }
-
-    console.log("10. Calling ajax_post...");
-
-    ajax_post('ajax_send_message', {
-        conversation_uuid: chatState.currentConversationUuid,
-        message: messageText
-    }, function(res) {
-        console.log("=== SEND MESSAGE RESPONSE ===");
-        console.log("Response received:", res);
-        console.log("Success:", res.success);
-        console.log("Message:", res.message);
-        console.log("Has CSRF in response:", !!res.csrf);
-
-        if (res.success) {
-            console.log("✅ Message sent successfully!");
-            console.log("Message ID:", res.message_id);
-            messageInput.value = '';
-
-            // Refresh conversations and messages
-            setTimeout(function() {
-                console.log("Refreshing conversations...");
-                fetchUpdatedConversations();
-                fetchNewMessages();
-            }, 300);
-        } else {
-            console.error("❌ Failed to send message:", res.message);
-
-            // Show user-friendly error
-            let errorMsg = "Failed to send message";
-            if (res.message) {
-                errorMsg += ": " + res.message;
-            }
-            alert(errorMsg);
-
-            // If CSRF error, try to update token
-            if (res.message && res.message.includes('CSRF')) {
-                console.log("CSRF error detected, updating token...");
-                if (res.csrf) {
-                    csrf = res.csrf;
-                    console.log("CSRF updated to:", csrf.substring(0, 10) + "...");
-                }
-            }
-        }
-
-        // Reset UI
-        if (submitButton) {
-            submitButton.disabled = false;
-            submitButton.innerHTML = originalHtml;
-            console.log("Reset submit button");
-        }
-
-        chatState.isSending = false;
-        console.log("Setting isSending to false");
-
-        // Refocus on input
-        if (messageInput) {
-            setTimeout(() => {
-                messageInput.focus();
-                console.log("Refocused on message input");
-            }, 100);
-        }
-    });
 }
 
 // ===== EVENT LISTENERS =====
 function setupEventListeners() {
-    const messageInput = document.getElementById('messageInput');
-    const chatMessages = document.getElementById('chatMessages');
     const messageForm = document.getElementById('messageForm');
+    const messageInput = document.getElementById('messageInput');
 
-    console.log("Setting up event listeners...");
-
-    // Prevent default form submission
+    // Form submission
     if (messageForm) {
-        console.log("Setting up message form listener");
-        messageForm.addEventListener('submit', function(e) {
-            console.log("Form submit event fired");
+        // Remove existing listeners
+        const newForm = messageForm.cloneNode(true);
+        messageForm.parentNode.replaceChild(newForm, messageForm);
+
+        // Add new listener
+        document.getElementById('messageForm').addEventListener('submit', function(e) {
             e.preventDefault();
             e.stopPropagation();
-            console.log("Prevented default form submission");
             sendMessage();
             return false;
         });
-
-        // Also prevent Enter key from submitting form normally
-        if (messageInput) {
-            messageInput.addEventListener('keydown', function(e) {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                    console.log("Enter key pressed in message input");
-                    e.preventDefault();
-                    sendMessage();
-                }
-            });
-        }
     }
 
+    // Message input - Enter key
     if (messageInput) {
-        messageInput.addEventListener('input', function() {
-            chatState.userIsActive = true;
-            if (shouldAllowMarkAsRead()) {
-                markNotificationsOnUserAction();
+        messageInput.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+                return false;
             }
         });
 
-        messageInput.addEventListener('focus', function() {
-            chatState.userIsActive = true;
-            if (chatState.focusTimeout) {
-                clearTimeout(chatState.focusTimeout);
-            }
-            chatState.focusTimeout = setTimeout(() => {
-                if (shouldAllowMarkAsRead()) {
-                    markNotificationsOnUserAction();
-                }
-            }, 2000);
-        });
-
-        messageInput.addEventListener('blur', function() {
-            if (chatState.focusTimeout) {
-                clearTimeout(chatState.focusTimeout);
-                chatState.focusTimeout = null;
-            }
-        });
+        // Focus input
+        setTimeout(() => {
+            messageInput.focus();
+        }, 1000);
     }
-
-    if (chatMessages) {
-        chatMessages.addEventListener('click', function() {
-            chatState.userIsActive = true;
-            if (shouldAllowMarkAsRead()) {
-                markNotificationsOnUserAction();
-            }
-        });
-    }
-
-    console.log("Event listeners setup complete");
 }
 
-// ===== POLLING =====
+// ===== POLLING MANAGEMENT =====
 function startPolling() {
     console.log("Starting polling...");
-    setInterval(fetchNewMessages, 3000);
-    setInterval(fetchUpdatedConversations, 4000);
+
+    // Clear any existing intervals
+    if (chatState.pollInterval) clearInterval(chatState.pollInterval);
+    if (chatState.conversationInterval) clearInterval(chatState.conversationInterval);
+
+    // Message polling every 2 seconds (faster for real-time)
+    chatState.pollInterval = setInterval(fetchNewMessages, 2000);
+
+    // Conversation polling every 10 seconds
+    chatState.conversationInterval = setInterval(fetchUpdatedConversations, 10000);
+
+    // Initial fetches
+    setTimeout(fetchNewMessages, 500);
+    setTimeout(fetchUpdatedConversations, 1000);
+}
+
+function stopPolling() {
+    console.log("Stopping polling...");
+    chatState.activePolling = false;
+
+    if (chatState.pollInterval) {
+        clearInterval(chatState.pollInterval);
+        chatState.pollInterval = null;
+    }
+
+    if (chatState.conversationInterval) {
+        clearInterval(chatState.conversationInterval);
+        chatState.conversationInterval = null;
+    }
 }
 
 // ===== INITIALIZATION =====
-document.addEventListener('DOMContentLoaded', function() {
+function initializeChatSystem() {
     console.log('=== RECRUITER CHAT SYSTEM INITIALIZING ===');
 
-    // Test CSRF first
-    console.log('Testing CSRF configuration...');
-    console.log('CSRF Name:', csrfName);
-    console.log('CSRF Value:', csrf ? csrf.substring(0, 10) + '...' : 'EMPTY');
+    // Get current conversation UUID
+    const uuidField = document.getElementById('conversationUuid');
+    if (uuidField && uuidField.value) {
+        chatState.currentConversationUuid = uuidField.value;
+        console.log("Current conversation UUID:", chatState.currentConversationUuid);
+    } else {
+        console.error("No conversation UUID found!");
+        return;
+    }
 
-    // Make initial test call
-    ajax_post('ajax_get_conversations', {
-        init: true
-    }, function(data) {
-        console.log('CSRF Test:', data.success ? 'PASSED ✓' : 'FAILED ✗');
-        console.log('Test response:', data);
+    // Initialize displayed messages
+    initializeDisplayedMessages();
 
-        if (data.success) {
-            console.log('Recruiter chat system ready! Starting...');
+    // Setup event listeners
+    setupEventListeners();
 
-            // Initial scroll
-            setTimeout(scrollToBottom, 100);
+    // Wait for layout to settle, then scroll to bottom
+    setTimeout(() => {
+        scrollToBottom();
 
-            // Setup event listeners
-            setupEventListeners();
+        // Force one more scroll after images/avatars load
+        setTimeout(scrollToBottom, 500);
+    }, 300);
 
-            // Start polling
-            startPolling();
+    // Start polling
+    startPolling();
 
-            // Focus on input
-            const messageInput = document.getElementById('messageInput');
-            if (messageInput) {
-                setTimeout(() => {
-                    console.log("Focusing on message input");
-                    messageInput.focus();
-                }, 500);
-            }
+    console.log('=== RECRUITER CHAT SYSTEM INITIALIZED ===');
+}
 
-            console.log('=== RECRUITER CHAT SYSTEM INITIALIZED SUCCESSFULLY ===');
-        } else {
-            console.error('CSRF test failed:', data.message);
-            console.error('Please check CSRF configuration');
-            alert('Chat system initialization failed: ' + data.message);
-        }
-    });
+// ===== PAGE VISIBILITY =====
+document.addEventListener('visibilitychange', function() {
+    if (document.hidden) {
+        stopPolling();
+    } else {
+        chatState.activePolling = true;
+        startPolling();
+    }
 });
+
+// ===== MAIN INITIALIZATION =====
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('DOM Content Loaded - Initializing Chat System');
+
+    // Wait a bit for everything to load
+    setTimeout(initializeChatSystem, 500);
+});
+
+// ===== DEBUG FUNCTIONS =====
+window.debugChat = function() {
+    console.log("=== CHAT DEBUG INFO ===");
+    console.log("State:", {
+        currentConversationUuid: chatState.currentConversationUuid,
+        lastMessageId: chatState.lastMessageId,
+        displayedMessageIds: Array.from(chatState.displayedMessageIds),
+        isSending: chatState.isSending,
+        isPolling: chatState.isPolling,
+        activePolling: chatState.activePolling,
+        csrfToken: chatState.csrfToken ? 'Available' : 'Missing'
+    });
+
+    // Force a poll
+    fetchNewMessages();
+};
+
+// Add debug button for testing
+setTimeout(() => {
+    const debugBtn = document.createElement('button');
+    debugBtn.innerHTML = '🔧 Debug Chat';
+    debugBtn.style.position = 'fixed';
+    debugBtn.style.bottom = '10px';
+    debugBtn.style.right = '10px';
+    debugBtn.style.zIndex = '9999';
+    debugBtn.style.padding = '8px 12px';
+    debugBtn.style.background = '#007bff';
+    debugBtn.style.color = 'white';
+    debugBtn.style.border = 'none';
+    debugBtn.style.borderRadius = '5px';
+    debugBtn.style.cursor = 'pointer';
+    debugBtn.style.fontSize = '12px';
+    debugBtn.onclick = window.debugChat;
+    document.body.appendChild(debugBtn);
+}, 2000);
 </script>
