@@ -32,10 +32,6 @@
         <?= form_hidden('id', !empty($row->id) ? $row->id : 0); ?>
         <?= form_hidden('action', !empty($row->id) ? 'update' : 'create'); ?>
 
-        <!-- Remove these hidden fields as they might be causing conflicts -->
-        <!-- <?= form_hidden('agency_id', !empty($row->agency_id) ? $row->agency_id : ''); ?> -->
-        <!-- <?= form_hidden('job_id', !empty($row->job_id) ? $row->job_id : ''); ?> -->
-
         <!-- Tab 1: Personal -->
         <div rel="1" class="qm-tabs-tab active">
             <div class="row">
@@ -308,7 +304,7 @@
             </div>
         </div>
 
-        <!-- Tab 5: Required Documents (Clean and Simplified) -->
+        <!-- Tab 5: Required Documents -->
         <?php if ((isset($has_pending_documents_request) && $has_pending_documents_request === true) || (isset($force_required_tab) && $force_required_tab === true)): ?>
 
         <div rel="5" class="qm-tabs-tab">
@@ -322,10 +318,16 @@
 
             <!-- Single Unified Upload Form -->
             <div class="unified-documents-form">
-                <div id="unifiedDocumentsForm" enctype="multipart/form-data">
+                <form id="unifiedDocumentsForm" method="POST" enctype="multipart/form-data">
+                    <!-- Add CSRF token here -->
+                    <input type="hidden" name="<?= $this->security->get_csrf_token_name() ?>"
+                        value="<?= $this->security->get_csrf_hash() ?>">
+
                     <input type="hidden" name="candidate_id" value="<?= $row->id ?>">
                     <input type="hidden" name="is_required_documents" value="1">
+                    <?php if (!empty($pending_notification_id)): ?>
                     <input type="hidden" name="notification_id" value="<?= $pending_notification_id ?>">
+                    <?php endif; ?>
 
                     <!-- Document Upload Fields -->
                     <div class="document-upload-section">
@@ -340,7 +342,7 @@
                                             <label>Document Name *</label>
                                             <input type="text" name="required_documents[0][name]"
                                                 class="form-control document-name"
-                                                placeholder="e.g., ID Copy, Degree Certificate" required>
+                                                placeholder="e.g., ID Copy, Degree Certificate" data-required="true">
                                         </div>
                                     </div>
                                     <div class="col-md-4">
@@ -348,7 +350,7 @@
                                             <label>File *</label>
                                             <input type="file" name="required_documents[0][file]"
                                                 class="form-control document-file"
-                                                accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" required>
+                                                accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" data-required="true">
                                         </div>
                                     </div>
                                     <div class="col-md-3">
@@ -390,11 +392,11 @@
 
                     <!-- Submit Button -->
                     <div class="text-center mt-4">
-                        <button type="button" class="btn btn-success btn-lg" id="submitDocumentsBtn">
+                        <button type="submit" class="btn btn-success btn-lg" id="submitDocumentsBtn">
                             <i class="fa fa-paper-plane"></i> Submit All Documents to Agency
                         </button>
                     </div>
-                </div>
+                </form>
             </div>
 
             <!-- Previously Submitted Documents Section -->
@@ -453,7 +455,6 @@ function smartCloseForm() {
         window.location.href = '<?= site_url("recruiter/candidates") ?>';
     }
 }
-// ========== REFERENCE NUMBER HANDLING ==========
 // ========== REFERENCE NUMBER HANDLING ==========
 function initializeReferenceNumber() {
     const referenceField = document.getElementById('reference_number');
@@ -558,48 +559,6 @@ function customSaveForm(el) {
         alert('Form not found. Please refresh the page and try again.');
         return;
     }
-
-    // REMOVED: No longer require jobs/agencies to be selected
-    // This allows candidates to exist without job assignments
-
-    console.log('Form validation passed, submitting via AJAX...');
-
-    // Submit the form via AJAX
-    submitFormData(form);
-}
-
-function customSaveForm(el) {
-    const form = document.getElementById('mainCandidateForm');
-
-    if (!form) {
-        console.error('Form not found');
-        alert('Form not found. Please refresh the page and try again.');
-        return;
-    }
-
-    // Ensure at least one job is selected
-    // const jobSelects = form.querySelectorAll('select[name="additional_job_ids[]"] option:checked');
-    // if (jobSelects.length === 0) {
-    //     alert('Please select at least one job for this candidate.');
-    //     // Switch to Agency & Job tab
-    //     const jobTab = document.querySelector('.qm-tabs-header li[rel="4"]');
-    //     if (jobTab) {
-    //         jobTab.click();
-    //     }
-    //     return;
-    // }
-
-    // Ensure at least one agency is selected  
-    // const agencySelects = form.querySelectorAll('select[name="additional_agency_ids[]"] option:checked');
-    // if (agencySelects.length === 0) {
-    //     alert('Please select at least one agency for this candidate.');
-    //     // Switch to Agency & Job tab
-    //     const jobTab = document.querySelector('.qm-tabs-header li[rel="4"]');
-    //     if (jobTab) {
-    //         jobTab.click();
-    //     }
-    //     return;
-    // }
 
     console.log('Form validation passed, submitting via AJAX...');
 
@@ -788,6 +747,354 @@ document.addEventListener('DOMContentLoaded', function() {
         console.log('This should be a CREATE operation');
     }
 });
+
+// ========== CLEAN DOCUMENTS FORM SETUP ==========
+
+// Function to setup the documents form
+function setupDocumentsForm() {
+    console.log('Setting up documents form...');
+
+    // Find the form or create it if missing
+    let form = document.getElementById('unifiedDocumentsForm');
+
+    if (!form) {
+        console.log('Form not found, checking if we need to create it...');
+
+        const unifiedDiv = document.querySelector('.unified-documents-form');
+        if (!unifiedDiv) {
+            console.error('unified-documents-form div not found');
+            return;
+        }
+
+        // Check if form fields exist but form wrapper is missing
+        if (unifiedDiv.querySelector('input[name="candidate_id"]') &&
+            !unifiedDiv.querySelector('form')) {
+
+            console.log('Form wrapper missing, creating it...');
+
+            // Create form element
+            form = document.createElement('form');
+            form.id = 'unifiedDocumentsForm';
+            form.method = 'POST';
+            form.enctype = 'multipart/form-data';
+
+            // Move all children from div to form
+            while (unifiedDiv.firstChild) {
+                form.appendChild(unifiedDiv.firstChild);
+            }
+
+            // Add form back to div
+            unifiedDiv.appendChild(form);
+
+            console.log('✅ Form created successfully');
+        }
+    }
+
+    // Get the form (should exist now)
+    form = document.getElementById('unifiedDocumentsForm');
+    if (!form) {
+        console.error('Form still not found after setup');
+        return;
+    }
+
+    // Fix submit button
+    const submitBtn = document.getElementById('submitDocumentsBtn');
+    if (submitBtn) {
+        // Change button type to submit
+        submitBtn.type = 'submit';
+
+        // Add form submit handler
+        form.addEventListener('submit', handleDocumentsFormSubmit);
+
+        console.log('✅ Form setup complete');
+    }
+}
+
+// Function to handle form submission
+// Function to handle form submission
+async function handleDocumentsFormSubmit(e) {
+    e.preventDefault();
+    console.log('Form submission started...');
+
+    const form = e.target;
+    const submitBtn = form.querySelector('#submitDocumentsBtn');
+
+    if (!submitBtn) {
+        console.error('Submit button not found');
+        return;
+    }
+
+    // Save original button state
+    const originalText = submitBtn.innerHTML;
+    const originalDisabled = submitBtn.disabled;
+
+    // Show loading state
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Submitting...';
+
+    try {
+        // Validate form
+        const nameInputs = form.querySelectorAll('.document-name');
+        const fileInputs = form.querySelectorAll('.document-file');
+        let isValid = true;
+        let errorMessages = [];
+
+        nameInputs.forEach((input, index) => {
+            if (!input.value.trim()) {
+                isValid = false;
+                input.classList.add('is-invalid');
+                errorMessages.push(`Document ${index + 1}: Name is required`);
+            } else {
+                input.classList.remove('is-invalid');
+            }
+        });
+
+        fileInputs.forEach((input, index) => {
+            if (!input.files || input.files.length === 0) {
+                isValid = false;
+                input.classList.add('is-invalid');
+                errorMessages.push(`Document ${index + 1}: File is required`);
+            } else {
+                // Check file size (max 10MB)
+                const file = input.files[0];
+                if (file.size > 10 * 1024 * 1024) {
+                    isValid = false;
+                    input.classList.add('is-invalid');
+                    errorMessages.push(`Document ${index + 1}: File size exceeds 10MB`);
+                } else {
+                    input.classList.remove('is-invalid');
+                }
+            }
+        });
+
+        if (!isValid) {
+            alert('Please fix the following errors:\n\n' + errorMessages.join('\n'));
+            submitBtn.disabled = originalDisabled;
+            submitBtn.innerHTML = originalText;
+            return;
+        }
+
+        // Create FormData
+        const formData = new FormData(form);
+
+        // Submit via AJAX
+        const response = await fetch(
+            '<?php echo site_url("recruiter/candidates/upload_required_documents"); ?>', {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            });
+
+        const result = await response.json();
+        console.log('Submission result:', result);
+
+        if (result.success) {
+            // Show success message
+            if (typeof toastr !== 'undefined') {
+                toastr.success(result.message || 'Documents submitted successfully!');
+            } else {
+                alert(result.message || 'Documents submitted successfully!');
+            }
+
+            // CRITICAL FIX: Check if we should redirect
+            if (result.redirect && result.redirect_url) {
+                console.log('Redirecting to:', result.redirect_url);
+                // Short delay to show success message
+                setTimeout(() => {
+                    window.location.href = result.redirect_url;
+                }, 1500);
+            } else {
+                // Close the modal or refresh
+                setTimeout(() => {
+                    if (typeof close_qm === 'function') {
+                        close_qm();
+                    } else if (typeof smartCloseForm === 'function') {
+                        smartCloseForm();
+                    } else {
+                        window.location.reload();
+                    }
+                }, 1500);
+            }
+        } else {
+            // Show error
+            if (typeof toastr !== 'undefined') {
+                toastr.error(result.error || 'Failed to submit documents');
+            } else {
+                alert('Error: ' + (result.error || 'Failed to submit documents'));
+            }
+
+            submitBtn.disabled = originalDisabled;
+            submitBtn.innerHTML = originalText;
+        }
+
+    } catch (error) {
+        console.error('Submission error:', error);
+        alert('Error submitting documents: ' + error.message);
+        submitBtn.disabled = originalDisabled;
+        submitBtn.innerHTML = originalText;
+    }
+}
+
+// Function to add more document fields
+function addDocumentField() {
+    const container = document.getElementById('documentUploadContainer');
+    if (!container) return;
+
+    const count = container.querySelectorAll('.document-upload-row').length;
+    const index = count;
+
+    const newRow = document.createElement('div');
+    newRow.className = 'document-upload-row mb-3 p-3 border rounded';
+    newRow.innerHTML = `
+        <div class="row">
+            <div class="col-md-4">
+                <div class="form-group">
+                    <label>Document Name *</label>
+                    <input type="text" name="required_documents[${index}][name]" 
+                           class="form-control document-name" 
+                           placeholder="e.g., ID Copy, Degree Certificate" 
+                           data-required="true">
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="form-group">
+                    <label>File *</label>
+                    <input type="file" name="required_documents[${index}][file]" 
+                           class="form-control document-file" 
+                           accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" 
+                           data-required="true">
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="form-group">
+                    <label>Description (Optional)</label>
+                    <textarea name="required_documents[${index}][description]" 
+                              class="form-control document-description" 
+                              rows="1" 
+                              placeholder="Brief description..."></textarea>
+                </div>
+            </div>
+            <div class="col-md-1">
+                <div class="form-group">
+                    <label>&nbsp;</label>
+                    <button type="button" class="btn btn-outline-danger btn-block remove-document" style="margin-top: 32px;">
+                        <i class="fa fa-trash"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+
+    container.appendChild(newRow);
+
+    // Enable remove button for the first row if this is the second row
+    if (index === 1) {
+        const firstRemoveBtn = container.querySelector('.document-upload-row:first-child .remove-document');
+        if (firstRemoveBtn) {
+            firstRemoveBtn.disabled = false;
+        }
+    }
+
+    // Add event listener to the new remove button
+    const removeBtn = newRow.querySelector('.remove-document');
+    if (removeBtn) {
+        removeBtn.addEventListener('click', function() {
+            newRow.remove();
+            updateDocumentIndices();
+        });
+    }
+
+    console.log(`Added document field ${index + 1}`);
+}
+
+// Function to update document indices after removal
+function updateDocumentIndices() {
+    const rows = document.querySelectorAll('.document-upload-row');
+    rows.forEach((row, index) => {
+        // Update name inputs
+        const nameInput = row.querySelector('.document-name');
+        if (nameInput) {
+            nameInput.name = `required_documents[${index}][name]`;
+        }
+
+        // Update file inputs
+        const fileInput = row.querySelector('.document-file');
+        if (fileInput) {
+            fileInput.name = `required_documents[${index}][file]`;
+        }
+
+        // Update description inputs
+        const descInput = row.querySelector('.document-description');
+        if (descInput) {
+            descInput.name = `required_documents[${index}][description]`;
+        }
+    });
+
+    // Disable remove button if only one row remains
+    const removeButtons = document.querySelectorAll('.remove-document');
+    if (removeButtons.length === 1) {
+        removeButtons[0].disabled = true;
+    }
+}
+
+// Setup function for Tab 5
+function setupTab5() {
+    console.log('Setting up Tab 5...');
+
+    // Find the required documents tab header
+    const requiredTab = document.querySelector('.required-documents-tab');
+    if (requiredTab) {
+        console.log('Required documents tab found');
+
+        // Add click listener
+        requiredTab.addEventListener('click', function() {
+            console.log('Required documents tab clicked!');
+
+            // Wait for tab to become active
+            const checkTab = setInterval(() => {
+                const tab5 = document.querySelector('.qm-tabs-tab[rel="5"]');
+                if (tab5 && tab5.classList.contains('active')) {
+                    clearInterval(checkTab);
+                    console.log('Tab 5 is now active');
+
+                    // Setup the form
+                    setupDocumentsForm();
+
+                    // Setup add more button
+                    const addMoreBtn = document.getElementById('addMoreDocuments');
+                    if (addMoreBtn) {
+                        addMoreBtn.addEventListener('click', addDocumentField);
+                    }
+                }
+            }, 100);
+        });
+    }
+
+    // Check if Tab 5 is already active on page load
+    const activeTab = document.querySelector('.qm-tabs-tab.active');
+    if (activeTab && activeTab.getAttribute('rel') === '5') {
+        console.log('Tab 5 is already active on page load');
+
+        // Setup form and buttons
+        setupDocumentsForm();
+
+        const addMoreBtn = document.getElementById('addMoreDocuments');
+        if (addMoreBtn) {
+            addMoreBtn.addEventListener('click', addDocumentField);
+        }
+    }
+}
+
+// Initialize when page loads
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('DOM loaded, setting up Tab 5...');
+    setupTab5();
+});
+
+// Also run setup after a delay in case of dynamic loading
+setTimeout(setupTab5, 1000);
 </script>
 <style>
 .is-invalid {

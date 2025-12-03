@@ -305,6 +305,7 @@ public function __construct()
 
     public function index(): void
 {
+   
     // Get job_id from URL parameters for filtering
     $job_id = $this->input->get('job_id');
     
@@ -1061,127 +1062,169 @@ public function __construct()
             return null;
         }
 
-    public function upload_required_documents()
-        {
-            $candidate_id = $this->input->post('candidate_id');
-            $notification_id = $this->input->post('notification_id');
-            $submission_notes = $this->input->post('submission_notes');
-            
-            // Check if candidate exists and recruiter has access
-            $candidate = $this->{$this->model}->get_candidate($candidate_id);
-            if (empty($candidate)) {
-                ajax_return(['success' => false, 'message' => 'Candidate not found.']);
-                return;
-            }
-            
-            // Check access
-            $has_access = $this->{$this->model}->check_recruiter_candidate_access($this->get_recruiter_id(), $candidate_id);
-            if (!$has_access) {
-                ajax_return(['success' => false, 'message' => 'Access denied.']);
-                return;
-            }
-            
-            // Handle multiple document uploads
-            $uploaded_documents = [];
-            $errors = [];
-            
-            // Get the document data from POST
-            $document_names = $this->input->post('required_documents');
-            
-            if (!empty($document_names) && is_array($document_names)) {
-                foreach ($document_names as $index => $document_data) {
-                    if (!empty($document_data['name']) && isset($_FILES['required_documents']['name'][$index]['file'])) {
-                        $document_name = $document_data['name'];
-                        $description = isset($document_data['description']) ? $document_data['description'] : '';
-                        
-                        $upload_result = $this->upload_single_required_document(
-                            $candidate_id, 
-                            $document_name, 
-                            $description,
-                            $index
-                        );
-                        
-                        if ($upload_result['success']) {
-                            $uploaded_documents[] = $upload_result['document'];
-                        } else {
-                            $errors[] = "Document '{$document_name}': " . $upload_result['error'];
-                        }
-                    } else {
-                        $errors[] = "Document at index {$index} is missing name or file";
-                    }
+   public function upload_required_documents()
+{
+    // BETTER AJAX DETECTION
+    $is_ajax = $this->input->is_ajax_request() || 
+              (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && 
+               strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) == 'xmlhttprequest');
+    
+    $candidate_id = $this->input->post('candidate_id');
+    $notification_id = $this->input->post('notification_id');
+    $submission_notes = $this->input->post('submission_notes');
+    
+    // Check if candidate exists and recruiter has access
+    $candidate = $this->{$this->model}->get_candidate($candidate_id);
+    if (empty($candidate)) {
+        if ($is_ajax) {
+            ajax_return(['success' => false, 'message' => 'Candidate not found.']);
+        } else {
+            $this->session->set_flashdata('error', 'Candidate not found.');
+            redirect('recruiter/candidates');
+        }
+        return;
+    }
+    
+    // Check access
+    $has_access = $this->{$this->model}->check_recruiter_candidate_access($this->get_recruiter_id(), $candidate_id);
+    if (!$has_access) {
+        if ($is_ajax) {
+            ajax_return(['success' => false, 'message' => 'Access denied.']);
+        } else {
+            $this->session->set_flashdata('error', 'Access denied.');
+            redirect('recruiter/candidates');
+        }
+        return;
+    }
+    
+    // Handle multiple document uploads
+    $uploaded_documents = [];
+    $errors = [];
+    
+    // Get the document data from POST
+    $document_names = $this->input->post('required_documents');
+    
+    if (!empty($document_names) && is_array($document_names)) {
+        foreach ($document_names as $index => $document_data) {
+            if (!empty($document_data['name']) && isset($_FILES['required_documents']['name'][$index]['file'])) {
+                $document_name = $document_data['name'];
+                $description = isset($document_data['description']) ? $document_data['description'] : '';
+                
+                $upload_result = $this->upload_single_required_document(
+                    $candidate_id, 
+                    $document_name, 
+                    $description,
+                    $index
+                );
+                
+                if ($upload_result['success']) {
+                    $uploaded_documents[] = $upload_result['document'];
+                } else {
+                    $errors[] = "Document '{$document_name}': " . $upload_result['error'];
                 }
             } else {
-                ajax_return(['success' => false, 'message' => 'No document data received.']);
-                return;
-            }
-            
-            if (!empty($errors) && empty($uploaded_documents)) {
-                ajax_return(['success' => false, 'message' => 'All uploads failed: ' . implode(', ', $errors)]);
-                return;
-            }
-            
-            if (!empty($uploaded_documents)) {
-                // AUTO-UPDATE: Update the documents stage automatically
-                $stage_updated = false;
-                try {
-                    // Check if documents stage needs to be updated
-                    if (!$candidate->stage_requested_docs) {
-                        $stage_updated = $this->{$this->model}->check_and_update_documents_stage($candidate_id);
-                    }
-                } catch (Exception $e) {
-                }
-                
-                // Send notification to agency about submitted required documents
-                $this->load->model('recruiter/Model_notifications');
-                
-                // Check if the notification method exists
-                $notification_sent = false;
-                if (method_exists($this->Model_notifications, 'create_required_documents_submitted_notification')) {
-                    $notification_sent = $this->Model_notifications->create_required_documents_submitted_notification(
-                        $candidate_id, 
-                        $this->get_recruiter_id(), 
-                        count($uploaded_documents),
-                        $submission_notes,
-                        $notification_id
-                    );
-                } else {
-                    // Fallback to the existing documents uploaded notification
-                    $notification_sent = $this->Model_notifications->create_documents_uploaded_notification(
-                        $candidate_id,
-                        $this->get_recruiter_id(),
-                        count($uploaded_documents)
-                    );
-                }
-                
-                $message = count($uploaded_documents) . ' required document(s) submitted successfully!';
-                
-                // Add stage update information to message
-                if ($stage_updated) {
-                    $message .= ' Documents stage has been automatically updated to "Submitted".';
-                } else {
-                    $message .= ' Documents are now available for agency review.';
-                }
-                
-                if (!empty($errors)) {
-                    $message .= ' Some documents failed: ' . implode(', ', $errors);
-                }
-                
-                if (!$notification_sent) {
-                    $message .= ' (Note: Agency notification failed to send)';
-                }
-                
-                ajax_return([
-                    'success' => true, 
-                    'message' => $message, 
-                    'documents' => $uploaded_documents,
-                    'stage_updated' => $stage_updated
-                ]);
-            } else {
-                ajax_return(['success' => false, 'message' => 'No documents were successfully uploaded.']);
+                $errors[] = "Document at index {$index} is missing name or file";
             }
         }
+    } else {
+        if ($is_ajax) {
+            ajax_return(['success' => false, 'message' => 'No document data received.']);
+        } else {
+            $this->session->set_flashdata('error', 'No document data received.');
+            redirect('recruiter/candidates');
+        }
+        return;
+    }
+    
+    if (!empty($errors) && empty($uploaded_documents)) {
+        if ($is_ajax) {
+            ajax_return(['success' => false, 'message' => 'All uploads failed: ' . implode(', ', $errors)]);
+        } else {
+            $this->session->set_flashdata('error', 'All uploads failed: ' . implode(', ', $errors));
+            redirect('recruiter/candidates/view/' . $candidate_id);
+        }
+        return;
+    }
+    
+    if (!empty($uploaded_documents)) {
+        // AUTO-UPDATE: Update the documents stage automatically
+        $stage_updated = false;
+        try {
+            // Check if documents stage needs to be updated
+            if (!$candidate->stage_requested_docs) {
+                $stage_updated = $this->{$this->model}->check_and_update_documents_stage($candidate_id);
+            }
+        } catch (Exception $e) {
+            log_message('error', 'Stage update error: ' . $e->getMessage());
+        }
+        
+        // Send notification to agency about submitted required documents
+        $this->load->model('recruiter/Model_notifications');
+        
+        // Check if the notification method exists
+        $notification_sent = false;
+        if (method_exists($this->Model_notifications, 'create_required_documents_submitted_notification')) {
+            $notification_sent = $this->Model_notifications->create_required_documents_submitted_notification(
+                $candidate_id, 
+                $this->get_recruiter_id(), 
+                count($uploaded_documents),
+                $submission_notes,
+                $notification_id
+            );
+        } else {
+            // Fallback to the existing documents uploaded notification
+            $notification_sent = $this->Model_notifications->create_documents_uploaded_notification(
+                $candidate_id,
+                $this->get_recruiter_id(),
+                count($uploaded_documents)
+            );
+        }
+        
+        $message = count($uploaded_documents) . ' required document(s) submitted successfully!';
+        
+        // Add stage update information to message
+        if ($stage_updated) {
+            $message .= ' Documents stage has been automatically updated to "Submitted".';
+        } else {
+            $message .= ' Documents are now available for agency review.';
+        }
+        
+        if (!empty($errors)) {
+            $message .= ' Some documents failed: ' . implode(', ', $errors);
+        }
+        
+        if (!$notification_sent) {
+            $message .= ' (Note: Agency notification failed to send)';
+        }
+        
+        // CRITICAL FIX: Handle response differently based on AJAX vs normal request
+        if ($is_ajax) {
+            ajax_return([
+                'success' => true, 
+                'message' => $message, 
+                'documents' => $uploaded_documents,
+                'stage_updated' => $stage_updated,
+                // ADD REDIRECTION INFO FOR AJAX
+                'redirect' => true,
+                'redirect_url' => site_url('recruiter/candidates')
+            ]);
+        } else {
+            // For non-AJAX requests
+            $this->session->set_flashdata('success', $message);
+            redirect('recruiter/candidates');
+        }
+    } else {
+        if ($is_ajax) {
+            ajax_return(['success' => false, 'message' => 'No documents were successfully uploaded.']);
+        } else {
+            $this->session->set_flashdata('error', 'No documents were successfully uploaded.');
+            redirect('recruiter/candidates/view/' . $candidate_id);
+        }
+    }
+}
 
-    private function upload_single_required_document($candidate_id, $document_name, $description, $file_index)
+    
+        private function upload_single_required_document($candidate_id, $document_name, $description, $file_index)
         {
             $config['upload_path'] = './uploads/candidate_documents/required/';
             $config['allowed_types'] = 'pdf|doc|docx|jpg|jpeg|png';
@@ -2710,5 +2753,42 @@ public function ajax_switch_chat_to_general()
     }
     
     echo json_encode($response);
+}
+
+/**
+ * AJAX endpoint for submitting required documents
+ * This is a wrapper around upload_required_documents for consistency
+ */
+public function ajax_submit_required_documents()
+{
+    // Set JSON output
+    $this->output->set_content_type('application/json');
+    
+    // Check if it's an AJAX request
+    if (!$this->input->is_ajax_request()) {
+        $this->output->set_output(json_encode([
+            'success' => false,
+            'error' => 'Direct access not allowed'
+        ]));
+        return;
+    }
+    
+    // Call the existing upload_required_documents method
+    // We need to capture its output
+    ob_start();
+    $this->upload_required_documents();
+    $output = ob_get_clean();
+    
+    // If output is already JSON, return it
+    if (json_decode($output)) {
+        $this->output->set_output($output);
+    } else {
+        // Convert to JSON if it's not already
+        $this->output->set_output(json_encode([
+            'success' => false,
+            'error' => 'Invalid response from server',
+            'raw_output' => $output
+        ]));
+    }
 }
 }

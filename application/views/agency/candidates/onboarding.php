@@ -1061,6 +1061,8 @@ function formatFileSize($bytes) {
                 <div class="modal-body">
                     <form id="hmDecisionForm">
                         <input type="hidden" name="candidate_id" value="<?= $candidate->id ?>">
+                        <!-- Add this at the top of your view file -->
+<input type="hidden" id="csrf_token" name="<?= $this->security->get_csrf_token_name() ?>" value="<?= $this->security->get_csrf_hash() ?>">
 
                         <div class="form-group">
                             <label for="decision"><strong>Decision</strong></label>
@@ -1100,7 +1102,8 @@ function formatFileSize($bytes) {
                 <div class="modal-body">
                     <form id="documentsDecisionForm">
                         <input type="hidden" name="candidate_id" value="<?= $candidate->id ?>">
-
+<!-- Add this at the top of your view file -->
+<input type="hidden" id="csrf_token" name="<?= $this->security->get_csrf_token_name() ?>" value="<?= $this->security->get_csrf_hash() ?>">
                         <div class="form-group">
                             <label for="documents_required"><strong>Are additional documents required?</strong></label>
                             <select class="form-control" id="documents_required" name="documents_required" required>
@@ -1127,11 +1130,15 @@ function formatFileSize($bytes) {
     </div>
 
     <!-- Documents Section -->
+        <!-- Documents Section -->
     <div class="card mt-4">
         <div class="card-header bg-warning text-white">
             <h4 class="card-title mb-0"> Required Documents</h4>
         </div>
         <div class="card-body">
+            <!-- ADD CSRF TOKEN HERE -->
+            <input type="hidden" name="<?= $this->security->get_csrf_token_name() ?>" value="<?= $this->security->get_csrf_hash() ?>">
+            
             <!-- Documents Status Alert -->
             <div id="documentsStatusAlert" class="alert alert-info">
                 <h5><i class="fa fa-info-circle"></i> Documents Status</h5>
@@ -1218,7 +1225,43 @@ function formatFileSize($bytes) {
         </div>
     </div>
 
+</div> <!-- Closing div for the main container -->
+
+
     <script>
+// At the top of your script, define the CSRF token
+const csrfToken = {
+    name: '<?= $this->security->get_csrf_token_name() ?>',
+    value: '<?= $this->security->get_csrf_hash() ?>'
+};
+
+// Update your makeAjaxRequest function:
+async function makeAjaxRequest(url, data = {}) {
+    const formData = new FormData();
+    
+    // Add CSRF token
+    formData.append(csrfToken.name, csrfToken.value);
+    
+    // Add other data
+    Object.keys(data).forEach(key => {
+        formData.append(key, data[key]);
+    });
+    
+    try {
+        const response = await fetch(url, {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        });
+        
+        // ... rest of your code
+    } catch (error) {
+        console.error('AJAX Error:', error);
+        throw error;
+    }
+}
     // Complete Vanilla JS solution for onboarding
     document.addEventListener('DOMContentLoaded', function() {
         console.log('Onboarding script initialized - Clean Version');
@@ -1250,6 +1293,61 @@ function formatFileSize($bytes) {
             }
         }
 
+        // Get CSRF token from page - FIXED VERSION
+        // Get CSRF token from page - UPDATED VERSION
+function getCSRFToken() {
+    // First try to get from meta tag (CodeIgniter sometimes puts it here)
+    const metaToken = document.querySelector('meta[name="csrf-token"]');
+    if (metaToken && metaToken.getAttribute('content')) {
+        return {
+            name: 'csrf_test_name',
+            value: metaToken.getAttribute('content')
+        };
+    }
+    
+    // Try from hidden input with id 'csrf_token'
+    const csrfInputById = document.getElementById('csrf_token');
+    if (csrfInputById) {
+        return {
+            name: csrfInputById.name,
+            value: csrfInputById.value
+        };
+    }
+    
+    // Try from hidden input with name 'csrf_test_name'
+    const csrfInputByName = document.querySelector('input[name="csrf_test_name"]');
+    if (csrfInputByName) {
+        return {
+            name: csrfInputByName.name,
+            value: csrfInputByName.value
+        };
+    }
+    
+    // Try from any form with CSRF token
+    const forms = document.querySelectorAll('form');
+    for (const form of forms) {
+        const csrfInput = form.querySelector('input[name="csrf_test_name"]');
+        if (csrfInput) {
+            return {
+                name: csrfInput.name,
+                value: csrfInput.value
+            };
+        }
+    }
+    
+    console.error('CSRF token not found on page');
+    return null;
+}
+
+        // Helper function to add CSRF token to FormData
+        function addCSRFToken(formData) {
+            const csrf = getCSRFToken();
+            if (csrf) {
+                formData.append(csrf.name, csrf.value);
+            }
+            return formData;
+        }
+
         // Stage toggle functionality
         const stageButtons = document.querySelectorAll('.btn-toggle-stage:not(:disabled)');
         stageButtons.forEach(function(button) {
@@ -1265,11 +1363,9 @@ function formatFileSize($bytes) {
 
                 let message = '';
                 if (action === 'complete') {
-                    message =
-                        `Are you sure you want to mark the "${stageName}" stage as complete?`;
+                    message = `Are you sure you want to mark the "${stageName}" stage as complete?`;
                 } else {
-                    message =
-                        `Are you sure you want to reopen the "${stageName}" stage? This will reset progress for subsequent stages.`;
+                    message = `Are you sure you want to reopen the "${stageName}" stage? This will reset progress for subsequent stages.`;
                 }
 
                 const confirmationMessage = document.getElementById('confirmationMessage');
@@ -1290,8 +1386,7 @@ function formatFileSize($bytes) {
 
                     const originalText = button.innerHTML;
                     button.disabled = true;
-                    button.innerHTML =
-                        '<i class="fa fa-spinner fa-spin"></i> Processing...';
+                    button.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Processing...';
                     button.closest('.stage-card').classList.add('loading');
 
                     // Make AJAX request
@@ -1299,6 +1394,9 @@ function formatFileSize($bytes) {
                     formData.append('candidate_id', candidateId);
                     formData.append('stage', stage);
                     formData.append('value', value);
+                    
+                    // Add CSRF token
+                    addCSRFToken(formData);
 
                     fetch('<?= site_url("agency/candidates/update_onboarding_stage") ?>', {
                             method: 'POST',
@@ -1307,7 +1405,17 @@ function formatFileSize($bytes) {
                                 'X-Requested-With': 'XMLHttpRequest'
                             }
                         })
-                        .then(response => response.json())
+                        .then(response => {
+                            // Check if response is JSON
+                            const contentType = response.headers.get('content-type');
+                            if (!contentType || !contentType.includes('application/json')) {
+                                // If not JSON, we likely got an error page
+                                return response.text().then(text => {
+                                    throw new Error('Server returned non-JSON response');
+                                });
+                            }
+                            return response.json();
+                        })
                         .then(data => {
                             if (data.success) {
                                 if (typeof toastr !== 'undefined') {
@@ -1317,16 +1425,13 @@ function formatFileSize($bytes) {
                                     location.reload();
                                 }, 1500);
                             } else {
-                                throw new Error(data.message ||
-                                    'Failed to update stage');
+                                throw new Error(data.message || 'Failed to update stage');
                             }
                         })
                         .catch(error => {
                             console.error('AJAX Error:', error);
                             if (typeof toastr !== 'undefined') {
-                                toastr.error(
-                                    'An error occurred while updating the stage. Please try again.'
-                                );
+                                toastr.error('An error occurred while updating the stage. Please try again.');
                             }
                             button.disabled = false;
                             button.innerHTML = originalText;
@@ -1357,6 +1462,9 @@ function formatFileSize($bytes) {
                 formData.append('candidate_id', <?= $candidate->id ?>);
                 formData.append('decision', decision);
                 formData.append('notes', notes);
+                
+                // Add CSRF token
+                addCSRFToken(formData);
 
                 fetch('<?= site_url("agency/candidates/update_hm_decision") ?>', {
                         method: 'POST',
@@ -1365,7 +1473,16 @@ function formatFileSize($bytes) {
                             'X-Requested-With': 'XMLHttpRequest'
                         }
                     })
-                    .then(response => response.json())
+                    .then(response => {
+                        // Check if response is JSON
+                        const contentType = response.headers.get('content-type');
+                        if (!contentType || !contentType.includes('application/json')) {
+                            return response.text().then(text => {
+                                throw new Error('Server returned non-JSON response');
+                            });
+                        }
+                        return response.json();
+                    })
                     .then(data => {
                         if (data.success) {
                             toastr.success('Decision recorded successfully!');
@@ -1380,8 +1497,7 @@ function formatFileSize($bytes) {
                     })
                     .catch(error => {
                         console.error('AJAX Error:', error);
-                        toastr.error(
-                            'An error occurred while saving the decision. Please try again.');
+                        toastr.error('An error occurred while saving the decision. Please try again.');
                         button.disabled = false;
                         button.innerHTML = originalText;
                     });
@@ -1418,6 +1534,9 @@ function formatFileSize($bytes) {
                 formData.append('candidate_id', <?= $candidate->id ?>);
                 formData.append('documents_required', documentsRequired);
                 formData.append('documents_notes', documentsNotes);
+                
+                // Add CSRF token
+                addCSRFToken(formData);
 
                 console.log('Sending documents decision request...');
 
@@ -1428,12 +1547,20 @@ function formatFileSize($bytes) {
                             'X-Requested-With': 'XMLHttpRequest'
                         }
                     })
-                    .then(response => response.json())
+                    .then(response => {
+                        // Check if response is JSON
+                        const contentType = response.headers.get('content-type');
+                        if (!contentType || !contentType.includes('application/json')) {
+                            return response.text().then(text => {
+                                throw new Error('Server returned non-JSON response');
+                            });
+                        }
+                        return response.json();
+                    })
                     .then(data => {
                         console.log('Success response:', data);
                         if (data.success) {
-                            toastr.success(data.message ||
-                                'Documents decision saved successfully!');
+                            toastr.success(data.message || 'Documents decision saved successfully!');
                             $('#documentsDecisionModal').modal('hide');
                             document.getElementById('documentsDecisionForm').reset();
 
@@ -1450,9 +1577,7 @@ function formatFileSize($bytes) {
                     })
                     .catch(error => {
                         console.error('AJAX Error:', error);
-                        toastr.error(
-                            'An error occurred while saving the documents decision. Please try again.'
-                        );
+                        toastr.error('An error occurred while saving the documents decision. Please try again.');
                         button.disabled = false;
                         button.innerHTML = originalText;
                     });
@@ -1472,6 +1597,9 @@ function formatFileSize($bytes) {
                 formData.append('candidate_id', <?= $candidate->id ?>);
                 formData.append('stage', 'stage_requested_docs');
                 formData.append('value', '1');
+                
+                // Add CSRF token
+                addCSRFToken(formData);
 
                 fetch('<?= site_url("agency/candidates/update_onboarding_stage") ?>', {
                         method: 'POST',
@@ -1480,7 +1608,16 @@ function formatFileSize($bytes) {
                             'X-Requested-With': 'XMLHttpRequest'
                         }
                     })
-                    .then(response => response.json())
+                    .then(response => {
+                        // Check if response is JSON
+                        const contentType = response.headers.get('content-type');
+                        if (!contentType || !contentType.includes('application/json')) {
+                            return response.text().then(text => {
+                                throw new Error('Server returned non-JSON response');
+                            });
+                        }
+                        return response.json();
+                    })
                     .then(data => {
                         if (data.success) {
                             toastr.success('Documents marked as reviewed! Stage completed.');
@@ -1515,18 +1652,16 @@ function formatFileSize($bytes) {
         const stageCards = document.querySelectorAll('.stage-card:not(.disabled-stage)');
         stageCards.forEach(function(card) {
             card.addEventListener('mouseenter', function() {
-                if (!this.classList.contains('completed') && !this.classList.contains(
-                        'active')) {
+                if (!this.classList.contains('completed') && !this.classList.contains('active')) {
                     this.style.transform = 'translateY(-2px)';
                 }
             });
 
             card.addEventListener('mouseleave', function() {
-                if (!this.classList.contains('completed') && !this.classList.contains(
-                        'active')) {
+                if (!this.classList.contains('completed') && !this.classList.contains('active')) {
                     this.style.transform = 'translateY(0)';
                 }
             });
         });
     });
-    </script>
+</script>

@@ -13,7 +13,8 @@ $route['agency/logout'] = 'login/logout/agency';
 // Agency Chat with UUID support
 $route['agency/chat/conversation/([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})'] = 'agency/chat/conversation/$1';
 $route['recruiter/chat/conversation/([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})'] = 'recruiter/chat/conversation/$1';
-
+$route['recruiter/candidates/ajax_submit_required_documents'] = 'recruiter/candidates/ajax_submit_required_documents';
+$route['recruiter/candidates/ajax_submit_required_documents/(:num)'] = 'recruiter/candidates/ajax_submit_required_documents/$1';
 // Keep existing numeric ID routes for backward compatibility
 $route['agency/chat/conversation/(:num)'] = 'agency/chat/conversation/$1';
 $route['recruiter/chat/conversation/(:num)'] = 'recruiter/chat/conversation/$1';
