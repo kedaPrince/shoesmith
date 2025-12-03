@@ -85,6 +85,22 @@ public function get_all($limit = null, $offset = null, $sort_by = 'first_name', 
  
     return $query;
 }
+
+// In Model_candidates.php for recruiter, add this method:
+
+/**
+ * Get candidate details with job information
+ */
+public function get_candidate_details($candidate_id)
+{
+    $this->db->select('c.*, j.name as job_name, j.reference_number as job_ref');
+    $this->db->from('candidates c');
+    $this->db->join('mod_jobs j', 'j.id = c.job_id', 'left');
+    $this->db->where('c.id', $candidate_id);
+    $this->db->where('c.removed', 0);
+    
+    return $this->db->get()->row();
+}
 protected $current_filters = [];
 
 /**

@@ -1328,6 +1328,171 @@
             <div class="energy-wave"></div>
         </div>
     </div>
+    <!-- Candidate Chat Header -->
+    <?php if (!empty($candidate_details)): ?>
+    <div class="candidate-chat-header cosmic-glow"
+        style="background: linear-gradient(135deg, rgba(139, 92, 246, 0.1), rgba(16, 185, 129, 0.1)); border: 1px solid var(--light-border); border-radius: 16px; padding: 20px; margin: 20px 20px 0 20px; position: relative; overflow: hidden;">
+
+        <div class="cosmic-background" style="opacity: 0.3;">
+            <div class="floating-orb orb-1" style="background: radial-gradient(circle, #10B981, transparent);"></div>
+            <div class="floating-orb orb-2" style="background: radial-gradient(circle, #8B5CF6, transparent);"></div>
+        </div>
+
+        <div class="d-flex justify-content-between align-items-center position-relative z-index-2">
+            <div style="flex: 1;">
+                <h4
+                    style="color: var(--text-primary); font-weight: 600; margin-bottom: 12px; display: flex; align-items: center; gap: 10px;">
+                    <i class="fa fa-user-circle" style="color: #8B5CF6;"></i>
+                    Discussing Candidate
+                    <span class="cosmic-badge" style="background: var(--primary-gradient);">
+                        <i class="fa fa-user"></i> Candidate Chat
+                    </span>
+                </h4>
+
+                <div style="display: flex; flex-wrap: wrap; gap: 20px;">
+                    <!-- Candidate Info -->
+                    <div style="min-width: 200px;">
+                        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
+                            <div
+                                style="width: 40px; height: 40px; background: var(--primary-gradient); border-radius: 10px; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold;">
+                                <?= substr(htmlspecialchars($candidate_details->first_name), 0, 1) ?>
+                            </div>
+                            <div>
+                                <h5 style="color: var(--text-primary); margin: 0; font-size: 1.1rem;">
+                                    <?= htmlspecialchars($candidate_details->first_name . ' ' . $candidate_details->last_name) ?>
+                                </h5>
+                                <small style="color: var(--text-muted);">
+                                    Ref: <?= htmlspecialchars($candidate_details->reference_number) ?>
+                                </small>
+                            </div>
+                        </div>
+
+                        <div style="display: flex; flex-wrap: wrap; gap: 15px; margin-top: 10px;">
+                            <?php if (!empty($candidate_details->email)): ?>
+                            <div style="display: flex; align-items: center; gap: 5px;">
+                                <i class="fa fa-envelope" style="color: var(--text-muted); font-size: 0.8rem;"></i>
+                                <span style="color: var(--text-secondary); font-size: 0.85rem;">
+                                    <?= htmlspecialchars($candidate_details->email) ?>
+                                </span>
+                            </div>
+                            <?php endif; ?>
+
+                            <?php if (!empty($candidate_details->phone)): ?>
+                            <div style="display: flex; align-items: center; gap: 5px;">
+                                <i class="fa fa-phone" style="color: var(--text-muted); font-size: 0.8rem;"></i>
+                                <span style="color: var(--text-secondary); font-size: 0.85rem;">
+                                    <?= htmlspecialchars($candidate_details->phone) ?>
+                                </span>
+                            </div>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+
+                    <!-- Job & Status Info -->
+                    <div style="min-width: 200px;">
+                        <?php if (!empty($candidate_details->job_name)): ?>
+                        <div style="margin-bottom: 10px;">
+                            <div style="display: flex; align-items: center; gap: 5px; margin-bottom: 5px;">
+                                <i class="fa fa-briefcase" style="color: var(--text-muted); font-size: 0.8rem;"></i>
+                                <strong style="color: var(--text-secondary); font-size: 0.85rem;">Job:</strong>
+                            </div>
+                            <div
+                                style="background: rgba(255, 255, 255, 0.05); padding: 8px 12px; border-radius: 8px; border: 1px solid var(--light-border);">
+                                <span style="color: var(--text-primary); font-weight: 500;">
+                                    <?= htmlspecialchars($candidate_details->job_name) ?>
+                                </span>
+                                <?php if (!empty($candidate_details->job_ref)): ?>
+                                <small style="color: var(--text-muted); margin-left: 8px;">
+                                    (<?= htmlspecialchars($candidate_details->job_ref) ?>)
+                                </small>
+                                <?php endif; ?>
+                            </div>
+                        </div>
+                        <?php endif; ?>
+
+                        <?php if (!empty($candidate_details->status)): ?>
+                        <div>
+                            <div style="display: flex; align-items: center; gap: 5px; margin-bottom: 5px;">
+                                <i class="fa fa-chart-line" style="color: var(--text-muted); font-size: 0.8rem;"></i>
+                                <strong style="color: var(--text-secondary); font-size: 0.85rem;">Status:</strong>
+                            </div>
+                            <span class="badge" style="background: <?= 
+                        $candidate_details->status == 'hired' ? 'linear-gradient(135deg, #10B981, #059669)' : 
+                        ($candidate_details->status == 'rejected' ? 'linear-gradient(135deg, #EF4444, #DC2626)' : 
+                        'linear-gradient(135deg, #F59E0B, #D97706)') ?>; 
+                        color: white; padding: 6px 12px; border-radius: 8px; font-size: 0.8rem;">
+                                <?= ucfirst($candidate_details->status) ?>
+                            </span>
+                        </div>
+                        <?php endif; ?>
+                    </div>
+
+                    <!-- Onboarding Progress -->
+                    <?php if (!empty($candidate_details->onboarding_stage) && $candidate_details->onboarding_stage != 'not_started'): ?>
+                    <div style="min-width: 200px;">
+                        <div style="display: flex; align-items: center; gap: 5px; margin-bottom: 5px;">
+                            <i class="fa fa-tasks" style="color: var(--text-muted); font-size: 0.8rem;"></i>
+                            <strong style="color: var(--text-secondary); font-size: 0.85rem;">Onboarding:</strong>
+                        </div>
+                        <div
+                            style="background: rgba(255, 255, 255, 0.05); padding: 10px; border-radius: 8px; border: 1px solid var(--light-border);">
+                            <div
+                                style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                                <span style="color: var(--text-primary); font-size: 0.85rem; font-weight: 500;">
+                                    <?= ucwords(str_replace('_', ' ', $candidate_details->onboarding_stage)) ?>
+                                </span>
+                                <?php if (!empty($candidate_details->onboarding_progress)): ?>
+                                <span style="color: var(--text-accent); font-weight: 600; font-size: 0.9rem;">
+                                    <?= round($candidate_details->onboarding_progress) ?>%
+                                </span>
+                                <?php endif; ?>
+                            </div>
+                            <?php if (!empty($candidate_details->onboarding_progress)): ?>
+                            <div class="progress"
+                                style="height: 6px; background: rgba(255, 255, 255, 0.1); border-radius: 3px; overflow: hidden;">
+                                <div class="progress-bar" role="progressbar"
+                                    style="width: <?= $candidate_details->onboarding_progress ?>%; background: var(--accent-gradient);">
+                                </div>
+                            </div>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+                    <?php endif; ?>
+                </div>
+            </div>
+
+            <!-- View Profile Button -->
+            <div style="margin-left: 20px;">
+                <a href="<?= site_url('recruiter/candidates/view/' . $candidate_details->id) ?>" target="_blank"
+                    class="btn cosmic-glow"
+                    style="background: var(--primary-gradient); color: white; border: none; padding: 10px 20px; border-radius: 10px; font-weight: 500; display: flex; align-items: center; gap: 8px; text-decoration: none; transition: all 0.3s ease;">
+                    <i class="fa fa-external-link-alt"></i>
+                    View Full Profile
+                </a>
+            </div>
+        </div>
+    </div>
+    <?php elseif (isset($conversation) && !empty($conversation->candidate_id) && empty($candidate_details)): ?>
+    <div class="candidate-chat-header cosmic-glow"
+        style="background: linear-gradient(135deg, rgba(239, 68, 68, 0.1), rgba(220, 38, 38, 0.1)); border: 1px solid var(--light-border); border-radius: 16px; padding: 20px; margin: 20px 20px 0 20px;">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <h5 style="color: var(--text-primary); margin: 0; display: flex; align-items: center; gap: 10px;">
+                    <i class="fa fa-exclamation-triangle" style="color: #EF4444;"></i>
+                    Candidate Discussion
+                </h5>
+                <p style="color: var(--text-muted); margin: 8px 0 0 0;">
+                    <strong>Candidate ID:</strong> <?= $conversation->candidate_id ?>
+                    <small style="margin-left: 8px;">(Profile access restricted)</small>
+                </p>
+            </div>
+            <span class="badge"
+                style="background: var(--warning-gradient); color: white; padding: 6px 12px; border-radius: 8px;">
+                Restricted Access
+            </span>
+        </div>
+    </div>
+    <?php endif; ?>
     <div class="container-fluid p-0" style="height: 64vh; overflow: hidden;">
         <div class="row no-gutters" style="height: 100%;">
             <!-- Left Sidebar: Conversations & Agencies List -->

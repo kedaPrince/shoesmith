@@ -92,7 +92,7 @@ public function index()
         $this->load->view($this->folder . '/view_footer');
     }
 
-    public function conversation($uuid = null)
+public function conversation($uuid = null)
 {
     $recruiter_id = $this->get_recruiter_id();
     
@@ -148,6 +148,14 @@ public function index()
         $conversation->is_online = 0;
     }
     
+    // ADD THIS: Get detailed candidate information for onboarding display
+    $candidate_details = null;
+    if ($conversation->candidate_id) {
+        // Load candidates model
+        $this->load->model('recruiter/Model_candidates');
+        $candidate_details = $this->Model_candidates->get_candidate_details($conversation->candidate_id);
+    }
+    
     $this->breadcrumbs = [
         ['title' => lang('chat_heading'), 'url' => url('chat')],
         ['title' => $conversation->agency_name, 'url' => '']
@@ -164,7 +172,8 @@ public function index()
         'recent_notifications' => $recent_notifications,
         'total_message_count' => $total_message_count,
         'agency_details' => $agency_details,
-        'agency_online' => $agency_online
+        'agency_online' => $agency_online,
+        'candidate_details' => $candidate_details, // ADD THIS
     ];
     
     $this->load->view($this->folder . '/view_header');

@@ -94,11 +94,14 @@ public function get_or_create_candidate_conversation($agency_id, $recruiter_id, 
         return $this->db->count_all_results() > 0;
     }
 
+// In the get_recruiter_conversations method, update the select query to include candidate details:
 public function get_recruiter_conversations($recruiter_id, $limit = null, $offset = null)
 {
     $this->db->select('cc.*, a.name as agency_name, 
                       j.name as job_name, c.first_name, c.last_name, c.reference_number as candidate_ref,
                       CONCAT(c.first_name, " ", c.last_name) as candidate_name,
+                      c.onboarding_stage, c.onboarding_progress, c.status as candidate_status,
+                      c.email as candidate_email, c.phone as candidate_phone,
                       (SELECT COUNT(*) FROM chat_messages cm 
                        WHERE cm.conversation_id = cc.id AND cm.is_read = 0 
                        AND cm.sender_type = "agency") as unread_count,
