@@ -17,7 +17,7 @@ $route['recruiter/chat/conversation/([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9
 // Keep existing numeric ID routes for backward compatibility
 $route['agency/chat/conversation/(:num)'] = 'agency/chat/conversation/$1';
 $route['recruiter/chat/conversation/(:num)'] = 'recruiter/chat/conversation/$1';
-
+$route['agency/notifications/ajax_get_chat_notifications'] = 'agency/notifications/ajax_get_chat_notifications';
 // Add this too for any UUID format (more flexible)
 $route['agency/chat/conversation/([a-fA-F0-9\-]{36})'] = 'agency/chat/conversation/$1';
 $route['recruiter/chat/conversation/([a-fA-F0-9\-]{36})'] = 'recruiter/chat/conversation/$1';

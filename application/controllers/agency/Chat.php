@@ -170,17 +170,23 @@ public function quick_start($recruiter_id = null)
 
   
 
-    /**
-     * AJAX: Get unread count for menu badge
-     */
-    public function ajax_get_unread_count()
-    {
-        $agency_id = $this->get_user_agency_id();
+   public function ajax_get_unread_count()
+{
+    $agency_id = $this->get_user_agency_id();
+    $unread_count = 0;
+    
+    if ($agency_id) {
         $unread_count = $this->{$this->model}->get_unread_count_for_agency($agency_id);
-        
-        ajax_return(['success' => true, 'unread_count' => $unread_count]);
     }
-
+    
+    // Return JSON response
+    $this->output
+        ->set_content_type('application/json')
+        ->set_output(json_encode([
+            'success' => true,
+            'unread_count' => $unread_count
+        ]));
+}
  
 private function validate_csrf_token()
 {
@@ -447,41 +453,45 @@ public function ajax_get_conversations()
         return null;
     }
 
-public function ajax_test_csrf()
+/**
+ * AJAX: Get chat notification count for top bar
+ */
+public function ajax_get_chat_notifications()
 {
-    $csrf_name = $this->security->get_csrf_token_name();
-    $csrf_hash = $this->security->get_csrf_hash();
-    
-    // Check ALL possible ways CSRF could be sent
-    $post_token = $this->input->post($csrf_name);
-    $get_token = $this->input->get($csrf_name);
-    
-    // Also check raw input
-    $raw_input = file_get_contents('php://input');
-    $raw_csrf = null;
-    if ($raw_input) {
-        parse_str($raw_input, $parsed_input);
-        $raw_csrf = isset($parsed_input[$csrf_name]) ? $parsed_input[$csrf_name] : null;
-    }
+    $login_data = $this->session->userdata('login');
+    $agency_staff_id = !empty($login_data['agency']['id']) ? $login_data['agency']['id'] : null;
     
     $response = [
-        'success' => true,
-        'message' => 'CSRF Test Complete',
-        'csrf' => $csrf_hash,
-        'debug' => [
-            'csrf_name' => $csrf_name,
-            'csrf_hash' => $csrf_hash,
-            'post_csrf_found' => !empty($post_token),
-            'get_csrf_found' => !empty($get_token),
-            'raw_csrf_found' => !empty($raw_csrf),
-            'input_post_data' => $this->input->post(),
-            '$_POST_data' => $_POST,
-            'raw_input' => $raw_input,
-            'request_method' => $this->input->method(),
-            'content_type' => isset($_SERVER['CONTENT_TYPE']) ? $_SERVER['CONTENT_TYPE'] : 'Not set'
-        ]
+        'success' => false,
+        'unread_count' => 0,
+        'message' => ''
     ];
-    
-    ajax_return($response);
+
+    try {
+        if (!$agency_staff_id) {
+            $response['message'] = 'Agency not logged in';
+            $this->output->set_content_type('application/json')->set_output(json_encode($response));
+            return;
+        }
+
+        // First, check if we have the chat model loaded
+        if (!isset($this->Model_chat_messages)) {
+            $this->load->model('agency/Model_chat_messages');
+        }
+        
+        // Get chat-specific unread count
+        $unread_count = $this->Model_chat_messages->get_unread_count_for_agency($agency_staff_id);
+        
+        $response['unread_count'] = (int)$unread_count;
+        $response['success'] = true;
+
+    } catch (Exception $e) {
+        $response['message'] = 'Server error: ' . $e->getMessage();
+        log_message('error', 'Chat notification error: ' . $e->getMessage());
+    }
+
+    $this->output
+        ->set_content_type('application/json')
+        ->set_output(json_encode($response));
 }
 }
