@@ -341,12 +341,59 @@ class Administrators extends CRUD_Controller
         $this->send_password_mail($id);
     }
 
-    public function login_as($id): void
-    {
+public function login_as($id): void
+{
+    // CSRF protection check
+    if ($this->input->server('REQUEST_METHOD') === 'GET') {
+        // Show simple confirmation form
         $row = $this->{$this->model}->get_by_id($id);
         if (!$row) {
             flash_notification(lang('access_denied_description'), 'warning');
             redir($this->pageName);
+            return;
+        }
+        
+        $this->load->view($this->folder . '/' . 'view_header');
+        echo '<div class="container mt-5">';
+        echo '<div class="row justify-content-center">';
+        echo '<div class="col-md-6">';
+        echo '<div class="card">';
+        echo '<div class="card-header">';
+        echo '<h4>Confirm Login As Administrator</h4>';
+        echo '</div>';
+        echo '<div class="card-body">';
+        echo '<p>Are you sure you want to log in as <strong>' . htmlspecialchars($row->first_name . ' ' . $row->last_name) . '</strong>?</p>';
+        echo '<p class="text-muted">This will log you out of your current session and log in as the selected administrator.</p>';
+        echo '<form method="POST" action="' . site_url('admin/administrators/login_as/' . $id) . '">';
+        echo '<input type="hidden" name="' . $this->security->get_csrf_token_name() . '" value="' . $this->security->get_csrf_hash() . '">';
+        echo '<button type="submit" class="btn btn-danger">Yes, Login As</button>';
+        echo ' <a href="' . site_url('admin/administrators') . '" class="btn btn-secondary">Cancel</a>';
+        echo '</form>';
+        echo '</div>';
+        echo '</div>';
+        echo '</div>';
+        echo '</div>';
+        echo '</div>';
+        $this->load->view($this->folder . '/' . 'view_footer');
+        return;
+    }
+    
+    // POST request - validate CSRF
+    if ($this->input->server('REQUEST_METHOD') === 'POST') {
+        $csrf_name = $this->security->get_csrf_token_name();
+        $csrf_token = $this->input->post($csrf_name);
+        
+        // Explicit CSRF check
+        if (!$csrf_token || $csrf_token !== $this->security->get_csrf_hash()) {
+            show_error('Invalid CSRF token', 400);
+            return;
+        }
+        
+        $row = $this->{$this->model}->get_by_id($id);
+        if (!$row) {
+            flash_notification(lang('access_denied_description'), 'warning');
+            redir($this->pageName);
+            return;
         }
 
         //Log action
@@ -377,10 +424,45 @@ class Administrators extends CRUD_Controller
         $this->session->set_userdata('is_logged_in', 1);
 
         redirect(site_url() . $defaultUrl);
+        return;
     }
+    
+    // If not GET or POST, redirect
+    redirect(site_url('admin/administrators'));
+}
 
-    public function update($id): void
-    {
-        parent::update($id);
+public function update($id): void
+{
+    // CSRF PROTECTION - VALIDATE TOKEN
+    // ================================
+    if ($this->input->server('REQUEST_METHOD') === 'POST') {
+        $csrf_name = $this->security->get_csrf_token_name();
+        $csrf_token = $this->input->post($csrf_name);
+        
+        // CSRF token validation
+        if (!$csrf_token || $csrf_token !== $this->security->get_csrf_hash()) {
+            // Handle invalid CSRF token
+            $this->handle_csrf_error();
+            return;
+        }
     }
+    // ================================
+    
+    parent::update($id);
+}
+
+private function handle_csrf_error(): void
+{
+    if (is_ajax()) {
+        ajax_return([
+            'success' => false,
+            'message' => 'Invalid CSRF token. Please refresh and try again.',
+            'csrf' => $this->security->get_csrf_hash()
+        ]);
+    } else {
+        show_error('Invalid CSRF token detected. Security violation prevented.', 400);
+    }
+}
+
+
 }

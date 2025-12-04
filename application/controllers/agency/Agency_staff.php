@@ -533,6 +533,59 @@ private function setup_listing(): void
 
     public function login_as($id): void
     {
+        // ============ ADDED CSRF PROTECTION ============
+        // Check if CSRF token is provided (could be in GET or POST)
+        $csrf_name = $this->security->get_csrf_token_name();
+        $csrf_token = $this->input->get($csrf_name) ?: $this->input->post($csrf_name);
+        
+        if (!$csrf_token || $csrf_token !== $this->security->get_csrf_hash()) {
+            // For GET requests, show a confirmation form with CSRF token
+            if ($this->input->server('REQUEST_METHOD') === 'GET') {
+                $row = $this->{$this->model}->get_by_id($id);
+                if (!$row) {
+                    flash_notification(lang('access_denied_description'), 'warning');
+                    redir($this->pageName);
+                }
+                
+                $this->load->view($this->folder . '/' . 'view_header');
+                echo '<div class="container mt-5">';
+                echo '<div class="row justify-content-center">';
+                echo '<div class="col-md-6">';
+                echo '<div class="card">';
+                echo '<div class="card-header">';
+                echo '<h4>Confirm Login As Agency Staff</h4>';
+                echo '</div>';
+                echo '<div class="card-body">';
+                echo '<p>Are you sure you want to log in as <strong>' . htmlspecialchars($row->first_name . ' ' . $row->last_name) . '</strong>?</p>';
+                echo '<p class="text-muted">This will log you out of your current session and log in as the selected staff member.</p>';
+                echo '<form method="POST" action="' . site_url('agency/agency_staff/login_as/' . $id) . '">';
+                echo '<input type="hidden" name="' . $this->security->get_csrf_token_name() . '" value="' . $this->security->get_csrf_hash() . '">';
+                echo '<button type="submit" class="btn btn-danger">Yes, Login As</button>';
+                echo ' <a href="' . site_url('agency/agency_staff') . '" class="btn btn-secondary">Cancel</a>';
+                echo '</form>';
+                echo '</div>';
+                echo '</div>';
+                echo '</div>';
+                echo '</div>';
+                echo '</div>';
+                $this->load->view($this->folder . '/' . 'view_footer');
+                return;
+            } else {
+                if (is_ajax()) {
+                    ajax_return([
+                        'success' => false,
+                        'message' => 'Invalid security token',
+                        'csrf' => $this->security->get_csrf_hash()
+                    ]);
+                } else {
+                    $this->session->set_flashdata('error', 'Invalid security token');
+                    redirect(previous_url());
+                }
+                return;
+            }
+        }
+        // ============ END CSRF PROTECTION ============
+        
         $row = $this->{$this->model}->get_by_id($id);
         if (!$row) {
             flash_notification(lang('access_denied_description'), 'warning');
@@ -573,6 +626,28 @@ private function setup_listing(): void
 
     public function update($id): void
     {
+        // ============ ADDED CSRF PROTECTION ============
+        // Check if this is a POST request
+        if ($this->input->server('REQUEST_METHOD') === 'POST') {
+            $csrf_name = $this->security->get_csrf_token_name();
+            $csrf_token = $this->input->post($csrf_name);
+            
+            if (!$csrf_token || $csrf_token !== $this->security->get_csrf_hash()) {
+                if (is_ajax()) {
+                    ajax_return([
+                        'success' => false,
+                        'message' => 'Invalid security token',
+                        'csrf' => $this->security->get_csrf_hash()
+                    ]);
+                } else {
+                    $this->session->set_flashdata('error', 'Invalid security token');
+                    redirect(previous_url());
+                }
+                return;
+            }
+        }
+        // ============ END CSRF PROTECTION ============
+        
         parent::update($id);
     }
 

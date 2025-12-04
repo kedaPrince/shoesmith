@@ -253,44 +253,64 @@ class Agencies extends CRUD_Controller
     /**
      * Login as agency
      */
-    public function login_as($id): void
-    {
-        if (!$this->allowEdit) {
-            flash_notification(lang('access_denied_description'), 'warning');
-            redir($this->pageName);
+/**
+ * Login as agency
+ */
+public function login_as($id): void
+{
+    // ============ ADDED CSRF PROTECTION ============
+    // Check if this is a POST request (should be triggered by form)
+    if ($this->input->server('REQUEST_METHOD') === 'POST') {
+        $csrf_name = $this->security->get_csrf_token_name();
+        $csrf_token = $this->input->post($csrf_name);
+        
+        if (!$csrf_token || $csrf_token !== $this->security->get_csrf_hash()) {
+            show_error('Invalid CSRF token', 400);
+            return;
         }
-
-        $agency = $this->{$this->model}->get_by_id($id);
-        if (!$agency || !$agency->login_enabled) {
-            flash_notification('Agency login is not enabled or agency not found', 'warning');
-            redir($this->pageName);
-        }
-
-        // Log action
-        Logger::log('Login As Agency', ['agency_id' => $id, 'agency_name' => $agency->name]);
-
-        $login = loginData();
-        if (!is_array($login)) $login = [];
-
-        $login['agency'] = [
-            'id' => $agency->id,
-            'group' => 'agency',
-            'name' => $agency->name,
-            'email' => $agency->email,
-            'contact_person' => $agency->contact_person,
-            'redirect' => site_url('agency/dashboard'),
-            'enabled' => $agency->enabled,
-            'login_enabled' => $agency->login_enabled
-        ];
-
-        $this->session->set_userdata('login', $login);
-        $this->session->set_userdata('is_logged_in', 1);
-
-        // Update last login
-        $this->{$this->model}->update_last_login($agency->id);
-
-        redirect('agency/dashboard');
+    } else {
+        // If GET request, redirect to proper form or show error
+        show_error('This action requires a POST request', 405);
+        return;
     }
+    // ============ END CSRF PROTECTION ============
+    
+    if (!$this->allowEdit) {
+        flash_notification(lang('access_denied_description'), 'warning');
+        redir($this->pageName);
+    }
+
+    $agency = $this->{$this->model}->get_by_id($id);
+    if (!$agency || !$agency->login_enabled) {
+        flash_notification('Agency login is not enabled or agency not found', 'warning');
+        redir($this->pageName);
+    }
+
+    // Log action
+    Logger::log('Login As Agency', ['agency_id' => $id, 'agency_name' => $agency->name]);
+
+    $login = loginData();
+    if (!is_array($login)) $login = [];
+
+    $login['agency'] = [
+        'id' => $agency->id,
+        'group' => 'agency',
+        'name' => $agency->name,
+        'email' => $agency->email,
+        'contact_person' => $agency->contact_person,
+        'redirect' => site_url('agency/dashboard'),
+        'enabled' => $agency->enabled,
+        'login_enabled' => $agency->login_enabled
+    ];
+
+    $this->session->set_userdata('login', $login);
+    $this->session->set_userdata('is_logged_in', 1);
+
+    // Update last login
+    $this->{$this->model}->update_last_login($agency->id);
+
+    redirect('agency/dashboard');
+}
 
     public function index()
     {

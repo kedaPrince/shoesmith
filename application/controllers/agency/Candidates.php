@@ -174,6 +174,9 @@ $this->listActions = array(
 
     public function onboarding($candidate_id) 
     {
+         if (!$this->enforce_candidate_access($candidate_id)) {
+        return; // Already handled by enforce_candidate_access
+    }
         $agency_id = $this->get_user_agency_id();
         
         if (!$agency_id) {
@@ -326,6 +329,13 @@ $this->listActions = array(
     }
 
     public function upload_document() {
+        $csrf_name = $this->security->get_csrf_token_name();
+    $csrf_token = $this->input->post($csrf_name);
+    
+    if (!$csrf_token || $csrf_token !== $this->security->get_csrf_hash()) {
+        ajax_return(['success' => false, 'message' => 'Invalid CSRF token. Please refresh and try again.']);
+        return;
+    }
         $candidate_id = $this->input->post('candidate_id');
         $document_name = $this->input->post('document_name');
         $document_type = $this->input->post('document_type');
@@ -438,6 +448,20 @@ $this->listActions = array(
 
     // In your update_onboarding_stage method or stage toggle handler:
     public function update_onboarding_stage() {
+        if (!$this->enforce_candidate_access($candidate_id)) {
+        return;
+    }
+    
+          $csrf_name = $this->security->get_csrf_token_name();
+    $csrf_token = $this->input->post($csrf_name);
+    
+    if (!$csrf_token || $csrf_token !== $this->security->get_csrf_hash()) {
+        ajax_return([
+            'success' => false,
+            'message' => 'Invalid CSRF token. Please refresh and try again.'
+        ]);
+        return;
+    }
         $candidate_id = $this->input->post('candidate_id');
         $stage = $this->input->post('stage');
         $value = $this->input->post('value');
@@ -490,6 +514,17 @@ $this->listActions = array(
     }
 
     public function update_hm_decision() {
+         $csrf_name = $this->security->get_csrf_token_name();
+    $csrf_token = $this->input->post($csrf_name);
+    
+    if (!$csrf_token || $csrf_token !== $this->security->get_csrf_hash()) {
+        ajax_return([
+            'success' => false,
+            'message' => 'Invalid CSRF token. Please refresh and try again.'
+        ]);
+        return;
+    }
+    
         $candidate_id = $this->input->post('candidate_id');
         $decision = $this->input->post('decision');
         $notes = $this->input->post('notes');
@@ -557,7 +592,19 @@ $this->listActions = array(
         if (!$this->input->is_ajax_request()) {
             show_404();
         }
-
+// ✅ ADD CSRF VALIDATION
+    $csrf_name = $this->security->get_csrf_token_name();
+    $csrf_token = $this->input->post($csrf_name);
+    
+    if (!$csrf_token || $csrf_token !== $this->security->get_csrf_hash()) {
+        $this->output
+            ->set_content_type('application/json')
+            ->set_output(json_encode([
+                'success' => false,
+                'message' => 'Invalid CSRF token. Please refresh and try again.'
+            ]));
+        return;
+    }
         try {
             $candidate_id = $this->input->post('candidate_id');
             $documents_required = $this->input->post('documents_required');
@@ -754,6 +801,17 @@ $this->listActions = array(
     }
 
     public function update($id) {
+           if (!is_ajax()) {
+        // Validate CSRF for non-AJAX requests
+        $csrf_name = $this->security->get_csrf_token_name();
+        $csrf_token = $this->input->post($csrf_name);
+        
+        if (!$csrf_token || $csrf_token !== $this->security->get_csrf_hash()) {
+            flash_notification('Invalid CSRF token. Please try again.', 'error');
+            redir($this->pageName);
+            return;
+        }
+    }
         if ($this->input->post()) {
             $allowed_fields = ['status', 'notes', 'rating'];
             $filtered_data = [];
@@ -1075,6 +1133,24 @@ $this->listActions = array(
     }
 
     public function enable($id) {
+         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $csrf_name = $this->security->get_csrf_token_name();
+    $csrf_token = $this->input->post($csrf_name);
+    
+    if (!$csrf_token || $csrf_token !== $this->security->get_csrf_hash()) {
+        if (is_ajax()) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'message' => 'Invalid CSRF token']);
+            return;
+        } else {
+            show_error('Invalid CSRF token', 400);
+            return;
+        }
+    }
+} elseif ($_SERVER['REQUEST_METHOD'] !== 'GET') {
+    show_error('Method not allowed', 405);
+    return;
+}
         $agency_id = $this->get_user_agency_id();
         if ($agency_id) {
             $exists = $this->db->select('1')
@@ -1096,6 +1172,24 @@ $this->listActions = array(
     }
 
     public function disable($id) {
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $csrf_name = $this->security->get_csrf_token_name();
+    $csrf_token = $this->input->post($csrf_name);
+    
+    if (!$csrf_token || $csrf_token !== $this->security->get_csrf_hash()) {
+        if (is_ajax()) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'message' => 'Invalid CSRF token']);
+            return;
+        } else {
+            show_error('Invalid CSRF token', 400);
+            return;
+        }
+    }
+} elseif ($_SERVER['REQUEST_METHOD'] !== 'GET') {
+    show_error('Method not allowed', 405);
+    return;
+}
         $agency_id = $this->get_user_agency_id();
         if ($agency_id) {
             $exists = $this->db->select('1')
@@ -1117,6 +1211,24 @@ $this->listActions = array(
     }
 
     public function remove($id) {
+         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $csrf_name = $this->security->get_csrf_token_name();
+    $csrf_token = $this->input->post($csrf_name);
+    
+    if (!$csrf_token || $csrf_token !== $this->security->get_csrf_hash()) {
+        if (is_ajax()) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'message' => 'Invalid CSRF token']);
+            return;
+        } else {
+            show_error('Invalid CSRF token', 400);
+            return;
+        }
+    }
+} elseif ($_SERVER['REQUEST_METHOD'] !== 'GET') {
+    show_error('Method not allowed', 405);
+    return;
+}
         $agency_id = $this->get_user_agency_id();
         if ($agency_id) {
             $exists = $this->db->select('1')
@@ -1172,6 +1284,10 @@ $this->listActions = array(
 
     public function view($id)
     {
+        if (!$this->enforce_candidate_access($id)) {
+        return;
+    }
+    
         $agency_id = $this->get_user_agency_id();
         if (!$agency_id) {
             show_error('Access denied');
@@ -1572,5 +1688,42 @@ public function start_candidate_chat($candidate_id)
     }
 }
 
+/**
+ * Check if current user has access to this candidate
+ */
+private function check_candidate_access($candidate_id) {
+    $agency_id = $this->get_user_agency_id();
+    
+    if (!$agency_id) {
+        return false;
+    }
+    
+    // Check if candidate belongs to user's agency
+    $this->db->select('1');
+    $this->db->from('candidate_agencies ca');
+    $this->db->where('ca.candidate_id', $candidate_id);
+    $this->db->where('ca.agency_id', $agency_id);
+    
+    $result = $this->db->get()->row();
+    
+    return $result !== null;
+}
 
+/**
+ * Enforce candidate access - use in ALL candidate methods
+ */
+private function enforce_candidate_access($candidate_id) {
+    if (!$this->check_candidate_access($candidate_id)) {
+        if ($this->input->is_ajax_request()) {
+            ajax_return([
+                'success' => false,
+                'message' => 'Access denied to this candidate'
+            ]);
+        } else {
+            show_error('Access denied', 403);
+        }
+        return false;
+    }
+    return true;
+}
 }

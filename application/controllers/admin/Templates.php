@@ -383,6 +383,24 @@ class Templates extends CRUD_Controller
 
     public function disable($id) 
     {
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $csrf_name = $this->security->get_csrf_token_name();
+    $csrf_token = $this->input->post($csrf_name);
+    
+    if (!$csrf_token || $csrf_token !== $this->security->get_csrf_hash()) {
+        if (is_ajax()) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'message' => 'Invalid CSRF token']);
+            return;
+        } else {
+            show_error('Invalid CSRF token', 400);
+            return;
+        }
+    }
+} elseif ($_SERVER['REQUEST_METHOD'] !== 'GET') {
+    show_error('Method not allowed', 405);
+    return;
+}
         log_message('debug', '=== CASCADING DISABLE START FOR TEMPLATE: ' . $id . ' ===');
         
         $row = $this->{$this->model}->get_by_id($id);
@@ -454,6 +472,24 @@ class Templates extends CRUD_Controller
 
     public function enable($id) 
     {
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $csrf_name = $this->security->get_csrf_token_name();
+    $csrf_token = $this->input->post($csrf_name);
+    
+    if (!$csrf_token || $csrf_token !== $this->security->get_csrf_hash()) {
+        if (is_ajax()) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'message' => 'Invalid CSRF token']);
+            return;
+        } else {
+            show_error('Invalid CSRF token', 400);
+            return;
+        }
+    }
+} elseif ($_SERVER['REQUEST_METHOD'] !== 'GET') {
+    show_error('Method not allowed', 405);
+    return;
+}
         log_message('debug', '=== CASCADING ENABLE START FOR TEMPLATE: ' . $id . ' ===');
         
         $row = $this->{$this->model}->get_by_id($id);
@@ -1296,6 +1332,24 @@ private function wrap_section_form($section, $form_html)
 
     public function remove($id) 
     {
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $csrf_name = $this->security->get_csrf_token_name();
+    $csrf_token = $this->input->post($csrf_name);
+    
+    if (!$csrf_token || $csrf_token !== $this->security->get_csrf_hash()) {
+        if (is_ajax()) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'message' => 'Invalid CSRF token']);
+            return;
+        } else {
+            show_error('Invalid CSRF token', 400);
+            return;
+        }
+    }
+} elseif ($_SERVER['REQUEST_METHOD'] !== 'GET') {
+    show_error('Method not allowed', 405);
+    return;
+}
         log_message('debug', '=== CASCADING DELETE START FOR TEMPLATE: ' . $id . ' ===');
         
         $row = $this->{$this->model}->get_by_id($id);
@@ -1383,6 +1437,23 @@ private function wrap_section_form($section, $form_html)
 
    public function update_ajax($template_id)
 {
+    if (!$this->input->is_ajax_request()) {
+    show_error('Not an AJAX request', 400);
+    return;
+}
+
+// CSRF protection
+$csrf_name = $this->security->get_csrf_token_name();
+$csrf_token = $this->input->post($csrf_name);
+
+if (!$csrf_token || $csrf_token !== $this->security->get_csrf_hash()) {
+    header('Content-Type: application/json');
+    echo json_encode([
+        'success' => false,
+        'error' => 'Invalid CSRF token'
+    ]);
+    return;
+}
     log_message('debug', '=== UPDATE_AJAX CALLED FOR TEMPLATE: ' . $template_id . ' ===');
     
     // Set JSON header first
@@ -1747,6 +1818,19 @@ private function save_composite_template_data($template_id, $form_data, $templat
 
     public function add_section_to_template($template_id) {
         if (!$this->input->is_ajax_request()) {
+    show_404();
+    return;
+}
+
+// CSRF protection
+$csrf_name = $this->security->get_csrf_token_name();
+$csrf_token = $this->input->post($csrf_name);
+
+if (!$csrf_token || $csrf_token !== $this->security->get_csrf_hash()) {
+    $this->output_json(['success' => false, 'error' => 'Invalid CSRF token']);
+    return;
+}
+        if (!$this->input->is_ajax_request()) {
             show_404();
         }
 
@@ -1770,6 +1854,19 @@ private function save_composite_template_data($template_id, $form_data, $templat
 
     // In the Templates controller, add this new method:
 public function remove_section_from_template($template_id) {
+    if (!$this->input->is_ajax_request()) {
+    show_404();
+    return;
+}
+
+// CSRF protection
+$csrf_name = $this->security->get_csrf_token_name();
+$csrf_token = $this->input->post($csrf_name);
+
+if (!$csrf_token || $csrf_token !== $this->security->get_csrf_hash()) {
+    $this->output_json(['success' => false, 'error' => 'Invalid CSRF token']);
+    return;
+}
     if (!$this->input->is_ajax_request()) {
         show_404();
     }

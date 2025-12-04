@@ -542,12 +542,15 @@ $config['global_xss_filtering'] = TRUE;
   | 'csrf_exclude_uris' = Array of URIs which ignore CSRF checks
  */
 
-$config['csrf_protection'] = true;
+$config['csrf_protection'] = TRUE;
 $config['csrf_token_name'] = 'csrf_rfid_token';
-$config['csrf_cookie_name'] = 'csrf_rfid_cookie';
-$config['csrf_expire'] = 86400;
-$config['csrf_regenerate'] = false;
-$config['csrf_exclude_uris'] = array();
+$config['csrf_cookie_name'] = 'csrf_cookie_name';
+$config['csrf_expire'] = 7200; // 2 hours - matches your needs
+$config['csrf_regenerate'] = TRUE; // ✅ This is what you want!
+$config['csrf_exclude_uris'] = array(); // ✅ Keep empty for security
+
+// Also important for AJAX
+$config['csrf_redirect'] = FALSE; // Don't redirect on CSRF failure
 
 /*
   |--------------------------------------------------------------------------

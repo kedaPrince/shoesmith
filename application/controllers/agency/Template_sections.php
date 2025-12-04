@@ -654,7 +654,18 @@ class Template_sections extends CRUD_Controller
 
     public function disable($id) 
     {
+         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+        $csrf_name = $this->security->get_csrf_token_name();
+        $csrf_token = $this->input->post($csrf_name);
         
+        if (!$csrf_token || $csrf_token !== $this->security->get_csrf_hash()) {
+            show_error('Invalid CSRF token', 400);
+            return;
+        }
+    } elseif ($_SERVER['REQUEST_METHOD'] !== 'GET') {
+        show_error('Method not allowed', 405);
+        return;
+    }
         $row = $this->{$this->model}->get_by_id($id);
         
         if (!$row) {
@@ -719,7 +730,18 @@ class Template_sections extends CRUD_Controller
 
     public function enable($id) 
     {
+         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+        $csrf_name = $this->security->get_csrf_token_name();
+        $csrf_token = $this->input->post($csrf_name);
         
+        if (!$csrf_token || $csrf_token !== $this->security->get_csrf_hash()) {
+            show_error('Invalid CSRF token', 400);
+            return;
+        }
+    } elseif ($_SERVER['REQUEST_METHOD'] !== 'GET') {
+        show_error('Method not allowed', 405);
+        return;
+    }
         $row = $this->{$this->model}->get_by_id($id);
         
         if (!$row) {
@@ -844,7 +866,18 @@ class Template_sections extends CRUD_Controller
 
     public function remove($id) 
     {
+         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+        $csrf_name = $this->security->get_csrf_token_name();
+        $csrf_token = $this->input->post($csrf_name);
         
+        if (!$csrf_token || $csrf_token !== $this->security->get_csrf_hash()) {
+            show_error('Invalid CSRF token', 400);
+            return;
+        }
+    } elseif ($_SERVER['REQUEST_METHOD'] !== 'GET') {
+        show_error('Method not allowed', 405);
+        return;
+    }
         $row = $this->{$this->model}->get_by_id($id);
         
         if (!$row) {

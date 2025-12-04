@@ -1,5 +1,14 @@
 <?php defined('BASEPATH') || exit('No direct script access allowed'); ?>
+<?php
+// At the top of your ajax_manage.php file
+$form_action = !empty($uuid) ? 
+    site_url('recruiter/candidates/update/' . $uuid) : 
+    site_url('recruiter/candidates/create');
+?>
 
+<?= form_open($form_action, ['enctype' => 'multipart/form-data', 'id' => 'mainCandidateForm']); ?>
+<?= form_hidden('id', !empty($row->id) ? $row->id : 0); ?>
+<?= form_hidden('uuid', !empty($uuid) ? $uuid : ''); ?>
 <a class="close-quick-manage"><i class="fa fa-times"></i></a>
 <div class="quick-manage-form-container qm-tabs">
     <div class="quick-manage-heading">

@@ -352,6 +352,20 @@ public function ajax_assign_candidate_to_job()
         if (!$this->input->is_ajax_request()) {
             throw new Exception('Direct access not allowed');
         }
+        // ✅ ADD CSRF VALIDATION
+        $csrf_name = $this->security->get_csrf_token_name();
+        $csrf_token = $this->input->post($csrf_name);
+        
+        if (!$csrf_token || $csrf_token !== $this->security->get_csrf_hash()) {
+            $this->output
+                ->set_content_type('application/json')
+                ->set_output(json_encode([
+                    'success' => false,
+                    'message' => 'Invalid CSRF token. Please refresh the page and try again.',
+                    'csrf' => $this->security->get_csrf_hash()
+                ]));
+            return;
+        }
 
         $candidate_ids = $this->input->post('candidate_ids');
         $job_id = $this->input->post('job_id');

@@ -67,6 +67,9 @@
 
                 <div class="col-lg-6 wow fadeInUp" data-wow-delay="0.5s">
                     <form id="contactForm">
+                        <!-- ✅ CSRF PROTECTION ADDED -->
+                        <input type="hidden" name="<?php echo $this->security->get_csrf_token_name(); ?>"
+                            value="<?php echo $this->security->get_csrf_hash(); ?>" />
                         <div class="row g-3">
                             <div class="col-md-6">
                                 <div class="form-floating">

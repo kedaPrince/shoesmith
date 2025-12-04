@@ -45,9 +45,18 @@
                     </li>
                     <li class="divider"></li>
                     <li>
-                        <a href="<?= site_url('login/logout/' . $this->uri->segment(1)) ?>">
-                            <i class="icon-power"></i> Logout
-                        </a>
+                        <!-- ============ CHANGED: Logout link to POST form ============ -->
+                        <form method="POST" action="<?= site_url('login/logout/' . $this->uri->segment(1)) ?>"
+                            style="display: inline;" id="logout-form-sidebar">
+                            <input type="hidden" name="<?= $this->security->get_csrf_token_name(); ?>"
+                                value="<?= $this->security->get_csrf_hash(); ?>">
+                            <a href="javascript:void(0);"
+                                onclick="document.getElementById('logout-form-sidebar').submit();"
+                                style="display: block; padding: 3px 20px; clear: both; font-weight: normal; line-height: 1.42857143; color: #333; white-space: nowrap;">
+                                <i class="icon-power"></i> Logout
+                            </a>
+                        </form>
+                        <!-- ============ END CHANGES ============ -->
                     </li>
                 </ul>
             </div>

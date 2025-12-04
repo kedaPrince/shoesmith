@@ -82,68 +82,90 @@ public function build($agency_id = null)
         $this->load->view($this->folder . '/view_footer');
     }
 
- public function save_custom_template() 
-    {
-        try {
-            $agency_id = $this->input->post('agency_id');
-            $template_id = $this->input->post('template_id'); // For updates
-            $template_name = $this->input->post('template_name');
-            $description = $this->input->post('description');
-            $sections_json = $this->input->post('sections');
-            $is_new = empty($template_id);
-
-            // Process sections
-            $sections = [];
-            if (!empty($sections_json)) {
-                $sections = json_decode($sections_json, true);
-                if (!is_array($sections)) {
-                    $sections = [];
-                }
-            }
-
-            if ($is_new) {
-                // Save NEW template using the model method
-                $template_id = $this->{$this->model}->save_agency_template(
-                    $agency_id, 
-                    $template_name, 
-                    $description, 
-                    $sections
-                );
-                $message = 'New template created successfully!';
-            } else {
-                // Update EXISTING template using the model method
-                $template_id = $this->{$this->model}->update_agency_template(
-                    $template_id,
-                    $template_name, 
-                    $description, 
-                    $sections
-                );
-                $message = 'Template updated successfully!';
-            }
-
-            if ($template_id) {
-                $this->session->set_flashdata('success', $message);
-                redirect('admin/templates'); // Redirect to templates listing
-            } else {
-                throw new Exception('Failed to save template');
-            }
-                
-        } catch (Exception $e) {
-            $this->session->set_flashdata('error', 'Error saving template: ' . $e->getMessage());
-            redirect('admin/agency_templates/build/' . ($agency_id ?? 1));
-        }
+public function save_custom_template() 
+{
+    // ============ ADDED CSRF PROTECTION ============
+    $csrf_name = $this->security->get_csrf_token_name();
+    $csrf_token = $this->input->post($csrf_name);
+    
+    if (!$csrf_token || $csrf_token !== $this->security->get_csrf_hash()) {
+        $this->session->set_flashdata('error', 'Invalid security token');
+        redirect('admin/agency_templates/build/' . ($this->input->post('agency_id') ?? 1));
+        return;
     }
+    // ============ END CSRF PROTECTION ============
+    
+    try {
+        $agency_id = $this->input->post('agency_id');
+        $template_id = $this->input->post('template_id'); // For updates
+        $template_name = $this->input->post('template_name');
+        $description = $this->input->post('description');
+        $sections_json = $this->input->post('sections');
+        $is_new = empty($template_id);
 
-      public function select_template($agency_id, $template_id)
-    {
-        $template = $this->{$this->model}->get_template_by_id($template_id);
-        if ($template && $template->agency_id == $agency_id) {
-            redirect('admin/agency_templates/build/' . $agency_id . '?template_id=' . $template_id);
+        // Process sections
+        $sections = [];
+        if (!empty($sections_json)) {
+            $sections = json_decode($sections_json, true);
+            if (!is_array($sections)) {
+                $sections = [];
+            }
+        }
+
+        if ($is_new) {
+            // Save NEW template using the model method
+            $template_id = $this->{$this->model}->save_agency_template(
+                $agency_id, 
+                $template_name, 
+                $description, 
+                $sections
+            );
+            $message = 'New template created successfully!';
         } else {
-            $this->session->set_flashdata('error', 'Template not found');
-            redirect('admin/agency_templates/build/' . $agency_id);
+            // Update EXISTING template using the model method
+            $template_id = $this->{$this->model}->update_agency_template(
+                $template_id,
+                $template_name, 
+                $description, 
+                $sections
+            );
+            $message = 'Template updated successfully!';
+        }
+
+        if ($template_id) {
+            $this->session->set_flashdata('success', $message);
+            redirect('admin/templates'); // Redirect to templates listing
+        } else {
+            throw new Exception('Failed to save template');
+        }
+            
+    } catch (Exception $e) {
+        $this->session->set_flashdata('error', 'Error saving template: ' . $e->getMessage());
+        redirect('admin/agency_templates/build/' . ($agency_id ?? 1));
+    }
+}
+
+   public function select_template($agency_id, $template_id)
+{
+    // If called via POST, validate CSRF
+    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+        $csrf_name = $this->security->get_csrf_token_name();
+        $csrf_token = $this->input->post($csrf_name);
+        
+        if (!$csrf_token || $csrf_token !== $this->security->get_csrf_hash()) {
+            show_error('Invalid security token', 400);
+            return;
         }
     }
+    
+    $template = $this->{$this->model}->get_template_by_id($template_id);
+    if ($template && $template->agency_id == $agency_id) {
+        redirect('admin/agency_templates/build/' . $agency_id . '?template_id=' . $template_id);
+    } else {
+        $this->session->set_flashdata('error', 'Template not found');
+        redirect('admin/agency_templates/build/' . $agency_id);
+    }
+}
 
     // Add method to create new template
     public function create_new($agency_id)
@@ -368,27 +390,54 @@ public function build($agency_id = null)
 
 
     public function reset_template($agency_id = 1)
-    {
-        $this->db->trans_start();
+{
+    // ============ ADDED CSRF PROTECTION ============
+    // Check if this is a POST request (should be)
+    if ($this->input->server('REQUEST_METHOD') === 'POST') {
+        $csrf_name = $this->security->get_csrf_token_name();
+        $csrf_token = $this->input->post($csrf_name);
         
-        // Delete template sections
-        $template = $this->{$this->model}->get_agency_template($agency_id);
-        if ($template) {
-            $this->db->delete('agency_template_sections', ['agency_template_id' => $template->id]);
-            $this->db->delete('agency_custom_templates', ['id' => $template->id]);
+        if (!$csrf_token || $csrf_token !== $this->security->get_csrf_hash()) {
+            show_error('Invalid security token', 400);
+            return;
         }
-        
-        $this->db->trans_complete();
-        
-        if ($this->db->trans_status()) {
-            echo "Template reset successfully for agency $agency_id";
-        } else {
-            echo "Error resetting template";
-        }
-        
-        // Redirect back to builder
-        redirect('admin/agency_templates/build/' . $agency_id);
+    } else {
+        // If GET request, show confirmation form with CSRF
+        $this->load->view($this->folder . '/view_header');
+        echo '<div class="container">';
+        echo '<h2>Reset Template</h2>';
+        echo '<p>Are you sure you want to reset the template for agency ' . $agency_id . '?</p>';
+        echo '<form method="POST" action="' . site_url('admin/agency_templates/reset_template/' . $agency_id) . '">';
+        echo '<input type="hidden" name="' . $this->security->get_csrf_token_name() . '" value="' . $this->security->get_csrf_hash() . '">';
+        echo '<button type="submit" class="btn btn-danger">Yes, Reset Template</button>';
+        echo ' <a href="' . site_url('admin/agency_templates/build/' . $agency_id) . '" class="btn btn-secondary">Cancel</a>';
+        echo '</form>';
+        echo '</div>';
+        $this->load->view($this->folder . '/view_footer');
+        return;
     }
+    // ============ END CSRF PROTECTION ============
+    
+    $this->db->trans_start();
+    
+    // Delete template sections
+    $template = $this->{$this->model}->get_agency_template($agency_id);
+    if ($template) {
+        $this->db->delete('agency_template_sections', ['agency_template_id' => $template->id]);
+        $this->db->delete('agency_custom_templates', ['id' => $template->id]);
+    }
+    
+    $this->db->trans_complete();
+    
+    if ($this->db->trans_status()) {
+        $this->session->set_flashdata('success', "Template reset successfully for agency $agency_id");
+    } else {
+        $this->session->set_flashdata('error', "Error resetting template");
+    }
+    
+    // Redirect back to builder
+    redirect('admin/agency_templates/build/' . $agency_id);
+}
 
 
     

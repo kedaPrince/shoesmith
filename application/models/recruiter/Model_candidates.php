@@ -6,85 +6,85 @@ class Model_candidates extends CRUD_Model
     protected $table = 'candidates';
 
 public function get_all($limit = null, $offset = null, $sort_by = 'first_name', $sort_order = 'ASC', $filters = [])
-{
-    // DEBUG: Start of get_all
-    
-    // Use current filters if no filters passed
-    if (empty($filters)) {
-        $filters = $this->get_current_filters();
-    } else {
-    }
-    
-    // Log all parameters for debugging
-    
-    // YOUR EXISTING CODE - DON'T CHANGE THIS PART
-    // Select base candidate fields
-    $this->db->select('candidates.*');
-
-    // Subquery: get all agency names for this candidate
-    $this->db->select("(SELECT GROUP_CONCAT(a.name SEPARATOR ', ')
-                        FROM candidate_agencies ca
-                        JOIN agencies a ON a.id = ca.agency_id
-                        WHERE ca.candidate_id = candidates.id
-                        AND a.removed = 0 AND a.enabled = 1
-                    ) AS agency_name", false);
-
-    // Subquery: get all job names for this candidate
-    $this->db->select("(SELECT GROUP_CONCAT(j.name SEPARATOR ', ')
-                        FROM candidate_jobs cj
-                        JOIN mod_jobs j ON j.id = cj.job_id
-                        WHERE cj.candidate_id = candidates.id
-                        AND j.removed = 0 AND j.enabled = 1
-                    ) AS job_name", false);
-
-    $this->db->from('candidates');
-    $this->db->where('candidates.removed', 0);
-
-    // Filter by recruiter's assigned candidates
-    $recruiter_id = $this->get_recruiter_id();
-    if ($recruiter_id) {
-        $this->db->where('candidates.assigned_agent_id', $recruiter_id);
-    }
-
-    // Apply status filter
-    if (!empty($filters['status'])) {
-        $this->db->where('candidates.status', $filters['status']);
-    }
-
-    // Apply search filter
-    if (!empty($filters['general'])) {
-        $this->db->group_start();
-        foreach (['candidates.first_name', 'candidates.last_name', 'candidates.email', 'candidates.reference_number'] as $field) {
-            $this->db->or_like($field, $filters['general']);
-        }
-        $this->db->group_end();
-    }
-
-    // Apply job_id filter
-    if (!empty($filters['job_id'])) {
-        $job_id = $filters['job_id'];
-        $this->db->group_start();
-        $this->db->where('candidates.job_id', $job_id);
-        $this->db->or_where("candidates.id IN (SELECT candidate_id FROM candidate_jobs WHERE job_id = $job_id)");
-        $this->db->group_end();
+    {
+        // DEBUG: Start of get_all
         
-    }
-
-    // Sorting
-    if ($sort_by) {
-        if (!in_array($sort_by, ['agency_name', 'job_name'])) {
-            $this->db->order_by("candidates.$sort_by", $sort_order ?: 'ASC');
+        // Use current filters if no filters passed
+        if (empty($filters)) {
+            $filters = $this->get_current_filters();
+        } else {
         }
-    }
+        
+        // Log all parameters for debugging
+        
+        // YOUR EXISTING CODE - DON'T CHANGE THIS PART
+        // Select base candidate fields
+        $this->db->select('candidates.*');
 
-    if ($limit !== null) {
-        $this->db->limit($limit, $offset);
-    }
+        // Subquery: get all agency names for this candidate
+        $this->db->select("(SELECT GROUP_CONCAT(a.name SEPARATOR ', ')
+                            FROM candidate_agencies ca
+                            JOIN agencies a ON a.id = ca.agency_id
+                            WHERE ca.candidate_id = candidates.id
+                            AND a.removed = 0 AND a.enabled = 1
+                        ) AS agency_name", false);
 
-    $query = $this->db->get();
+        // Subquery: get all job names for this candidate
+        $this->db->select("(SELECT GROUP_CONCAT(j.name SEPARATOR ', ')
+                            FROM candidate_jobs cj
+                            JOIN mod_jobs j ON j.id = cj.job_id
+                            WHERE cj.candidate_id = candidates.id
+                            AND j.removed = 0 AND j.enabled = 1
+                        ) AS job_name", false);
+
+        $this->db->from('candidates');
+        $this->db->where('candidates.removed', 0);
+
+        // Filter by recruiter's assigned candidates
+        $recruiter_id = $this->get_recruiter_id();
+        if ($recruiter_id) {
+            $this->db->where('candidates.assigned_agent_id', $recruiter_id);
+        }
+
+        // Apply status filter
+        if (!empty($filters['status'])) {
+            $this->db->where('candidates.status', $filters['status']);
+        }
+
+        // Apply search filter
+        if (!empty($filters['general'])) {
+            $this->db->group_start();
+            foreach (['candidates.first_name', 'candidates.last_name', 'candidates.email', 'candidates.reference_number'] as $field) {
+                $this->db->or_like($field, $filters['general']);
+            }
+            $this->db->group_end();
+        }
+
+        // Apply job_id filter
+        if (!empty($filters['job_id'])) {
+            $job_id = $filters['job_id'];
+            $this->db->group_start();
+            $this->db->where('candidates.job_id', $job_id);
+            $this->db->or_where("candidates.id IN (SELECT candidate_id FROM candidate_jobs WHERE job_id = $job_id)");
+            $this->db->group_end();
+            
+        }
+
+        // Sorting
+        if ($sort_by) {
+            if (!in_array($sort_by, ['agency_name', 'job_name'])) {
+                $this->db->order_by("candidates.$sort_by", $sort_order ?: 'ASC');
+            }
+        }
+
+        if ($limit !== null) {
+            $this->db->limit($limit, $offset);
+        }
+
+        $query = $this->db->get();
  
-    return $query;
-}
+        return $query;
+    }
 
 // In Model_candidates.php for recruiter, add this method:
 
@@ -255,19 +255,7 @@ private function get_recruiter_id()
                         ->row();
     }
 
-    /**
-     * Get candidate details
-     */
-    public function get_candidate($id)
-    {
-        $this->db->select('c.*, j.name as job_name, j.reference_number as job_ref');
-        $this->db->from('candidates c');
-        $this->db->join('mod_jobs j', 'j.id = c.job_id', 'left');
-        $this->db->where('c.id', $id);
-        $this->db->where('c.removed', 0);
-        
-        return $this->db->get()->row();
-    }
+
 
     /**
      * Save candidate document
@@ -538,9 +526,96 @@ private function get_recruiter_id()
         return $this->db->count_all_results();
     }
 
-    public function create(array $data, $table = false)
-    {
+   
+
+    // ========== UUID METHODS ==========
     
+    /**
+     * Generate a UUID v4
+     */
+    public function generate_uuid()
+    {
+        return sprintf('%04x%04x-%04x-%04x-%04x-%04x%04x%04x',
+            mt_rand(0, 0xffff), mt_rand(0, 0xffff),
+            mt_rand(0, 0xffff),
+            mt_rand(0, 0x0fff) | 0x4000,
+            mt_rand(0, 0x3fff) | 0x8000,
+            mt_rand(0, 0xffff), mt_rand(0, 0xffff), mt_rand(0, 0xffff)
+        );
+    }
+    
+    /**
+     * Get candidate by UUID
+     */
+    public function get_by_uuid($uuid)
+    {
+        return $this->db->where('uuid', $uuid)
+                       ->where('removed', 0)
+                       ->get($this->table)
+                       ->row();
+    }
+    
+    /**
+     * Get candidate by ID or UUID (smart method)
+     */
+    public function get_candidate($identifier)
+    {
+        // Check if identifier is UUID (36 characters with hyphens)
+        if (strlen($identifier) == 36 && strpos($identifier, '-') !== false) {
+            return $this->get_candidate_by_uuid($identifier);
+        } else {
+            // Assume it's numeric ID
+            return $this->get_candidate_by_id($identifier);
+        }
+    }
+    
+    /**
+     * Get candidate by UUID with all relationships
+     */
+    public function get_candidate_by_uuid($uuid)
+    {
+        $this->db->select('c.*, 
+            CONCAT(r.first_name, " ", r.last_name) as assigned_recruiter_name,
+            a.name as agency_name,
+            j.name as job_name,
+            j.reference_number as job_reference')
+                 ->from('candidates c')
+                 ->join('recruiters r', 'r.id = c.assigned_agent_id', 'left')
+                 ->join('agencies a', 'a.id = c.agency_id', 'left')
+                 ->join('mod_jobs j', 'j.id = c.job_id', 'left')
+                 ->where('c.uuid', $uuid)
+                 ->where('c.removed', 0);
+        
+        return $this->db->get()->row();
+    }
+    
+    /**
+     * Get candidate by ID with all relationships
+     */
+    public function get_candidate_by_id($id)
+    {
+        $this->db->select('c.*, 
+            CONCAT(r.first_name, " ", r.last_name) as assigned_recruiter_name,
+            a.name as agency_name,
+            j.name as job_name,
+            j.reference_number as job_reference')
+                 ->from('candidates c')
+                 ->join('recruiters r', 'r.id = c.assigned_agent_id', 'left')
+                 ->join('agencies a', 'a.id = c.agency_id', 'left')
+                 ->join('mod_jobs j', 'j.id = c.job_id', 'left')
+                 ->where('c.id', $id)
+                 ->where('c.removed', 0);
+        
+        return $this->db->get()->row();
+    }
+    
+    /**
+     * Override create method to generate UUID
+     */
+    public function create($data, $table = false)
+    {
+        // Generate UUID for new candidate
+        $data['uuid'] = $this->generate_uuid();
         
         // Use the provided table or default to $this->table
         $target_table = $table ? $table : $this->table;
@@ -550,11 +625,26 @@ private function get_recruiter_id()
         if ($result) {
             $id = $this->db->insert_id();
             
+            // Return both ID and UUID
+            $record = $this->get_by_id($id);
+            $record->uuid = $data['uuid'];
+            
             return $id;
         } else {
             $error = $this->db->error();
             return false;
         }
     }
+    
+    /**
+     * Check if UUID exists
+     */
+    public function uuid_exists($uuid)
+    {
+        return $this->db->where('uuid', $uuid)
+                       ->where('removed', 0)
+                       ->count_all_results($this->table) > 0;
+    }
+    
 
 }

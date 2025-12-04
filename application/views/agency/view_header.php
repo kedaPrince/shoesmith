@@ -18,7 +18,9 @@
         rel="stylesheet">
 
     <meta name="author" content="7Diverse" />
-
+    <!-- CSRF META TAGS - ADDED FOR SECURITY -->
+    <meta name="csrf-token-name" content="<?php echo $this->security->get_csrf_token_name(); ?>">
+    <meta name="csrf-token" content="<?php echo $this->security->get_csrf_hash(); ?>">
     <!-- REMOVED security headers from meta tags -->
 
     <link rel="icon" type="image/png"

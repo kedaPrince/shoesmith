@@ -419,6 +419,15 @@ class Test_form_builder extends CRUD_Controller {
     }
 
     public function cleanup_duplicate_templates() {
+         // ✅ ADD CSRF VALIDATION
+    $csrf_name = $this->security->get_csrf_token_name();
+    $csrf_token = $this->input->post($csrf_name);
+    
+    if (!$csrf_token || $csrf_token !== $this->security->get_csrf_hash()) {
+        echo "<h2>CSRF Validation Failed</h2>";
+        echo "<p>Invalid CSRF token. Please refresh and try again.</p>";
+        return;
+    }
         echo "<h2>Cleaning up duplicate templates:</h2>";
         echo "<pre>";
         
@@ -494,6 +503,19 @@ class Test_form_builder extends CRUD_Controller {
     }
 
     public function store_df_data($data) {
+           $csrf_name = $this->security->get_csrf_token_name();
+    $csrf_token = $this->input->post($csrf_name);
+    
+    if (!$csrf_token || $csrf_token !== $this->security->get_csrf_hash()) {
+        log_message('error', 'CSRF validation failed in store_df_data()');
+        return [
+            'name' => 'Invalid CSRF Token',
+            'schema' => json_encode([]),
+            'styling' => json_encode([]),
+            'scripts' => json_encode([]),
+            'enabled' => 0
+        ];
+    }
         $df = $this->input->post('df');
         //  FIX: Initialize variables to prevent undefined errors
         $compiled_schema = [];
@@ -632,6 +654,18 @@ class Test_form_builder extends CRUD_Controller {
     }
 
     public function update($id) {
+         // ✅ ADD CSRF VALIDATION
+    if (!is_ajax()) {
+        // Validate CSRF for non-AJAX requests
+        $csrf_name = $this->security->get_csrf_token_name();
+        $csrf_token = $this->input->post($csrf_name);
+        
+        if (!$csrf_token || $csrf_token !== $this->security->get_csrf_hash()) {
+            flash_notification('Invalid CSRF token. Please try again.', 'error');
+            redir($this->pageName);
+            return;
+        }
+    }
         //  CRITICAL FIX: Use POST ID instead of URL parameter if they differ
         $post_id = $this->input->post('id');
         if ($post_id && $post_id != $id) {
@@ -1307,6 +1341,15 @@ class Test_form_builder extends CRUD_Controller {
     }
 
     public function cleanup_duplicate_codes() {
+          // ✅ ADD CSRF VALIDATION
+    $csrf_name = $this->security->get_csrf_token_name();
+    $csrf_token = $this->input->post($csrf_name);
+    
+    if (!$csrf_token || $csrf_token !== $this->security->get_csrf_hash()) {
+        echo "<h2>CSRF Validation Failed</h2>";
+        echo "<p>Invalid CSRF token. Please refresh and try again.</p>";
+        return;
+    }
         echo "<h2>Cleaning up duplicate codes in mod_template_sections:</h2>";
         echo "<pre>";
         
@@ -1351,6 +1394,15 @@ class Test_form_builder extends CRUD_Controller {
     }
 
     public function create_missing_template_sections() {
+           // ✅ ADD CSRF VALIDATION
+    $csrf_name = $this->security->get_csrf_token_name();
+    $csrf_token = $this->input->post($csrf_name);
+    
+    if (!$csrf_token || $csrf_token !== $this->security->get_csrf_hash()) {
+        echo "<h2>CSRF Validation Failed</h2>";
+        echo "<p>Invalid CSRF token. Please refresh and try again.</p>";
+        return;
+    }
         // Find forms without template sections - FIXED: removed f.description
         $missing_sections = $this->db->select('f.id, f.name')
                                     ->from('sys_form_schemas f')
@@ -1394,6 +1446,18 @@ class Test_form_builder extends CRUD_Controller {
      * Override disable method to cascade to related sections and templates
      */
     public function disable($id) {
+         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+        $csrf_name = $this->security->get_csrf_token_name();
+        $csrf_token = $this->input->post($csrf_name);
+        
+        if (!$csrf_token || $csrf_token !== $this->security->get_csrf_hash()) {
+            show_error('Invalid CSRF token', 400);
+            return;
+        }
+    } elseif ($_SERVER['REQUEST_METHOD'] !== 'GET') {
+        show_error('Method not allowed', 405);
+        return;
+    }
         log_message('debug', '=== CASCADING DISABLE START FOR FORM: ' . $id . ' ===');
         
         $row = $this->{$this->model}->get_by_id($id);
@@ -1470,6 +1534,18 @@ class Test_form_builder extends CRUD_Controller {
      * Override enable method to cascade to related sections and templates
      */
     public function enable($id) {
+         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+        $csrf_name = $this->security->get_csrf_token_name();
+        $csrf_token = $this->input->post($csrf_name);
+        
+        if (!$csrf_token || $csrf_token !== $this->security->get_csrf_hash()) {
+            show_error('Invalid CSRF token', 400);
+            return;
+        }
+    } elseif ($_SERVER['REQUEST_METHOD'] !== 'GET') {
+        show_error('Method not allowed', 405);
+        return;
+    }
         log_message('debug', '=== CASCADING ENABLE START FOR FORM: ' . $id . ' ===');
         
         $row = $this->{$this->model}->get_by_id($id);
@@ -1714,6 +1790,18 @@ class Test_form_builder extends CRUD_Controller {
      * Override remove method to cascade delete to related sections and templates
      */
     public function remove($id) {
+         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+        $csrf_name = $this->security->get_csrf_token_name();
+        $csrf_token = $this->input->post($csrf_name);
+        
+        if (!$csrf_token || $csrf_token !== $this->security->get_csrf_hash()) {
+            show_error('Invalid CSRF token', 400);
+            return;
+        }
+    } elseif ($_SERVER['REQUEST_METHOD'] !== 'GET') {
+        show_error('Method not allowed', 405);
+        return;
+    }
         log_message('debug', '=== CASCADING DELETE START FOR FORM: ' . $id . ' ===');
         
         $row = $this->{$this->model}->get_by_id($id);

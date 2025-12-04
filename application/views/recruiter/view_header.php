@@ -7,6 +7,11 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
     <meta name="author" content="7Diverse" />
+    <!-- CSRF META TAGS - ADDED FOR SECURITY -->
+    <meta name="csrf-token-name" content="<?php echo $this->security->get_csrf_token_name(); ?>">
+    <meta name="csrf-token" content="<?php echo $this->security->get_csrf_hash(); ?>">
+    <input type="hidden" name="<?php echo $this->security->get_csrf_token_name(); ?>"
+        value="<?php echo $this->security->get_csrf_hash(); ?>" id="csrf_token_input">
 
     <link rel="icon" type="image/png" href="<?=site_url()?>resources/cms/images/favicon.ico" sizes="32x32" />
 
@@ -41,7 +46,7 @@
     <!-- Extra Plugin CSS -->
     <link rel="stylesheet" type="text/css" href="<?= site_url(); ?>resources/cms/css/cropper.min.css" />
     <link rel="stylesheet" type="text/css" href="<?= site_url(); ?>resources/cms/plugins/flatpickr/flatpickr.min.css" />
-      <!-- Now load core.js with protection in place -->
+    <!-- Now load core.js with protection in place -->
     <script type="text/javascript"
         src="<?= htmlspecialchars(site_url(), ENT_QUOTES, 'UTF-8'); ?>resources/cms/javascript/core.js"></script>
 
@@ -81,7 +86,27 @@ if (!empty($css)) {
     }
     </script>
 
+    <!-- In view_header.php - Update the script to use window. prefix -->
+    <script>
+    // Set global CSRF token for AJAX requests - Use window. prefix
+    window.csrf_token_name = '<?php echo $this->security->get_csrf_token_name(); ?>';
+    window.csrf_token_value = '<?php echo $this->security->get_csrf_hash(); ?>'; // Changed from window.csrf_token
 
+    // Function to get CSRF token for AJAX requests
+    window.getCsrfToken = function() {
+        return {
+            name: window.csrf_token_name,
+            value: window.csrf_token_value
+        };
+    };
+
+    // Function to update CSRF token when it changes
+    window.updateCsrfToken = function(newToken) {
+        window.csrf_token_value = newToken;
+        document.getElementById('csrf_token_input').value = newToken;
+        document.querySelector('meta[name="csrf-token"]').content = newToken;
+    };
+    </script>
 </head>
 
 <body data-theme="<?= $this->config->item('dark_mode') ? 'dark' : 'light'; ?>"

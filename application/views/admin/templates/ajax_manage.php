@@ -17,6 +17,9 @@
     <div class="form-field-container">
         <form id="main-form" method="post" accept-charset="utf-8"
             data-saved-data='<?= json_encode($debug_form_data ?? []) ?>'>
+            <!-- ✅ CSRF PROTECTION ADDED -->
+            <input type="hidden" name="<?php echo $this->security->get_csrf_token_name(); ?>"
+                value="<?php echo $this->security->get_csrf_hash(); ?>" />
 
             <input type="hidden" name="id" value="<?= !empty($row->id) ? $row->id : '' ?>" />
             <input type="hidden" name="name" value="<?= !empty($row->name) ? htmlspecialchars($row->name) : '' ?>" />

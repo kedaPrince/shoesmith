@@ -483,8 +483,12 @@ public function ajax_get_messages()
 
 public function ajax_get_conversations()
 {
-    // This should validate CSRF too if it's a POST request
-    // Or change it to GET request if it's truly read-only
+    // ✅ ADD CSRF VALIDATION if this is a POST request
+    if ($this->input->server('REQUEST_METHOD') === 'POST') {
+        if (!$this->validate_csrf_token()) {
+            return;
+        }
+    }
     
     $agency_id = $this->get_user_agency_id();
     
@@ -573,6 +577,18 @@ public function ajax_get_chat_notifications()
 
 public function switch_to_general($conversation_uuid, $recruiter_id)
 {
+    // ✅ ADD CSRF VALIDATION for POST requests
+    if ($this->input->server('REQUEST_METHOD') === 'POST') {
+        $csrf_name = $this->security->get_csrf_token_name();
+        $csrf_token = $this->input->post($csrf_name);
+        
+        if (!$csrf_token || $csrf_token !== $this->security->get_csrf_hash()) {
+            flash_notification('Invalid CSRF token. Please refresh and try again.', 'error');
+            redirect('agency/chat');
+            return;
+        }
+    }
+    
     // Get agency ID
     $agency_id = $this->get_user_agency_id();
     
@@ -617,6 +633,19 @@ public function ajax_switch_chat_to_general()
         echo json_encode([
             'success' => false,
             'message' => 'Invalid request'
+        ]);
+        return;
+    }
+    
+    // ✅ ADD PROPER CSRF VALIDATION
+    $csrf_name = $this->security->get_csrf_token_name();
+    $csrf_token = $this->input->post($csrf_name);
+    
+    if (!$csrf_token || $csrf_token !== $this->security->get_csrf_hash()) {
+        echo json_encode([
+            'success' => false,
+            'message' => 'Invalid CSRF token. Please refresh and try again.',
+            'csrf' => $this->security->get_csrf_hash()
         ]);
         return;
     }

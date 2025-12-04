@@ -16,6 +16,17 @@ class Files extends MY_Controller {
      * (At the moment it's useless)
      */
     public function resize_images($size=200) {
+        // ============ ADDED CSRF PROTECTION ============
+        // Since this is a state-changing operation (creates files), we need CSRF protection
+        $csrf_name = $this->security->get_csrf_token_name();
+        $csrf_token = $this->input->post($csrf_name);
+        
+        if (!$csrf_token || $csrf_token !== $this->security->get_csrf_hash()) {
+            show_error('Invalid CSRF token', 400);
+            return;
+        }
+        // ============ END CSRF PROTECTION ============
+        
         $this->load->library('image_uploader');
         $path = abs_path().'resources/uploads/';
 

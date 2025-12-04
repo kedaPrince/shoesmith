@@ -376,7 +376,18 @@ class Hybrid_Query_Result {
 
     public function disable($id) 
     {
+         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+        $csrf_name = $this->security->get_csrf_token_name();
+        $csrf_token = $this->input->post($csrf_name);
         
+        if (!$csrf_token || $csrf_token !== $this->security->get_csrf_hash()) {
+            show_error('Invalid CSRF token', 400);
+            return;
+        }
+    } elseif ($_SERVER['REQUEST_METHOD'] !== 'GET') {
+        show_error('Method not allowed', 405);
+        return;
+    }
         $row = $this->{$this->model}->get_by_id($id);
         
         if (!$row) {
@@ -446,7 +457,18 @@ class Hybrid_Query_Result {
 
     public function enable($id) 
     {
+         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+        $csrf_name = $this->security->get_csrf_token_name();
+        $csrf_token = $this->input->post($csrf_name);
         
+        if (!$csrf_token || $csrf_token !== $this->security->get_csrf_hash()) {
+            show_error('Invalid CSRF token', 400);
+            return;
+        }
+    } elseif ($_SERVER['REQUEST_METHOD'] !== 'GET') {
+        show_error('Method not allowed', 405);
+        return;
+    }
         $row = $this->{$this->model}->get_by_id($id);
         
         if (!$row) {
@@ -1204,6 +1226,10 @@ class Hybrid_Query_Result {
 
     private function output_json($data) 
     {
+         if (!isset($data['csrf'])) {
+        $data['csrf'] = $this->security->get_csrf_hash();
+    }
+    
         $this->output
             ->set_content_type('application/json')
             ->set_output(json_encode($data));
@@ -1211,7 +1237,18 @@ class Hybrid_Query_Result {
 
     public function remove($id) 
     {
+         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+        $csrf_name = $this->security->get_csrf_token_name();
+        $csrf_token = $this->input->post($csrf_name);
         
+        if (!$csrf_token || $csrf_token !== $this->security->get_csrf_hash()) {
+            show_error('Invalid CSRF token', 400);
+            return;
+        }
+    } elseif ($_SERVER['REQUEST_METHOD'] !== 'GET') {
+        show_error('Method not allowed', 405);
+        return;
+    }
         $row = $this->{$this->model}->get_by_id($id);
         
         if (!$row) {
@@ -1293,6 +1330,30 @@ class Hybrid_Query_Result {
 
     public function update_ajax($template_id)
     {
+         // ✅ ADD CSRF VALIDATION
+    if (!$this->input->is_ajax_request()) {
+        show_404();
+    }
+    
+    $csrf_name = $this->security->get_csrf_token_name();
+    $csrf_token = $this->input->post($csrf_name);
+    
+    if (!$csrf_token || $csrf_token !== $this->security->get_csrf_hash()) {
+        // Clear all output buffers
+        while (ob_get_level() > 0) {
+            ob_end_clean();
+        }
+        
+        $this->output
+            ->set_content_type('application/json')
+            ->set_output(json_encode([
+                'success' => false,
+                'error' => 'Invalid CSRF token. Please refresh and try again.',
+                'csrf' => $this->security->get_csrf_hash()
+            ]))
+            ->_display();
+        exit;
+    }
         // FIX: Set proper headers first
         header('Content-Type: application/json');
         
@@ -1703,7 +1764,18 @@ class Hybrid_Query_Result {
         if (!$this->input->is_ajax_request()) {
             show_404();
         }
-
+  // ✅ ADD CSRF VALIDATION
+    $csrf_name = $this->security->get_csrf_token_name();
+    $csrf_token = $this->input->post($csrf_name);
+    
+    if (!$csrf_token || $csrf_token !== $this->security->get_csrf_hash()) {
+        $this->output_json([
+            'success' => false, 
+            'error' => 'Invalid CSRF token',
+            'csrf' => $this->security->get_csrf_hash()
+        ]);
+        return;
+    }
         $section_id = $this->input->post('section_id');
         if (empty($section_id) || !is_numeric($section_id)) {
             $this->output_json(['success' => false, 'error' => 'Invalid section ID']);
@@ -1726,6 +1798,18 @@ class Hybrid_Query_Result {
         if (!$this->input->is_ajax_request()) {
             show_404();
         }
+  // ✅ ADD CSRF VALIDATION
+    $csrf_name = $this->security->get_csrf_token_name();
+    $csrf_token = $this->input->post($csrf_name);
+    
+    if (!$csrf_token || $csrf_token !== $this->security->get_csrf_hash()) {
+        $this->output_json([
+            'success' => false, 
+            'error' => 'Invalid CSRF token',
+            'csrf' => $this->security->get_csrf_hash()
+        ]);
+        return;
+    }
 
         $section_id = $this->input->post('section_id');
         if (empty($section_id) || !is_numeric($section_id)) {

@@ -1,11 +1,14 @@
 <?php defined('BASEPATH') OR exit('No direct script access allowed'); ?>
 <!-- main left menu -->
+<?php defined('BASEPATH') OR exit('No direct script access allowed'); ?>
+<!-- main left menu -->
 <div id="left-sidebar" class="sidebar">
     <button type="button" class="btn-toggle-offcanvas"><i class="fa fa-arrow-left"></i></button>
     <div class="sidebar-scroll">
         <div class="logo">
-            <a title="<?= $this->config->item('site_name'); ?>">
-                <img src="<?=site_url()?>resources/cms/images/logo_white_logo.png"
+            <a title="<?= $this->config->item('site_name'); ?>" href="<?= site_url() ?>" target="_blank">
+                <!-- Always use white logo for dark mode -->
+                <img src="<?= site_url() ?>resources/cms/images/logo_white_logo.png"
                     alt="<?= $this->config->item('site_name'); ?>" />
             </a>
             <hr>
@@ -13,41 +16,34 @@
         <?php 
             $defaultProfilePic = site_url('resources/cms/images/no-user.png'); 
             $profilePic = !empty($this->loginData['profile_pic']) ? image_url($this->loginData['profile_pic']) : $defaultProfilePic;
-            
-            // Handle agency vs other user types
-            $userName = '';
-            if (isset($this->loginData['first_name']) && isset($this->loginData['last_name'])) {
-                $userName = htmlspecialchars($this->loginData['first_name'] . ' ' . $this->loginData['last_name']);
-            } elseif (isset($this->loginData['name'])) {
-                $userName = htmlspecialchars($this->loginData['name']);
-            } else {
-                $userName = 'User';
-            }
             ?>
         <div class="user-account">
             <img src="<?= $profilePic ?>" class="rounded-circle user-photo" alt="User Profile Picture">
             <div class="dropdown">
                 <span>Welcome,</span>
                 <a href="javascript:void(0);" class="dropdown-toggle user-name" data-toggle="dropdown">
-                    <strong><?= $userName ?></strong>
+                    <strong><?= htmlspecialchars($this->loginData['first_name'] . ' ' . $this->loginData['last_name']) ?></strong>
                 </a>
                 <ul class="dropdown-menu dropdown-menu-right account">
                     <li>
-                        <?php if (isset($this->loginData['group']) && $this->loginData['group'] == 'agency'): ?>
-                        <a href="<?= site_url('agency/agencies#edit/' . loginID()) ?>">
+                        <a href="<?= url('administrators/edit/' . loginID()) ?>">
                             <i class="icon-user"></i> My Profile
                         </a>
-                        <?php else: ?>
-                        <a href="<?= site_url('admin/administrators#edit/' . loginID()) ?>">
-                            <i class="icon-user"></i> My Profile
-                        </a>
-                        <?php endif; ?>
                     </li>
                     <li class="divider"></li>
                     <li>
-                        <a href="<?= site_url('login/logout/' . $this->uri->segment(1)) ?>">
-                            <i class="icon-power"></i> Logout
-                        </a>
+                        <!-- ============ CHANGED: Logout link to POST form ============ -->
+                        <form method="POST" action="<?= site_url('login/logout/' . $this->uri->segment(1)) ?>"
+                            style="display: inline;" id="logout-form-sidebar">
+                            <input type="hidden" name="<?= $this->security->get_csrf_token_name(); ?>"
+                                value="<?= $this->security->get_csrf_hash(); ?>">
+                            <a href="javascript:void(0);"
+                                onclick="document.getElementById('logout-form-sidebar').submit();"
+                                style="display: block; padding: 3px 20px; clear: both; font-weight: normal; line-height: 1.42857143; color: #333; white-space: nowrap;">
+                                <i class="icon-power"></i> Logout
+                            </a>
+                        </form>
+                        <!-- ============ END CHANGES ============ -->
                     </li>
                 </ul>
             </div>
@@ -58,6 +54,8 @@
 
         <?php
             if ( ! empty($this->siteMap)) {
+                $submodules = $this->session->submodules;
+
                 echo '
                 <div class="tab-content padding-0">
                     <div class="tab-pane active" id="mainmenu">
@@ -66,63 +64,29 @@
                 ';
 
                 //Menu Icons
-                foreach ($this->siteMap as $menuGroup) {
+           foreach ($this->siteMap as $menuGroup) {
+    // Check if menuGroup has required properties
+    if (!is_object($menuGroup)) continue;
+    
+    // Determine whether or not to show menu group
+    if (isset($menuGroup->show) && ! $menuGroup->show) {
+        continue;
+    }
 
-                    //Determine whether or not to show menu group
-                    if (isset($menuGroup->show) && ! $menuGroup->show) {
-                        continue;
-                    }
+    $groupClass = ($this->group == ($menuGroup->group ?? '') ? (!empty($menuGroup->items) ? 'active' : 'single-active') : '');
+    $groupClass .= (!empty($menuGroup->class) ? ' '.$menuGroup->class : '');
+    
+    // Fix: Check if page property exists
+    $resetSubmodule = (!empty($menuGroup->page) && !empty($submodules[$menuGroup->page])) ? '/reset' : '';
+    
+    echo '
+    <li class="'.$groupClass.'">
+        <a href="'.($menuGroup->url ?? '#').$resetSubmodule.'" class="'.(!empty($menuGroup->items) ? 'has-arrow' : '').'">
+            <i class="fa '.($menuGroup->icon ?? 'fa-circle').'"></i>
+            <span>'.($menuGroup->label ?? 'Menu').'</span>
+        </a>';
 
-                    $groupClass = ($this->group == $menuGroup->group ? (!empty($menuGroup->items) ? 'active' : 'single-active') : '');
-                    $groupClass .= (!empty($menuGroup->class) ? ' '.$menuGroup->class : '');
-                    echo '
-                                <li class="'.$groupClass.'">
-                                    <a href="'.$menuGroup->url.'" class="'.(!empty($menuGroup->items) ? 'has-arrow' : '').'">
-                                        <i class="fa '.$menuGroup->icon.'"></i>
-                                        <span>'.$menuGroup->label.'</span>
-                                    </a>
-                    ';
-
-                    //Check for menu items
-                    if (!empty($menuGroup->items)) {
-
-                        echo '      <ul>';
-
-                        //Menu items
-                        foreach ($menuGroup->items as $menuItem) {
-
-                            //Determine whether or not to show menu item
-                            if (isset($menuItem->show) && ! $menuItem->show) {
-                                continue;
-                            }
-
-                            //Determine how menu it is marked as being active
-                            if ( ! empty($menuGroup->active_by) && $menuGroup->active_by == 'view') {
-                                $active = $this->pageName == $menuItem->page && $this->view == $menuItem->view ? 'active' : '';
-                            }
-                            elseif (!empty($menuGroup->active_by) && $menuGroup->active_by == 'url') {
-                                $active = current_url() == $menuItem->url ? 'active' : '';
-                            }
-                            else {
-                                $active = $this->pageName == $menuItem->page ? 'active' : '';
-                            }
-
-                            $menuItemClass = $active . ' ' . (! empty($menuItem->class) ? $menuItem->class : '');
-                            echo '
-                                        <li class="'.$menuItemClass.'">
-                                            <a href="'.$menuItem->url.'">'.$menuItem->label.'</a>
-                                        </li>
-                            ';
-
-                        }
-
-                        echo '      </ul>';
-                    }
-
-                    echo '
-                                </li>
-                    ';
-                }
+}
 
                 echo '
                             </ul>

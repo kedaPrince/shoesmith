@@ -526,6 +526,19 @@ public function create_success_extra($id)
 
 
 public function store_df_data($data) {
+      $csrf_name = $this->security->get_csrf_token_name();
+    $csrf_token = $this->input->post($csrf_name);
+    
+    if (!$csrf_token || $csrf_token !== $this->security->get_csrf_hash()) {
+        log_message('error', 'CSRF validation failed in store_df_data()');
+        return [
+            'name' => 'Invalid CSRF Token',
+            'schema' => json_encode([]),
+            'styling' => json_encode([]),
+            'scripts' => json_encode([]),
+            'enabled' => 0
+        ];
+    }
     $df = $this->input->post('df');
     
     log_message('debug', '=== STORE_DF_DATA START ===');
@@ -702,6 +715,18 @@ private function cleanup_deleted_fields($form_id, &$new_df) {
 
 public function update($id) {
     log_message('debug', '=== UPDATE METHOD START ===');
+     // ✅ ADD CSRF VALIDATION
+    if (!is_ajax()) {
+        // Validate CSRF for non-AJAX requests
+        $csrf_name = $this->security->get_csrf_token_name();
+        $csrf_token = $this->input->post($csrf_name);
+        
+        if (!$csrf_token || $csrf_token !== $this->security->get_csrf_hash()) {
+            flash_notification('Invalid CSRF token. Please try again.', 'error');
+            redir($this->pageName);
+            return;
+        }
+    }
     log_message('debug', 'ID from URL: ' . $id);
     log_message('debug', 'POST ID: ' . $this->input->post('id'));
     log_message('debug', 'POST data keys: ' . print_r(array_keys($this->input->post()), true));
@@ -1300,6 +1325,15 @@ private function create_or_update_template_section($form_id, $form_data)
 }
 public function cleanup_duplicate_codes()
 {
+     // ✅ ADD CSRF VALIDATION
+    $csrf_name = $this->security->get_csrf_token_name();
+    $csrf_token = $this->input->post($csrf_name);
+    
+    if (!$csrf_token || $csrf_token !== $this->security->get_csrf_hash()) {
+        echo "<h2>CSRF Validation Failed</h2>";
+        echo "<p>Invalid CSRF token. Please refresh and try again.</p>";
+        return;
+    }
     echo "<h2>Cleaning up duplicate codes in mod_template_sections:</h2>";
     echo "<pre>";
     
@@ -1344,6 +1378,16 @@ private function get_next_sort_order()
 }
 public function create_missing_template_sections()
 {
+        // ✅ ADD CSRF VALIDATION
+    $csrf_name = $this->security->get_csrf_token_name();
+    $csrf_token = $this->input->post($csrf_name);
+    
+    if (!$csrf_token || $csrf_token !== $this->security->get_csrf_hash()) {
+        echo "<h2>CSRF Validation Failed</h2>";
+        echo "<p>Invalid CSRF token. Please refresh and try again.</p>";
+        return;
+    }
+    
     // Find forms without template sections - FIXED: removed f.description
     $missing_sections = $this->db->select('f.id, f.name')
                                 ->from('sys_form_schemas f')
@@ -1411,6 +1455,24 @@ public function update_modify_params($params){
      */
     public function disable($id) 
     {
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $csrf_name = $this->security->get_csrf_token_name();
+    $csrf_token = $this->input->post($csrf_name);
+    
+    if (!$csrf_token || $csrf_token !== $this->security->get_csrf_hash()) {
+        if (is_ajax()) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'message' => 'Invalid CSRF token']);
+            return;
+        } else {
+            show_error('Invalid CSRF token', 400);
+            return;
+        }
+    }
+} elseif ($_SERVER['REQUEST_METHOD'] !== 'GET') {
+    show_error('Method not allowed', 405);
+    return;
+}
         log_message('debug', '=== CASCADING DISABLE START FOR FORM: ' . $id . ' ===');
         
         $row = $this->{$this->model}->get_by_id($id);
@@ -1488,6 +1550,24 @@ public function update_modify_params($params){
      */
     public function enable($id) 
     {
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $csrf_name = $this->security->get_csrf_token_name();
+    $csrf_token = $this->input->post($csrf_name);
+    
+    if (!$csrf_token || $csrf_token !== $this->security->get_csrf_hash()) {
+        if (is_ajax()) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'message' => 'Invalid CSRF token']);
+            return;
+        } else {
+            show_error('Invalid CSRF token', 400);
+            return;
+        }
+    }
+} elseif ($_SERVER['REQUEST_METHOD'] !== 'GET') {
+    show_error('Method not allowed', 405);
+    return;
+}
         log_message('debug', '=== CASCADING ENABLE START FOR FORM: ' . $id . ' ===');
         
         $row = $this->{$this->model}->get_by_id($id);
@@ -1741,6 +1821,33 @@ public function update_modify_params($params){
  */
 public function remove($id) 
 {
+       if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+        $csrf_name = $this->security->get_csrf_token_name();
+        $csrf_token = $this->input->post($csrf_name);
+        
+        if (!$csrf_token || $csrf_token !== $this->security->get_csrf_hash()) {
+            show_error('Invalid CSRF token', 400);
+            return;
+        }
+    } elseif ($_SERVER['REQUEST_METHOD'] !== 'GET') {
+        show_error('Method not allowed', 405);
+        return;
+    }
+    
+    log_message('debug', '=== CASCADING DELETE START FOR SECTION: ' . $id . ' ===');
+    
+    $row = $this->{$this->model}->get_by_id($id);
+    
+    if (!$row) {
+        flash_notification(lang('access_denied_description'), 'warning');
+        redir($this->pageName);
+        return FALSE;
+    }
+
+    if (!$this->remove_extra_before($row)) {
+        redir($this->pageName);
+        return FALSE;
+    }
     log_message('debug', '=== CASCADING DELETE START FOR FORM: ' . $id . ' ===');
     
     $row = $this->{$this->model}->get_by_id($id);

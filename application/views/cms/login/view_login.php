@@ -7,6 +7,9 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
     <meta name="author" content="7Diverse">
+    <!-- Add these meta tags in the <head> section -->
+    <meta name="csrf-token-name" content="<?php echo $this->security->get_csrf_token_name(); ?>">
+    <meta name="csrf-token" content="<?php echo $this->security->get_csrf_hash(); ?>">
 
     <link rel="icon" type="image/png" href="<?=site_url()?>resources/cms/images/favicon.ico" sizes="32x32">
 
@@ -40,7 +43,15 @@
     </script>
     <script type="text/javascript"
         src="<?= site_url(); ?>resources/cms/javascript/core.min.js?v=<?= $this->config->item('version'); ?>"></script>
-
+    <!-- In the head section, add this script before your other scripts -->
+    <script>
+    // ✅ Define base_url for JavaScript
+    var base_url = '<?php echo site_url(); ?>';
+    var csrf = '<?= $this->security->get_csrf_hash(); ?>';
+    var csrfName = '<?=$this->security->get_csrf_token_name()?>';
+    var exportable = '0';
+    var dynamicPath = '';
+    </script>
 </head>
 
 <body data-theme="<?= $this->config->item('dark_mode') ? 'dark' : 'light'; ?>"
@@ -59,10 +70,15 @@
                             <p class="lead">Login to your account</p>
                         </div>
                         <div class="body form-auth-small">
-                            <?= form_open('', ['id' => 'login-form']); ?>
-                            <?= form_hidden('action', 'login'); ?>
-                            <?= form_hidden('group', ''); ?>
-                            <?= form_hidden('bgimage', set_value('bgimage', 0)); ?>
+                            <?php echo form_open('', ['id' => 'login-form']); ?>
+                            <?php echo form_hidden('action', 'login'); ?>
+                            <?php echo form_hidden('group', ''); ?>
+                            <?php echo form_hidden('bgimage', set_value('bgimage', 0)); ?>
+
+                            <!-- ADD THIS CSRF FIELD -->
+                            <input type="hidden" name="<?php echo $this->security->get_csrf_token_name(); ?>"
+                                value="<?php echo $this->security->get_csrf_hash(); ?>">
+
                             <div class="form-group">
                                 <label for="signin-email" class="control-label sr-only">Email</label>
                                 <input data-parsley-required-message="Email is required" data-parsley-type="email"
@@ -81,9 +97,9 @@
                                 id="login-button">LOGIN</button>
                             <div class="bottom">
                                 <span class="helper-text m-b-10"><i class="fa fa-lock"></i> <a
-                                        href="<?= url('login/forgot-password'); ?>">Forgot password?</a></span>
+                                        href="<?php echo url('login/forgot-password'); ?>">Forgot password?</a></span>
                             </div>
-                            <?= form_close(); ?>
+                            <?php echo form_close(); ?>
                         </div>
                     </div>
                 </div>
@@ -92,28 +108,45 @@
     </div>
     <!-- END WRAPPER -->
     <script>
+    function refreshCsrfToken() {
+        $.ajax({
+            url: '<?= site_url(); ?>login/ajax_refresh_token',
+            type: 'POST',
+            dataType: 'json',
+            success: function(response) {
+                // The CSRF token should be updated via the response
+                console.log("CSRF token refreshed");
+            }
+        });
+    }
     $(document).ready(function() {
         console.log("Document ready - JavaScript loaded");
-
         $('input').attr('autocomplete', 'off');
 
-        // Handle form submission
+        // No need to get initial token from meta - it's in the PHP variable
+        console.log("CSRF token name: <?=$this->security->get_csrf_token_name()?>");
+
         $('#login-form').on('submit', function(e) {
             console.log("Form submitted");
-            e.preventDefault(); // Prevent default form submission
+            e.preventDefault();
 
-            // Clear previous errors
             $('.login-error').html('');
+
+            // Disable button during login attempt
+            $('#login-button').prop('disabled', true).html(
+                '<i class="fa fa-spinner fa-spin"></i> LOGGING IN...');
 
             $('#login-form').parsley().whenValidate().done(function() {
                 console.log("Form validation passed");
+                // ✅ Call without parameters - function gets them from form
                 attempt_login();
             }).fail(function() {
                 console.log("Form validation failed");
+                // Re-enable button
+                $('#login-button').prop('disabled', false).html('LOGIN');
             });
         });
 
-        //Submit form on enter key
         $('#login-form input').on('keyup', function(e) {
             if (e.keyCode == 13) {
                 console.log("Enter key pressed");
@@ -122,67 +155,114 @@
         });
     });
 
-    function attempt_login(group) {
-        console.log("=== ATTEMPT LOGIN START ===");
 
-        if (typeof group === 'undefined' || !group) {
-            var group = 0;
-        }
 
-        var email = $('#signin-email').val();
-        var password = $('#signin-password').val();
+    // In your login JavaScript file
+    function attempt_login(email, password, group, action) {
+        console.log('=== LOGIN ATTEMPT ===');
 
-        console.log("Email:", email, "Group:", group);
+        // Get values from form
+        email = $('#signin-email').val();
+        password = $('#signin-password').val();
+        group = $('input[name="group"]').val() || '';
+        action = $('input[name="action"]').val();
 
-        // Show loading
-        $('#login-button').prop('disabled', true).html('<i class="fa fa-spinner fa-spin"></i> LOGGING IN...');
+        // Get CSRF token from meta tag or form
+        var csrfName = $('meta[name="csrf-token-name"]').attr('content') || 'csrf_rfid_token';
+        var csrfToken = $('input[name="' + csrfName + '"]').val() || $('meta[name="csrf-token"]').attr('content');
 
-        // Use basic jQuery AJAX for better control
+        console.log('CSRF Name:', csrfName);
+        console.log('CSRF Token:', csrfToken ? csrfToken.substring(0, 10) + '...' : 'MISSING');
+
+        var data = {
+            email: email,
+            password: password,
+            group: group,
+            action: action,
+            [csrfName]: csrfToken // Dynamic property name
+        };
+
+        console.log('Sending data:', JSON.stringify(data));
+
         $.ajax({
-            url: '<?= site_url(); ?>login/ajax_attempt_login',
+            url: base_url + 'login/ajax_attempt_login',
             type: 'POST',
+            data: data,
             dataType: 'json',
-            data: {
-                'email': email,
-                'password': password,
-                'group': group,
-                'action': 'login',
-                '<?=$this->security->get_csrf_token_name()?>': '<?= $this->security->get_csrf_hash(); ?>'
-            },
             success: function(response) {
-                console.log("=== AJAX SUCCESS ===");
-                console.log("Full response:", response);
+                console.log('Login response:', response);
+
+                // ✅ CRITICAL: Update CSRF token from response
+                if (response.csrf) {
+                    // Update form field
+                    $('input[name="' + csrfName + '"]').val(response.csrf);
+                    // Update meta tag
+                    $('meta[name="csrf-token"]').attr('content', response.csrf);
+                    console.log('CSRF token updated');
+                }
 
                 if (response.success === 1) {
-                    console.log("Login successful, redirecting to:", response.redirect);
+                    // Login successful
+                    console.log('Login successful, redirecting to:', response.redirect);
                     window.location.href = response.redirect;
                 } else if (response.accounts) {
-                    console.log("Multiple accounts found");
+                    // Multiple accounts found
+                    console.log('Multiple accounts found');
                     show_multi_login_popup(response.accounts);
+                    // Re-enable button
+                    $('#login-button').prop('disabled', false).html('LOGIN');
                 } else {
-                    console.log("Login failed:", response.message);
+                    // Login failed
+                    console.log('Login failed:', response.message);
                     $('.login-error').html(response.message || 'Login failed. Please try again.');
                     $('#login-button').prop('disabled', false).html('LOGIN');
                 }
             },
             error: function(xhr, status, error) {
-                console.log("=== AJAX ERROR ===");
-                console.log("Status:", status);
-                console.log("Error:", error);
-                console.log("Response Text:", xhr.responseText);
+                console.error('AJAX Error:', error);
+                console.log('XHR status:', xhr.status);
+                console.log('Response text:', xhr.responseText);
 
-                // Try to parse the response if it's JSON
-                try {
-                    var response = JSON.parse(xhr.responseText);
-                    $('.login-error').html(response.message || 'Login request failed');
-                } catch (e) {
-                    $('.login-error').html('Login request failed. Please try again.');
+                if (xhr.status === 403) {
+                    // CSRF error - refresh page to get new token
+                    $('.login-error').html('Session expired. Refreshing page...');
+                    setTimeout(function() {
+                        window.location.reload();
+                    }, 1000);
+                } else {
+                    $('.login-error').html('Network error: ' + error + '. Please try again.');
                 }
 
                 $('#login-button').prop('disabled', false).html('LOGIN');
             }
         });
     }
+
+
+
+    function getFreshCsrfToken() {
+        return new Promise(function(resolve, reject) {
+            $.ajax({
+                url: '<?= site_url(); ?>login/ajax_refresh_token',
+                type: 'POST',
+                dataType: 'json',
+                success: function(response) {
+                    if (response.success && response.csrf) {
+                        console.log("Got fresh CSRF token:", response.csrf);
+                        resolve(response.csrf);
+                    } else {
+                        reject('No CSRF token in response');
+                    }
+                },
+                error: function(xhr, status, error) {
+                    console.log("CSRF token fetch error:", error);
+                    reject('Failed to get CSRF token: ' + error);
+                }
+            });
+        });
+    }
+
+
 
     function show_multi_login_popup(accounts) {
         console.log("Showing account selection popup");
@@ -216,6 +296,46 @@
             return letter.toUpperCase();
         });
     }
+
+    // Global AJAX setup to handle CSRF token refresh
+    $(document).ready(function() {
+        // Store initial CSRF token
+        let currentCsrfToken = $('meta[name="csrf-token"]').attr('content') ||
+            $('input[name="csrf_rfid_token"]').val();
+
+        // Set up AJAX to always include CSRF token
+        $.ajaxSetup({
+            beforeSend: function(xhr, settings) {
+                if (settings.type === 'POST' || settings.type === 'PUT' || settings.type ===
+                    'DELETE') {
+                    const csrfName = 'csrf_rfid_token';
+                    settings.data += '&' + csrfName + '=' + encodeURIComponent(currentCsrfToken);
+                }
+            }
+        });
+
+        // Intercept all AJAX responses to update CSRF token
+        $(document).ajaxComplete(function(event, xhr, settings) {
+            try {
+                // Try to get CSRF token from response
+                const responseText = xhr.responseText;
+                if (responseText) {
+                    const data = JSON.parse(responseText);
+                    if (data.csrf) {
+                        currentCsrfToken = data.csrf;
+
+                        // Update all CSRF tokens on page
+                        $('input[name="csrf_rfid_token"]').val(data.csrf);
+                        $('meta[name="csrf-token"]').attr('content', data.csrf);
+
+                        console.log('CSRF token updated globally:', data.csrf);
+                    }
+                }
+            } catch (e) {
+                // Not a JSON response or parse error
+            }
+        });
+    });
     </script>
     <!-- Theme Plugins -->
     <script src="<?= site_url(); ?>resources/cms/plugins/theme/sweetalert2/sweetalert2.min.js"></script>

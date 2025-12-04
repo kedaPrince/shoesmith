@@ -210,6 +210,18 @@ public function ajax_send_message()
     $csrf_name = $this->security->get_csrf_token_name();
     $csrf_hash = $this->security->get_csrf_hash();
     
+    // ✅ VALIDATE CSRF TOKEN
+    $csrf_token = $this->input->post($csrf_name);
+    if (!$csrf_token || $csrf_token !== $csrf_hash) {
+        ajax_return([
+            'success' => false,
+            'message' => 'Invalid CSRF token. Please refresh and try again.',
+            'csrf' => $csrf_hash
+        ]);
+        return;
+    }
+    
+    
     $conversation_uuid = $this->input->post('conversation_uuid');
     $message_text = $this->input->post('message');
     $recruiter_id = $this->get_recruiter_id();
@@ -397,6 +409,18 @@ public function ajax_check_session()
  */
 public function ajax_start_conversation()
 {
+    // ✅ ADD CSRF VALIDATION
+    $csrf_name = $this->security->get_csrf_token_name();
+    $csrf_token = $this->input->post($csrf_name);
+    
+    if (!$csrf_token || $csrf_token !== $this->security->get_csrf_hash()) {
+        ajax_return([
+            'success' => false, 
+            'message' => 'Invalid CSRF token. Please refresh and try again.',
+            'csrf' => $this->security->get_csrf_hash()
+        ]);
+        return;
+    }
     $agency_id = $this->input->post('agency_id');
     $subject = $this->input->post('subject');
     $initial_message = $this->input->post('initial_message');
@@ -496,13 +520,34 @@ public function start_conversation($agency_id, $job_id = null, $candidate_id = n
         return !empty($login_data['recruiter']['id']) ? $login_data['recruiter']['id'] : null;
     }
 
-    public function ajax_get_chat_notifications()
+public function ajax_get_chat_notifications()
 {
+    // ✅ ADD CSRF VALIDATION
+    $csrf_name = $this->security->get_csrf_token_name();
+    $csrf_hash = $this->security->get_csrf_hash();
+    
+    // Check if this is a POST request (which requires CSRF validation)
+    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+        $csrf_token = $this->input->post($csrf_name);
+        
+        if (!$csrf_token || $csrf_token !== $csrf_hash) {
+            $response = [
+                'success' => false,
+                'unread_count' => 0,
+                'message' => 'Invalid CSRF token. Please refresh.',
+                'csrf_token' => $this->security->get_csrf_hash()
+            ];
+            $this->output->set_content_type('application/json')->set_output(json_encode($response));
+            return;
+        }
+    }
+    
     $recruiter_id = $this->get_recruiter_id();
     
     $response = [
         'success' => false,
-        'unread_count' => 0
+        'unread_count' => 0,
+        'csrf_token' => $csrf_hash // Always include CSRF token
     ];
 
     try {        
@@ -669,6 +714,20 @@ public function ajax_mark_notifications_read()
 
      public function get_or_create_conversation($agency_id, $recruiter_id, $job_id = null, $candidate_id = null)
     {
+        // ✅ ADD CSRF VALIDATION for AJAX calls
+    if ($this->input->is_ajax_request()) {
+        $csrf_name = $this->security->get_csrf_token_name();
+        $csrf_token = $this->input->post($csrf_name);
+        
+        if (!$csrf_token || $csrf_token !== $this->security->get_csrf_hash()) {
+            ajax_return([
+                'success' => false,
+                'message' => 'Invalid CSRF token. Please refresh and try again.',
+                'csrf' => $this->security->get_csrf_hash()
+            ]);
+            return false;
+        }
+    }
         // Check if conversation already exists
         $this->db->where('agency_id', $agency_id);
         $this->db->where('recruiter_id', $recruiter_id);
@@ -848,6 +907,20 @@ public function ajax_mark_notifications_read()
     // 9. Send message
     public function send_message($conversation_id, $sender_type, $sender_id, $message, $message_type = 'text', $file_data = null)
     {
+         // ✅ ADD CSRF VALIDATION for AJAX calls
+    if ($this->input->is_ajax_request()) {
+        $csrf_name = $this->security->get_csrf_token_name();
+        $csrf_token = $this->input->post($csrf_name);
+        
+        if (!$csrf_token || $csrf_token !== $this->security->get_csrf_hash()) {
+            ajax_return([
+                'success' => false,
+                'message' => 'Invalid CSRF token. Please refresh and try again.',
+                'csrf' => $this->security->get_csrf_hash()
+            ]);
+            return false;
+        }
+    }
         $message_data = [
             'conversation_id' => $conversation_id,
             'sender_type' => $sender_type,
@@ -882,6 +955,20 @@ public function ajax_mark_notifications_read()
     // 10. Mark messages as read
     public function mark_messages_as_read($conversation_id, $reader_type)
     {
+        // ✅ ADD CSRF VALIDATION for AJAX calls
+    if ($this->input->is_ajax_request()) {
+        $csrf_name = $this->security->get_csrf_token_name();
+        $csrf_token = $this->input->post($csrf_name);
+        
+        if (!$csrf_token || $csrf_token !== $this->security->get_csrf_hash()) {
+            ajax_return([
+                'success' => false,
+                'message' => 'Invalid CSRF token. Please refresh and try again.',
+                'csrf' => $this->security->get_csrf_hash()
+            ]);
+            return false;
+        }
+    }
         $this->db->where('conversation_id', $conversation_id);
         $this->db->where('sender_type !=', $reader_type); // Only mark messages from other user as read
         $this->db->where('is_read', 0);
@@ -982,6 +1069,21 @@ public function ajax_mark_notifications_read()
     // 15. Get or create candidate-specific conversation (for recruiter)
     public function get_or_create_candidate_conversation($agency_id, $recruiter_id, $candidate_id, $job_id = null)
     {
+        // ✅ ADD CSRF VALIDATION for AJAX calls
+    if ($this->input->is_ajax_request()) {
+        $csrf_name = $this->security->get_csrf_token_name();
+        $csrf_token = $this->input->post($csrf_name);
+        
+        if (!$csrf_token || $csrf_token !== $this->security->get_csrf_hash()) {
+            ajax_return([
+                'success' => false,
+                'message' => 'Invalid CSRF token. Please refresh and try again.',
+                'csrf' => $this->security->get_csrf_hash()
+            ]);
+            return false;
+        }
+    }
+    
         // Check if candidate exists and has an agency
         $this->db->select('c.*, ca.agency_id as candidate_agency_id');
         $this->db->from('candidates c');

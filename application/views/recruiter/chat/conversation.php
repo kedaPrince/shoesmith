@@ -2356,8 +2356,15 @@ function addMessageToDisplay(message, isRecruiter = false) {
 // ===== AJAX REQUEST HANDLER WITH PROPER ERROR HANDLING =====
 // ===== FIXED AJAX REQUEST HANDLER =====
 async function makeAjaxRequest(url, data = {}) {
-    // Create FormData
+
+    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
+    const csrfName = document.querySelector('meta[name="csrf-token-name"]')?.content;
+
+    // Add CSRF token to FormData
     const formData = new FormData();
+    if (csrfName && csrfToken) {
+        formData.append(csrfName, csrfToken);
+    }
 
     // Add CSRF token
     formData.append(chatState.csrfTokenName, chatState.csrfToken);
@@ -2490,8 +2497,38 @@ async function fetchNewMessages() {
 
         console.log("Poll response:", response);
 
-        if (response.success) {
-            // Process messages...
+        if (response.success && response.messages) {
+            // Process new messages
+            response.messages.forEach(message => {
+                const isRecruiter = message.sender_type === 'recruiter';
+                addMessageToDisplay(message, isRecruiter);
+            });
+
+            // Update last message ID if we got new messages
+            if (response.messages.length > 0) {
+                const lastMsg = response.messages[response.messages.length - 1];
+                chatState.lastMessageId = parseInt(lastMsg.id);
+
+                // Mark messages as read
+                if (!response.messages[0].is_read && response.messages[0].sender_type !== 'recruiter') {
+                    markMessagesAsRead();
+                }
+            }
+
+            // If using HTML fallback
+            if (response.html) {
+                const chatMessages = document.getElementById('chatMessages');
+                const tempDiv = document.createElement('div');
+                tempDiv.innerHTML = response.html;
+
+                // Add new messages
+                const newMessages = tempDiv.children;
+                for (let msg of newMessages) {
+                    chatMessages.appendChild(msg);
+                }
+
+                scrollToBottom();
+            }
         } else {
             console.error("Poll error:", response.message);
 

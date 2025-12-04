@@ -429,139 +429,177 @@ public function preview($id)
      * Override disable method to cascade to related templates
      */
     public function disable($id) 
-    {
-        log_message('debug', '=== CASCADING DISABLE START FOR SECTION: ' . $id . ' ===');
+{
+    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+        $csrf_name = $this->security->get_csrf_token_name();
+        $csrf_token = $this->input->post($csrf_name);
         
-        $row = $this->{$this->model}->get_by_id($id);
-        
-        if (!$row) {
-            if (!is_ajax()) {
-                flash_notification(lang('access_denied_description'), 'warning');
+        if (!$csrf_token || $csrf_token !== $this->security->get_csrf_hash()) {
+            if (is_ajax()) {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'message' => 'Invalid CSRF token']);
+                return;
             } else {
-                http_response_code(422);
-                echo json_encode([
-                    'success' => 0,
-                    'error' => [
-                        'header' => lang('access_denied_heading'),
-                        'body' => lang('access_denied_description')
-                    ]
-                ]);
+                show_error('Invalid CSRF token', 400);
+                return;
             }
-            return;
         }
-
-        if (!$this->disable_extra_before($row)) {
-            return FALSE;
-        }
-
-        $messageParams = array('name' => $row->name);
-
-        $this->db->trans_start();
-        
-        $result = $this->{$this->model}->disable($id);
-        
-        if ($result) {
-            $this->cascade_disable_section_to_templates($id, $row->name, $row->schema_id);
-            Logger::log('Disabled template section and related items: ' . $row->name, array('id' => $id));
-        }
-        
-        $this->db->trans_complete();
-
-        if ($this->db->trans_status() !== FALSE && $result) {
-            if (!is_ajax()) {
-                flash_notification(langs($this->pageName . '_disable_success_description', $messageParams), 'success');
-            }
-            $this->disable_extra_success($row);
+    } elseif ($_SERVER['REQUEST_METHOD'] !== 'GET') {
+        show_error('Method not allowed', 405);
+        return;
+    }
+    
+    log_message('debug', '=== CASCADING DISABLE START FOR SECTION: ' . $id . ' ===');
+    
+    $row = $this->{$this->model}->get_by_id($id);
+    
+    if (!$row) {
+        if (!is_ajax()) {
+            flash_notification(lang('access_denied_description'), 'warning');
         } else {
-            Anomalies::log('Failed to disable template section and related items: ' . $row->name, $this->db->last_query());
-            if (!is_ajax()) {
-                flash_notification(langs($this->pageName . '_disable_failed_description', $messageParams), 'error');
-            } else {
-                http_response_code(422);
-                echo json_encode([
-                    'success' => 0,
-                    'header' => lang($this->pageName . '_disable_failed_heading'),
-                    'body' => str_replace('{name}', $row->name, lang($this->pageName . '_disable_failed_description'))
-                ]);
-            }
+            http_response_code(422);
+            echo json_encode([
+                'success' => 0,
+                'error' => [
+                    'header' => lang('access_denied_heading'),
+                    'body' => lang('access_denied_description')
+                ]
+            ]);
         }
+        return;
+    }
 
-        if (is_ajax()) {
-            http_response_code(200);
-            echo json_encode(['success' => 1]);
+    if (!$this->disable_extra_before($row)) {
+        return FALSE;
+    }
+
+    $messageParams = array('name' => $row->name);
+
+    $this->db->trans_start();
+    
+    $result = $this->{$this->model}->disable($id);
+    
+    if ($result) {
+        $this->cascade_disable_section_to_templates($id, $row->name, $row->schema_id);
+        Logger::log('Disabled template section and related items: ' . $row->name, array('id' => $id));
+    }
+    
+    $this->db->trans_complete();
+
+    if ($this->db->trans_status() !== FALSE && $result) {
+        if (!is_ajax()) {
+            flash_notification(langs($this->pageName . '_disable_success_description', $messageParams), 'success');
+        }
+        $this->disable_extra_success($row);
+    } else {
+        Anomalies::log('Failed to disable template section and related items: ' . $row->name, $this->db->last_query());
+        if (!is_ajax()) {
+            flash_notification(langs($this->pageName . '_disable_failed_description', $messageParams), 'error');
         } else {
-            redir($this->pageName);
+            http_response_code(422);
+            echo json_encode([
+                'success' => 0,
+                'header' => lang($this->pageName . '_disable_failed_heading'),
+                'body' => str_replace('{name}', $row->name, lang($this->pageName . '_disable_failed_description'))
+            ]);
         }
     }
+
+    if (is_ajax()) {
+        http_response_code(200);
+        echo json_encode(['success' => 1]);
+    } else {
+        redir($this->pageName);
+    }
+}
 
     /**
      * Override enable method to cascade to related templates
      */
     public function enable($id) 
-    {
-        log_message('debug', '=== CASCADING ENABLE START FOR SECTION: ' . $id . ' ===');
+{
+    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+        $csrf_name = $this->security->get_csrf_token_name();
+        $csrf_token = $this->input->post($csrf_name);
         
-        $row = $this->{$this->model}->get_by_id($id);
-        
-        if (!$row) {
-            if (!is_ajax()) {
-                flash_notification(lang('access_denied_description'), 'warning');
+        if (!$csrf_token || $csrf_token !== $this->security->get_csrf_hash()) {
+            if (is_ajax()) {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'message' => 'Invalid CSRF token']);
+                return;
             } else {
-                http_response_code(422);
-                echo json_encode([
-                    'success' => 0,
-                    'error' => [
-                        'header' => lang('access_denied_heading'),
-                        'body' => lang('access_denied_description')
-                    ]
-                ]);
+                show_error('Invalid CSRF token', 400);
+                return;
             }
-            return;
         }
-
-        if (!$this->enable_extra_before($row)) {
-            return FALSE;
-        }
-
-        $messageParams = array('name' => $row->name);
-
-        $this->db->trans_start();
-        
-        $result = $this->{$this->model}->enable($id);
-        
-        if ($result) {
-            $this->cascade_enable_section_to_templates($id, $row->name, $row->schema_id);
-            Logger::log('Enabled template section and related items: ' . $row->name, array('id' => $id));
-        }
-        
-        $this->db->trans_complete();
-
-        if ($this->db->trans_status() !== FALSE && $result) {
-            if (!is_ajax()) {
-                flash_notification(langs($this->pageName . '_enable_success_description', $messageParams), 'success');
-            }
-            $this->enable_extra_success($row);
+    } elseif ($_SERVER['REQUEST_METHOD'] !== 'GET') {
+        show_error('Method not allowed', 405);
+        return;
+    }
+    
+    log_message('debug', '=== CASCADING ENABLE START FOR SECTION: ' . $id . ' ===');
+    
+    $row = $this->{$this->model}->get_by_id($id);
+    
+    if (!$row) {
+        if (!is_ajax()) {
+            flash_notification(lang('access_denied_description'), 'warning');
         } else {
-            Anomalies::log('Failed to enable template section and related items: ' . $row->name, $this->db->last_query());
-            if (!is_ajax()) {
-                flash_notification(langs($this->pageName . '_enable_failed_description', $messageParams), 'error');
-            } else {
-                http_response_code(422);
-                echo json_encode([
-                    'success' => 0,
-                    'header' => lang($this->pageName . '_enable_failed_heading'),
-                    'body' => str_replace('{name}', $row->name, lang($this->pageName . '_enable_failed_description'))
-                ]);
-            }
+            http_response_code(422);
+            echo json_encode([
+                'success' => 0,
+                'error' => [
+                    'header' => lang('access_denied_heading'),
+                    'body' => lang('access_denied_description')
+                ]
+            ]);
         }
+        return;
+    }
 
-        if (is_ajax()) {
-            http_response_code(200);
-            echo json_encode(['success' => 1]);
+    if (!$this->enable_extra_before($row)) {
+        return FALSE;
+    }
+
+    $messageParams = array('name' => $row->name);
+
+    $this->db->trans_start();
+    
+    $result = $this->{$this->model}->enable($id);
+    
+    if ($result) {
+        $this->cascade_enable_section_to_templates($id, $row->name, $row->schema_id);
+        Logger::log('Enabled template section and related items: ' . $row->name, array('id' => $id));
+    }
+    
+    $this->db->trans_complete();
+
+    if ($this->db->trans_status() !== FALSE && $result) {
+        if (!is_ajax()) {
+            flash_notification(langs($this->pageName . '_enable_success_description', $messageParams), 'success');
+        }
+        $this->enable_extra_success($row);
+    } else {
+        Anomalies::log('Failed to enable template section and related items: ' . $row->name, $this->db->last_query());
+        if (!is_ajax()) {
+            flash_notification(langs($this->pageName . '_enable_failed_description', $messageParams), 'error');
         } else {
-            redir($this->pageName);
+            http_response_code(422);
+            echo json_encode([
+                'success' => 0,
+                'header' => lang($this->pageName . '_enable_failed_heading'),
+                'body' => str_replace('{name}', $row->name, lang($this->pageName . '_enable_failed_description'))
+            ]);
         }
     }
+
+    if (is_ajax()) {
+        http_response_code(200);
+        echo json_encode(['success' => 1]);
+    } else {
+        redir($this->pageName);
+    }
+}
 
     /**
      * Cascade disable section to related templates
@@ -637,45 +675,58 @@ public function preview($id)
      * Override remove method to cascade delete to related templates
      */
     public function remove($id) 
-    {
-        log_message('debug', '=== CASCADING DELETE START FOR SECTION: ' . $id . ' ===');
+{
+    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+        $csrf_name = $this->security->get_csrf_token_name();
+        $csrf_token = $this->input->post($csrf_name);
         
-        $row = $this->{$this->model}->get_by_id($id);
-        
-        if (!$row) {
-            flash_notification(lang('access_denied_description'), 'warning');
-            redir($this->pageName);
-            return FALSE;
+        if (!$csrf_token || $csrf_token !== $this->security->get_csrf_hash()) {
+            show_error('Invalid CSRF token', 400);
+            return;
         }
-
-        if (!$this->remove_extra_before($row)) {
-            redir($this->pageName);
-            return FALSE;
-        }
-
-        $messageParams = array('name' => $row->name);
-
-        $this->db->trans_start();
-        
-        $result = $this->{$this->model}->remove($id);
-        
-        if ($result) {
-            $this->cascade_delete_section_to_templates($id, $row->name, $row->schema_id);
-            Logger::log('Removed template section and related items: ' . $row->name, array('id' => $id));
-        }
-        
-        $this->db->trans_complete();
-
-        if ($this->db->trans_status() !== FALSE && $result) {
-            flash_notification(langs($this->pageName . '_remove_success_description', $messageParams), 'success');
-            $this->remove_extra_success($row);
-        } else {
-            Anomalies::log('Failed to remove template section and related items: ' . $row->name, $this->db->last_query());
-            flash_notification(langs($this->pageName . '_remove_failed_description', $messageParams), 'error');
-        }
-
-        redir($this->pageName);
+    } elseif ($_SERVER['REQUEST_METHOD'] !== 'GET') {
+        show_error('Method not allowed', 405);
+        return;
     }
+    
+    log_message('debug', '=== CASCADING DELETE START FOR SECTION: ' . $id . ' ===');
+    
+    $row = $this->{$this->model}->get_by_id($id);
+    
+    if (!$row) {
+        flash_notification(lang('access_denied_description'), 'warning');
+        redir($this->pageName);
+        return FALSE;
+    }
+
+    if (!$this->remove_extra_before($row)) {
+        redir($this->pageName);
+        return FALSE;
+    }
+
+    $messageParams = array('name' => $row->name);
+
+    $this->db->trans_start();
+    
+    $result = $this->{$this->model}->remove($id);
+    
+    if ($result) {
+        $this->cascade_delete_section_to_templates($id, $row->name, $row->schema_id);
+        Logger::log('Removed template section and related items: ' . $row->name, array('id' => $id));
+    }
+    
+    $this->db->trans_complete();
+
+    if ($this->db->trans_status() !== FALSE && $result) {
+        flash_notification(langs($this->pageName . '_remove_success_description', $messageParams), 'success');
+        $this->remove_extra_success($row);
+    } else {
+        Anomalies::log('Failed to remove template section and related items: ' . $row->name, $this->db->last_query());
+        flash_notification(langs($this->pageName . '_remove_failed_description', $messageParams), 'error');
+    }
+
+    redir($this->pageName);
+}
 
     /**
      * Cascade delete section to related templates

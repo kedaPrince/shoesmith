@@ -388,6 +388,17 @@ class Jobs_listings extends CRUD_Controller{
      */
 
     public function update($id){
+            if (!is_ajax()) {
+        // Validate CSRF for non-AJAX requests
+        $csrf_name = $this->security->get_csrf_token_name();
+        $csrf_token = $this->input->post($csrf_name);
+        
+        if (!$csrf_token || $csrf_token !== $this->security->get_csrf_hash()) {
+            flash_notification('Invalid CSRF token. Please try again.', 'error');
+            redir($this->pageName);
+            return;
+        }
+    }
         $this->pre_process_job_data();
           // Get original job data before update for change tracking - FIXED METHOD CALL
         $original_job = $this->{$this->model}->get_by_id($id);

@@ -15,116 +15,117 @@ class Candidates extends CRUD_Controller
     public $hideSubNav = false;
     public $quickManageSize = 3;
     
-public function __construct()
-{
-    parent::__construct();
-    $this->folder = 'recruiter';
+    public function __construct()
+    {
+        parent::__construct();
+        $this->folder = 'recruiter';
 
-    // Allow only recruiters
-    $login_data = $this->session->userdata('login');
-    if (empty($login_data['recruiter'])) {
-        redirect('recruiter/dashboard');
+        // Allow only recruiters
+        $login_data = $this->session->userdata('login');
+        if (empty($login_data['recruiter'])) {
+            redirect('recruiter/dashboard');
+        }
+
+        $this->setup_listing();
+        $this->setup_fields();
+        $this->load->model($this->folder . '/' . $this->model);
+        $this->zone = array(
+            'title' => lang($this->pageName . '_heading'),
+            'url' => redir($this->pageName, true),
+        );
+        
+        // Load chat model for recruiter
+        $this->load->model('recruiter/Model_chat_messages');
+        // Load notifications model
+        $this->load->model('recruiter/Model_notifications');
     }
 
-    $this->setup_listing();
-    $this->setup_fields();
-    $this->load->model($this->folder . '/' . $this->model);
-    $this->zone = array(
-        'title' => lang($this->pageName . '_heading'),
-        'url' => redir($this->pageName, true),
-    );
-    
-    // Load chat model for recruiter
-    $this->load->model('recruiter/Model_chat_messages');
-     // Load notifications model
-    $this->load->model('recruiter/Model_notifications');
-}
 
-   private function setup_listing(): void
-{
-    $this->listFields = array(
-        'reference_number' => array(
-            'label' => lang('label_reference_number'),
-            'sort' => true,
-        ),
-        'first_name' => array(
-            'label' => lang('label_first_name'),
-            'sort' => true,
-        ),
-        'email' => array(
-            'label' => lang('label_email'),
-            'sort' => true,
-        ),
-        'job_name' => array(
-            'label' => lang('label_job'),
-            'sort' => true,
-            'field' => 'mod_jobs.name'
-        ),
-        'status' => array(
-            'label' => lang('label_status'),
-            'sort' => true,
-        ),
-        'application_date' => array(
-            'label' => lang('label_application_date'),
-            'sort' => true,
-            'type' => 'date',
-        ),
-    );
-
-    $this->listActions = array(
-        'view' => array(
-            'label'     => lang('label_view'),
-            'url'       => site_url('recruiter/candidates/view/{id}'),
-            'icon'      => 'fa-eye',
-            'class'     => 'view-row',
-            'title'     => 'View detailed candidate profile',
-        ),
-        'edit' => array(
-            'label'     => lang('label_edit'),
-            'url'       => redir($this->pageName . '/edit/{id}', true),
-            'icon'      => 'fa-edit',
-            'class'     => 'edit-row',
-            'title'     => 'Edit candidate information',
-        ),
-        // ADD CHAT ACTION FOR RECRUITER
-        'chat' => array(
-            'label'     => 'Chat',
-            'url'       => site_url('recruiter/candidates/start_candidate_chat/{id}'),
-            'icon'      => 'fa-comments',
-            'class'     => 'chat-row',
-            'title'     => 'Chat with agency about this candidate',
-            'target'    => '_blank'
-        ),
-    );
-
-    $this->filters = array(
-        'search' => array(
-            'label' => lang('label_search'),
-            'type' => 'autocomplete',
-            'field' => array(
-                'candidates.first_name',
-                'candidates.last_name',
-                'candidates.email',
-                'candidates.reference_number',
+// ========== UPDATE LISTING CONFIGURATION TO USE UUID ==========
+    private function setup_listing(): void
+    {
+        $this->listFields = array(
+            'reference_number' => array(
+                'label' => lang('label_reference_number'),
+                'sort' => true,
             ),
-        ),
-        'status' => array(
-            'label' => lang('label_status'),
-            'type' => 'dropdown',
-            'field' => 'candidates.status',
-            'options' => array(
-                'new' => 'New',
-                'reviewed' => 'Reviewed',
-                'shortlisted' => 'Shortlisted',
-                'interviewed' => 'Interviewed',
-                'rejected' => 'Rejected',
-                'hired' => 'Hired',
-                'on_hold' => 'On Hold',
+            'first_name' => array(
+                'label' => lang('label_first_name'),
+                'sort' => true,
             ),
-        ),
-    );
-}
+            'email' => array(
+                'label' => lang('label_email'),
+                'sort' => true,
+            ),
+            'job_name' => array(
+                'label' => lang('label_job'),
+                'sort' => true,
+                'field' => 'mod_jobs.name'
+            ),
+            'status' => array(
+                'label' => lang('label_status'),
+                'sort' => true,
+            ),
+            'application_date' => array(
+                'label' => lang('label_application_date'),
+                'sort' => true,
+                'type' => 'date',
+            ),
+        );
 
+        $this->listActions = array(
+            'view' => array(
+                'label'     => lang('label_view'),
+                'url'       => site_url('recruiter/candidates/view/{uuid}'), // CHANGED: Use UUID
+                'icon'      => 'fa-eye',
+                'class'     => 'view-row',
+                'title'     => 'View detailed candidate profile',
+            ),
+            'edit' => array(
+                'label'     => lang('label_edit'),
+                'url'       => site_url('recruiter/candidates/edit/{uuid}'), // CHANGED: Use UUID
+                'icon'      => 'fa-edit',
+                'class'     => 'edit-row',
+                'title'     => 'Edit candidate information',
+            ),
+            // CHAT ACTION FOR RECRUITER
+            'chat' => array(
+                'label'     => 'Chat',
+                'url'       => site_url('recruiter/candidates/start_candidate_chat/{uuid}'), // CHANGED: Use UUID
+                'icon'      => 'fa-comments',
+                'class'     => 'chat-row',
+                'title'     => 'Chat with agency about this candidate',
+                'target'    => '_blank'
+            ),
+        );
+
+        $this->filters = array(
+            'search' => array(
+                'label' => lang('label_search'),
+                'type' => 'autocomplete',
+                'field' => array(
+                    'candidates.first_name',
+                    'candidates.last_name',
+                    'candidates.email',
+                    'candidates.reference_number',
+                ),
+            ),
+            'status' => array(
+                'label' => lang('label_status'),
+                'type' => 'dropdown',
+                'field' => 'candidates.status',
+                'options' => array(
+                    'new' => 'New',
+                    'reviewed' => 'Reviewed',
+                    'shortlisted' => 'Shortlisted',
+                    'interviewed' => 'Interviewed',
+                    'rejected' => 'Rejected',
+                    'hired' => 'Hired',
+                    'on_hold' => 'On Hold',
+                ),
+            ),
+        );
+    }
    
         public function setup_fields(): void
         {
@@ -152,11 +153,59 @@ public function __construct()
             );
         }
 
+/**
+ * Check if recruiter has access to this candidate
+ */
+private function check_recruiter_candidate_access($candidate) {
+    $recruiter_id = $this->get_recruiter_id();
+    
+    if (!$recruiter_id) {
+        return false;
+    }
+    
+    // DEBUG: Log for testing
+    error_log("Access check - Recruiter ID: $recruiter_id, Candidate Agent ID: " . ($candidate->assigned_agent_id ?? 'NULL'));
+    
+    // Check if candidate belongs to this recruiter
+    // Adjust field name if different
+    return isset($candidate->assigned_agent_id) && ($candidate->assigned_agent_id == $recruiter_id);
+}
+
+/**
+ * Enforce access control
+ */
+private function enforce_recruiter_candidate_access($candidate, $is_ajax = false) {
+    if (!$this->check_recruiter_candidate_access($candidate)) {
+        error_log("ACCESS DENIED - Recruiter tried to access candidate they don't own");
+        
+        if ($is_ajax) {
+            $this->output
+                ->set_content_type('application/json')
+                ->set_output(json_encode([
+                    'success' => false, 
+                    'message' => 'Access denied to this candidate'
+                ]));
+        } else {
+            show_error('Access denied', 403);
+        }
+        return false;
+    }
+    
+    error_log("ACCESS GRANTED - Recruiter can access candidate");
+    return true;
+}
     /**
      * Upload document for candidate (Recruiter)
      */
     public function upload_document()
         {
+               $csrf_name = $this->security->get_csrf_token_name();
+    $csrf_token = $this->input->post($csrf_name);
+    
+    if (!$csrf_token || $csrf_token !== $this->security->get_csrf_hash()) {
+        ajax_return(['success' => false, 'message' => 'Invalid CSRF token. Please refresh and try again.']);
+        return;
+    }
             $candidate_id = $this->input->post('candidate_id');
             $document_name = $this->input->post('document_name');
             $document_type = $this->input->post('document_type');
@@ -271,6 +320,14 @@ public function __construct()
      */
     public function delete_document($document_id)
         {
+              // ✅ ADD CSRF VALIDATION
+        $csrf_name = $this->security->get_csrf_token_name();
+        $csrf_token = $this->input->post($csrf_name);
+        
+        if (!$csrf_token || $csrf_token !== $this->security->get_csrf_hash()) {
+            ajax_return(['success' => false, 'message' => 'Invalid CSRF token. Please refresh and try again.']);
+            return;
+        }
             // Verify the document belongs to a candidate that this recruiter has access to
             $document = $this->{$this->model}->get_document($document_id);
             
@@ -329,60 +386,87 @@ public function __construct()
     $this->load->view($this->folder . '/' . 'view_footer');
 }
 
-    
-        public function view($id)
+  public function edit($uuid_or_id = null)
 {
-    $row = $this->{$this->model}->get_candidate($id);
+    // ✅ ADD ACCESS CONTROL
+    if ($uuid_or_id && !$this->enforce_recruiter_candidate_access($uuid_or_id)) {
+        return;
+    }
+    
+    // Call parent method
+    parent::edit($uuid_or_id);
+}  
+// ========== UPDATE VIEW METHOD TO ACCEPT UUID ==========
+public function view($uuid_or_id = null)
+{
+    if (!$uuid_or_id) {
+        show_404();
+    }
+
+    // Get candidate - the model will handle both UUID and ID
+    $row = $this->{$this->model}->get_candidate($uuid_or_id);
     
     if (empty($row)) {
         show_404();
     }
+    
+    // ✅✅✅ ADD THIS RIGHT HERE ✅✅✅
+    // Check access
+    if (!$this->enforce_recruiter_candidate_access($row, false)) {
+        return;
+    }
+    // ✅✅✅ END OF ADDITION ✅✅✅
+    
+    // Store the actual ID and UUID for use in the system
+    $candidate_id = $row->id;
+    $candidate_uuid = $row->uuid;
 
-    // Check for pending documents requests
-    $documents_request_data = $this->check_pending_documents_request($id);
-    
-    // Add CSS to hide the Add Candidate button on view pages
-    echo '
-    <style>
-    /* Hide Add Candidate button on candidate view pages */
-    .add-item[href*="/candidates/add"] {
-        display: none !important;
-    }
-    
-    /* Alternative: Hide by button text */
-    .btn-primary.add-item:has(i.fa-plus-circle) {
-        display: none !important;
-    }
-    </style>
-    ';
-    
-    // Add chat button to view page
-    echo '
-    <script>
-    $(document).ready(function() {
-        // Add chat button to the action buttons area
-        var chatButton = \'<a href="\' + base_url + \'recruiter/candidates/start_candidate_chat/' . $id . '\" class="btn btn-info btn-sm chat-row" title="Chat with agency about this candidate" target="_blank"><i class="fa fa-comments"></i> Chat with Agency</a>\';
+        // Check for pending documents requests
+        $documents_request_data = $this->check_pending_documents_request($candidate_id);
         
-        // Find the action buttons container and add chat button
-        setTimeout(function() {
-            $(".action-buttons:first").prepend(chatButton + " ");
-        }, 500);
-    });
-    </script>
-    ';
-    
-    // Pass the data to the view
-    $this->load->view($this->folder . '/view_header');
-    $this->load->view('cms/crud/view_single', array(
-        'row' => $row,
-        'id' => $id,
-        'heading' => lang('view_candidate_heading'),
-        'has_pending_documents_request' => $documents_request_data['has_request'],
-        'documents_request_notes' => $documents_request_data['notes'],
-        'pending_notification_id' => $documents_request_data['notification_id']
-    ));
-    $this->load->view($this->folder . '/view_footer');
-}
+        // Add CSS to hide the Add Candidate button on view pages
+        echo '
+        <style>
+        /* Hide Add Candidate button on candidate view pages */
+        .add-item[href*="/candidates/add"] {
+            display: none !important;
+        }
+        
+        /* Alternative: Hide by button text */
+        .btn-primary.add-item:has(i.fa-plus-circle) {
+            display: none !important;
+        }
+        </style>
+        ';
+        
+        // Update chat button to use UUID
+        echo '
+        <script>
+        $(document).ready(function() {
+            // Add chat button to the action buttons area
+            var chatButton = \'<a href="\' + base_url + \'recruiter/candidates/start_candidate_chat/' . $candidate_uuid . '\" class="btn btn-info btn-sm chat-row" title="Chat with agency about this candidate" target="_blank"><i class="fa fa-comments"></i> Chat with Agency</a>\';
+            
+            // Find the action buttons container and add chat button
+            setTimeout(function() {
+                $(".action-buttons:first").prepend(chatButton + " ");
+            }, 500);
+        });
+        </script>
+        ';
+        
+        // Pass the data to the view
+        $this->load->view($this->folder . '/view_header');
+        $this->load->view('cms/crud/view_single', array(
+            'row' => $row,
+            'id' => $candidate_id, // Keep ID for internal use
+            'uuid' => $candidate_uuid, // Add UUID for URLs
+            'heading' => lang('view_candidate_heading'),
+            'has_pending_documents_request' => $documents_request_data['has_request'],
+            'documents_request_notes' => $documents_request_data['notes'],
+            'pending_notification_id' => $documents_request_data['notification_id']
+        ));
+        $this->load->view($this->folder . '/view_footer');
+    }
     
         public function filter_by_recruiter($recruiter_id = null)
         {
@@ -405,35 +489,40 @@ public function __construct()
             
             return $this;
         }
-    public function ajax_quick_manage($id = 0)
-        {
-            $row = false;
-            if (!empty($id)) {
-                $row = $this->{$this->model}->get_by_id($id);
+// ========== UPDATE AJAX QUICK MANAGE TO WORK WITH UUID ==========
+    public function ajax_quick_manage($uuid_or_id = 0)
+    {
+        $row = false;
+        $candidate_id = 0;
+        
+        if (!empty($uuid_or_id) && $uuid_or_id != '0') {
+            // Get candidate by UUID or ID
+            $row = $this->{$this->model}->get_candidate($uuid_or_id);
+            if ($row) {
+                $candidate_id = $row->id;
             }
-
-            // Get quick manage extra data
-            $extra_data = $this->quick_manage_extra($id, $row);
-            
-            // Check for URL parameter to force required documents tab
-            $tab_required = $this->input->get('tab') === 'required';
-            if ($tab_required) {
-                $extra_data['force_required_tab'] = true;
-            }
-
-            $data = array(
-                'row' => $row,
-                'id' => $id,
-            );
-
-            // Merge with extra data - ensure all required variables are passed
-            $data = array_merge($data, $extra_data);
-
-            $this->load->view($this->folder . '/' . $this->pageName . '/ajax_manage', $data);
         }
-    /**
-     * Generate reference number via AJAX
-     */
+
+        // Get quick manage extra data
+        $extra_data = $this->quick_manage_extra($candidate_id, $row);
+        
+        // Check for URL parameter to force required documents tab
+        $tab_required = $this->input->get('tab') === 'required';
+        if ($tab_required) {
+            $extra_data['force_required_tab'] = true;
+        }
+
+        $data = array(
+            'row' => $row,
+            'id' => $candidate_id,
+            'uuid' => $row ? $row->uuid : null,
+        );
+
+        // Merge with extra data - ensure all required variables are passed
+        $data = array_merge($data, $extra_data);
+
+        $this->load->view($this->folder . '/' . $this->pageName . '/ajax_manage', $data);
+    }
     public function generate_reference()
         {
             try {
@@ -614,7 +703,18 @@ public function __construct()
     public function create()
         {
             
+             // ✅ ADD CSRF VALIDATION for non-AJAX requests
+        if (!is_ajax()) {
+            $csrf_name = $this->security->get_csrf_token_name();
+            $csrf_token = $this->input->post($csrf_name);
             
+            if (!$csrf_token || $csrf_token !== $this->security->get_csrf_hash()) {
+                flash_notification('Invalid CSRF token. Please try again.', 'error');
+                redir($this->pageName);
+                return;
+            }
+        }
+        
             // Better AJAX detection
             $is_ajax = $this->input->is_ajax_request() || 
                     (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && 
@@ -799,43 +899,85 @@ public function __construct()
             return $result;
         }
 
-    public function update($id = null)
+      public function update($uuid_or_id = null)
     {
+          // ✅ ADD CSRF VALIDATION for non-AJAX requests
+        if (!is_ajax()) {
+            $csrf_name = $this->security->get_csrf_token_name();
+            $csrf_token = $this->input->post($csrf_name);
+            
+            if (!$csrf_token || $csrf_token !== $this->security->get_csrf_hash()) {
+                flash_notification('Invalid CSRF token. Please try again.', 'error');
+                redir($this->pageName);
+                return;
+            }
+        }
         // Better AJAX detection
         $is_ajax = $this->input->is_ajax_request() || 
                 (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && 
                     strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) == 'xmlhttprequest');
         
         // Get ID from URL if not provided
-        if (empty($id)) {
-            $id = $this->input->post('id');
+        if (empty($uuid_or_id)) {
+            $uuid_or_id = $this->input->post('id');
         }
         
-        if (empty($id)) {
+        if (empty($uuid_or_id)) {
             if ($is_ajax) {
                 $this->output
                     ->set_content_type('application/json')
-                    ->set_output(json_encode(['success' => false, 'error' => 'Candidate ID is required for update.']));
+                    ->set_output(json_encode(['success' => false, 'error' => 'Candidate identifier is required for update.']));
                 return;
             } else {
                 show_404();
             }
         }
 
-        if ($this->input->post()) {    
+                // Get the actual candidate to get the ID
+        $candidate = $this->{$this->model}->get_candidate($uuid_or_id);
+        if (!$candidate) {
+            if ($is_ajax) {
+                $this->output
+                    ->set_content_type('application/json')
+                    ->set_output(json_encode(['success' => false, 'error' => 'Candidate not found.']));
+                return;
+            } else {
+                show_404();
+            }
+        }
+
+         // ✅✅✅ ADD ACCESS CONTROL CHECK HERE ✅✅✅
+    $recruiter_id = $this->get_recruiter_id();
+    if (!$recruiter_id || $candidate->assigned_agent_id != $recruiter_id) {
+        if ($is_ajax) {
+            $this->output
+                ->set_content_type('application/json')
+                ->set_output(json_encode([
+                    'success' => false, 
+                    'error' => 'Access denied to this candidate'
+                ]));
+        } else {
+            show_error('Access denied', 403);
+        }
+        return;
+    }
+    // ✅✅✅ END OF ACCESS CONTROL ✅✅✅
+        $candidate_id = $candidate->id;
+        
+         if ($this->input->post()) {    
             // Validate form
             if ($this->validate_form('update')) {                
                 // Get post data
                 $data = $this->get_post_data();
                 
                 // Check for status change before update
-                $old_candidate = $this->{$this->model}->get_by_id($id);
+                $old_candidate = $this->{$this->model}->get_by_id($candidate_id);
                 $old_status = $old_candidate->status ?? null;
                 $new_status = $data['status'] ?? null;
                 $status_changed = ($old_status && $new_status && $old_status !== $new_status);
                 
                 // Add extra parameters
-                $extra_params = $this->update_extra_params($id);                
+                $extra_params = $this->update_extra_params($candidate_id);                
                 $data = array_merge($data, $extra_params);                
                 
                 // Add updated_at timestamp
@@ -866,20 +1008,20 @@ public function __construct()
 
                 try {
                     // Update the main candidate record
-                    $result = $this->{$this->model}->update($data, $id, 'id');
+                    $result = $this->{$this->model}->update($data, $candidate_id, 'id');
                     
                     if ($result) {
                         // Handle file upload
-                        $this->handle_file_upload_manual($id);
+                        $this->handle_file_upload_manual($candidate_id);
                         
-                        // Handle pivot tables - THIS IS WHERE THE FIX IS
-                        $this->handle_pivot_tables($id);
+                        // Handle pivot tables
+                        $this->handle_pivot_tables($candidate_id);
                         
                         // Send status change notification if status changed
                         if ($status_changed) {
                             try {
                                 $recruiter_id = $this->get_recruiter_id();
-                                $this->create_status_change_notification($id, $old_status, $new_status, $recruiter_id);
+                                $this->create_status_change_notification($candidate_id, $old_status, $new_status, $recruiter_id);
                             } catch (Exception $e) {
                                 // Log but don't break the update
                                 log_message('error', 'Status change notification failed: ' . $e->getMessage());
@@ -893,7 +1035,8 @@ public function __construct()
                             $response = [
                                 'success' => true, 
                                 'message' => $message,
-                                'id' => $id,
+                                'id' => $candidate_id,
+                                'uuid' => $candidate->uuid, // Include UUID in response
                                 'redirect_url' => site_url('recruiter/candidates')
                             ];
                             
@@ -939,7 +1082,7 @@ public function __construct()
                     return;
                 } else {
                     $this->session->set_flashdata('error', validation_errors());
-                    redirect(redir($this->pageName . '/edit/' . $id, true));
+                    redirect(redir($this->pageName . '/edit/' . $candidate->uuid, true)); // Use UUID in redirect
                 }
             }
         } else {
@@ -994,6 +1137,18 @@ public function __construct()
             if (!$this->input->is_ajax_request()) {
                 show_404();
             }
+ // ✅ ADD CSRF VALIDATION
+        $csrf_name = $this->security->get_csrf_token_name();
+        $csrf_token = $this->input->post($csrf_name);
+        
+        if (!$csrf_token || $csrf_token !== $this->security->get_csrf_hash()) {
+            echo json_encode([
+                'success' => false, 
+                'message' => 'Invalid CSRF token. Please refresh and try again.',
+                'csrf' => $this->security->get_csrf_hash()
+            ]);
+            return;
+        }
 
             $candidate_id = $this->input->post('candidate_id');
             $decision = $this->input->post('decision');
@@ -1062,40 +1217,55 @@ public function __construct()
             return null;
         }
 
-   public function upload_required_documents()
-{
-    // BETTER AJAX DETECTION
-    $is_ajax = $this->input->is_ajax_request() || 
-              (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && 
-               strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) == 'xmlhttprequest');
-    
-    $candidate_id = $this->input->post('candidate_id');
-    $notification_id = $this->input->post('notification_id');
-    $submission_notes = $this->input->post('submission_notes');
-    
-    // Check if candidate exists and recruiter has access
-    $candidate = $this->{$this->model}->get_candidate($candidate_id);
-    if (empty($candidate)) {
-        if ($is_ajax) {
-            ajax_return(['success' => false, 'message' => 'Candidate not found.']);
-        } else {
-            $this->session->set_flashdata('error', 'Candidate not found.');
-            redirect('recruiter/candidates');
+ public function upload_required_documents()
+    {
+        // ✅ ADD CSRF VALIDATION
+        $csrf_name = $this->security->get_csrf_token_name();
+        $csrf_token = $this->input->post($csrf_name);
+        
+        if (!$csrf_token || $csrf_token !== $this->security->get_csrf_hash()) {
+            if ($this->input->is_ajax_request()) {
+                ajax_return(['success' => false, 'message' => 'Invalid CSRF token. Please refresh and try again.']);
+            } else {
+                $this->session->set_flashdata('error', 'Invalid CSRF token. Please refresh and try again.');
+                redirect('recruiter/candidates');
+            }
+            return;
         }
-        return;
-    }
+        // BETTER AJAX DETECTION
+        $is_ajax = $this->input->is_ajax_request() || 
+                  (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && 
+                   strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) == 'xmlhttprequest');
+        
+        $candidate_identifier = $this->input->post('candidate_id');
+        $notification_id = $this->input->post('notification_id');
+        $submission_notes = $this->input->post('submission_notes');
+        
+        // Get candidate by UUID or ID
+        $candidate = $this->{$this->model}->get_candidate($candidate_identifier);
+        if (empty($candidate)) {
+            if ($is_ajax) {
+                ajax_return(['success' => false, 'message' => 'Candidate not found.']);
+            } else {
+                $this->session->set_flashdata('error', 'Candidate not found.');
+                redirect('recruiter/candidates');
+            }
+            return;
+        }
+        
+        $candidate_id = $candidate->id;
     
     // Check access
     $has_access = $this->{$this->model}->check_recruiter_candidate_access($this->get_recruiter_id(), $candidate_id);
-    if (!$has_access) {
-        if ($is_ajax) {
-            ajax_return(['success' => false, 'message' => 'Access denied.']);
-        } else {
-            $this->session->set_flashdata('error', 'Access denied.');
-            redirect('recruiter/candidates');
+        if (!$has_access) {
+            if ($is_ajax) {
+                ajax_return(['success' => false, 'message' => 'Access denied.']);
+            } else {
+                $this->session->set_flashdata('error', 'Access denied.');
+                redirect('recruiter/candidates');
+            }
+            return;
         }
-        return;
-    }
     
     // Handle multiple document uploads
     $uploaded_documents = [];
@@ -1127,13 +1297,20 @@ public function __construct()
             }
         }
     } else {
-        if ($is_ajax) {
-            ajax_return(['success' => false, 'message' => 'No document data received.']);
+         if ($is_ajax) {
+            ajax_return([
+                'success' => true, 
+                'message' => $message, 
+                'documents' => $uploaded_documents,
+                'stage_updated' => $stage_updated,
+                'redirect' => true,
+                'redirect_url' => site_url('recruiter/candidates')
+            ]);
         } else {
-            $this->session->set_flashdata('error', 'No document data received.');
+            // For non-AJAX requests
+            $this->session->set_flashdata('success', $message);
             redirect('recruiter/candidates');
         }
-        return;
     }
     
     if (!empty($errors) && empty($uploaded_documents)) {
@@ -1460,8 +1637,20 @@ public function __construct()
             return $query;
         }
 
-    public function quick_manage_extra($id, $row): array
+     public function quick_manage_extra($id, $row): array
     {
+        // If $id is a UUID string, get the actual ID
+        $candidate_id = $id;
+        if (is_string($id) && strlen($id) == 36 && strpos($id, '-') !== false) {
+            $candidate = $this->{$this->model}->get_by_uuid($id);
+            if ($candidate) {
+                $candidate_id = $candidate->id;
+                if (!$row || empty($row->id)) {
+                    $row = $candidate;
+                }
+            }
+        }
+        
         // Safely handle the row parameter
         if (is_string($row) || $row === null || $row === false) {
             $row = new stdClass();
@@ -1471,13 +1660,14 @@ public function __construct()
             $row->first_name = null;
             $row->last_name = null;
             $row->assigned_agent_id = null;
+            $row->uuid = null;
         }
 
         $agencies = $this->{$this->model}->get_agencies_all();
         $jobs = $this->{$this->model}->get_jobs_all();
         $pre_selected_job_id = $this->session->userdata('pre_selected_job_id');
         
-        if (empty($id) && $pre_selected_job_id) {
+        if (empty($candidate_id) && $pre_selected_job_id) {
             $job = $this->{$this->model}->get_job_by_id($pre_selected_job_id);
             if ($job) {
                 $row->job_id = $job->id;
@@ -1494,15 +1684,15 @@ public function __construct()
         $logged_in_recruiter_id = $this->get_recruiter_id();
         
         // For new candidates, auto-assign the logged-in recruiter
-        if (empty($id) && !empty($logged_in_recruiter_id)) {
+        if (empty($candidate_id) && !empty($logged_in_recruiter_id)) {
             $row->assigned_agent_id = $logged_in_recruiter_id;
         }
 
         // Get all recruiters for the dropdown (for existing candidates)
         $agents = $this->get_all_recruiters();
 
-        $all_additional_agency_ids = !empty($id) ? $this->{$this->model}->get_candidate_additional_agencies($id) : [];
-        $all_additional_job_ids = !empty($id) ? $this->{$this->model}->get_candidate_additional_jobs($id) : [];
+        $all_additional_agency_ids = !empty($candidate_id) ? $this->{$this->model}->get_candidate_additional_agencies($candidate_id) : [];
+        $all_additional_job_ids = !empty($candidate_id) ? $this->{$this->model}->get_candidate_additional_jobs($candidate_id) : [];
         
         if (empty($all_additional_agency_ids) && !empty($row->agency_id)) {
             $all_additional_agency_ids[] = $row->agency_id;
@@ -1535,7 +1725,7 @@ public function __construct()
         }
 
         // Check for pending documents requests
-        $documents_request_data = $this->check_pending_documents_request($id);
+        $documents_request_data = $this->check_pending_documents_request($candidate_id);
         $force_required_tab = $this->input->get('tab') === 'required';
 
         if ($force_required_tab && !$documents_request_data['has_request']) {
@@ -1560,17 +1750,10 @@ public function __construct()
             'documents_request_notes' => $documents_request_data['notes'],
             'pending_notification_id' => $documents_request_data['notification_id'],
             'force_required_tab' => $force_required_tab,
-            // ADD THIS: Pass the logged-in recruiter ID to the view
             'logged_in_recruiter_id' => $logged_in_recruiter_id,
             'logged_in_recruiter' => $this->get_logged_in_recruiter_details($logged_in_recruiter_id),
-            
-
-            
         ];
-        // Temporary debug logging
-    
     }
-
     //get logged-in recruiter details
     private function get_logged_in_recruiter_details($recruiter_id)
     {
@@ -1843,19 +2026,23 @@ public function __construct()
     }
 
    
-        public function add($job_id = null)
-    {
-        if (empty($job_id)) {
-            $job_id = $this->input->get('job_id');
-        }
-        
-        if ($job_id && is_numeric($job_id)) {
-            $this->session->set_userdata('pre_selected_job_id', $job_id);
-        }
-        
-        parent::add();
+    public function add($job_id = null)
+{
+    if (empty($job_id)) {
+        $job_id = $this->input->get('job_id');
     }
-
+    
+    if ($job_id && is_numeric($job_id)) {
+        $this->session->set_userdata('pre_selected_job_id', $job_id);
+    }
+    
+    // ✅ Pass CSRF token to view
+    $data['csrf_token_name'] = $this->security->get_csrf_token_name();
+    $data['csrf_token_hash'] = $this->security->get_csrf_hash();
+    
+    // Call parent's add method with additional data
+    parent::add();
+}
    
         public function get_agents($agency_id)
     {
@@ -2225,7 +2412,18 @@ public function for_job($job_id)
         if (!$this->input->is_ajax_request()) {
             show_404();
         }
-
+// ✅ ADD CSRF VALIDATION
+        $csrf_name = $this->security->get_csrf_token_name();
+        $csrf_token = $this->input->post($csrf_name);
+        
+        if (!$csrf_token || $csrf_token !== $this->security->get_csrf_hash()) {
+            echo json_encode([
+                'success' => false,
+                'message' => 'Invalid CSRF token. Please refresh and try again.',
+                'csrf' => $this->security->get_csrf_hash()
+            ]);
+            return;
+        }
         $candidate_id = $this->input->post('candidate_id');
         $job_id = $this->input->post('job_id');
         $recruiter_id = $this->get_current_recruiter_id();
@@ -2395,6 +2593,15 @@ private function create_status_change_notification($candidate_id, $old_status, $
  */
 public function remove_from_job($candidate_id, $job_id)
 {
+    // ✅ ADD CSRF VALIDATION
+        $csrf_name = $this->security->get_csrf_token_name();
+        $csrf_token = $this->input->post($csrf_name);
+        
+        if (!$csrf_token || $csrf_token !== $this->security->get_csrf_hash()) {
+            flash_notification('Invalid CSRF token. Please try again.', 'error');
+            redirect('recruiter/candidates/for_job/' . $job_id);
+            return;
+        }
     $recruiter_id = $this->get_recruiter_id();
     
     // Verify the assignment belongs to this recruiter and exists
@@ -2449,7 +2656,10 @@ public function ajax_get_candidate_chat_info($candidate_id)
     if (!$this->input->is_ajax_request()) {
         show_404();
     }
-    
+     // ✅ ADD ACCESS CONTROL
+    if (!$this->enforce_recruiter_candidate_access($candidate_id)) {
+        return; // Already handles AJAX response
+    }
     $recruiter_id = $this->get_recruiter_id();
     
     if (!$recruiter_id) {
@@ -2539,49 +2749,46 @@ public function ajax_get_candidate_chat_info($candidate_id)
 /**
  * Start chat for candidate (recruiter side)
  */
-public function start_candidate_chat($candidate_id)
-{
-    $recruiter_id = $this->get_recruiter_id();
-    
-    if (!$recruiter_id) {
-        show_error('Access denied', 403);
+ public function start_candidate_chat($uuid_or_id)
+    {
+        // ✅ ADD ACCESS CONTROL
+    if (!$this->enforce_recruiter_candidate_access($uuid_or_id)) {
+        return;
     }
-    
-    // Get candidate details and verify access
-    $this->db->select('c.*, ca.agency_id')
-             ->from('candidates c')
-             ->join('candidate_agencies ca', 'ca.candidate_id = c.id')
-             ->where('c.id', $candidate_id)
-             ->where('c.removed', 0);
-    
-    $candidate = $this->db->get()->row();
-    
-    if (!$candidate) {
-        show_404();
+        $recruiter_id = $this->get_recruiter_id();
+        
+        if (!$recruiter_id) {
+            show_error('Access denied', 403);
+        }
+        
+        // Get candidate by UUID or ID
+        $candidate = $this->{$this->model}->get_candidate($uuid_or_id);
+        
+        if (!$candidate) {
+            show_404();
+        }
+        
+        // Verify recruiter has access to this candidate
+        $has_access = $this->{$this->model}->check_recruiter_candidate_access($recruiter_id, $candidate->id);
+        
+        if (!$has_access) {
+            show_error('Access denied to this candidate', 403);
+        }
+        
+        // Create or get conversation using UUID
+        $conversation = $this->Model_chat_messages->get_or_create_candidate_conversation(
+            $candidate->agency_id,
+            $recruiter_id,
+            $candidate->id,
+            $candidate->job_id
+        );
+        
+        if ($conversation && !empty($conversation->uuid)) {
+            redirect('recruiter/chat/conversation/' . $conversation->uuid);
+        } else {
+            show_error('Failed to create chat conversation');
+        }
     }
-    
-    // Verify recruiter has access to this candidate
-    $has_access = $this->{$this->model}->check_recruiter_candidate_access($recruiter_id, $candidate_id);
-    
-    if (!$has_access) {
-        show_error('Access denied to this candidate', 403);
-    }
-    
-    // Create or get conversation using UUID
-    $conversation = $this->Model_chat_messages->get_or_create_candidate_conversation(
-        $candidate->agency_id,
-        $recruiter_id,
-        $candidate_id,
-        $candidate->job_id
-    );
-    
-    if ($conversation && !empty($conversation->uuid)) {
-        redirect('recruiter/chat/conversation/' . $conversation->uuid);
-    } else {
-        show_error('Failed to create chat conversation');
-    }
-}
-
 public function conversation($uuid = null)
 {
     $recruiter_id = $this->get_recruiter_id();
@@ -2686,7 +2893,18 @@ public function ajax_switch_chat_to_general()
     if (!$this->input->is_ajax_request()) {
         show_404();
     }
-    
+     // ✅ ADD CSRF VALIDATION
+        $csrf_name = $this->security->get_csrf_token_name();
+        $csrf_token = $this->input->post($csrf_name);
+        
+        if (!$csrf_token || $csrf_token !== $this->security->get_csrf_hash()) {
+            echo json_encode([
+                'success' => false,
+                'message' => 'Invalid CSRF token. Please refresh and try again.',
+                'csrf' => $this->security->get_csrf_hash()
+            ]);
+            return;
+        }
     $conversation_uuid = $this->input->post('conversation_uuid');
     $recruiter_id = $this->get_recruiter_id();
     $agency_id = $this->input->post('agency_id');
@@ -2772,7 +2990,18 @@ public function ajax_submit_required_documents()
         ]));
         return;
     }
-    
+    // ✅ ADD CSRF VALIDATION
+        $csrf_name = $this->security->get_csrf_token_name();
+        $csrf_token = $this->input->post($csrf_name);
+        
+        if (!$csrf_token || $csrf_token !== $this->security->get_csrf_hash()) {
+            $this->output->set_output(json_encode([
+                'success' => false,
+                'message' => 'Invalid CSRF token. Please refresh and try again.',
+                'csrf' => $this->security->get_csrf_hash()
+            ]));
+            return;
+        }
     // Call the existing upload_required_documents method
     // We need to capture its output
     ob_start();

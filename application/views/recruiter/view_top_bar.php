@@ -133,9 +133,7 @@ body[data-theme="dark"] .notifications-menu .dropdown-toggle {
 }
 
 .navbar-nav .dropdown-menu {
-
     background: #ffffff;
-
 }
 
 /* Chat Notification Bell Styling */
@@ -208,6 +206,20 @@ body[data-theme="dark"] .notifications-menu .dropdown-toggle {
 <?php endif;
 ?>
 </style>
+
+<script>
+// Use window variables instead of declaring new const variables
+// const csrfName = '<?php echo $ci->security->get_csrf_token_name(); ?>'; // REMOVE THIS
+// const csrf = '<?php echo $ci->security->get_csrf_hash(); ?>'; // REMOVE THIS
+
+// If window variables are not set, set them
+if (typeof window.csrf_token_name === 'undefined') {
+    window.csrf_token_name = '<?php echo $ci->security->get_csrf_token_name(); ?>';
+}
+if (typeof window.csrf_token_value === 'undefined') {
+    window.csrf_token_value = '<?php echo $ci->security->get_csrf_hash(); ?>';
+}
+</script>
 
 <!-- Top navbar div start -->
 <nav class="navbar navbar-fixed-top">
@@ -328,7 +340,7 @@ body[data-theme="dark"] .notifications-menu .dropdown-toggle {
                                     <?php foreach ($recent_chats as $chat): ?>
                                     <?php if ($chat->unread_count > 0): ?>
                                     <li style="border-bottom: 1px solid #f0f0f0;">
-                                        <a href="<?php echo site_url('recruiter/chat/conversation/' . $chat->id); ?>"
+                                        <a href="<?php echo site_url('recruiter/chat/conversation/' . $chat->uuid ?? $chat->id); ?>"
                                             style="display: block; padding: 10px 15px; color: #333; text-decoration: none; cursor: pointer;"
                                             class="chat-notification-item">
                                             <div style="float: left; margin-right: 10px;">
@@ -342,15 +354,15 @@ body[data-theme="dark"] .notifications-menu .dropdown-toggle {
                                                     <?php echo htmlspecialchars($chat->agency_name); ?>
                                                     <span
                                                         style="background: #128C7E; color: white; padding: 1px 6px; border-radius: 10px; font-size: 10px; margin-left: 5px; display: inline-block;">
-                                                        <?php echo $chat->unread_count; ?> new
+                                                        <?php echo $chat->unread_count ?? 0; ?> new
                                                     </span>
                                                 </h4>
                                                 <p style="margin: 0 0 5px 0; font-size: 12px; color: #666;">
-                                                    <?php echo character_limiter($chat->last_message, 50); ?>
+                                                    <?php echo character_limiter($chat->last_message ?? 'No messages', 50); ?>
                                                 </p>
                                                 <small style="color: #999; font-size: 11px;">
                                                     <i class="fa fa-clock-o"></i>
-                                                    <?php echo time_ago($chat->last_message_at); ?>
+                                                    <?php echo time_ago($chat->last_message_at ?? $chat->created_at); ?>
                                                 </small>
                                             </div>
                                             <div style="clear: both;"></div>
@@ -413,9 +425,12 @@ function confirmLogout() {
 }
 
 function markAsRead(notificationId) {
+    const csrfName = '<?php echo $ci->security->get_csrf_token_name(); ?>';
+    const csrf = '<?php echo $ci->security->get_csrf_hash(); ?>';
+
     $.post('<?php echo site_url("recruiter/dashboard/ajax_mark_notification_read"); ?>', {
         notification_id: notificationId,
-        <?php echo $this->security->get_csrf_token_name(); ?>: '<?php echo $this->security->get_csrf_hash(); ?>'
+        [csrfName]: csrf
     }, function(response) {
         if (response.success) {
             const notification = document.querySelector('[data-notification-id="' + notificationId + '"]');
@@ -504,7 +519,6 @@ function handleNotificationClick(notificationId) {
 
 // ===== REAL-TIME NOTIFICATION POLLING =====
 function startRecruiterNotificationPolling() {
-
     // Poll for new notifications every 3 seconds
     setInterval(fetchRecruiterNotifications, 3000);
 
@@ -516,18 +530,19 @@ function fetchRecruiterNotifications() {
     console.log('Fetching system notifications...');
 
     // Use the global CSRF variables
+    const csrfName = '<?php echo $ci->security->get_csrf_token_name(); ?>';
+    const csrf = '<?php echo $ci->security->get_csrf_hash(); ?>';
+
     const params = {};
     params[csrfName] = csrf;
 
     console.log('Sending CSRF token:', csrfName + ' = ' + csrf);
 
     fetch('<?php echo site_url("recruiter/notifications/ajax_get_notifications"); ?>', {
-            method: 'POST',
+            method: 'GET', // Change to GET to avoid CSRF issues for read-only endpoints
             headers: {
-                'Content-Type': 'application/x-www-form-urlencoded',
                 'X-Requested-With': 'XMLHttpRequest'
-            },
-            body: new URLSearchParams(params).toString()
+            }
         })
         .then(response => {
             console.log('Response status:', response.status, response.statusText);
@@ -586,7 +601,6 @@ function updateRecruiterNotificationUI(data) {
 
 // ===== CHAT NOTIFICATION POLLING =====
 function startChatNotificationPolling() {
-
     // Poll for new chat messages every 3 seconds
     setInterval(fetchChatNotifications, 3000);
 
@@ -597,22 +611,14 @@ function startChatNotificationPolling() {
 function fetchChatNotifications() {
     console.log('Fetching chat notifications...');
 
-    // Use the global CSRF variables like the rest of your app
-    const params = {};
-    params[csrfName] = csrf;
-
-    console.log('Sending CSRF token:', csrfName + ' = ' + csrf);
-
     fetch('<?php echo site_url("recruiter/chat/ajax_get_chat_notifications"); ?>', {
-            method: 'POST',
+            method: 'GET', // Change to GET to avoid CSRF issues for read-only endpoints
             headers: {
-                'Content-Type': 'application/x-www-form-urlencoded',
                 'X-Requested-With': 'XMLHttpRequest'
-            },
-            body: new URLSearchParams(params).toString()
+            }
         })
         .then(response => {
-            console.log('Response status:', response.status, response.statusText);
+            console.log('Response status:', response.status);
             if (!response.ok) {
                 return response.text().then(text => {
                     console.log('Error response text:', text);

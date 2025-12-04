@@ -2113,3 +2113,17 @@ function init_menu_tooltips() {
 		});
 	}
 }
+
+
+
+// Define base_url if not already defined
+if (typeof base_url === 'undefined') {
+    // Try to get it from meta tag or define it
+    var base_url = window.location.protocol + '//' + window.location.host + '/';
+    
+    // If your site is in a subdirectory, adjust accordingly
+    var pathArray = window.location.pathname.split('/');
+    if (pathArray.length > 2) {
+        base_url += pathArray[1] + '/';
+    }
+}

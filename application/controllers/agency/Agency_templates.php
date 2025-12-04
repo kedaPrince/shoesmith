@@ -84,6 +84,15 @@ class Agency_templates extends CRUD_Controller
 
     public function save_custom_template() 
     {
+        // ============ ADDED CSRF PROTECTION ============
+    $csrf_name = $this->security->get_csrf_token_name();
+    $csrf_token = $this->input->post($csrf_name);
+    
+    if (!$csrf_token || $csrf_token !== $this->security->get_csrf_hash()) {
+        $this->session->set_flashdata('error', 'Invalid security token');
+        redirect('admin/agency_templates/build/' . ($this->input->post('agency_id') ?? 1));
+        return;
+    }
         try {
             $agency_id = $this->input->post('agency_id');
             $template_id = $this->input->post('template_id'); // For updates
@@ -368,6 +377,32 @@ class Agency_templates extends CRUD_Controller
 
     public function reset_template($agency_id = 1)
     {
+        // ============ ADDED CSRF PROTECTION ============
+    // Check if this is a POST request (should be)
+    if ($this->input->server('REQUEST_METHOD') === 'POST') {
+        $csrf_name = $this->security->get_csrf_token_name();
+        $csrf_token = $this->input->post($csrf_name);
+        
+        if (!$csrf_token || $csrf_token !== $this->security->get_csrf_hash()) {
+            show_error('Invalid security token', 400);
+            return;
+        }
+    } else {
+        // If GET request, show confirmation form with CSRF
+        $this->load->view($this->folder . '/view_header');
+        echo '<div class="container">';
+        echo '<h2>Reset Template</h2>';
+        echo '<p>Are you sure you want to reset the template for agency ' . $agency_id . '?</p>';
+        echo '<form method="POST" action="' . site_url('agency/agency_templates/reset_template/' . $agency_id) . '">';
+        echo '<input type="hidden" name="' . $this->security->get_csrf_token_name() . '" value="' . $this->security->get_csrf_hash() . '">';
+        echo '<button type="submit" class="btn btn-danger">Yes, Reset Template</button>';
+        echo ' <a href="' . site_url('agency/agency_templates/build/' . $agency_id) . '" class="btn btn-secondary">Cancel</a>';
+        echo '</form>';
+        echo '</div>';
+        $this->load->view($this->folder . '/view_footer');
+        return;
+    }
+    // ============ END CSRF PROTECTION ============
         $this->db->trans_start();
         
         // Delete template sections

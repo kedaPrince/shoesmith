@@ -1152,6 +1152,10 @@ class Model_candidates extends CRUD_Model
         $this->db->join('mod_jobs j', 'j.id = c.job_id', 'left');
         $this->db->where('c.id', $candidate_id);
         $this->db->where('c.removed', 0);
+         // CRITICAL: Always filter by agency if provided
+    if ($agency_id) {
+        $this->db->where('ca.agency_id', $agency_id);
+    }
         
         return $this->db->get()->row();
     }

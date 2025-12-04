@@ -13,12 +13,43 @@ class Browser extends MY_Controller {
     }
 
     public function upload() {
+        // ============ ADDED CSRF PROTECTION ============
+        // Check if this is a POST request (form submission)
+        if ($this->input->server('REQUEST_METHOD') === 'POST') {
+            $csrf_name = $this->security->get_csrf_token_name();
+            $csrf_token = $this->input->post($csrf_name);
+            
+            if (!$csrf_token || $csrf_token !== $this->security->get_csrf_hash()) {
+                show_error('Invalid CSRF token', 400);
+                return;
+            }
+            
+            // Process form submission here if needed
+            // (Currently empty, but protected if added later)
+        }
+        // ============ END CSRF PROTECTION ============
+        
+        // Load view for GET requests (display form)
         $this->load->view('cms/browser/view_upload', array(
             'heading' => ''
         ));
     }
 
     public function ajax_upload_file() {
+        // ============ ADDED CSRF PROTECTION ============
+        $csrf_name = $this->security->get_csrf_token_name();
+        $csrf_token = $this->input->post($csrf_name);
+        
+        if (!$csrf_token || $csrf_token !== $this->security->get_csrf_hash()) {
+            ajax_return([
+                'success' => false,
+                'message' => 'Invalid CSRF token',
+                'csrf' => $this->security->get_csrf_hash()
+            ]);
+            return;
+        }
+        // ============ END CSRF PROTECTION ============
+        
         $uploadDir = 'resources/ckuploads';
         dir_create($uploadDir);
 
@@ -38,6 +69,20 @@ class Browser extends MY_Controller {
     }
 
     public function ajax_remove_file() {
+        // ============ ADDED CSRF PROTECTION ============
+        $csrf_name = $this->security->get_csrf_token_name();
+        $csrf_token = $this->input->post($csrf_name);
+        
+        if (!$csrf_token || $csrf_token !== $this->security->get_csrf_hash()) {
+            ajax_return([
+                'success' => false,
+                'message' => 'Invalid CSRF token',
+                'csrf' => $this->security->get_csrf_hash()
+            ]);
+            return;
+        }
+        // ============ END CSRF PROTECTION ============
+        
         if ($this->input->post('file')) {
             $file = 'resources/ckuploads/' . $this->input->post('file');
 
@@ -57,7 +102,7 @@ class Browser extends MY_Controller {
 
         if ($handle = opendir($path)) {
             while (FALSE !== ($file = readdir($handle))) {
-                if ($file === '.' || $file === '..') continue;
+                if ($file === '.' || $file === 'next' || $file === '..') continue;
 
                 $fileData[] = array(
                     'name' => $file,

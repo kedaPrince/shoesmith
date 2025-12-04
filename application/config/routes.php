@@ -8,46 +8,74 @@ $route['agency'] = 'agency/dashboard';
 $route['agency/dashboard'] = 'agency/dashboard/index';
 $route['agency/login'] = 'login';
 $route['agency/logout'] = 'login/logout/agency';
+
+// ========== UUID ROUTES FOR CANDIDATES ==========
+
+// UUID routes for candidates - FIXED: Use $route array syntax
+$route['recruiter/candidates/view/([a-f0-9\-]{36})'] = 'recruiter/candidates/view/$1';
+$route['recruiter/candidates/edit/([a-f0-9\-]{36})'] = 'recruiter/candidates/edit/$1';
+$route['recruiter/candidates/update/([a-f0-9\-]{36})'] = 'recruiter/candidates/update/$1';
+$route['recruiter/candidates/start_candidate_chat/([a-f0-9\-]{36})'] = 'recruiter/candidates/start_candidate_chat/$1';
+
+// Keep backward compatibility with numeric IDs (optional, can remove later)
+$route['recruiter/candidates/view/(:num)'] = 'recruiter/candidates/view/$1';
+$route['recruiter/candidates/edit/(:num)'] = 'recruiter/candidates/edit/$1';
+$route['recruiter/candidates/update/(:num)'] = 'recruiter/candidates/update/$1';
+$route['recruiter/candidates/start_candidate_chat/(:num)'] = 'recruiter/candidates/start_candidate_chat/$1';
+
 // ========== ADD THESE UUID CHAT ROUTES ==========
 
 // Agency Chat with UUID support
 $route['agency/chat/conversation/([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})'] = 'agency/chat/conversation/$1';
 $route['recruiter/chat/conversation/([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})'] = 'recruiter/chat/conversation/$1';
+
 $route['recruiter/candidates/ajax_submit_required_documents'] = 'recruiter/candidates/ajax_submit_required_documents';
 $route['recruiter/candidates/ajax_submit_required_documents/(:num)'] = 'recruiter/candidates/ajax_submit_required_documents/$1';
+
 // Keep existing numeric ID routes for backward compatibility
 $route['agency/chat/conversation/(:num)'] = 'agency/chat/conversation/$1';
 $route['recruiter/chat/conversation/(:num)'] = 'recruiter/chat/conversation/$1';
+
 $route['agency/notifications/ajax_get_chat_notifications'] = 'agency/notifications/ajax_get_chat_notifications';
 $route['agency/candidates/open_candidate_chat/(:num)'] = 'agency/candidates/open_candidate_chat/$1';
+
 // Add this too for any UUID format (more flexible)
 $route['agency/chat/conversation/([a-fA-F0-9\-]{36})'] = 'agency/chat/conversation/$1';
 $route['recruiter/chat/conversation/([a-fA-F0-9\-]{36})'] = 'recruiter/chat/conversation/$1';
+
 $route['agency/candidates'] = 'agency/candidates';
 $route['agency/candidates/(:any)'] = 'agency/candidates/$1';
 $route['agency/candidates/(:any)/(:any)'] = 'agency/candidates/$1/$2';
+
 $route['agency_staff/dashboard'] = 'agency_staff/dashboard';
 $route['agency_staff/dashboard/(:any)'] = 'agency_staff/dashboard/$1';
+
 $route['staff/candidates'] = 'staff/candidates';
 $route['staff/candidates/(:any)'] = 'staff/candidates/$1';
 $route['staff/candidates/(:any)/(:any)'] = 'staff/candidates/$1/$2';
+
 $route['agency/dashboard'] = 'agency/dashboard';
 $route['agency/jobs_listings'] = 'agency/jobs_listings';
 $route['agency/jobs_listings/(:any)'] = 'agency/jobs_listings/$1';
+
 $route['recruiter/login'] = 'login';
 $route['recruiter/login/(:any)'] = 'login/$1';
 $route['recruiter/logout'] = 'login/logout/recruiter';
+
 // ADD THIS NEW ROUTE FOR ONBOARDING LISTING
 $route['agency/candidates/onboarding_listing'] = 'agency/candidates/onboarding_listing';
 $route['agency/candidates/onboarding_listing/(:any)'] = 'agency/candidates/onboarding_listing/$1';
+
 // Template sections - THESE MUST BE ABOVE GENERIC ROUTES
 $route['admin/template_sections'] = 'admin/template_sections';
 $route['admin/template_sections/(:any)'] = 'admin/template_sections/$1';
+
 // Override CRUD AJAX endpoints for templates
 $route['admin/templates/ajax_listing'] = 'admin/templates/ajax_results';
 $route['admin/templates/get_all'] = 'admin/templates/ajax_results';
 $route['admin/templates/ajax_get_all'] = 'admin/templates/ajax_results';
 $route['admin/templates/ajax_results'] = 'admin/templates/ajax_results';
+
 // Agency templates  
 $route['admin/agency_templates/build'] = 'admin/agency_templates/build';
 $route['admin/agency_templates/build/(:num)'] = 'admin/agency_templates/build/$1';
@@ -55,10 +83,12 @@ $route['admin/agency_templates/save_custom_template'] = 'admin/agency_templates/
 $route['admin/agency_templates/preview_agency_template'] = 'admin/agency_templates/preview_agency_template';
 $route['admin/agency_templates/preview_agency_template/(:num)'] = 'admin/agency_templates/preview_agency_template/$1';
 $route['admin/agency_templates/get_available_sections'] = 'admin/agency_templates/get_available_sections';
+
 // Agency Notification Routes
 $route['agency/notifications'] = 'agency/notifications';
 $route['agency/notifications/(:any)'] = 'agency/notifications/$1';
 $route['agency/notifications/(:any)/(:any)'] = 'agency/notifications/$1/$2';
+
 // Recruiter Routes
 // HM Decision Notification Routes - TRY DIFFERENT PATTERNS
 $route['recruiter/dashboard/get_hm_decision_notifications'] = 'recruiter/dashboard/get_hm_decision_notifications';
@@ -71,9 +101,11 @@ $route['recruiter/mark_hm_notification_read'] = 'recruiter/dashboard/mark_hm_not
 // Direct routes (bypass folder structure)
 $route['get_hm_decision_notifications'] = 'recruiter/dashboard/get_hm_decision_notifications';
 $route['mark_hm_notification_read'] = 'recruiter/dashboard/mark_hm_notification_read';
+
 // AJAX routes for notifications
 $route['agency/notifications/ajax_get_unread_count'] = 'agency/notifications/ajax_get_unread_count';
 $route['agency/notifications/ajax_get_recent_notifications'] = 'agency/notifications/ajax_get_recent_notifications';
+
 // Agency Templates List - FIXED ROUTES
 $route['admin/agency-templates-list'] = 'admin/agency_templates_list';
 $route['admin/agency-templates-list/(:any)'] = 'admin/agency_templates_list/$1';
@@ -86,14 +118,17 @@ $route['images/(:num)/(:any)/(:any)/(:any)/(:any)/(:any)'] = 'files/image/$2/$3/
 $route['images/(:any)/(:any)/(:any)/(:any)/(:any)'] = 'files/image/$1/$2/$3/$4/$5';
 $route['files/(:any)/(:any)/(:any)/(:any)/(:any)'] = 'files/file/$1/$2/$3/$4/$5';
 $route['download/(:any)/(:any)/(:any)/(:any)/(:any)'] = 'files/file/$1/$2/$3/$4/$5';
+
 // Recruiter Chat Routes
 $route['recruiter/chat'] = 'recruiter/chat';
 $route['recruiter/chat/(:any)'] = 'recruiter/chat/$1';
 $route['recruiter/chat/(:any)/(:any)'] = 'recruiter/chat/$1/$2';
 $route['recruiter/chat/(:any)/(:any)/(:any)'] = 'recruiter/chat/$1/$2/$3';
+
 // Ensure the candidates/for_job route works
 $route['recruiter/candidates/for_job/(:num)'] = 'recruiter/candidates/for_job/$1';
 $route['candidates/for_job/(:num)'] = 'recruiter/candidates/for_job/$1';
+
 // Agency Chat Routes  
 $route['agency/chat'] = 'agency/chat';
 $route['agency/chat/(:any)'] = 'agency/chat/$1';
@@ -108,10 +143,7 @@ $route['recruiter/chat/ajax_get_unread_count'] = 'recruiter/chat/ajax_get_unread
 $route['agency/chat/ajax_send_message'] = 'agency/chat/ajax_send_message';
 $route['agency/chat/ajax_get_messages'] = 'agency/chat/ajax_get_messages';
 $route['agency/chat/ajax_get_unread_count'] = 'agency/chat/ajax_get_unread_count';
-
-// In agency routes
-
-$route['agency/chat/conversation/(:num)'] = 'agency/chat/conversation/$1';
+$route['admin/administrators/stop_impersonating'] = 'admin/administrators/stop_impersonating';
 // Debug routes
 $route['debug-session'] = function() {
     $ci =& get_instance();
@@ -154,6 +186,88 @@ $route['debug-agency-templates-route'] = function() {
         }
     }
     echo "</pre>";
+};
+
+// ========== DEBUG ROUTES ==========
+$route['test-candidates-route'] = function() {
+    $ci =& get_instance();
+    
+    echo "<h1>Testing Candidates Route Specifically</h1>";
+    
+    // Test the exact route pattern
+    $test_url = 'recruiter/candidates/for_job/92';
+    echo "<h2>Testing: {$test_url}</h2>";
+    
+    $ci->load->library('router');
+    
+    // Check all possible route matches
+    echo "<h3>Route Analysis:</h3>";
+    foreach ($ci->router->routes as $pattern => $destination) {
+        if (strpos($pattern, 'candidates') !== false || strpos($pattern, 'recruiter') !== false) {
+            $matches = [];
+            if (preg_match('#^'.$pattern.'$#', $test_url, $matches)) {
+                echo "<p style='color: green'>✓ MATCHES: {$pattern} => {$destination}</p>";
+                echo "<pre>Matches: " . print_r($matches, true) . "</pre>";
+            } else {
+                echo "<p style='color: gray'>✗ No match: {$pattern}</p>";
+            }
+        }
+    }
+    
+    // Test if the generic route is catching it
+    echo "<h3>Generic Route Test:</h3>";
+    $generic_pattern = '(:any)/(:any)/(:any)/(:any)';
+    $matches = [];
+    if (preg_match('#^'.$generic_pattern.'$#', $test_url, $matches)) {
+        echo "<p style='color: orange'>⚠ Matches generic route: {$generic_pattern}</p>";
+        echo "<pre>Generic matches: " . print_r($matches, true) . "</pre>";
+        echo "<p>Would route to: front/{$matches[1]}/{$matches[2]}/{$matches[3]}/{$matches[4]}</p>";
+    }
+};
+
+// ========== DEBUG ROUTES ==========
+$route['debug-routes'] = function() {
+    $ci =& get_instance();
+    $ci->load->library('router');
+    
+    echo "<h1>Route Debug - HM Decision Notifications</h1>";
+    
+    // Check if our specific route exists
+    $test_route = 'recruiter/dashboard/get_hm_decision_notifications';
+    echo "<h2>Checking route: {$test_route}</h2>";
+    
+    if (isset($ci->router->routes[$test_route])) {
+        echo "<p style='color: green'>✓ Route FOUND: {$test_route} → " . $ci->router->routes[$test_route] . "</p>";
+    } else {
+        echo "<p style='color: red'>✗ Route NOT FOUND: {$test_route}</p>";
+    }
+    
+    // Show all recruiter routes
+    echo "<h2>All Recruiter Routes:</h2>";
+    echo "<pre>";
+    foreach ($ci->router->routes as $pattern => $destination) {
+        if (strpos($pattern, 'recruiter/') === 0) {
+            echo "{$pattern} => {$destination}\n";
+        }
+    }
+    echo "</pre>";
+    
+    // Test if controller method exists
+    echo "<h2>Controller Method Check:</h2>";
+    $controller_path = APPPATH . 'controllers/recruiter/Dashboard.php';
+    if (file_exists($controller_path)) {
+        echo "<p style='color: green'>✓ Controller file exists: {$controller_path}</p>";
+        
+        // Check if method exists
+        require_once($controller_path);
+        if (method_exists('Dashboard', 'get_hm_decision_notifications')) {
+            echo "<p style='color: green'>✓ Method exists: get_hm_decision_notifications</p>";
+        } else {
+            echo "<p style='color: red'>✗ Method NOT found: get_hm_decision_notifications</p>";
+        }
+    } else {
+        echo "<p style='color: red'>✗ Controller file NOT found: {$controller_path}</p>";
+    }
 };
 
 // ========== GENERIC ROUTES - KEEP THESE AT THE BOTTOM ==========
@@ -226,84 +340,3 @@ function increment_match_number_by_one($matches) {
 function increment_match_number_by_two($matches) {
     return '$'.(str_replace('$', '', $matches[0])+2);
 }
-$route['test-candidates-route'] = function() {
-    $ci =& get_instance();
-    
-    echo "<h1>Testing Candidates Route Specifically</h1>";
-    
-    // Test the exact route pattern
-    $test_url = 'recruiter/candidates/for_job/92';
-    echo "<h2>Testing: {$test_url}</h2>";
-    
-    $ci->load->library('router');
-    
-    // Check all possible route matches
-    echo "<h3>Route Analysis:</h3>";
-    foreach ($ci->router->routes as $pattern => $destination) {
-        if (strpos($pattern, 'candidates') !== false || strpos($pattern, 'recruiter') !== false) {
-            $matches = [];
-            if (preg_match('#^'.$pattern.'$#', $test_url, $matches)) {
-                echo "<p style='color: green'>✓ MATCHES: {$pattern} => {$destination}</p>";
-                echo "<pre>Matches: " . print_r($matches, true) . "</pre>";
-            } else {
-                echo "<p style='color: gray'>✗ No match: {$pattern}</p>";
-            }
-        }
-    }
-    
-    // Test if the generic route is catching it
-    echo "<h3>Generic Route Test:</h3>";
-    $generic_pattern = '(:any)/(:any)/(:any)/(:any)';
-    $matches = [];
-    if (preg_match('#^'.$generic_pattern.'$#', $test_url, $matches)) {
-        echo "<p style='color: orange'>⚠ Matches generic route: {$generic_pattern}</p>";
-        echo "<pre>Generic matches: " . print_r($matches, true) . "</pre>";
-        echo "<p>Would route to: front/{$matches[1]}/{$matches[2]}/{$matches[3]}/{$matches[4]}</p>";
-    }
-};
-
-
-// ========== DEBUG ROUTES ==========
-$route['debug-routes'] = function() {
-    $ci =& get_instance();
-    $ci->load->library('router');
-    
-    echo "<h1>Route Debug - HM Decision Notifications</h1>";
-    
-    // Check if our specific route exists
-    $test_route = 'recruiter/dashboard/get_hm_decision_notifications';
-    echo "<h2>Checking route: {$test_route}</h2>";
-    
-    if (isset($ci->router->routes[$test_route])) {
-        echo "<p style='color: green'>✓ Route FOUND: {$test_route} → " . $ci->router->routes[$test_route] . "</p>";
-    } else {
-        echo "<p style='color: red'>✗ Route NOT FOUND: {$test_route}</p>";
-    }
-    
-    // Show all recruiter routes
-    echo "<h2>All Recruiter Routes:</h2>";
-    echo "<pre>";
-    foreach ($ci->router->routes as $pattern => $destination) {
-        if (strpos($pattern, 'recruiter/') === 0) {
-            echo "{$pattern} => {$destination}\n";
-        }
-    }
-    echo "</pre>";
-    
-    // Test if controller method exists
-    echo "<h2>Controller Method Check:</h2>";
-    $controller_path = APPPATH . 'controllers/recruiter/Dashboard.php';
-    if (file_exists($controller_path)) {
-        echo "<p style='color: green'>✓ Controller file exists: {$controller_path}</p>";
-        
-        // Check if method exists
-        require_once($controller_path);
-        if (method_exists('Dashboard', 'get_hm_decision_notifications')) {
-            echo "<p style='color: green'>✓ Method exists: get_hm_decision_notifications</p>";
-        } else {
-            echo "<p style='color: red'>✗ Method NOT found: get_hm_decision_notifications</p>";
-        }
-    } else {
-        echo "<p style='color: red'>✗ Controller file NOT found: {$controller_path}</p>";
-    }
-};
