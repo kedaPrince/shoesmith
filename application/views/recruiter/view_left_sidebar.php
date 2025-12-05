@@ -5,7 +5,7 @@
     <div class="sidebar-scroll">
         <div class="logo">
             <a title="<?= $this->config->item('site_name'); ?>">
-                <img src="<?=site_url()?>resources/cms/images/logo_white_logo.png"
+                <img src="<?=site_url()?>resources/cms/images/hyrevo-logo2.png"
                     alt="<?= $this->config->item('site_name'); ?>" />
             </a>
             <hr>
