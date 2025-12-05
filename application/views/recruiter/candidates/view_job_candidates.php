@@ -95,7 +95,7 @@
                                 </button>
 
                                 <!-- View Job Details Button -->
-                                <a href="<?php echo site_url('recruiter/jobs/view/' . $job->id); ?>"
+                                <a href="<?php echo site_url('recruiter/jobs/view/' . $job->uuid); ?>"
                                     class="btn btn-info mb-2">
                                     <i class="fa fa-eye mr-2"></i> View Job Details
                                 </a>

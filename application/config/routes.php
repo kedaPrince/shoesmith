@@ -144,6 +144,14 @@ $route['agency/chat/ajax_send_message'] = 'agency/chat/ajax_send_message';
 $route['agency/chat/ajax_get_messages'] = 'agency/chat/ajax_get_messages';
 $route['agency/chat/ajax_get_unread_count'] = 'agency/chat/ajax_get_unread_count';
 $route['admin/administrators/stop_impersonating'] = 'admin/administrators/stop_impersonating';
+
+$route['recruiter/jobs/view/(:any)'] = 'recruiter/jobs/view/$1';
+$route['recruiter/candidates/for_job/(:any)'] = 'recruiter/candidates/for_job/$1';
+$route['recruiter/candidates/add/(:any)'] = 'recruiter/candidates/add/$1';
+
+// Update existing routes or add new ones
+$route['recruiter/candidates/for_job/(:any)'] = 'recruiter/candidates/for_job/$1';
+$route['recruiter/candidates/add/(:any)'] = 'recruiter/candidates/add/$1';
 // Debug routes
 $route['debug-session'] = function() {
     $ci =& get_instance();

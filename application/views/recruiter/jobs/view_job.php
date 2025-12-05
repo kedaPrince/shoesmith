@@ -566,7 +566,24 @@ function showSubmitCandidateModal() {
 
 function submitNewCandidate() {
     Swal.close();
-    window.location.href = baseUrl + 'recruiter/candidates/add/' + jobId;
+    window.location.href = baseUrl + 'recruiter/candidates/for_job/' + jobUuid;
+}
+
+// Use UUID instead of ID
+const jobUuid = '<?php echo $job->uuid; ?>';
+const jobId = <?php echo $job->id; ?>; // Keep for internal operations if needed
+const baseUrl = '<?php echo site_url(); ?>';
+const csrfTokenName = '<?php echo $this->security->get_csrf_token_name(); ?>';
+const csrfTokenHash = '<?php echo $this->security->get_csrf_hash(); ?>';
+
+// Update URLs to use UUID
+const getCandidatesUrl = baseUrl + 'recruiter/jobs/ajax_get_candidates_for_job';
+const assignCandidateUrl = baseUrl + 'recruiter/jobs/ajax_assign_candidate_to_job';
+
+// Update functions to pass UUID
+function submitNewCandidate() {
+    Swal.close();
+    window.location.href = baseUrl + 'recruiter/candidates/add/' + jobUuid;
 }
 
 function showExistingCandidateModal() {
@@ -729,7 +746,7 @@ function assignCandidatesToJob(candidateIds) {
                     icon: 'success',
                     confirmButtonText: 'View Candidates'
                 }).then(() => {
-                    window.location.href = baseUrl + 'recruiter/candidates/for_job/' + jobId;
+                    window.location.href = baseUrl + 'recruiter/candidates/for_job/' + jobUuid;
                 });
             } else {
                 let errorMessage = data.message || 'Failed to assign candidates to job.';

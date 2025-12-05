@@ -2026,19 +2026,52 @@ public function view($uuid_or_id = null)
     }
 
    
-    public function add($job_id = null)
+public function add($job_uuid = null)
 {
-    if (empty($job_id)) {
-        $job_id = $this->input->get('job_id');
+    // Check if job_uuid is provided
+    if (empty($job_uuid)) {
+        // Fallback to get parameter (for backward compatibility)
+        $job_uuid = $this->input->get('job_uuid');
+        if (empty($job_uuid)) {
+            // Also check for old job_id parameter for compatibility
+            $job_id = $this->input->get('job_id');
+            if ($job_id) {
+                // Convert old ID to UUID if needed
+                $this->db->select('uuid');
+                $this->db->from('mod_jobs');
+                $this->db->where('id', $job_id);
+                $job = $this->db->get()->row();
+                if ($job) {
+                    $job_uuid = $job->uuid;
+                }
+            }
+        }
     }
     
-    if ($job_id && is_numeric($job_id)) {
-        $this->session->set_userdata('pre_selected_job_id', $job_id);
+    // If we have a job_uuid, get the job details and store in session
+    if ($job_uuid) {
+        $this->db->select('id, uuid, name');
+        $this->db->from('mod_jobs');
+        $this->db->where('uuid', $job_uuid);
+        $job = $this->db->get()->row();
+        
+        if ($job) {
+            // Store both UUID and ID in session
+            $this->session->set_userdata('pre_selected_job_uuid', $job_uuid);
+            $this->session->set_userdata('pre_selected_job_id', $job->id);
+            
+            // Also pass to view data
+            $this->data['pre_selected_job'] = [
+                'uuid' => $job->uuid,
+                'id' => $job->id,
+                'name' => $job->name
+            ];
+        }
     }
     
     // ✅ Pass CSRF token to view
-    $data['csrf_token_name'] = $this->security->get_csrf_token_name();
-    $data['csrf_token_hash'] = $this->security->get_csrf_hash();
+    $this->data['csrf_token_name'] = $this->security->get_csrf_token_name();
+    $this->data['csrf_token_hash'] = $this->security->get_csrf_hash();
     
     // Call parent's add method with additional data
     parent::add();
@@ -2086,45 +2119,46 @@ public function view($uuid_or_id = null)
     }
 
 // In application/controllers/recruiter/Candidates.php
-public function for_job($job_id)
+public function for_job($job_uuid)
 {
     $recruiter_id = $this->get_current_recruiter_id();
     
-    log_message('debug', 'Candidates::for_job() called with job_id: ' . $job_id);
+    log_message('debug', 'Candidates::for_job() called with job_uuid: ' . $job_uuid);
     log_message('debug', 'Recruiter ID: ' . $recruiter_id);
     
-    // Get job details - ALL recruiters can see ALL jobs
+    // Get job details by UUID - ALL recruiters can see ALL jobs
     $this->db->select('mod_jobs.*, agencies.name as agency_name');
     $this->db->from('mod_jobs');
     $this->db->join('agencies', 'agencies.id = mod_jobs.agency_id', 'left');
-    $this->db->where('mod_jobs.id', $job_id);
+    $this->db->where('mod_jobs.uuid', $job_uuid);
     
     $job = $this->db->get()->row();
     
     if (!$job) {
-        log_message('error', 'Job not found: ' . $job_id);
+        log_message('error', 'Job not found with UUID: ' . $job_uuid);
         show_404();
     }
 
-    log_message('debug', 'Job found: ' . $job->name);
+    log_message('debug', 'Job found: ' . $job->name . ' (ID: ' . $job->id . ', UUID: ' . $job->uuid . ')');
     
     // Load the jobs model
     $this->load->model('recruiter/model_jobs');
     
-    // Get ONLY this recruiter's candidates for this job
-    $candidates = $this->model_jobs->get_candidates_for_job($job_id, $recruiter_id);
+    // Get ONLY this recruiter's candidates for this job (use internal ID)
+    $candidates = $this->model_jobs->get_candidates_for_job($job->id, $recruiter_id);
     
-    log_message('debug', 'Found ' . count($candidates) . ' candidates for job ' . $job_id . ' for recruiter ' . $recruiter_id);
+    log_message('debug', 'Found ' . count($candidates) . ' candidates for job ' . $job->id . ' for recruiter ' . $recruiter_id);
     
     $data = [
         'candidates' => $candidates,
         'job' => $job,
+        'job_uuid' => $job->uuid, // Pass UUID to view
+        'job_id' => $job->id, // Pass internal ID to view
         'total_candidates' => count($candidates),
-        'current_recruiter_id' => $recruiter_id,
-        'job_id' => $job_id // Pass job_id to the view
+        'current_recruiter_id' => $recruiter_id
     ];
 
-    // Set breadcrumbs
+    // Set breadcrumbs - update URLs to use UUID
     $this->breadcrumbs = array(
         array(
             'title' => 'Jobs',
@@ -2132,7 +2166,7 @@ public function for_job($job_id)
         ),
         array(
             'title' => $job->name,
-            'url' => site_url('recruiter/jobs/view/' . $job->id),
+            'url' => site_url('recruiter/jobs/view/' . $job->uuid), // Use UUID
         ),
         array(
             'title' => 'My Candidates (' . count($candidates) . ')',

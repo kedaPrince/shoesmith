@@ -9,6 +9,7 @@ class Model_jobs extends CRUD_Model
     // Include candidate_count and closing_date in the selection
     $this->db->select([
         'mod_jobs.id',
+        'mod_jobs.uuid', 
         'mod_jobs.enabled', 
         'mod_jobs.name',
         'mod_jobs.reference_number',

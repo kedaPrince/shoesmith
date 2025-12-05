@@ -185,30 +185,28 @@ public function __construct()
             ),
         );
 
-            $this->listActions = array(
+           // In setup_listing() method, update the listActions:
+        $this->listActions = array(
             'view' => array(
                 'label'     => lang('label_view'),
-                'url'       => url($this->pageName . '/view/{id}'),
+                'url'       => url($this->pageName . '/view/{uuid}'), // Changed from {id}
                 'icon'      => 'fa-eye',
                 'class'     => 'view-row btn-info',
                 'title'     => 'View job details',
             ),
             'view_candidates' => array(
                 'label'     => 'View Candidates',
-                'url'       => url('candidates/for_job/{id}'),
+                'url'       => url('candidates/for_job/{uuid}'), // Changed from {id}
                 'icon'      => 'fa-users',
                 'class'     => 'view-candidates-row btn-primary',
                 'title'     => 'View candidates for this job',
-            
             ),
             'add_candidate' => array(
                 'label'     => 'Add Candidate',
-                'url'       => url('candidates/add/{id}'),
+                'url'       => url('candidates/add/{uuid}'), // Changed from {id}
                 'icon'      => 'fa-user-plus',
                 'class'     => 'add-candidate-row btn-success',
-            
             ),
-        
         );
 
         //built-in listRowAttributes for styling
@@ -653,16 +651,16 @@ public function __construct()
      * View job details - Only method recruiters can access
      */
 
-    public function view($id)
+    public function view($uuid)
     {
         $user_agency_id = $this->get_user_agency_id();
         
-        // Get the job with agency filtering and proper joins
+        // Get the job by UUID with agency filtering
         $this->db->select('mod_jobs.*, agencies.name as agency_name, mod_industries.name as industry_name');
         $this->db->from('mod_jobs');
         $this->db->join('agencies', 'agencies.id = mod_jobs.agency_id', 'left');
         $this->db->join('mod_industries', 'mod_industries.id = mod_jobs.industry_id', 'left');
-        $this->db->where('mod_jobs.id', $id);
+        $this->db->where('mod_jobs.uuid', $uuid);
         
         if ($user_agency_id) {
             $this->db->where('mod_jobs.agency_id', $user_agency_id);
@@ -674,15 +672,15 @@ public function __construct()
             show_404();
         }
 
-        // Load additional data
+        // Pass job_id to view for candidate operations
         $data['job'] = $job;
+        $data['job_id'] = $job->id; // Internal ID for database operations
+        $data['job_uuid'] = $job->uuid; // UUID for URLs
         $data['skills'] = !empty($job->skills) ? explode(',', $job->skills) : [];
         $data['qualifications'] = !empty($job->qualifications) ? explode(',', $job->qualifications) : [];
         $data['skill_options'] = null;
         $data['qualification_options'] = null;
-        $data['updated_fields'] = $this->get_updated_fields_for_job($id);
-        
-        // Only pass recruiter ID to view
+        $data['updated_fields'] = $this->get_updated_fields_for_job($job->id); // Use internal ID
         $data['recruiter_id'] = $this->get_current_recruiter_id();
 
         // Set breadcrumbs
@@ -697,44 +695,45 @@ public function __construct()
             ),
         );
 
-        // Load the view
         $this->load->view($this->folder . '/view_header');
         $this->load->view('recruiter/jobs/view_job', $data);
         $this->load->view($this->folder . '/view_footer');
     }
 
     
-    public function view_candidates($job_id)
-    {
-        $recruiter_id = $this->get_current_recruiter_id();
-        
-        // Get job details
-        $this->db->select('mod_jobs.*, agencies.name as agency_name');
-        $this->db->from('mod_jobs');
-        $this->db->join('agencies', 'agencies.id = mod_jobs.agency_id', 'left');
-        $this->db->where('mod_jobs.id', $job_id);
-        
-        $user_agency_id = $this->get_user_agency_id();
-        if ($user_agency_id) {
-            $this->db->where('mod_jobs.agency_id', $user_agency_id);
-        }
-        
-        $job = $this->db->get()->row();
-        
-        if (!$job) {
-            show_404();
-        }
-
-        // Get candidates using the new method
-        $data['candidates'] = $this->model_jobs->get_candidates_for_job($job_id, $recruiter_id);
-        $data['job'] = $job;
-        $data['total_candidates'] = count($data['candidates']);
-
-        // Load your view
-        $this->load->view($this->folder . '/view_header');
-        $this->load->view('recruiter/jobs/view_job_candidates', $data);
-        $this->load->view($this->folder . '/view_footer');
+    public function view_candidates($job_uuid)
+{
+    $recruiter_id = $this->get_current_recruiter_id();
+    
+    // Get job details by UUID
+    $this->db->select('mod_jobs.*, agencies.name as agency_name');
+    $this->db->from('mod_jobs');
+    $this->db->join('agencies', 'agencies.id = mod_jobs.agency_id', 'left');
+    $this->db->where('mod_jobs.uuid', $job_uuid);
+    
+    $user_agency_id = $this->get_user_agency_id();
+    if ($user_agency_id) {
+        $this->db->where('mod_jobs.agency_id', $user_agency_id);
     }
+    
+    $job = $this->db->get()->row();
+    
+    if (!$job) {
+        show_404();
+    }
+
+    // Get candidates using the job ID (internal ID)
+    $data['candidates'] = $this->model_jobs->get_candidates_for_job($job->id, $recruiter_id);
+    $data['job'] = $job;
+    $data['job_uuid'] = $job->uuid; // Pass UUID to view
+    $data['job_id'] = $job->id; // Pass internal ID to view (for any JS operations)
+    $data['total_candidates'] = count($data['candidates']);
+
+    // Load your view
+    $this->load->view($this->folder . '/view_header');
+    $this->load->view('recruiter/jobs/view_job_candidates', $data);
+    $this->load->view($this->folder . '/view_footer');
+}
 
 
 
