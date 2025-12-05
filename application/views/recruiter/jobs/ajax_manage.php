@@ -1,30 +1,5 @@
 <?php defined('BASEPATH') || exit('No direct script access allowed'); ?>
-<style>
-/* Expired job row styling */
-table tbody tr.job-expired-row {
-    background-color: #6b050580 !important;
-    border-left: 4px solid #dc3545 !important;
-}
 
-table tbody tr.job-expired-row td {
-    background-color: #fff5f5 !important;
-    opacity: 0.7;
-}
-
-table tbody tr.job-expired-row:hover td {
-    background-color: #ffe6e6 !important;
-}
-
-/* Expired job text styling */
-.expired-job-text {
-    opacity: 0.7;
-}
-
-.expired-job-btn {
-    opacity: 0.6;
-    cursor: not-allowed;
-}
-</style>
 <a class="close-quick-manage"><i class="fa fa-times"></i></a>
 <div class="quick-manage-form-container qm-tabs">
     <div class="quick-manage-heading">
@@ -70,8 +45,6 @@ table tbody tr.job-expired-row:hover td {
                 </div>
             </div>
             <div class="row">
-                <!-- Replace the agency dropdown section -->
-              
                 <div class="col-lg-6">
                     <?php 
                         // Determine if we should show agency as static field
@@ -84,16 +57,16 @@ table tbody tr.job-expired-row:hover td {
                     <div class="form-control-static">
                         <strong>Agency:</strong><br>
                         <?php 
-            // Display agency name
-            if (!empty($agency_options) && $agency_options->num_rows() > 0) {
-                $agency_name = $agency_options->row()->name;
-                echo htmlspecialchars($agency_name, ENT_QUOTES, 'UTF-8');
-                log_message('debug', 'Displaying static agency: ' . $agency_name . ' (ID: ' . $final_agency_id . ')');
-            } else {
-                echo 'Your Agency (ID: ' . $final_agency_id . ')';
-                log_message('debug', 'Agency options empty, showing fallback for ID: ' . $final_agency_id);
-            }
-            ?>
+                                // Display agency name
+                                if (!empty($agency_options) && $agency_options->num_rows() > 0) {
+                                    $agency_name = $agency_options->row()->name;
+                                    echo htmlspecialchars($agency_name, ENT_QUOTES, 'UTF-8');
+                                    log_message('debug', 'Displaying static agency: ' . $agency_name . ' (ID: ' . $final_agency_id . ')');
+                                } else {
+                                    echo 'Your Agency (ID: ' . $final_agency_id . ')';
+                                    log_message('debug', 'Agency options empty, showing fallback for ID: ' . $final_agency_id);
+                                }
+                            ?>
                     </div>
                     <?php else: ?>
                     <?= field_dropdown('agency_id|label_agency', $agency_options, $row, 'required'); ?>

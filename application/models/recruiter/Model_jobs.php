@@ -116,4 +116,24 @@ public function get_candidate_count_for_job($job_id, $recruiter_id = null)
     return $this->db->count_all_results();
 }
 
+// Add this method to Model_jobs.php
+public function get_all_with_expired_last()
+{
+    $this->main_selects();
+    $this->joins();
+    
+    // Add WHERE clause for removed if needed
+    $this->db->where('mod_jobs.removed', 0);
+    
+    // Sort with expired jobs at bottom
+    $this->db->order_by("CASE 
+        WHEN closing_date = '0000-00-00' THEN 0
+        WHEN closing_date < CURDATE() THEN 1 
+        ELSE 0 
+    END", 'ASC');
+    $this->db->order_by('mod_jobs.name', 'ASC');
+    
+    return $this->db->get('mod_jobs');
+}
+
 }
