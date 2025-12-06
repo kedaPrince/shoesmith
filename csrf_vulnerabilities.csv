@@ -1,4 +1,5 @@
 File Type,File Path,Vulnerable Methods/Issues,Status
+Controller,/recruiter/Dashboard.php,"upload_document",NEEDS_FIX
 Controller,/Browser.php,All methods protected,OK
 Controller,/Cron.php,All methods protected,OK
 Controller,/Files.php,All methods protected,OK
@@ -24,7 +25,6 @@ Controller,/agency/Test_form_builder.php,All methods protected,OK
 Controller,/agency_staff/Candidates.php,All methods protected,OK
 Controller,/recruiter/Candidates.php,All methods protected,OK
 Controller,/recruiter/Chat.php,All methods protected,OK
-Controller,/recruiter/Dashboard.php,All methods protected,OK
 Controller,/recruiter/Jobs.php,All methods protected,OK
 Controller,/staff/Candidates.php,All methods protected,OK
 View,/admin/access_groups/ajax_manage.php,Forms have CSRF,OK
