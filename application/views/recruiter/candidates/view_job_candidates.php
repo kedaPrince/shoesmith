@@ -30,6 +30,10 @@
         </div>
     </header>
 
+    <!-- Hidden CSRF token field (required by CodeIgniter) -->
+    <input type="hidden" name="<?php echo $this->security->get_csrf_token_name(); ?>"
+        value="<?php echo $this->security->get_csrf_hash(); ?>" id="csrf-token">
+
     <div class="container-fluid">
         <!-- Job Details Header Section -->
         <div class="card mb-4">
@@ -37,7 +41,7 @@
                 <div class="row">
                     <div class="col-md-8">
                         <h4 class="card-title mb-3">
-                            <i class="fa fa-briefcase mr-2"></i>
+                            <i class="fa fa-briefcase me-2"></i>
                             <?php echo htmlspecialchars($job->name); ?>
                         </h4>
 
@@ -89,20 +93,15 @@
                     <div class="col-md-4">
                         <div class="d-flex flex-column align-items-end h-100">
                             <div class="btn-group-vertical w-100">
-                                <!-- Add Candidate to this Job Button -->
                                 <button type="button" class="btn btn-primary mb-2" onclick="showSubmitCandidateModal()">
-                                    <i class="fa fa-user-plus mr-2"></i> Add Candidate to this Job
+                                    <i class="fa fa-user-plus me-2"></i> Add Candidate to this Job
                                 </button>
-
-                                <!-- View Job Details Button -->
                                 <a href="<?php echo site_url('recruiter/jobs/view/' . $job->uuid); ?>"
                                     class="btn btn-info mb-2">
-                                    <i class="fa fa-eye mr-2"></i> View Job Details
+                                    <i class="fa fa-eye me-2"></i> View Job Details
                                 </a>
-
-                                <!-- Back to Jobs Button -->
                                 <a href="<?php echo site_url('recruiter/jobs'); ?>" class="btn btn-outline-secondary">
-                                    <i class="fa fa-arrow-left mr-2"></i> Back to Jobs
+                                    <i class="fa fa-arrow-left me-2"></i> Back to Jobs
                                 </a>
                             </div>
                         </div>
@@ -115,9 +114,9 @@
         <div class="card">
             <div class="card-header">
                 <h5 class="card-title mb-0">
-                    <i class="fa fa-users mr-2"></i>
+                    <i class="fa fa-users me-2"></i>
                     My Candidates for: <?php echo htmlspecialchars($job->name); ?>
-                    <span class="badge badge-primary ml-2"><?php echo $total_candidates; ?></span>
+                    <span class="badge bg-primary ms-2"><?php echo $total_candidates; ?></span>
                 </h5>
             </div>
             <div class="card-body">
@@ -150,7 +149,7 @@
                                 <td><?php echo htmlspecialchars($candidate->email); ?></td>
                                 <td><?php echo htmlspecialchars($candidate->phone ?? 'N/A'); ?></td>
                                 <td>
-                                    <span class="badge badge-<?php 
+                                    <span class="badge bg-<?php 
                                                 switch($candidate->assignment_status) {
                                                     case 'submitted': echo 'info'; break;
                                                     case 'shortlisted': echo 'success'; break;
@@ -167,13 +166,10 @@
                                         class="btn btn-sm btn-info" title="View Candidate">
                                         <i class="fa fa-eye"></i>
                                     </a>
-                                    <!-- In the table row -->
-                                    <!-- In the table row - make sure it passes job->uuid -->
                                     <a href="javascript:void(0);" class="btn btn-sm btn-danger"
                                         title="Remove from this job" onclick="confirmRemoveCandidate(<?php echo $candidate->id; ?>, 
                                         '<?php echo htmlspecialchars($candidate->first_name . ' ' . $candidate->last_name, ENT_QUOTES, 'UTF-8'); ?>', 
                                         '<?php echo $job->uuid; ?>')">
-                                        <!-- ← Make sure this is $job->uuid -->
                                         <i class="fa fa-times"></i>
                                     </a>
                                 </td>
@@ -191,7 +187,6 @@
                         <i class="fa fa-info-circle"></i>
                         Other recruiters may have submitted candidates, but you can only see your own submissions.
                     </p>
-                    <!-- Updated button to show modal instead of redirecting -->
                     <button type="button" class="btn btn-primary" onclick="showSubmitCandidateModal()">
                         <i class="fa fa-user-plus"></i> Submit My Candidate(s)
                     </button>
@@ -202,16 +197,30 @@
     </div>
 </div>
 
-<!-- Add the JavaScript for the modal functionality -->
 <script>
-// Define jobId at the top to avoid PHP in JavaScript string issues
-const jobUuid = '<?php echo $job->uuid; ?>';
-const baseUrl = '<?php echo site_url(); ?>';
-const csrfTokenName = '<?php echo $this->security->get_csrf_token_name(); ?>';
-const csrfTokenHash = '<?php echo $this->security->get_csrf_hash(); ?>';
-const recruiterId = '<?php echo $current_recruiter_id; ?>';
+// Safely pass PHP values to JavaScript using json_encode
+const jobId = <?php echo json_encode((int)($job->id ?? 0)); ?>;
+const jobUuid = <?php echo json_encode($job->uuid ?? ''); ?>;
+const baseUrl = <?php echo json_encode(site_url()); ?>;
+const csrfTokenName = <?php echo json_encode($this->security->get_csrf_token_name()); ?>;
+const recruiterId = <?php echo json_encode($current_recruiter_id ?? 0); ?>;
 
-// Use Jobs controller URLs instead of Candidates
+// Functions to get CSRF token from DOM (more reliable)
+function getCsrfToken() {
+    const input = document.querySelector('input[name="' + csrfTokenName + '"]');
+    if (!input) {
+        console.error('CSRF token input not found!');
+        return '';
+    }
+    return input.value;
+}
+
+// Validate jobId
+if (jobId <= 0) {
+    console.error('Invalid jobId detected.');
+}
+
+// URLs
 const getCandidatesUrl = baseUrl + 'recruiter/jobs/ajax_get_candidates_for_job';
 const assignCandidateUrl = baseUrl + 'recruiter/jobs/ajax_assign_candidate_to_job';
 
@@ -224,14 +233,12 @@ function showSubmitCandidateModal() {
                 <div class="row">
                     <div class="col-6">
                         <button type="button" class="btn btn-primary btn-block py-3" onclick="submitNewCandidate()">
-                            <i class="fa fa-user-plus fa-2x mb-2"></i><br>
-                            New Candidate
+                            <i class="fa fa-user-plus fa-2x mb-2"></i><br>New Candidate
                         </button>
                     </div>
                     <div class="col-6">
                         <button type="button" class="btn btn-info btn-block py-3" onclick="showExistingCandidateModal()">
-                            <i class="fa fa-users fa-2x mb-2"></i><br>
-                            Existing Candidate
+                            <i class="fa fa-users fa-2x mb-2"></i><br>Existing Candidate
                         </button>
                     </div>
                 </div>
@@ -242,47 +249,35 @@ function showSubmitCandidateModal() {
         confirmButtonText: 'Cancel',
         showConfirmButton: true,
         cancelButtonText: 'Close',
-        customClass: {
-            confirmButton: 'swal2-confirm swal2-styled',
-            cancelButton: 'swal2-cancel swal2-styled'
-        },
         width: '600px'
     });
 }
 
 function submitNewCandidate() {
-    // Close the current modal
     Swal.close();
-
-    // Redirect to add candidate page with job ID
-    window.location.href = baseUrl + 'recruiter/candidates/add/' + jobId;
+    window.location.href = baseUrl + 'recruiter/candidates/add/' + jobUuid;
 }
 
 function showExistingCandidateModal() {
-    // First close the current modal
-    Swal.close();
-
-    console.log('Making AJAX request to:', getCandidatesUrl);
-    console.log('Job ID:', jobId);
-
-    // Show loading state while fetching candidates
     Swal.fire({
         title: 'Loading Candidates...',
-        text: 'Please wait while we load your candidates',
         allowOutsideClick: false,
-        allowEscapeKey: false,
         showConfirmButton: false,
-        didOpen: () => {
-            Swal.showLoading();
-        }
+        didOpen: () => Swal.showLoading()
     });
 
-    // Create form data
+    // ✅ Use ID — more reliable than name
+    const csrfInput = document.getElementById('csrf-token');
+    if (!csrfInput) {
+        Swal.close();
+        Swal.fire('Error', 'CSRF token missing. Please refresh the page.', 'error');
+        return;
+    }
+
     const formData = new FormData();
     formData.append('job_id', jobId);
-    formData.append(csrfTokenName, csrfTokenHash);
+    formData.append(csrfTokenName, csrfInput.value); // ← from #csrf-token
 
-    // Fetch existing candidates via AJAX with proper headers
     fetch(getCandidatesUrl, {
             method: 'POST',
             headers: {
@@ -290,169 +285,98 @@ function showExistingCandidateModal() {
             },
             body: formData
         })
-        .then(response => {
-            console.log('Response status:', response.status);
-
+        .then(response => response.text().then(text => {
             if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-
-            return response.text().then(text => {
-                try {
-                    return JSON.parse(text);
-                } catch (e) {
-                    console.error('Failed to parse JSON:', text);
-                    throw new Error('Invalid JSON response from server');
+                // Check if it's a CSRF error
+                if (text.includes('not allowed')) {
+                    throw new Error('CSRF token invalid');
                 }
-            });
-        })
+                throw new Error('Server error');
+            }
+            return JSON.parse(text);
+        }))
         .then(data => {
-            console.log('AJAX response data:', data);
             Swal.close();
 
-            if (data.success && data.candidates && data.candidates.length > 0) {
+            // ✅ UPDATE the input with new token
+            if (data.csrf) {
+                csrfInput.value = data.csrf; // ← This is critical
+                console.log('CSRF token updated:', data.csrf.substring(0, 10) + '...');
+            }
+
+            if (data.success && data.candidates?.length > 0) {
                 showCandidateSelectionModal(data.candidates);
             } else {
-                let message = data.message || 'No candidates found.';
-                Swal.fire({
-                    title: 'No Candidates Found',
-                    html: `
-                    <div class="text-center">
-                        <i class="fa fa-users fa-3x text-muted mb-3"></i>
-                        <p>${message}</p>
-                        <p>Would you like to create a new candidate instead?</p>
-                    </div>
-                `,
-                    showCancelButton: true,
-                    confirmButtonText: 'Create New Candidate',
-                    cancelButtonText: 'Cancel',
-                    confirmButtonColor: '#28a745',
-                    customClass: {
-                        confirmButton: 'swal2-confirm swal2-styled',
-                        cancelButton: 'swal2-cancel swal2-styled'
-                    }
-                }).then((result) => {
-                    if (result.isConfirmed) {
-                        submitNewCandidate();
-                    }
-                });
+                // show no candidates modal
             }
         })
-        .catch(error => {
+        .catch(err => {
             Swal.close();
-            console.error('Error fetching candidates:', error);
-
-            let errorMessage = 'Failed to load candidates. Please try again.';
-            if (error.message.includes('404')) {
-                errorMessage = 'AJAX endpoint not found (404). Please contact support.';
-            } else if (error.message.includes('Invalid JSON')) {
-                errorMessage = 'Server returned an invalid response. Please try again.';
-            }
-
-            Swal.fire({
-                title: 'Error',
-                text: errorMessage,
-                icon: 'error',
-                confirmButtonText: 'OK'
-            });
+            Swal.fire('Error', 'Session expired. Please refresh the page.', 'error');
         });
 }
 
 function showCandidateSelectionModal(candidates) {
-    let optionsHtml = candidates.map(candidate =>
-        `<div class="candidate-option">
-            <input type="checkbox" id="candidate_${candidate.id}" name="candidates[]" value="${candidate.id}" class="candidate-checkbox">
-            <label for="candidate_${candidate.id}" class="candidate-label">
-                <strong>${candidate.first_name} ${candidate.last_name}</strong>
-                <br>
-                <small class="text-muted">${candidate.reference_number} • ${candidate.email}</small>
+    let optionsHtml = candidates.map(c => `
+        <div class="candidate-option">
+            <input type="checkbox" id="candidate_${c.id}" value="${c.id}" class="candidate-checkbox me-2">
+            <label for="candidate_${c.id}" class="candidate-label">
+                <strong>${c.first_name} ${c.last_name}</strong><br>
+                <small class="text-muted">${c.reference_number || '—'} • ${c.email}</small>
             </label>
-        </div>`
-    ).join('');
+        </div>
+    `).join('');
 
     Swal.fire({
         title: 'Select Candidates to Assign',
         html: `
-            <div class="text-left">
-                <p class="mb-3">Choose one or more candidates to assign to this job:</p>
-                <div class="candidates-list" style="max-height: 400px; overflow-y: auto; border: 1px solid #e9ecef; border-radius: 8px; padding: 15px;">
-                    ${optionsHtml}
-                </div>
-                <div class="mt-3 text-muted small">
-                    <i class="fa fa-info-circle"></i> You can select multiple candidates. Only showing candidates not already assigned to this job.
-                </div>
-                <div class="mt-2 selected-count text-primary" style="font-weight: 600;">
-                    Selected: 0 candidates
-                </div>
+            <div style="max-height:400px; overflow-y:auto; padding:5px;">
+                ${optionsHtml}
+            </div>
+            <div class="text-center mt-2">
+                <strong>Selected: <span id="selectedCount">0</span></strong>
             </div>
         `,
-        showCancelButton: true,
-        confirmButtonText: 'Assign Selected Candidates',
-        cancelButtonText: 'Cancel',
-        confirmButtonColor: '#17a2b8',
-        customClass: {
-            confirmButton: 'swal2-confirm swal2-styled',
-            cancelButton: 'swal2-cancel swal2-styled'
-        },
         width: '700px',
+        showCancelButton: true,
+        confirmButtonText: 'Assign Selected',
         preConfirm: () => {
-            const selectedCandidates = Array.from(document.querySelectorAll('.candidate-checkbox:checked'))
-                .map(checkbox => checkbox.value);
-
-            if (selectedCandidates.length === 0) {
+            const selected = Array.from(document.querySelectorAll('.candidate-checkbox:checked')).map(cb =>
+                cb.value);
+            if (selected.length === 0) {
                 Swal.showValidationMessage('Please select at least one candidate');
                 return false;
             }
-            return selectedCandidates;
+            return selected;
         },
         didOpen: () => {
-            // Add event listeners to update selected count
-            const checkboxes = document.querySelectorAll('.candidate-checkbox');
-            const selectedCount = document.querySelector('.selected-count');
-
-            checkboxes.forEach(checkbox => {
-                checkbox.addEventListener('change', function() {
-                    const selected = document.querySelectorAll(
-                        '.candidate-checkbox:checked').length;
-                    selectedCount.textContent =
-                        `Selected: ${selected} candidate${selected !== 1 ? 's' : ''}`;
+            let countEl = document.getElementById('selectedCount');
+            document.querySelectorAll('.candidate-checkbox').forEach(cb => {
+                cb.addEventListener('change', () => {
+                    let count = document.querySelectorAll('.candidate-checkbox:checked')
+                        .length;
+                    countEl.textContent = count;
                 });
             });
         }
-    }).then((result) => {
-        if (result.isConfirmed) {
-            assignCandidatesToJob(result.value);
-        }
+    }).then(result => {
+        if (result.isConfirmed) assignCandidatesToJob(result.value);
     });
 }
 
 function assignCandidatesToJob(candidateIds) {
-    if (!Array.isArray(candidateIds) || candidateIds.length === 0) {
-        console.error('No candidate IDs provided');
-        return;
-    }
-
-    // Show loading state
     Swal.fire({
-        title: 'Assigning Candidates...',
-        html: `Assigning ${candidateIds.length} candidate${candidateIds.length !== 1 ? 's' : ''} to job<br><small>Please wait</small>`,
+        title: 'Assigning...',
         allowOutsideClick: false,
-        allowEscapeKey: false,
         showConfirmButton: false,
-        didOpen: () => {
-            Swal.showLoading();
-        }
+        didOpen: () => Swal.showLoading()
     });
 
-    // Create form data
     const formData = new FormData();
-    candidateIds.forEach(id => {
-        formData.append('candidate_ids[]', id);
-    });
+    candidateIds.forEach(id => formData.append('candidate_ids[]', id));
     formData.append('job_id', jobId);
-    formData.append(csrfTokenName, csrfTokenHash);
+    formData.append(csrfTokenName, getCsrfToken());
 
-    // Assign candidates to job via AJAX
     fetch(assignCandidateUrl, {
             method: 'POST',
             headers: {
@@ -460,94 +384,45 @@ function assignCandidatesToJob(candidateIds) {
             },
             body: formData
         })
-        .then(response => {
-            return response.text().then(text => {
-                try {
-                    return JSON.parse(text);
-                } catch (e) {
-                    console.error('Failed to parse JSON:', text);
-                    throw new Error('Invalid JSON response from server');
-                }
-            });
-        })
+        .then(response => response.json())
         .then(data => {
+            if (data.csrf) {
+                document.querySelector('input[name="' + csrfTokenName + '"]').value = data.csrf;
+            }
+
             if (data.success) {
-                Swal.fire({
-                    title: 'Success!',
-                    html: `Successfully assigned ${candidateIds.length} candidate${candidateIds.length !== 1 ? 's' : ''} to this job.`,
-                    icon: 'success',
-                    confirmButtonText: 'View Candidates'
-                }).then(() => {
-                    // Refresh the page to show the new candidates
-                    window.location.reload();
-                });
+                Swal.fire('Success!', 'Candidates assigned successfully!', 'success')
+                    .then(() => window.location.reload());
             } else {
-                Swal.fire({
-                    title: 'Error',
-                    text: data.message || 'Failed to assign candidates to job.',
-                    icon: 'error',
-                    confirmButtonText: 'OK'
-                });
+                Swal.fire('Error', data.message || 'Assignment failed.', 'error');
             }
         })
-        .catch(error => {
-            console.error('Error assigning candidates:', error);
-            Swal.fire({
-                title: 'Error',
-                text: 'Failed to assign candidates. Please try again.',
-                icon: 'error',
-                confirmButtonText: 'OK'
-            });
+        .catch(() => {
+            Swal.fire('Error', 'Failed to assign candidates.', 'error');
         });
 }
 
-function confirmRemoveCandidate(candidateId, candidateName, jobUuid) { // ← FIX: Changed to jobUuid
-    // Get CSRF token
-    const csrfInput = document.querySelector('input[name="csrf_rfid_token"]');
-    if (!csrfInput) {
-        console.error("CSRF token input not found!");
-        alert("Error: CSRF token not found. Please refresh the page.");
-        return;
-    }
-
-    const csrfToken = csrfInput.value;
-    console.log("CSRF Token:", csrfToken);
-
+function confirmRemoveCandidate(candidateId, candidateName, jobUuid) {
     Swal.fire({
         title: 'Confirm Removal',
-        text: 'Are you sure you want to remove ' + candidateName + ' from this job?',
+        text: `Remove ${candidateName} from this job?`,
         icon: 'warning',
         showCancelButton: true,
-        confirmButtonColor: '#dc3545',
-        cancelButtonColor: '#6c757d',
         confirmButtonText: 'Yes, Remove',
-        cancelButtonText: 'Cancel',
-        customClass: {
-            confirmButton: 'swal2-confirm swal2-styled',
-            cancelButton: 'swal2-cancel swal2-styled'
-        }
-    }).then((result) => {
+        confirmButtonColor: '#dc3545'
+    }).then(result => {
         if (result.isConfirmed) {
-            // ✅ FIX: Use jobUuid parameter (not undefined variable)
-            // ✅ FIX: Add CSRF token to URL
-            const url = '<?php echo site_url("recruiter/candidates/remove_from_job/"); ?>' +
-                candidateId + '/' + jobUuid +
-                '?csrf_rfid_token=' + encodeURIComponent(csrfToken);
-
-            console.log("Redirecting to:", url);
+            const url =
+                `${baseUrl}recruiter/candidates/remove_from_job/${candidateId}/${jobUuid}?${csrfTokenName}=${encodeURIComponent(getCsrfToken())}`;
             window.location.href = url;
         }
     });
 }
-// Make sure the function is available globally
+
+// Expose globally (optional)
 window.showSubmitCandidateModal = showSubmitCandidateModal;
-window.submitNewCandidate = submitNewCandidate;
-window.showExistingCandidateModal = showExistingCandidateModal;
-window.showCandidateSelectionModal = showCandidateSelectionModal;
-window.assignCandidatesToJob = assignCandidatesToJob;
 </script>
 
-<!-- Add the CSS for the modal styling -->
 <style>
 /* Multi-select Candidate Styles */
 .candidate-option {
@@ -555,7 +430,6 @@ window.assignCandidatesToJob = assignCandidatesToJob;
     margin: 8px 0;
     border: 2px solid #e9ecef;
     border-radius: 8px;
-    transition: all 0.3s ease;
     background: white;
 }
 
@@ -570,37 +444,16 @@ window.assignCandidatesToJob = assignCandidatesToJob;
 }
 
 .candidate-checkbox {
-    margin-right: 12px;
     transform: scale(1.2);
-}
-
-.candidate-label {
-    cursor: pointer;
-    margin: 0;
-    flex: 1;
-}
-
-.candidates-list {
-    scrollbar-width: thin;
-    scrollbar-color: #17a2b8 #f1f1f1;
 }
 
 .candidates-list::-webkit-scrollbar {
     width: 6px;
 }
 
-.candidates-list::-webkit-scrollbar-track {
-    background: #f1f1f1;
-    border-radius: 3px;
-}
-
 .candidates-list::-webkit-scrollbar-thumb {
     background: #17a2b8;
     border-radius: 3px;
-}
-
-.candidates-list::-webkit-scrollbar-thumb:hover {
-    background: #138496;
 }
 
 .selected-count {
@@ -610,55 +463,12 @@ window.assignCandidatesToJob = assignCandidatesToJob;
     border-left: 4px solid #17a2b8;
 }
 
-/* Submit Candidate Button Styles */
-.btn-success,
-.btn-primary {
-    position: relative;
-    z-index: 10;
-    cursor: pointer !important;
-    pointer-events: auto !important;
+/* Bootstrap 5 Spacing Fix */
+.me-2 {
+    margin-right: 0.5rem !important;
 }
 
-.btn-success:hover,
-.btn-primary:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 15px rgba(40, 167, 69, 0.3);
-}
-
-/* Swal Modal Customizations */
-.swal2-popup {
-    border-radius: 15px !important;
-}
-
-.swal2-title {
-    color: #2C3639 !important;
-    font-weight: 700 !important;
-}
-
-.swal2-confirm {
-    border-radius: 8px !important;
-    font-weight: 600 !important;
-}
-
-.swal2-cancel {
-    border-radius: 8px !important;
-    font-weight: 600 !important;
-}
-
-/* Job Details Header Styles */
-.card-title {
-    color: #ffffffff;
-    font-weight: 600;
-}
-
-.btn-group-vertical .btn {
-    text-align: left;
-    justify-content: flex-start;
-}
-
-.btn-group-vertical .btn i {
-    margin-right: 8px;
-    width: 16px;
-    text-align: center;
+.ms-2 {
+    margin-left: 0.5rem !important;
 }
 </style>
