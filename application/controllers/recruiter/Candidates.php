@@ -2622,21 +2622,34 @@ private function create_status_change_notification($candidate_id, $old_status, $
     
     return $result;
 }
-/**
- * Remove candidate from job (CRUD-style)
- */
-public function remove_from_job($candidate_id, $job_id)
+public function remove_from_job($candidate_id, $job_uuid)
 {
     // ✅ ADD CSRF VALIDATION
-        $csrf_name = $this->security->get_csrf_token_name();
-        $csrf_token = $this->input->post($csrf_name);
-        
-        if (!$csrf_token || $csrf_token !== $this->security->get_csrf_hash()) {
-            flash_notification('Invalid CSRF token. Please try again.', 'error');
-            redirect('recruiter/candidates/for_job/' . $job_id);
-            return;
-        }
+    $csrf_name = $this->security->get_csrf_token_name();
+    $csrf_token = $this->input->get($csrf_name);
+    
+    if (!$csrf_token || $csrf_token !== $this->security->get_csrf_hash()) {
+        flash_notification('Invalid CSRF token. Please try again.', 'error');
+        redirect('recruiter/candidates/for_job/' . $job_uuid);
+        return;
+    }
+    
     $recruiter_id = $this->get_recruiter_id();
+    
+    // Convert job UUID to ID
+    $job = $this->db->select('id')
+                    ->from('mod_jobs')
+                    ->where('uuid', $job_uuid)
+                    ->get()
+                    ->row();
+    
+    if (!$job) {
+        flash_notification('Job not found', 'error');
+        redirect('recruiter/candidates/for_job/' . $job_uuid);
+        return;
+    }
+    
+    $job_id = $job->id;
     
     // Verify the assignment belongs to this recruiter and exists
     $assignment = $this->db->where('candidate_id', $candidate_id)
@@ -2648,7 +2661,7 @@ public function remove_from_job($candidate_id, $job_id)
     
     if (!$assignment) {
         flash_notification('Assignment not found or access denied', 'error');
-        redirect('recruiter/candidates/for_job/' . $job_id);
+        redirect('recruiter/candidates/for_job/' . $job_uuid);
         return;
     }
 
@@ -2668,17 +2681,17 @@ public function remove_from_job($candidate_id, $job_id)
 
     // Log the action
     $candidate = $this->db->where('id', $candidate_id)->get('candidates')->row();
-    $job = $this->db->where('id', $job_id)->get('mod_jobs')->row();
+    $job_details = $this->db->select('name')->where('uuid', $job_uuid)->get('mod_jobs')->row();
     
     Logger::log('Removed candidate from job', [
         'candidate_id' => $candidate_id,
         'candidate_name' => $candidate->first_name . ' ' . $candidate->last_name,
-        'job_id' => $job_id,
-        'job_name' => $job->name
+        'job_uuid' => $job_uuid,
+        'job_name' => $job_details->name ?? 'Unknown'
     ]);
 
     flash_notification('Candidate removed from job successfully', 'success');
-    redirect('recruiter/candidates/for_job/' . $job_id);
+    redirect('recruiter/candidates/for_job/' . $job_uuid);
 }
 
 

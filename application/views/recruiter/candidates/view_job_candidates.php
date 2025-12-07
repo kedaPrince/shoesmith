@@ -167,10 +167,13 @@
                                         class="btn btn-sm btn-info" title="View Candidate">
                                         <i class="fa fa-eye"></i>
                                     </a>
-                                    <!-- Use Swal modal for remove confirmation - Icon only -->
+                                    <!-- In the table row -->
+                                    <!-- In the table row - make sure it passes job->uuid -->
                                     <a href="javascript:void(0);" class="btn btn-sm btn-danger"
-                                        title="Remove from this job"
-                                        onclick="confirmRemoveCandidate(<?php echo $candidate->id; ?>, '<?php echo htmlspecialchars($candidate->first_name . ' ' . $candidate->last_name, ENT_QUOTES, 'UTF-8'); ?>', <?php echo $job->id; ?>)">
+                                        title="Remove from this job" onclick="confirmRemoveCandidate(<?php echo $candidate->id; ?>, 
+                                        '<?php echo htmlspecialchars($candidate->first_name . ' ' . $candidate->last_name, ENT_QUOTES, 'UTF-8'); ?>', 
+                                        '<?php echo $job->uuid; ?>')">
+                                        <!-- ← Make sure this is $job->uuid -->
                                         <i class="fa fa-times"></i>
                                     </a>
                                 </td>
@@ -202,7 +205,7 @@
 <!-- Add the JavaScript for the modal functionality -->
 <script>
 // Define jobId at the top to avoid PHP in JavaScript string issues
-const jobId = <?php echo $job->id; ?>;
+const jobUuid = '<?php echo $job->uuid; ?>';
 const baseUrl = '<?php echo site_url(); ?>';
 const csrfTokenName = '<?php echo $this->security->get_csrf_token_name(); ?>';
 const csrfTokenHash = '<?php echo $this->security->get_csrf_hash(); ?>';
@@ -498,8 +501,18 @@ function assignCandidatesToJob(candidateIds) {
         });
 }
 
-function confirmRemoveCandidate(candidateId, candidateName, jobId) {
-    // Use the exact same pattern as confirmLogout()
+function confirmRemoveCandidate(candidateId, candidateName, jobUuid) { // ← FIX: Changed to jobUuid
+    // Get CSRF token
+    const csrfInput = document.querySelector('input[name="csrf_rfid_token"]');
+    if (!csrfInput) {
+        console.error("CSRF token input not found!");
+        alert("Error: CSRF token not found. Please refresh the page.");
+        return;
+    }
+
+    const csrfToken = csrfInput.value;
+    console.log("CSRF Token:", csrfToken);
+
     Swal.fire({
         title: 'Confirm Removal',
         text: 'Are you sure you want to remove ' + candidateName + ' from this job?',
@@ -515,9 +528,14 @@ function confirmRemoveCandidate(candidateId, candidateName, jobId) {
         }
     }).then((result) => {
         if (result.isConfirmed) {
-            // Redirect to remove action
-            window.location.href = '<?php echo site_url("recruiter/candidates/remove_from_job/"); ?>' +
-                candidateId + '/' + jobId;
+            // ✅ FIX: Use jobUuid parameter (not undefined variable)
+            // ✅ FIX: Add CSRF token to URL
+            const url = '<?php echo site_url("recruiter/candidates/remove_from_job/"); ?>' +
+                candidateId + '/' + jobUuid +
+                '?csrf_rfid_token=' + encodeURIComponent(csrfToken);
+
+            console.log("Redirecting to:", url);
+            window.location.href = url;
         }
     });
 }
