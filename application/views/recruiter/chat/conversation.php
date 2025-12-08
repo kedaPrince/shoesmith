@@ -20,26 +20,10 @@
 /* ===== COSMIC CHAT HEADER ===== */
 .cosmic-chat-header {
     position: relative;
-    /* background: var(--darker-bg); */
-    /* backdrop-filter: blur(20px); */
-    /* border: 1px solid var(--dark-border); */
     border-radius: 20px;
     margin: 20px 0;
     padding: 0;
     overflow: hidden;
-    /* box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4),
-        inset 0 1px 0 rgba(255, 255, 255, 0.05),
-        0 0 0 1px rgba(255, 255, 255, 0.02); */
-}
-
-.cosmic-container {
-    position: relative;
-    z-index: 2;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 20px 30px;
-    min-height: 100px;
 }
 
 /* Navigation Styles */
@@ -646,11 +630,43 @@
     flex-direction: column;
     height: 100%;
     flex-shrink: 0;
+    overflow: hidden;
+    /* Prevent parent from scrolling */
 }
 
+/* SCROLLABLE RIGHT SIDEBAR CONTENT */
+.sidebar-scrollable {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Style the scrollbar for better appearance */
+.sidebar-scrollable::-webkit-scrollbar {
+    width: 6px;
+}
+
+.sidebar-scrollable::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.sidebar-scrollable::-webkit-scrollbar-thumb {
+    background: #4a4d52;
+    border-radius: 3px;
+}
+
+.sidebar-scrollable::-webkit-scrollbar-thumb:hover {
+    background: #5d6065;
+}
+
+/* Adjust sections to work with scrollable container */
 .sidebar-section {
     padding: 16px;
     border-bottom: 1px solid #36393f;
+    flex-shrink: 0;
+    /* Prevent sections from shrinking */
 }
 
 .sidebar-section:last-child {
@@ -666,10 +682,12 @@
     margin-bottom: 8px;
 }
 
-/* Agency Profile Section */
+/* Agency Profile Section - Fixed at top */
 .agency-profile {
     text-align: center;
     padding: 20px 16px;
+    flex-shrink: 0;
+    /* Don't shrink with content */
 }
 
 .agency-avatar-large {
@@ -848,7 +866,9 @@
 
 /* Note Section */
 .note-section {
-    margin-top: 16px;
+    margin-top: auto;
+    /* Push to bottom */
+    flex-shrink: 0;
 }
 
 .note-textarea {
@@ -1194,6 +1214,12 @@
     border-radius: 8px;
 }
 
+.container-fluid.p-0 {
+    margin-top: 37px;
+    border-top-left-radius: 40px;
+    border-top-right-radius: 40px;
+}
+
 .onboarding-header {
     display: flex;
     align-items: center;
@@ -1235,6 +1261,20 @@
     font-size: 0.75rem;
     display: flex;
     justify-content: space-between;
+}
+
+.cosmic-container {
+    position: relative;
+    z-index: 2;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 30px;
+    min-height: 100px;
+    background: linear-gradient(93deg, #59c4bc -60%, rgba(23, 162, 184, 0) 55%) !important;
+    color: #fff;
+    padding: 20px;
+    margin: -20px -20px 20px -20px;
 }
 </style>
 <div id="main-content">
@@ -1330,8 +1370,17 @@
     </div>
     <!-- Candidate Chat Header -->
     <?php if (!empty($candidate_details)): ?>
-    <div class="candidate-chat-header cosmic-glow"
-        style="background: linear-gradient(135deg, rgba(139, 92, 246, 0.1), rgba(16, 185, 129, 0.1)); border: 1px solid var(--light-border); border-radius: 16px; padding: 20px; margin: 20px 20px 0 20px; position: relative; overflow: hidden;">
+    <div class="candidate-chat-header cosmic-glow" style="    /* background: linear-gradient(135deg, rgba(139, 92, 246, 0.1), rgba(16, 185, 129, 0.1)); */
+    /* border: 1px solid var(--light-border); */
+    border-radius: 16px;
+    /* padding: 20px; */
+    /* margin: 20px 20px 0 20px; */
+    position: relative;
+    overflow: hidden;
+    background: linear-gradient(-93deg, #59c4bc -60%, rgba(23, 162, 184, 0) 55%) !important;
+    color: #fff;
+    padding: 20px;
+    margin: -20px 20px 20px 20px;">
 
         <div class="cosmic-background" style="opacity: 0.3;">
             <div class="floating-orb orb-1" style="background: radial-gradient(circle, #10B981, transparent);"></div>
@@ -1549,7 +1598,38 @@
                             <?php endif; ?>
                         </h6>
                         <div class="list-group" style="background-color: transparent;">
-                            <?php foreach ($all_conversations as $conv): ?>
+                            <?php 
+                            // Get the current chat type filter
+                            $current_chat_type = isset($_GET['chat_type']) ? $_GET['chat_type'] : 'all';
+                            
+                            // Filter conversations based on the current filter
+                            $filtered_conversations = $all_conversations;
+                            if ($current_chat_type == 'candidate') {
+                                $filtered_conversations = array_filter($all_conversations, function($conv) {
+                                    return !empty($conv->candidate_id);
+                                });
+                            } elseif ($current_chat_type == 'general') {
+                                $filtered_conversations = array_filter($all_conversations, function($conv) {
+                                    return empty($conv->candidate_id);
+                                });
+                            }
+                            ?>
+
+                            <?php if (empty($filtered_conversations)): ?>
+                            <div class="text-center py-4">
+                                <i class="fa fa-comments fa-2x mb-2" style="color: #7289da;"></i>
+                                <p class="text-muted" style="font-size: 0.8rem;">
+                                    <?php if ($current_chat_type == 'candidate'): ?>
+                                    No candidate chats yet
+                                    <?php elseif ($current_chat_type == 'general'): ?>
+                                    No general chats yet
+                                    <?php else: ?>
+                                    No chats yet
+                                    <?php endif; ?>
+                                </p>
+                            </div>
+                            <?php else: ?>
+                            <?php foreach ($filtered_conversations as $conv): ?>
                             <a href="<?php echo site_url('recruiter/chat/conversation/' . $conv->uuid); ?>"
                                 class="list-group-item list-group-item-action d-flex align-items-center conversation-item <?php echo (isset($conversation) && $conversation->uuid == $conv->uuid) ? 'active' : ''; ?>"
                                 style="border: none; border-radius: 8px; margin-bottom: 5px; padding: 10px 15px; transition: all 0.2s;"
@@ -1598,143 +1678,9 @@
                                 </div>
                             </a>
                             <?php endforeach; ?>
+                            <?php endif; ?>
                         </div>
                     </div>
-
-                    <!-- Available Agencies with Notification Status -->
-                    <?php if (!empty($available_agencies)): ?>
-                    <?php 
-// Filter conversations based on tab selection
-$filtered_conversations = $all_conversations;
-if (isset($_GET['chat_type']) && $_GET['chat_type'] == 'candidate') {
-    $filtered_conversations = array_filter($all_conversations, function($conv) {
-        return !empty($conv->candidate_id);
-    });
-} elseif (isset($_GET['chat_type']) && $_GET['chat_type'] == 'general') {
-    $filtered_conversations = array_filter($all_conversations, function($conv) {
-        return empty($conv->candidate_id);
-    });
-}
-?>
-
-                    <!-- Update the sidebar section header -->
-                    <div class="sidebar-section">
-                        <h6 class="text-muted px-3 py-2" style="font-size: 0.8rem; letter-spacing: 0.5px;">
-                            <?php if (isset($_GET['chat_type']) && $_GET['chat_type'] == 'candidate'): ?>
-                            <i class="fa fa-user mr-1" style="color: #8B5CF6;"></i> CANDIDATE CHATS
-                            <?php elseif (isset($_GET['chat_type']) && $_GET['chat_type'] == 'general'): ?>
-                            <i class="fa fa-comments mr-1" style="color: #10B981;"></i> GENERAL CHATS
-                            <?php else: ?>
-                            <i class="fa fa-comments mr-1"></i> ALL CHATS
-                            <?php endif; ?>
-
-                            <?php if (isset($total_unread_count) && $total_unread_count > 0): ?>
-                            <span class="section-badge"><?php echo $total_unread_count; ?></span>
-                            <?php endif; ?>
-                        </h6>
-
-                        <?php if (empty($filtered_conversations)): ?>
-                        <div class="text-center py-4">
-                            <i class="fa fa-comments fa-2x mb-2" style="color: #7289da;"></i>
-                            <p class="text-muted" style="font-size: 0.8rem;">
-                                <?php if (isset($_GET['chat_type']) && $_GET['chat_type'] == 'candidate'): ?>
-                                No candidate chats yet
-                                <?php elseif (isset($_GET['chat_type']) && $_GET['chat_type'] == 'general'): ?>
-                                No general chats yet
-                                <?php else: ?>
-                                No chats yet
-                                <?php endif; ?>
-                            </p>
-                        </div>
-                        <?php else: ?>
-                        <div class="list-group" style="background-color: transparent;">
-                            <?php foreach ($filtered_conversations as $conv): ?>
-                            <a href="<?php echo site_url('recruiter/chat/conversation/' . $conv->uuid); ?>"
-                                class="list-group-item list-group-item-action d-flex align-items-center conversation-item <?php echo (isset($conversation) && $conversation->uuid == $conv->uuid) ? 'active' : ''; ?>"
-                                style="border: none; border-radius: 8px; margin-bottom: 5px; padding: 10px 15px; transition: all 0.2s; <?= !empty($conv->candidate_id) ? 'border-left: 3px solid #8B5CF6 !important;' : 'border-left: 3px solid #10B981 !important;' ?>"
-                                data-conversation-uuid="<?php echo $conv->uuid; ?>">
-
-                                <div class="conversation-avatar mr-3 position-relative">
-                                    <div class="avatar"
-                                        style="width: 40px; height: 40px; border-radius: 50%; background-color: <?= !empty($conv->candidate_id) ? '#8B5CF6' : '#10B981' ?>; display: flex; align-items: center; justify-content: center; font-weight: bold; color: #ffffff;">
-                                        <?php echo substr(htmlspecialchars($conv->agency_name), 0, 1); ?>
-                                    </div>
-                                    <?php if (isset($conv->is_online) && $conv->is_online): ?>
-                                    <div class="online-indicator"></div>
-                                    <?php endif; ?>
-                                </div>
-
-                                <div class="flex-grow-1" style="min-width: 0;">
-                                    <!-- Agency Name with Chat Type Badge -->
-                                    <div class="d-flex align-items-center mb-1">
-                                        <h6 class="mb-0" style="color: #ffffff; font-weight: 500; margin-right: 8px;">
-                                            <?php echo htmlspecialchars($conv->agency_name); ?>
-                                        </h6>
-
-                                        <!-- Chat Type Badge -->
-                                        <span class="chat-type-badge"
-                                            style="font-size: 0.65rem; padding: 2px 6px; border-radius: 10px; <?= !empty($conv->candidate_id) ? 'background: rgba(139, 92, 246, 0.2); color: #C4B5FD;' : 'background: rgba(16, 185, 129, 0.2); color: #A7F3D0;' ?>">
-                                            <?php if (!empty($conv->candidate_id)): ?>
-                                            <i class="fa fa-user mr-1" style="font-size: 0.6rem;"></i> Candidate
-                                            <?php else: ?>
-                                            <i class="fa fa-comments mr-1" style="font-size: 0.6rem;"></i> General
-                                            <?php endif; ?>
-                                        </span>
-                                    </div>
-
-                                    <!-- Candidate Info (only for candidate chats) -->
-                                    <?php if (!empty($conv->candidate_name)): ?>
-                                    <small class="d-block"
-                                        style="color: #C4B5FD; font-size: 0.7rem; font-weight: 500; margin: 3px 0; display: flex; align-items: center; gap: 4px;">
-                                        <i class="fa fa-user-circle" style="font-size: 0.6rem;"></i>
-                                        <?= htmlspecialchars($conv->candidate_name) ?>
-                                        <?php if (!empty($conv->candidate_ref)): ?>
-                                        <span
-                                            style="color: rgba(196, 181, 253, 0.7);">(<?= htmlspecialchars($conv->candidate_ref) ?>)</span>
-                                        <?php endif; ?>
-                                    </small>
-                                    <?php endif; ?>
-
-                                    <!-- Job Info -->
-                                    <?php if (!empty($conv->job_name)): ?>
-                                    <small class="d-block"
-                                        style="color: #9CA3AF; font-size: 0.7rem; margin: 2px 0; display: flex; align-items: center; gap: 4px;">
-                                        <i class="fa fa-briefcase" style="font-size: 0.6rem;"></i>
-                                        <?= htmlspecialchars($conv->job_name) ?>
-                                    </small>
-                                    <?php endif; ?>
-
-                                    <!-- Message Preview -->
-                                    <small class="text-muted d-block conversation-preview"
-                                        style="font-size: 0.75rem; margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"
-                                        data-conversation-uuid="<?= $conv->uuid; ?>">
-                                        <?php if (isset($conv->unread_count) && $conv->unread_count > 0): ?>
-                                        <strong
-                                            style="color: #ffffff;"><?php echo htmlspecialchars($conv->last_message ?: 'New message'); ?></strong>
-                                        <?php else: ?>
-                                        <?php echo htmlspecialchars($conv->last_message ?: 'No messages yet'); ?>
-                                        <?php endif; ?>
-                                    </small>
-                                </div>
-
-                                <div class="text-right ml-2" style="min-width: 40px;">
-                                    <small class="text-muted d-block conversation-time" style="font-size: 0.7rem;"
-                                        data-conversation-uuid="<?php echo $conv->uuid; ?>">
-                                        <?php echo time_ago($conv->last_message_at ?: $conv->created_at); ?>
-                                    </small>
-                                    <?php if (isset($conv->unread_count) && $conv->unread_count > 0): ?>
-                                    <span class="conversation-badge" data-conversation-uuid="<?php echo $conv->uuid; ?>"
-                                        style="<?= !empty($conv->candidate_id) ? 'background: linear-gradient(135deg, #8B5CF6, #7C3AED);' : 'background: linear-gradient(135deg, #10B981, #059669);' ?>">
-                                        <?php echo $conv->unread_count > 99 ? '99+' : $conv->unread_count; ?>
-                                    </span>
-                                    <?php endif; ?>
-                                </div>
-                            </a>
-                            <?php endforeach; ?>
-                        </div>
-                        <?php endif; ?>
-                    </div>
-                    <?php endif; ?>
                 </div>
             </div>
 
@@ -1860,8 +1806,6 @@ if (isset($_GET['chat_type']) && $_GET['chat_type'] == 'candidate') {
                                 <input type="hidden" id="conversationUuid"
                                     value="<?php echo isset($conversation) ? $conversation->uuid : ''; ?>">
 
-                                <input type="hidden" name="<?php echo $this->security->get_csrf_token_name(); ?>"
-                                    value="<?php echo $this->security->get_csrf_hash(); ?>">
                             </form>
                         </div>
                     </div>
@@ -1869,7 +1813,7 @@ if (isset($_GET['chat_type']) && $_GET['chat_type'] == 'candidate') {
                     <!-- Right Sidebar - Agency Details -->
                     <div class="chat-sidebar-right" id="agencySidebar">
                         <?php if (isset($agency_details)): ?>
-                        <!-- Agency Profile -->
+                        <!-- Agency Profile - Fixed at top -->
                         <div class="sidebar-section agency-profile">
                             <div class="agency-avatar-large <?php echo $agency_online ? 'online' : 'offline'; ?>">
                                 <?php echo substr(htmlspecialchars($agency_details->name), 0, 1); ?>
@@ -1880,305 +1824,299 @@ if (isset($_GET['chat_type']) && $_GET['chat_type'] == 'candidate') {
                                 <i class="fa fa-circle"></i>
                                 <?php echo $agency_online ? 'Online' : 'Offline'; ?>
                             </div>
-
-                            <div class="sidebar-actions">
-                                <button class="sidebar-btn" title="Call">
-                                    <i class="fa fa-phone"></i>
-                                </button>
-                                <button class="sidebar-btn" title="Video Call">
-                                    <i class="fa fa-video"></i>
-                                </button>
-                                <button class="sidebar-btn primary" title="Start Call">
-                                    <i class="fa fa-phone"></i>
-                                    Call
-                                </button>
-                            </div>
-                            <p>COMING SOON</p>
                         </div>
 
-                        <!-- Agency Information -->
-                        <div class="sidebar-section">
-                            <div class="sidebar-header">Agency Information</div>
+                        <!-- Scrollable Content Area -->
+                        <div class="sidebar-scrollable">
+                            <!-- Agency Information -->
+                            <div class="sidebar-section">
+                                <div class="sidebar-header">Agency Information</div>
 
-                            <?php if ($agency_details->email): ?>
-                            <div class="info-card">
-                                <div class="info-card-title">Email</div>
-                                <div class="info-card-value"><?php echo htmlspecialchars($agency_details->email); ?>
-                                </div>
-                            </div>
-                            <?php endif; ?>
-
-                            <?php if ($agency_details->phone): ?>
-                            <div class="info-card">
-                                <div class="info-card-title">Phone</div>
-                                <div class="info-card-value"><?php echo htmlspecialchars($agency_details->phone); ?>
-                                </div>
-                            </div>
-                            <?php endif; ?>
-
-                            <?php if ($agency_details->industry): ?>
-                            <div class="info-card">
-                                <div class="info-card-title">Industry</div>
-                                <div class="info-card-value"><?php echo htmlspecialchars($agency_details->industry); ?>
-                                </div>
-                            </div>
-                            <?php endif; ?>
-
-                            <?php if ($agency_details->website): ?>
-                            <div class="info-card">
-                                <div class="info-card-title">Website</div>
-                                <div class="info-card-value">
-                                    <a href="<?php echo htmlspecialchars($agency_details->website); ?>" target="_blank"
-                                        style="color: #7289da; text-decoration: none;">
-                                        Visit Website
-                                    </a>
-                                </div>
-                            </div>
-                            <?php endif; ?>
-                        </div>
-
-                        <!-- Quick Stats -->
-                        <div class="sidebar-section">
-                            <div class="sidebar-header">Statistics</div>
-                            <div class="stats-grid">
-                                <div class="stat-item">
-                                    <span
-                                        class="stat-number"><?php echo $agency_details->total_recruiters ?? 0; ?></span>
-                                    <span class="stat-label">Recruiters</span>
-                                </div>
-                                <div class="stat-item">
-                                    <span class="stat-number"><?php echo $agency_details->active_jobs ?? 0; ?></span>
-                                    <span class="stat-label">Active Jobs</span>
-                                </div>
-                                <div class="stat-item">
-                                    <span
-                                        class="stat-number"><?php echo $agency_details->total_conversations ?? 0; ?></span>
-                                    <span class="stat-label">Chats</span>
-                                </div>
-                                <div class="stat-item">
-                                    <span class="stat-number">
-                                        <?php echo $agency_online ? 'Now' : date('M j', strtotime($agency_details->last_activity_at ?? 'now')); ?>
-                                    </span>
-                                    <span
-                                        class="stat-label"><?php echo $agency_online ? 'Active' : 'Last Seen'; ?></span>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Conversation Context -->
-                        <!-- Candidate Information (If this is a candidate-specific chat) -->
-                        <?php if (isset($candidate_details) && $candidate_details): ?>
-                        <div class="sidebar-section">
-                            <div class="sidebar-header"
-                                style="display: flex; align-items: center; justify-content: space-between;">
-                                <span>Candidate</span>
-                                <span class="candidate-context-badge">Active Chat</span>
-                            </div>
-
-                            <div class="candidate-chat-widget">
-                                <!-- Candidate Header -->
-                                <div class="candidate-widget-header">
-                                    <div class="candidate-avatar">
-                                        <?php echo substr(htmlspecialchars($candidate_details->first_name), 0, 1) . substr(htmlspecialchars($candidate_details->last_name), 0, 1); ?>
-                                    </div>
-                                    <div class="candidate-info">
-                                        <h5><?php echo htmlspecialchars($candidate_details->first_name . ' ' . $candidate_details->last_name); ?>
-                                        </h5>
-                                        <small>
-                                            <i class="fa fa-id-card"></i>
-                                            <?php echo htmlspecialchars($candidate_details->reference_number); ?>
-                                        </small>
-                                    </div>
-                                </div>
-
-                                <!-- Candidate Details Grid -->
-                                <div class="candidate-details-grid">
-                                    <div class="candidate-detail-item">
-                                        <div class="detail-label">Status</div>
-                                        <div class="detail-value">
-                                            <?php 
-                    $status = $candidate_details->status ?? 'new';
-                    $status_labels = [
-                        'new' => 'New',
-                        'reviewed' => 'Reviewed',
-                        'shortlisted' => 'Shortlisted',
-                        'interviewed' => 'Interviewed',
-                        'rejected' => 'Rejected',
-                        'hired' => 'Hired',
-                        'on_hold' => 'On Hold'
-                    ];
-                    echo isset($status_labels[$status]) ? $status_labels[$status] : ucfirst($status);
-                    ?>
-                                        </div>
-                                    </div>
-
-                                    <div class="candidate-detail-item">
-                                        <div class="detail-label">Email</div>
-                                        <div class="detail-value">
-                                            <?php echo htmlspecialchars($candidate_details->email ?? 'N/A'); ?>
-                                        </div>
-                                    </div>
-
-                                    <div class="candidate-detail-item">
-                                        <div class="detail-label">Phone</div>
-                                        <div class="detail-value">
-                                            <?php echo htmlspecialchars($candidate_details->phone ?? 'N/A'); ?>
-                                        </div>
-                                    </div>
-
-                                    <div class="candidate-detail-item">
-                                        <div class="detail-label">Applied</div>
-                                        <div class="detail-value">
-                                            <?php echo date('M d, Y', strtotime($candidate_details->application_date ?? 'now')); ?>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <!-- Candidate Actions -->
-                                <div class="candidate-chat-actions">
-                                    <a href="<?php echo site_url('recruiter/candidates/view/' . $candidate_details->id); ?>"
-                                        class="btn-candidate-action" target="_blank">
-                                        <i class="fa fa-eye"></i>
-                                        View Profile
-                                    </a>
-                                    <a href="<?php echo site_url('recruiter/candidates/edit/' . $candidate_details->id); ?>"
-                                        class="btn-candidate-action secondary" target="_blank">
-                                        <i class="fa fa-edit"></i>
-                                        Edit
-                                    </a>
-                                </div>
-
-                                <!-- Onboarding Status (if available) -->
-                                <?php if (isset($candidate_details->onboarding_stage) && $candidate_details->onboarding_stage !== 'not_started'): ?>
-                                <div class="onboarding-status">
-                                    <div class="onboarding-header">
-                                        <span class="onboarding-title">Onboarding Progress</span>
-                                        <span class="onboarding-stage">
-                                            <?php 
-                    $stage = $candidate_details->onboarding_stage ?? 'not_started';
-                    $stage_labels = [
-                        'not_started' => 'Not Started',
-                        'stage_under_review' => 'Under Review',
-                        'stage_submitted_to_hm' => 'Submitted to HM',
-                        'stage_hm_decision' => 'HM Decision',
-                        'stage_documents_decision' => 'Docs Decision',
-                        'stage_requested_docs' => 'Docs Requested',
-                        'stage_position_offered' => 'Position Offered',
-                        'completed' => 'Completed'
-                    ];
-                    echo isset($stage_labels[$stage]) ? $stage_labels[$stage] : ucfirst(str_replace('_', ' ', $stage));
-                    ?>
-                                        </span>
-                                    </div>
-                                    <div class="onboarding-progress">
-                                        <div class="onboarding-progress-bar"
-                                            style="width: <?php echo min(100, max(0, $candidate_details->onboarding_progress ?? 0)); ?>%">
-                                        </div>
-                                    </div>
-                                    <div class="onboarding-info">
-                                        <span><?php echo min(100, max(0, $candidate_details->onboarding_progress ?? 0)); ?>%
-                                            Complete</span>
-                                        <span>
-                                            <?php if ($candidate_details->onboarding_completed_at): ?>
-                                            Completed:
-                                            <?php echo date('M d', strtotime($candidate_details->onboarding_completed_at)); ?>
-                                            <?php else: ?>
-                                            In Progress
-                                            <?php endif; ?>
-                                        </span>
+                                <?php if ($agency_details->email): ?>
+                                <div class="info-card">
+                                    <div class="info-card-title">Email</div>
+                                    <div class="info-card-value"><?php echo htmlspecialchars($agency_details->email); ?>
                                     </div>
                                 </div>
                                 <?php endif; ?>
 
-                                <!-- Recent Documents (if any) -->
-                                <?php 
-        // You'll need to pass candidate documents to the view
-        if (isset($candidate_documents) && !empty($candidate_documents)): 
-            $recent_docs = array_slice($candidate_documents, 0, 3); // Show only 3 most recent
-        ?>
-                                <div class="candidate-documents">
-                                    <div class="documents-header">
-                                        <i class="fa fa-file-alt"></i>
-                                        Recent Documents
+                                <?php if ($agency_details->phone): ?>
+                                <div class="info-card">
+                                    <div class="info-card-title">Phone</div>
+                                    <div class="info-card-value"><?php echo htmlspecialchars($agency_details->phone); ?>
                                     </div>
-                                    <?php foreach ($recent_docs as $doc): ?>
-                                    <div class="document-item">
-                                        <div class="document-info">
-                                            <div class="document-name">
-                                                <?php echo htmlspecialchars($doc->document_name); ?>
-                                            </div>
-                                            <div class="document-meta">
-                                                <?php echo date('M d', strtotime($doc->created_at)); ?>
-                                                • <?php echo $this->format_file_size($doc->file_size); ?>
+                                </div>
+                                <?php endif; ?>
+
+                                <?php if ($agency_details->industry): ?>
+                                <div class="info-card">
+                                    <div class="info-card-title">Industry</div>
+                                    <div class="info-card-value">
+                                        <?php echo htmlspecialchars($agency_details->industry); ?>
+                                    </div>
+                                </div>
+                                <?php endif; ?>
+
+                                <?php if ($agency_details->website): ?>
+                                <div class="info-card">
+                                    <div class="info-card-title">Website</div>
+                                    <div class="info-card-value">
+                                        <a href="<?php echo htmlspecialchars($agency_details->website); ?>"
+                                            target="_blank" style="color: #7289da; text-decoration: none;">
+                                            Visit Website
+                                        </a>
+                                    </div>
+                                </div>
+                                <?php endif; ?>
+                            </div>
+
+                            <!-- Quick Stats -->
+                            <div class="sidebar-section">
+                                <div class="sidebar-header">Statistics</div>
+                                <div class="stats-grid">
+                                    <div class="stat-item">
+                                        <span
+                                            class="stat-number"><?php echo $agency_details->total_recruiters ?? 0; ?></span>
+                                        <span class="stat-label">Recruiters</span>
+                                    </div>
+                                    <div class="stat-item">
+                                        <span
+                                            class="stat-number"><?php echo $agency_details->active_jobs ?? 0; ?></span>
+                                        <span class="stat-label">Active Jobs</span>
+                                    </div>
+                                    <div class="stat-item">
+                                        <span
+                                            class="stat-number"><?php echo $agency_details->total_conversations ?? 0; ?></span>
+                                        <span class="stat-label">Chats</span>
+                                    </div>
+                                    <div class="stat-item">
+                                        <span class="stat-number">
+                                            <?php echo $agency_online ? 'Now' : date('M j', strtotime($agency_details->last_activity_at ?? 'now')); ?>
+                                        </span>
+                                        <span
+                                            class="stat-label"><?php echo $agency_online ? 'Active' : 'Last Seen'; ?></span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Conversation Context -->
+                            <!-- Candidate Information (If this is a candidate-specific chat) -->
+                            <?php if (isset($candidate_details) && $candidate_details): ?>
+                            <div class="sidebar-section">
+                                <div class="sidebar-header"
+                                    style="display: flex; align-items: center; justify-content: space-between;">
+                                    <span>Candidate</span>
+                                    <span class="candidate-context-badge">Active Chat</span>
+                                </div>
+
+                                <div class="candidate-chat-widget">
+                                    <!-- Candidate Header -->
+                                    <div class="candidate-widget-header">
+                                        <div class="candidate-avatar">
+                                            <?php echo substr(htmlspecialchars($candidate_details->first_name), 0, 1) . substr(htmlspecialchars($candidate_details->last_name), 0, 1); ?>
+                                        </div>
+                                        <div class="candidate-info">
+                                            <h5><?php echo htmlspecialchars($candidate_details->first_name . ' ' . $candidate_details->last_name); ?>
+                                            </h5>
+                                            <small>
+                                                <i class="fa fa-id-card"></i>
+                                                <?php echo htmlspecialchars($candidate_details->reference_number); ?>
+                                            </small>
+                                        </div>
+                                    </div>
+
+                                    <!-- Candidate Details Grid -->
+                                    <div class="candidate-details-grid">
+                                        <div class="candidate-detail-item">
+                                            <div class="detail-label">Status</div>
+                                            <div class="detail-value">
+                                                <?php 
+                        $status = $candidate_details->status ?? 'new';
+                        $status_labels = [
+                            'new' => 'New',
+                            'reviewed' => 'Reviewed',
+                            'shortlisted' => 'Shortlisted',
+                            'interviewed' => 'Interviewed',
+                            'rejected' => 'Rejected',
+                            'hired' => 'Hired',
+                            'on_hold' => 'On Hold'
+                        ];
+                        echo isset($status_labels[$status]) ? $status_labels[$status] : ucfirst($status);
+                        ?>
                                             </div>
                                         </div>
-                                        <div class="document-actions">
-                                            <a href="<?php echo base_url($doc->file_path); ?>"
-                                                class="btn-document-action primary" target="_blank" title="Download">
-                                                <i class="fa fa-download"></i>
-                                            </a>
+
+                                        <div class="candidate-detail-item">
+                                            <div class="detail-label">Email</div>
+                                            <div class="detail-value">
+                                                <?php echo htmlspecialchars($candidate_details->email ?? 'N/A'); ?>
+                                            </div>
+                                        </div>
+
+                                        <div class="candidate-detail-item">
+                                            <div class="detail-label">Phone</div>
+                                            <div class="detail-value">
+                                                <?php echo htmlspecialchars($candidate_details->phone ?? 'N/A'); ?>
+                                            </div>
+                                        </div>
+
+                                        <div class="candidate-detail-item">
+                                            <div class="detail-label">Applied</div>
+                                            <div class="detail-value">
+                                                <?php echo date('M d, Y', strtotime($candidate_details->application_date ?? 'now')); ?>
+                                            </div>
                                         </div>
                                     </div>
-                                    <?php endforeach; ?>
-                                    <?php if (count($candidate_documents) > 3): ?>
-                                    <a href="<?php echo site_url('recruiter/candidates/view/' . $candidate_details->id . '#documents'); ?>"
-                                        class="btn-candidate-action secondary" style="width: 100%; margin-top: 8px;"
-                                        target="_blank">
-                                        <i class="fa fa-folder-open"></i>
-                                        View All Documents (<?php echo count($candidate_documents); ?>)
-                                    </a>
+
+                                    <!-- Candidate Actions -->
+                                    <div class="candidate-chat-actions">
+                                        <a href="<?php echo site_url('recruiter/candidates/view/' . $candidate_details->id); ?>"
+                                            class="btn-candidate-action" target="_blank">
+                                            <i class="fa fa-eye"></i>
+                                            View Profile
+                                        </a>
+                                        <a href="<?php echo site_url('recruiter/candidates/edit/' . $candidate_details->id); ?>"
+                                            class="btn-candidate-action secondary" target="_blank">
+                                            <i class="fa fa-edit"></i>
+                                            Edit
+                                        </a>
+                                    </div>
+
+                                    <!-- Onboarding Status (if available) -->
+                                    <?php if (isset($candidate_details->onboarding_stage) && $candidate_details->onboarding_stage !== 'not_started'): ?>
+                                    <div class="onboarding-status">
+                                        <div class="onboarding-header">
+                                            <span class="onboarding-title">Onboarding Progress</span>
+                                            <span class="onboarding-stage">
+                                                <?php 
+                        $stage = $candidate_details->onboarding_stage ?? 'not_started';
+                        $stage_labels = [
+                            'not_started' => 'Not Started',
+                            'stage_under_review' => 'Under Review',
+                            'stage_submitted_to_hm' => 'Submitted to HM',
+                            'stage_hm_decision' => 'HM Decision',
+                            'stage_documents_decision' => 'Docs Decision',
+                            'stage_requested_docs' => 'Docs Requested',
+                            'stage_position_offered' => 'Position Offered',
+                            'completed' => 'Completed'
+                        ];
+                        echo isset($stage_labels[$stage]) ? $stage_labels[$stage] : ucfirst(str_replace('_', ' ', $stage));
+                        ?>
+                                            </span>
+                                        </div>
+                                        <div class="onboarding-progress">
+                                            <div class="onboarding-progress-bar"
+                                                style="width: <?php echo min(100, max(0, $candidate_details->onboarding_progress ?? 0)); ?>%">
+                                            </div>
+                                        </div>
+                                        <div class="onboarding-info">
+                                            <span><?php echo min(100, max(0, $candidate_details->onboarding_progress ?? 0)); ?>%
+                                                Complete</span>
+                                            <span>
+                                                <?php if ($candidate_details->onboarding_completed_at): ?>
+                                                Completed:
+                                                <?php echo date('M d', strtotime($candidate_details->onboarding_completed_at)); ?>
+                                                <?php else: ?>
+                                                In Progress
+                                                <?php endif; ?>
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <?php endif; ?>
+
+                                    <!-- Recent Documents (if any) -->
+                                    <?php 
+            // You'll need to pass candidate documents to the view
+            if (isset($candidate_documents) && !empty($candidate_documents)): 
+                $recent_docs = array_slice($candidate_documents, 0, 3); // Show only 3 most recent
+            ?>
+                                    <div class="candidate-documents">
+                                        <div class="documents-header">
+                                            <i class="fa fa-file-alt"></i>
+                                            Recent Documents
+                                        </div>
+                                        <?php foreach ($recent_docs as $doc): ?>
+                                        <div class="document-item">
+                                            <div class="document-info">
+                                                <div class="document-name">
+                                                    <?php echo htmlspecialchars($doc->document_name); ?>
+                                                </div>
+                                                <div class="document-meta">
+                                                    <?php echo date('M d', strtotime($doc->created_at)); ?>
+                                                    • <?php echo $this->format_file_size($doc->file_size); ?>
+                                                </div>
+                                            </div>
+                                            <div class="document-actions">
+                                                <a href="<?php echo base_url($doc->file_path); ?>"
+                                                    class="btn-document-action primary" target="_blank"
+                                                    title="Download">
+                                                    <i class="fa fa-download"></i>
+                                                </a>
+                                            </div>
+                                        </div>
+                                        <?php endforeach; ?>
+                                        <?php if (count($candidate_documents) > 3): ?>
+                                        <a href="<?php echo site_url('recruiter/candidates/view/' . $candidate_details->id . '#documents'); ?>"
+                                            class="btn-candidate-action secondary" style="width: 100%; margin-top: 8px;"
+                                            target="_blank">
+                                            <i class="fa fa-folder-open"></i>
+                                            View All Documents (<?php echo count($candidate_documents); ?>)
+                                        </a>
+                                        <?php endif; ?>
+                                    </div>
+                                    <?php endif; ?>
+
+                                    <!-- Switch to General Chat Button -->
+                                    <div class="candidate-chat-actions" style="margin-top: 12px;">
+                                        <button class="btn-candidate-action secondary" id="switchToGeneralChat"
+                                            style="width: 100%;">
+                                            <i class="fa fa-exchange-alt"></i>
+                                            Switch to General Chat
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Job Information -->
+                            <?php if ($conversation->job_name): ?>
+                            <div class="sidebar-section">
+                                <div class="sidebar-header">Job Information</div>
+                                <div class="info-card">
+                                    <div class="info-card-title">Position</div>
+                                    <div class="info-card-value">
+                                        <?php echo htmlspecialchars($conversation->job_name); ?>
+                                    </div>
+                                    <?php if ($candidate_details->job_ref): ?>
+                                    <div class="info-card-description">
+                                        Reference: <?php echo htmlspecialchars($candidate_details->job_ref); ?>
+                                    </div>
                                     <?php endif; ?>
                                 </div>
-                                <?php endif; ?>
+                            </div>
+                            <?php endif; ?>
 
-                                <!-- Switch to General Chat Button -->
-                                <div class="candidate-chat-actions" style="margin-top: 12px;">
-                                    <button class="btn-candidate-action secondary" id="switchToGeneralChat"
-                                        style="width: 100%;">
-                                        <i class="fa fa-exchange-alt"></i>
-                                        Switch to General Chat
-                                    </button>
+                            <?php elseif ($conversation->job_name): ?>
+                            <!-- If not candidate-specific, show regular job context -->
+                            <div class="sidebar-section">
+                                <div class="sidebar-header">Conversation Context</div>
+                                <div class="info-card">
+                                    <div class="info-card-title">Job Position</div>
+                                    <div class="info-card-value">
+                                        <?php echo htmlspecialchars($conversation->job_name); ?>
+                                    </div>
+                                    <div class="info-card-description">
+                                        This conversation is regarding the job position mentioned above.
+                                    </div>
                                 </div>
                             </div>
-                        </div>
+                            <?php endif; ?>
 
-                        <!-- Job Information -->
-                        <?php if ($conversation->job_name): ?>
-                        <div class="sidebar-section">
-                            <div class="sidebar-header">Job Information</div>
-                            <div class="info-card">
-                                <div class="info-card-title">Position</div>
-                                <div class="info-card-value"><?php echo htmlspecialchars($conversation->job_name); ?>
-                                </div>
-                                <?php if ($candidate_details->job_ref): ?>
-                                <div class="info-card-description">
-                                    Reference: <?php echo htmlspecialchars($candidate_details->job_ref); ?>
-                                </div>
-                                <?php endif; ?>
+                            <!-- Note Section -->
+                            <div class="sidebar-section note-section">
+                                <div class="sidebar-header">Private Notes</div>
+                                <textarea class="note-textarea"
+                                    placeholder="Add private notes about this agency..."></textarea>
                             </div>
-                        </div>
-                        <?php endif; ?>
-
-                        <?php elseif ($conversation->job_name): ?>
-                        <!-- If not candidate-specific, show regular job context -->
-                        <div class="sidebar-section">
-                            <div class="sidebar-header">Conversation Context</div>
-                            <div class="info-card">
-                                <div class="info-card-title">Job Position</div>
-                                <div class="info-card-value"><?php echo htmlspecialchars($conversation->job_name); ?>
-                                </div>
-                                <div class="info-card-description">
-                                    This conversation is regarding the job position mentioned above.
-                                </div>
-                            </div>
-                        </div>
-                        <?php endif; ?>
-
-                        <!-- Note Section -->
-                        <div class="sidebar-section note-section">
-                            <div class="sidebar-header">Private Notes</div>
-                            <textarea class="note-textarea"
-                                placeholder="Add private notes about this agency..."></textarea>
                         </div>
 
                         <?php else: ?>
@@ -2216,9 +2154,13 @@ if (isset($_GET['chat_type']) && $_GET['chat_type'] == 'candidate') {
 
 
 <script>
-// ============================================
-// RECRUITER CHAT SYSTEM - FIXED FOR REAL-TIME UPDATES
-// ============================================
+// Add this at the beginning of your JavaScript
+console.log('CSRF Token Name:', '<?php echo $csrf_token["name"] ?? "csrf_rfid_token"; ?>');
+console.log('CSRF Token Value:', '<?php echo $csrf_token["hash"] ?? ""; ?>');
+
+// ===== CSRF TOKEN MANAGEMENT =====
+let currentCsrfToken = '<?php echo isset($csrf_token["hash"]) ? $csrf_token["hash"] : ""; ?>';
+const csrfTokenName = '<?php echo isset($csrf_token["name"]) ? $csrf_token["name"] : "csrf_rfid_token"; ?>';
 
 // ===== GLOBAL STATE =====
 let chatState = {
@@ -2229,9 +2171,7 @@ let chatState = {
     displayedMessageIds: new Set(),
     pollInterval: null,
     conversationInterval: null,
-    activePolling: true,
-    csrfToken: '<?php echo $this->security->get_csrf_hash(); ?>',
-    csrfTokenName: '<?php echo $this->security->get_csrf_token_name(); ?>'
+    activePolling: true
 };
 
 // Initialize displayed message IDs from existing messages
@@ -2250,20 +2190,17 @@ function initializeDisplayedMessages() {
 function scrollToBottom() {
     const chatMessages = document.getElementById('chatMessages');
     if (chatMessages) {
-        // Wait for DOM update
         setTimeout(() => {
-            // Scroll to the very bottom
             chatMessages.scrollTop = chatMessages.scrollHeight;
-
-            // Force a re-check after a short delay
-            setTimeout(() => {
-                if (chatMessages.scrollTop + chatMessages.clientHeight < chatMessages.scrollHeight -
-                    50) {
-                    chatMessages.scrollTop = chatMessages.scrollHeight;
-                }
-            }, 100);
         }, 50);
     }
+}
+
+function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
 }
 
 // ===== MESSAGE DISPLAY FUNCTIONS =====
@@ -2313,13 +2250,6 @@ function createMessageElement(message, isRecruiter = false) {
     return messageDiv;
 }
 
-function escapeHtml(text) {
-    if (!text) return '';
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-}
-
 function addMessageToDisplay(message, isRecruiter = false) {
     const chatMessages = document.getElementById('chatMessages');
     if (!chatMessages) return;
@@ -2332,7 +2262,7 @@ function addMessageToDisplay(message, isRecruiter = false) {
     // Create message wrapper
     const messageWrapper = document.createElement('div');
     messageWrapper.className = `d-flex ${isRecruiter ? 'justify-content-end' : 'justify-content-start'} mb-2`;
-    messageWrapper.style.flexShrink = '0'; // Prevent shrinking
+    messageWrapper.style.flexShrink = '0';
     messageWrapper.dataset.messageId = message.id;
 
     // Create message element
@@ -2348,119 +2278,73 @@ function addMessageToDisplay(message, isRecruiter = false) {
         chatState.lastMessageId = parseInt(message.id);
     }
 
-    // Always scroll to bottom for new messages
+    // Scroll to bottom for new messages
     scrollToBottom();
 }
 
-
-// ===== AJAX REQUEST HANDLER WITH PROPER ERROR HANDLING =====
-// ===== FIXED AJAX REQUEST HANDLER =====
-async function makeAjaxRequest(url, data = {}) {
-
-    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
-    const csrfName = document.querySelector('meta[name="csrf-token-name"]')?.content;
-
-    // Add CSRF token to FormData
-    const formData = new FormData();
-    if (csrfName && csrfToken) {
-        formData.append(csrfName, csrfToken);
+// ===== AJAX HELPER FUNCTION FOR RECRUITER =====
+async function makeAjaxRequest(url, data = {}, options = {}) {
+    // Get the current page's base URL
+    let fullUrl = url;
+    if (!url.startsWith('http')) {
+        const currentPath = window.location.pathname;
+        if (currentPath.includes('/conversation/')) {
+            // Extract base URL: remove everything after /conversation/
+            const basePath = currentPath.substring(0, currentPath.indexOf('/conversation/'));
+            fullUrl = basePath + '/' + url.replace(/^\//, '');
+        } else {
+            const basePath = window.location.pathname.replace(/\/[^\/]*$/, '');
+            fullUrl = basePath + '/' + url.replace(/^\//, '');
+        }
+        fullUrl = window.location.origin + fullUrl;
     }
 
-    // Add CSRF token
-    formData.append(chatState.csrfTokenName, chatState.csrfToken);
+    console.log(`Making AJAX request to: ${fullUrl}`);
+
+    // Use the latest CSRF token
+    const csrfTokenName = 'csrf_rfid_token';
+    let csrfTokenValue = window.latestCsrfToken || currentCsrfToken;
+
+    // If no token available yet, use the initial one
+    if (!csrfTokenValue) {
+        csrfTokenValue = '<?php echo isset($csrf_token["hash"]) ? $csrf_token["hash"] : ""; ?>';
+    }
+
+    // Create FormData
+    const formData = new FormData();
+
+    // ADD CSRF TOKEN FIRST
+    formData.append(csrfTokenName, csrfTokenValue);
 
     // Add other data
     Object.keys(data).forEach(key => {
-        formData.append(key, data[key]);
+        if (data[key] !== null && data[key] !== undefined) {
+            formData.append(key, data[key]);
+        }
     });
 
     try {
-        // Build the full URL - FIXED VERSION
-        let fullUrl = url;
-
-        // If URL doesn't start with http, it's a relative URL
-        if (!url.startsWith('http')) {
-            // Get the current page's base URL
-            const currentPath = window.location.pathname;
-
-            // If we're on a conversation page like /recruiter/chat/conversation/UUID
-            // we need to go back to the base chat URL
-            if (currentPath.includes('/conversation/')) {
-                // Extract base URL: remove everything after /conversation/
-                const basePath = currentPath.substring(0, currentPath.indexOf('/conversation/'));
-                fullUrl = basePath + '/' + url.replace(/^\//, '');
-            } else {
-                // Otherwise use the current directory
-                const basePath = window.location.pathname.replace(/\/[^\/]*$/, '');
-                fullUrl = basePath + '/' + url.replace(/^\//, '');
-            }
-
-            // Make it a full URL
-            fullUrl = window.location.origin + fullUrl;
-        }
-
-        console.log(`Making AJAX request to: ${fullUrl}`);
-
         const response = await fetch(fullUrl, {
             method: 'POST',
             body: formData,
             headers: {
-                'X-Requested-With': 'XMLHttpRequest'
-            }
+                'X-RequestedWith': 'XMLHttpRequest'
+            },
+            credentials: 'same-origin'
         });
 
-        // Check if response is JSON
-        const contentType = response.headers.get('content-type');
-        if (!contentType || !contentType.includes('application/json')) {
-            const text = await response.text();
-
-            // Handle 403 Forbidden (likely CSRF error)
-            if (response.status === 403) {
-                console.error('403 Forbidden - CSRF or session issue');
-
-                // Try to get new CSRF token and retry once
-                const csrfResponse = await fetch(window.location.origin +
-                    '/shoesmith/recruiter/chat/ajax_get_conversations', {
-                        method: 'POST',
-                        headers: {
-                            'X-Requested-With': 'XMLHttpRequest'
-                        }
-                    });
-
-                if (csrfResponse.ok) {
-                    const csrfResult = await csrfResponse.json();
-                    if (csrfResult.csrf) {
-                        // Update CSRF and retry
-                        chatState.csrfToken = csrfResult.csrf;
-                        console.log('CSRF token updated, retrying...');
-                        return await makeAjaxRequest(url, data); // Retry once
-                    }
-                }
-
-                return {
-                    success: false,
-                    message: 'Access forbidden (403)'
-                };
-            }
-
-            return {
-                success: false,
-                message: 'Server returned non-JSON response'
-            };
+        // Check response status
+        if (!response.ok) {
+            throw new Error(`HTTP error ${response.status}`);
         }
 
-        // Parse JSON response
+        // Parse response
         const result = await response.json();
 
-        // Update CSRF token if provided
-        if (result.csrf) {
-            chatState.csrfToken = result.csrf;
-
-            // Update hidden input if exists
-            const csrfInput = document.querySelector(`input[name="${chatState.csrfTokenName}"]`);
-            if (csrfInput) {
-                csrfInput.value = result.csrf;
-            }
+        // Update CSRF token if server sent a new one
+        if (result && result.csrf_token) {
+            window.latestCsrfToken = result.csrf_token;
+            console.log('Updated CSRF token from server');
         }
 
         return result;
@@ -2482,14 +2366,6 @@ async function fetchNewMessages() {
     chatState.isPolling = true;
 
     try {
-        // First check session
-        const sessionValid = await checkSession();
-        if (!sessionValid) {
-            console.log('Session invalid, stopping polling');
-            stopPolling();
-            return;
-        }
-
         const response = await makeAjaxRequest('ajax_get_messages', {
             conversation_uuid: chatState.currentConversationUuid,
             last_message_id: chatState.lastMessageId
@@ -2508,34 +2384,6 @@ async function fetchNewMessages() {
             if (response.messages.length > 0) {
                 const lastMsg = response.messages[response.messages.length - 1];
                 chatState.lastMessageId = parseInt(lastMsg.id);
-
-                // Mark messages as read
-                if (!response.messages[0].is_read && response.messages[0].sender_type !== 'recruiter') {
-                    markMessagesAsRead();
-                }
-            }
-
-            // If using HTML fallback
-            if (response.html) {
-                const chatMessages = document.getElementById('chatMessages');
-                const tempDiv = document.createElement('div');
-                tempDiv.innerHTML = response.html;
-
-                // Add new messages
-                const newMessages = tempDiv.children;
-                for (let msg of newMessages) {
-                    chatMessages.appendChild(msg);
-                }
-
-                scrollToBottom();
-            }
-        } else {
-            console.error("Poll error:", response.message);
-
-            // If session expired, redirect
-            if (response.message && response.message.includes('Session expired')) {
-                stopPolling();
-                window.location.href = '<?php echo site_url("recruiter/login"); ?>';
             }
         }
 
@@ -2546,51 +2394,11 @@ async function fetchNewMessages() {
     }
 }
 
-async function markMessageAsRead(messageId) {
-    try {
-        // Only mark as read if we have a valid message ID
-        if (!messageId || typeof messageId !== 'number') {
-            console.log('Invalid message ID for mark read:', messageId);
-            return;
-        }
-
-        console.log('Marking message as read:', messageId);
-
-        const response = await makeAjaxRequest('ajax_mark_message_read', {
-            message_id: messageId
-        });
-
-        if (response.success) {
-            console.log('Message marked as read successfully');
-        } else {
-            console.log('Failed to mark message as read:', response.message);
-        }
-    } catch (error) {
-        console.error("Mark read error:", error);
-    }
-}
-async function checkSession() {
-    try {
-        const response = await makeAjaxRequest('ajax_check_session', {});
-
-        if (response.success === false && response.message.includes('not logged in')) {
-            console.warn('Session expired, redirecting to login...');
-            window.location.href = '<?php echo site_url("recruiter/login"); ?>';
-            return false;
-        }
-
-        return true;
-    } catch (error) {
-        console.error('Session check failed:', error);
-        return false;
-    }
-}
 async function fetchUpdatedConversations() {
     if (!chatState.activePolling) return;
 
     try {
-        const response = await makeAjaxRequest(
-            '<?php echo site_url("recruiter/chat/ajax_get_conversations"); ?>', {});
+        const response = await makeAjaxRequest('ajax_get_conversations', {});
 
         if (response.success && response.conversations) {
             updateSidebarConversationBadges(response.conversations);
@@ -2630,7 +2438,7 @@ async function sendMessage() {
     messageInput.focus();
 
     try {
-        const response = await makeAjaxRequest('<?php echo site_url("recruiter/chat/ajax_send_message"); ?>', {
+        const response = await makeAjaxRequest('ajax_send_message', {
             conversation_uuid: chatState.currentConversationUuid,
             message: messageText
         });
@@ -2644,7 +2452,6 @@ async function sendMessage() {
 
             // Add real message if provided
             if (response.message_id) {
-                // Create message object from response
                 const messageObj = {
                     id: response.message_id,
                     message: messageText,
@@ -2655,7 +2462,6 @@ async function sendMessage() {
                 };
                 addMessageToDisplay(messageObj, true);
 
-                // Update last message ID
                 if (response.message_id > chatState.lastMessageId) {
                     chatState.lastMessageId = parseInt(response.message_id);
                 }
@@ -2811,6 +2617,61 @@ function setupEventListeners() {
             messageInput.focus();
         }, 1000);
     }
+
+    // Chat type filter buttons
+    const chatTypeTabs = document.querySelectorAll('.chat-type-tab');
+    chatTypeTabs.forEach(tab => {
+        tab.addEventListener('click', function() {
+            const chatType = this.getAttribute('data-chat-type');
+
+            // Update active tab
+            chatTypeTabs.forEach(t => {
+                t.classList.remove('active');
+                t.style.background = '#2f3136';
+            });
+
+            // Set active tab styles
+            this.classList.add('active');
+            if (chatType === 'all') {
+                this.style.background = 'linear-gradient(135deg, #7289da, #5b6eae)';
+            } else if (chatType === 'candidate') {
+                this.style.background = 'linear-gradient(135deg, #8B5CF6, #7C3AED)';
+            } else if (chatType === 'general') {
+                this.style.background = 'linear-gradient(135deg, #10B981, #059669)';
+            }
+
+            // Update URL with filter parameter
+            const currentUrl = new URL(window.location.href);
+            if (chatType === 'all') {
+                currentUrl.searchParams.delete('chat_type');
+            } else {
+                currentUrl.searchParams.set('chat_type', chatType);
+            }
+
+            window.location.href = currentUrl.toString();
+        });
+    });
+
+    // Search functionality
+    const searchInput = document.querySelector('.form-control[placeholder="Find or start a conversation"]');
+    if (searchInput) {
+        searchInput.addEventListener('input', function() {
+            const searchTerm = this.value.toLowerCase();
+            const conversationItems = document.querySelectorAll('.conversation-item');
+
+            conversationItems.forEach(item => {
+                const agencyName = item.querySelector('h6').textContent.toLowerCase();
+                const previewText = item.querySelector('.conversation-preview').textContent
+                    .toLowerCase();
+
+                if (agencyName.includes(searchTerm) || previewText.includes(searchTerm)) {
+                    item.style.display = 'flex';
+                } else {
+                    item.style.display = 'none';
+                }
+            });
+        });
+    }
 }
 
 // ===== POLLING MANAGEMENT =====
@@ -2821,11 +2682,11 @@ function startPolling() {
     if (chatState.pollInterval) clearInterval(chatState.pollInterval);
     if (chatState.conversationInterval) clearInterval(chatState.conversationInterval);
 
-    // Message polling every 2 seconds (faster for real-time)
-    chatState.pollInterval = setInterval(fetchNewMessages, 2000);
+    // Message polling every 3 seconds
+    chatState.pollInterval = setInterval(fetchNewMessages, 3000);
 
-    // Conversation polling every 10 seconds
-    chatState.conversationInterval = setInterval(fetchUpdatedConversations, 10000);
+    // Conversation polling every 15 seconds
+    chatState.conversationInterval = setInterval(fetchUpdatedConversations, 15000);
 
     // Initial fetches
     setTimeout(fetchNewMessages, 500);
@@ -2870,8 +2731,6 @@ function initializeChatSystem() {
     // Wait for layout to settle, then scroll to bottom
     setTimeout(() => {
         scrollToBottom();
-
-        // Force one more scroll after images/avatars load
         setTimeout(scrollToBottom, 500);
     }, 300);
 
@@ -2894,44 +2753,6 @@ document.addEventListener('visibilitychange', function() {
 // ===== MAIN INITIALIZATION =====
 document.addEventListener('DOMContentLoaded', function() {
     console.log('DOM Content Loaded - Initializing Chat System');
-
-    // Wait a bit for everything to load
     setTimeout(initializeChatSystem, 500);
 });
-
-// ===== DEBUG FUNCTIONS =====
-window.debugChat = function() {
-    console.log("=== CHAT DEBUG INFO ===");
-    console.log("State:", {
-        currentConversationUuid: chatState.currentConversationUuid,
-        lastMessageId: chatState.lastMessageId,
-        displayedMessageIds: Array.from(chatState.displayedMessageIds),
-        isSending: chatState.isSending,
-        isPolling: chatState.isPolling,
-        activePolling: chatState.activePolling,
-        csrfToken: chatState.csrfToken ? 'Available' : 'Missing'
-    });
-
-    // Force a poll
-    fetchNewMessages();
-};
-
-// Add debug button for testing
-setTimeout(() => {
-    const debugBtn = document.createElement('button');
-    debugBtn.innerHTML = '🔧 Debug Chat';
-    debugBtn.style.position = 'fixed';
-    debugBtn.style.bottom = '10px';
-    debugBtn.style.right = '10px';
-    debugBtn.style.zIndex = '9999';
-    debugBtn.style.padding = '8px 12px';
-    debugBtn.style.background = '#007bff';
-    debugBtn.style.color = 'white';
-    debugBtn.style.border = 'none';
-    debugBtn.style.borderRadius = '5px';
-    debugBtn.style.cursor = 'pointer';
-    debugBtn.style.fontSize = '12px';
-    debugBtn.onclick = window.debugChat;
-    document.body.appendChild(debugBtn);
-}, 2000);
 </script>

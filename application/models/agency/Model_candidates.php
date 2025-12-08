@@ -1145,20 +1145,25 @@ class Model_candidates extends CRUD_Model
     /**
      * Get candidate details with job information
      */
-    public function get_candidate_details($candidate_id)
-    {
-        $this->db->select('c.*, j.name as job_name, j.reference_number as job_ref');
-        $this->db->from('candidates c');
-        $this->db->join('mod_jobs j', 'j.id = c.job_id', 'left');
-        $this->db->where('c.id', $candidate_id);
-        $this->db->where('c.removed', 0);
-         // CRITICAL: Always filter by agency if provided
+/**
+ * Get candidate details with job information
+ */
+public function get_candidate_details($candidate_id, $agency_id = null)
+{
+    $this->db->select('c.*, j.name as job_name, j.reference_number as job_ref');
+    $this->db->from('candidates c');
+    $this->db->join('mod_jobs j', 'j.id = c.job_id', 'left');
+    $this->db->where('c.id', $candidate_id);
+    $this->db->where('c.removed', 0);
+    
+    // CRITICAL: Always filter by agency if provided
     if ($agency_id) {
+        $this->db->join('candidate_agencies ca', 'ca.candidate_id = c.id', 'inner');
         $this->db->where('ca.agency_id', $agency_id);
     }
-        
-        return $this->db->get()->row();
-    }
+    
+    return $this->db->get()->row();
+}
     /**
      * Get agency agents by agency - UPDATED for your table structure
      */

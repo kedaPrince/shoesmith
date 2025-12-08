@@ -1720,8 +1720,6 @@
                                 <input type="hidden" id="conversationUuid"
                                     value="<?php echo isset($conversation) ? $conversation->uuid : ''; ?>">
 
-                                <input type="hidden" name="<?php echo $this->security->get_csrf_token_name(); ?>"
-                                    value="<?php echo $this->security->get_csrf_hash(); ?>">
                             </form>
                         </div>
                     </div>
@@ -1745,719 +1743,653 @@
 
 
 <script>
-// ============================================
-// AGENCY CHAT SYSTEM - CLEAN & STRUCTURED
-// ============================================
+// Add this at the beginning of your JavaScript
+console.log('CSRF Token Name:', '<?php echo $csrf_token["name"] ?? "csrf_rfid_token"; ?>');
+console.log('CSRF Token Value:', '<?php echo $csrf_token["hash"] ?? ""; ?>');
 
-'use strict';
+// ===== CSRF TOKEN MANAGEMENT =====
+let currentCsrfToken = '<?php echo isset($csrf_token["hash"]) ? $csrf_token["hash"] : ""; ?>';
+const csrfTokenName = '<?php echo isset($csrf_token["name"]) ? $csrf_token["name"] : "csrf_rfid_token"; ?>';
 
-// ===== CONFIGURATION =====
-const CONFIG = {
-    POLL_INTERVAL: 3000, // 3 seconds
-    CONVERSATION_POLL: 8000, // 8 seconds
-    CSRF_TOKEN_NAME: '<?php echo $this->security->get_csrf_token_name(); ?>',
-    BASE_PATH: window.dynamicPath || window.location.origin + '/shoesmith/agency'
+// ===== GLOBAL STATE =====
+let chatState = {
+    isSending: false,
+    isPolling: false,
+    lastMessageId: <?php echo !empty($messages) ? end($messages)->id : 0; ?>,
+    currentConversationUuid: null,
+    displayedMessageIds: new Set(),
+    pollInterval: null,
+    conversationInterval: null,
+    activePolling: true
 };
 
-// ===== STATE MANAGEMENT =====
-class ChatState {
-    constructor() {
-        this.isSending = false;
-        this.isPolling = false;
-        this.lastMessageId = <?php echo !empty($messages) ? end($messages)->id : 0; ?>;
-        this.conversationUuid = document.getElementById('conversationUuid')?.value || null;
-        this.displayedMessageIds = new Set();
-        this.pollInterval = null;
-        this.conversationInterval = null;
-
-        // Initialize CSRF
-        this.initCsrf();
-    }
-
-    initCsrf() {
-        if (typeof csrfName === 'undefined') {
-            window.csrfName = CONFIG.CSRF_TOKEN_NAME;
+// Initialize displayed message IDs from existing messages
+function initializeDisplayedMessages() {
+    const existingMessages = document.querySelectorAll('#chatMessages [data-message-id]');
+    existingMessages.forEach(msg => {
+        const msgId = msg.dataset.messageId;
+        if (msgId && !msgId.startsWith('temp_')) {
+            chatState.displayedMessageIds.add(parseInt(msgId));
         }
-        if (typeof csrf === 'undefined') {
-            window.csrf = '<?php echo $this->security->get_csrf_hash(); ?>';
-        }
-    }
+    });
+    console.log(`Agency: Initialized ${chatState.displayedMessageIds.size} displayed messages`);
+}
 
-    addDisplayedMessageId(id) {
-        if (id && !id.toString().startsWith('temp_')) {
-            this.displayedMessageIds.add(parseInt(id));
-        }
-    }
-
-    isMessageDisplayed(id) {
-        return this.displayedMessageIds.has(parseInt(id));
+// ===== UTILITY FUNCTIONS =====
+function scrollToBottom() {
+    const chatMessages = document.getElementById('chatMessages');
+    if (chatMessages) {
+        setTimeout(() => {
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }, 50);
     }
 }
 
-// ===== UTILITIES =====
-const Utils = {
-    escapeHtml(text) {
-        if (!text) return '';
-        const div = document.createElement('div');
-        div.textContent = text;
-        return div.innerHTML;
-    },
+function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
 
-    scrollToBottom() {
-        const container = document.getElementById('chatMessages');
-        if (container) {
-            setTimeout(() => {
-                container.scrollTop = container.scrollHeight;
-            }, 100);
+function getTimeAgo(timestamp) {
+    const now = new Date();
+    const messageTime = new Date(timestamp);
+    const diffMs = now - messageTime;
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    if (diffMins < 1) return 'Just now';
+    if (diffMins < 60) return `${diffMins}m`;
+    if (diffHours < 24) return `${diffHours}h`;
+    if (diffDays < 7) return `${diffDays}d`;
+    return messageTime.toLocaleDateString();
+}
+
+// ===== AJAX HELPER FUNCTION FOR AGENCY =====
+async function makeAjaxRequest(endpoint, data = {}) {
+    // Build URL from current path (like recruiter side)
+    let fullUrl = endpoint;
+
+    // Get current page path
+    const currentPath = window.location.pathname;
+
+    if (currentPath.includes('/conversation/')) {
+        // Extract base path (agency/chat)
+        const basePath = currentPath.substring(0, currentPath.indexOf('/conversation/'));
+        fullUrl = basePath + '/' + endpoint.replace(/^\//, '');
+    } else {
+        // For other pages, use current directory
+        const basePath = window.location.pathname.replace(/\/[^\/]*$/, '');
+        fullUrl = basePath + '/' + endpoint.replace(/^\//, '');
+    }
+
+    fullUrl = window.location.origin + fullUrl;
+
+    console.log(`Agency AJAX request to: ${fullUrl}`);
+
+    // Use the latest CSRF token
+    const csrfTokenName = 'csrf_rfid_token';
+    let csrfTokenValue = window.latestCsrfToken || currentCsrfToken;
+
+    // If no token available yet, use the initial one
+    if (!csrfTokenValue) {
+        csrfTokenValue = '<?php echo isset($csrf_token["hash"]) ? $csrf_token["hash"] : ""; ?>';
+    }
+
+    // Create FormData
+    const formData = new FormData();
+
+    // ADD CSRF TOKEN
+    formData.append(csrfTokenName, csrfTokenValue);
+
+    // Add other data
+    Object.keys(data).forEach(key => {
+        if (data[key] !== null && data[key] !== undefined) {
+            formData.append(key, data[key]);
         }
-    },
+    });
 
-    getTimeAgo(timestamp) {
-        const now = new Date();
-        const messageTime = new Date(timestamp);
-        const diffMs = now - messageTime;
-        const diffMins = Math.floor(diffMs / 60000);
-        const diffHours = Math.floor(diffMs / 3600000);
-        const diffDays = Math.floor(diffMs / 86400000);
+    try {
+        const response = await fetch(fullUrl, {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-RequestedWith': 'XMLHttpRequest'
+            },
+            credentials: 'same-origin'
+        });
 
-        if (diffMins < 1) return 'Just now';
-        if (diffMins < 60) return `${diffMins}m`;
-        if (diffHours < 24) return `${diffHours}h`;
-        if (diffDays < 7) return `${diffDays}d`;
-        return messageTime.toLocaleDateString();
-    },
+        // Check response status
+        if (!response.ok) {
+            console.error(`HTTP error ${response.status}`);
+            throw new Error(`HTTP error ${response.status}`);
+        }
 
-    showNotification(message, type = 'info') {
-        const types = {
-            info: {
-                icon: 'info-circle',
-                color: '#17a2b8'
-            },
-            success: {
-                icon: 'check-circle',
-                color: '#28a745'
-            },
-            error: {
-                icon: 'exclamation-circle',
-                color: '#dc3545'
-            },
-            warning: {
-                icon: 'exclamation-triangle',
-                color: '#ffc107'
-            }
+        // Parse response
+        const result = await response.json();
+
+        // Update CSRF token if server sent a new one
+        if (result && result.csrf_token) {
+            window.latestCsrfToken = result.csrf_token;
+            console.log('Agency: Updated CSRF token from server');
+        }
+
+        return result;
+
+    } catch (error) {
+        console.error('Agency AJAX request failed:', error);
+        return {
+            success: false,
+            message: error.message
         };
-
-        const config = types[type] || types.info;
-        console.log(`${type.toUpperCase()}: ${message}`);
     }
-};
+}
 
-// ===== MESSAGE MANAGER =====
-class MessageManager {
-    constructor(state) {
-        this.state = state;
-    }
+// ===== MESSAGE DISPLAY FUNCTIONS =====
+function createMessageElement(message, isAgency = false) {
+    const messageDiv = document.createElement('div');
+    messageDiv.className = `d-flex ${isAgency ? 'justify-content-end' : 'justify-content-start'} mb-2`;
+    messageDiv.dataset.messageId = message.id;
 
-    // Send a message
-    async send(messageText) {
-        if (this.state.isSending || !messageText.trim() || !this.state.conversationUuid) {
-            return false;
-        }
+    const senderName = isAgency ? 'You' : (message.sender_name || 'Recruiter');
+    const bgColor = isAgency ? '#dcf8c6' : '#ffffff';
+    const borderRadius = isAgency ? '7.5px 7.5px 0 7.5px' : '7.5px 7.5px 7.5px 0';
 
-        this.state.isSending = true;
-        const input = document.getElementById('messageInput');
-        const originalMessage = messageText;
+    // Format time
+    const messageTime = new Date(message.created_at);
+    const timeString = messageTime.toLocaleTimeString([], {
+        hour: '2-digit',
+        minute: '2-digit'
+    });
 
-        // Clear input
-        input.value = '';
-
-        // Show optimistic message
-        const tempId = this.showOptimisticMessage(originalMessage);
-
-        try {
-            const response = await this.ajaxRequest('ajax_send_message', {
-                conversation_uuid: this.state.conversationUuid,
-                message: originalMessage
-            });
-
-            if (response.success) {
-                this.updateOptimisticMessage(tempId, response.message_id);
-                this.state.lastMessageId = parseInt(response.message_id);
-                Utils.showNotification('Message sent', 'success');
-                return true;
-            } else {
-                throw new Error(response.message || 'Send failed');
-            }
-
-        } catch (error) {
-            this.handleSendError(tempId, originalMessage, error.message);
-            return false;
-        } finally {
-            this.state.isSending = false;
-            input.focus();
-        }
-    }
-
-    // Show optimistic (temporary) message
-    showOptimisticMessage(text) {
-        const container = document.getElementById('chatMessages');
-        if (!container) return null;
-
-        const tempId = Date.now();
-        const message = document.createElement('div');
-        message.className = 'd-flex justify-content-end mb-2';
-        message.dataset.tempId = tempId;
-        message.dataset.messageId = 'temp_' + tempId;
-
-        message.innerHTML = `
-            <div class="message-container" style="max-width: 70%;">
-                <div class="message-content d-flex align-items-baseline justify-content-end">
-                    <div class="message-text-time d-inline-flex align-items-baseline" 
-                         style="background-color: #dcf8c6; padding: 8px 12px; border-radius: 7.5px; box-shadow: 0 1px 0.5px rgba(0,0,0,0.13);">
-                        <span class="message-text" style="font-size: 14.2px; color: #303030; line-height: 1.3; margin-right: 8px;">
-                            ${Utils.escapeHtml(text)}
-                        </span>
-                        <span class="message-meta d-inline-flex align-items-center">
-                            <small class="message-time" style="font-size: 11px; color: #667781;">
-                                Sending...
-                            </small>
-                            <i class="fa fa-clock ml-1" style="font-size: 10px; color: #667781;"></i>
-                        </span>
-                    </div>
+    messageDiv.innerHTML = `
+        <div class="message-container" style="max-width: 70%;">
+            <div class="message-content d-flex align-items-baseline ${isAgency ? 'justify-content-end' : 'justify-content-start'}">
+                <div class="message-text-time d-inline-flex align-items-baseline" 
+                     style="background-color: ${bgColor}; 
+                            padding: 8px 12px; 
+                            border-radius: ${borderRadius};
+                            box-shadow: 0 1px 0.5px rgba(0,0,0,0.13);">
+                    <span class="message-text" style="font-size: 14.2px; color: #303030; line-height: 1.3; margin-right: 8px;">
+                        ${escapeHtml(message.message)}
+                    </span>
+                    <span class="message-meta d-inline-flex align-items-center">
+                        <small class="message-time" style="font-size: 11px; color: #667781; white-space: nowrap;">
+                            ${timeString}
+                        </small>
+                        ${isAgency ? `
+                            <span class="message-status" style="margin-left: 4px;">
+                                <i class="fa fa-check${message.is_read ? '-double' : ''}" 
+                                   style="font-size: 10px; color: ${message.is_read ? '#128C7E' : '#667781'};"></i>
+                            </span>
+                        ` : ''}
+                    </span>
                 </div>
             </div>
-        `;
+        </div>
+    `;
 
-        container.appendChild(message);
-        Utils.scrollToBottom();
-        return tempId;
+    return messageDiv;
+}
+
+function addMessageToDisplay(message, isAgency = false) {
+    const chatMessages = document.getElementById('chatMessages');
+    if (!chatMessages) return;
+
+    // Check if message already displayed
+    if (chatState.displayedMessageIds.has(parseInt(message.id))) {
+        return;
     }
 
-    // Update optimistic message with real ID
-    updateOptimisticMessage(tempId, realId) {
-        const msg = document.querySelector(`[data-temp-id="${tempId}"]`);
-        if (msg) {
-            msg.dataset.messageId = realId;
-            delete msg.dataset.tempId;
+    // Create message wrapper
+    const messageWrapper = document.createElement('div');
+    messageWrapper.className = `d-flex ${isAgency ? 'justify-content-end' : 'justify-content-start'} mb-2`;
+    messageWrapper.style.flexShrink = '0';
+    messageWrapper.dataset.messageId = message.id;
 
-            const icon = msg.querySelector('.fa-clock');
-            const time = msg.querySelector('.message-time');
+    // Create message element
+    const messageElement = createMessageElement(message, isAgency);
+    messageWrapper.appendChild(messageElement);
 
-            if (icon) {
-                icon.className = 'fa fa-check ml-1';
-                icon.style.color = '#128C7E';
+    // Add to chat messages
+    chatMessages.appendChild(messageWrapper);
+    chatState.displayedMessageIds.add(parseInt(message.id));
+
+    // Update last message ID
+    if (parseInt(message.id) > chatState.lastMessageId) {
+        chatState.lastMessageId = parseInt(message.id);
+    }
+
+    // Scroll to bottom for new messages
+    scrollToBottom();
+}
+
+// ===== POLLING FUNCTIONS =====
+async function fetchNewMessages() {
+    if (chatState.isPolling || !chatState.currentConversationUuid || !chatState.activePolling) {
+        return;
+    }
+
+    chatState.isPolling = true;
+
+    try {
+        const response = await makeAjaxRequest('ajax_get_messages', {
+            conversation_uuid: chatState.currentConversationUuid,
+            last_message_id: chatState.lastMessageId
+        });
+
+        console.log("Agency poll response:", response);
+
+        if (response.success && response.messages) {
+            // Process new messages
+            response.messages.forEach(message => {
+                const isAgency = message.sender_type === 'agency';
+                addMessageToDisplay(message, isAgency);
+            });
+
+            // Update last message ID if we got new messages
+            if (response.messages.length > 0) {
+                const lastMsg = response.messages[response.messages.length - 1];
+                chatState.lastMessageId = parseInt(lastMsg.id);
             }
-            if (time) time.textContent = 'Sent';
+        } else if (response.success && response.html) {
+            // Backward compatibility: parse HTML if messages not in JSON format
+            const temp = document.createElement('div');
+            temp.innerHTML = response.html;
+            const newMessages = Array.from(temp.querySelectorAll('[data-message-id]'));
 
-            this.state.addDisplayedMessageId(realId);
+            newMessages.forEach(msgElement => {
+                const msgId = msgElement.dataset.messageId;
+                if (!chatState.displayedMessageIds.has(parseInt(msgId))) {
+                    chatMessages.appendChild(msgElement);
+                    chatState.displayedMessageIds.add(parseInt(msgId));
+
+                    if (parseInt(msgId) > chatState.lastMessageId) {
+                        chatState.lastMessageId = parseInt(msgId);
+                    }
+                }
+            });
+
+            if (newMessages.length > 0) {
+                scrollToBottom();
+            }
         }
+
+    } catch (error) {
+        console.error("Agency poll fetch error:", error);
+    } finally {
+        chatState.isPolling = false;
+    }
+}
+
+async function fetchUpdatedConversations() {
+    if (!chatState.activePolling) return;
+
+    try {
+        const response = await makeAjaxRequest('ajax_get_conversations', {});
+
+        if (response.success && response.conversations) {
+            updateSidebarConversationBadges(response.conversations);
+            if (response.total_unread_count !== undefined) {
+                updateAllNotificationBadges(response.total_unread_count);
+            }
+        }
+    } catch (error) {
+        console.error("Agency conversations fetch error:", error);
+    }
+}
+
+// ===== MESSAGE SENDING =====
+async function sendMessage() {
+    const messageInput = document.getElementById('messageInput');
+    const messageText = messageInput.value.trim();
+
+    if (!messageText || chatState.isSending || !chatState.currentConversationUuid) {
+        return;
     }
 
-    // Handle send error
-    handleSendError(tempId, originalMessage, error) {
-        const input = document.getElementById('messageInput');
-        const msg = document.querySelector(`[data-temp-id="${tempId}"]`);
+    chatState.isSending = true;
 
-        // Restore message to input
-        input.value = originalMessage;
+    // Show optimistic message
+    const tempId = Date.now();
+    const tempMessage = {
+        id: 'temp_' + tempId,
+        message: messageText,
+        created_at: new Date().toISOString(),
+        sender_type: 'agency',
+        is_read: false,
+        sender_name: 'You'
+    };
+
+    addMessageToDisplay(tempMessage, true);
+    messageInput.value = '';
+    messageInput.focus();
+
+    try {
+        const response = await makeAjaxRequest('ajax_send_message', {
+            conversation_uuid: chatState.currentConversationUuid,
+            message: messageText
+        });
+
+        console.log("Agency send response:", response);
+
+        if (response.success) {
+            // Remove temp message
+            const tempMsg = document.querySelector(`[data-message-id="temp_${tempId}"]`);
+            if (tempMsg) tempMsg.remove();
+
+            // Add real message if provided
+            if (response.message_id) {
+                const messageObj = {
+                    id: response.message_id,
+                    message: messageText,
+                    created_at: new Date().toISOString(),
+                    sender_type: 'agency',
+                    is_read: false,
+                    sender_name: 'You'
+                };
+                addMessageToDisplay(messageObj, true);
+
+                if (response.message_id > chatState.lastMessageId) {
+                    chatState.lastMessageId = parseInt(response.message_id);
+                }
+            }
+
+            // Refresh conversations
+            setTimeout(fetchUpdatedConversations, 500);
+
+            console.log("Agency: Message sent successfully");
+        } else {
+            // Handle error - remove optimistic message
+            const tempMsg = document.querySelector(`[data-message-id="temp_${tempId}"]`);
+            if (tempMsg) tempMsg.remove();
+
+            // Restore message to input
+            messageInput.value = messageText;
+
+            console.error("Agency send error:", response.message);
+            alert(response.message || "Failed to send message");
+        }
+
+    } catch (error) {
+        console.error("Agency send fetch error:", error);
 
         // Remove optimistic message
-        if (msg) msg.remove();
+        const tempMsg = document.querySelector(`[data-message-id="temp_${tempId}"]`);
+        if (tempMsg) tempMsg.remove();
 
-        Utils.showNotification(`Send failed: ${error}`, 'error');
-    }
+        // Restore message to input
+        messageInput.value = messageText;
 
-    // Fetch new messages
-    async fetchNew() {
-        if (this.state.isPolling || !this.state.conversationUuid) {
-            return;
-        }
-
-        this.state.isPolling = true;
-
-        try {
-            const response = await this.ajaxRequest('ajax_get_messages', {
-                conversation_uuid: this.state.conversationUuid,
-                last_message_id: this.state.lastMessageId || 0
-            });
-
-            if (response.success && response.html) {
-                this.appendMessages(response.html);
-
-                if (response.last_message_id) {
-                    this.state.lastMessageId = parseInt(response.last_message_id);
-                }
-            }
-
-        } catch (error) {
-            console.error('Poll error:', error.message);
-        } finally {
-            this.state.isPolling = false;
-        }
-    }
-
-    // Append messages to chat
-    appendMessages(html) {
-        const container = document.getElementById('chatMessages');
-        if (!container || !html.trim()) return;
-
-        // Parse HTML
-        const temp = document.createElement('div');
-        temp.innerHTML = html;
-        const newMessages = Array.from(temp.children);
-
-        let added = 0;
-
-        // Filter and append unique messages
-        newMessages.forEach(msg => {
-            const msgId = msg.dataset.messageId;
-
-            if (!msgId || !this.state.isMessageDisplayed(msgId)) {
-                container.appendChild(msg);
-                this.state.addDisplayedMessageId(msgId);
-                added++;
-            }
-        });
-
-        if (added > 0) {
-            Utils.scrollToBottom();
-        }
-    }
-
-    // AJAX request wrapper
-    async ajaxRequest(endpoint, data) {
-        return new Promise((resolve, reject) => {
-            if (typeof ajax_post !== 'function') {
-                reject(new Error('ajax_post not available'));
-                return;
-            }
-
-            // Add CSRF token
-            if (window.csrfName && window.csrf) {
-                data[window.csrfName] = window.csrf;
-            }
-
-            ajax_post(endpoint, data, (response) => {
-                // Update CSRF if provided
-                if (response && response.csrf) {
-                    window.csrf = response.csrf;
-                }
-
-                if (response && !response.success && response.message && response.message.includes(
-                        'CSRF')) {
-                    this.refreshCsrfToken();
-                }
-
-                resolve(response || {
-                    success: false,
-                    message: 'No response'
-                });
-            });
-        });
-    }
-
-    // Refresh CSRF token
-    refreshCsrfToken() {
-        console.log('Refreshing CSRF token...');
-
-        fetch(`${CONFIG.BASE_PATH}/ajax_get_conversations?refresh_csrf=1`, {
-                method: 'GET',
-                credentials: 'same-origin'
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.csrf) {
-                    window.csrf = data.csrf;
-                    console.log('CSRF token refreshed');
-                }
-            })
-            .catch(error => console.error('CSRF refresh failed:', error));
+        alert("Network error. Please try again.");
+    } finally {
+        chatState.isSending = false;
     }
 }
 
-// ===== CONVERSATION MANAGER =====
-class ConversationManager {
-    constructor(state) {
-        this.state = state;
-    }
-
-    // Fetch updated conversations
-    async fetchUpdated() {
-        try {
-            const response = await this.ajaxRequest('ajax_get_conversations', {});
-
-            if (response.success && response.conversations) {
-                this.updateSidebar(response.conversations);
-
-                // Update notification badges
-                if (response.total_unread_count !== undefined) {
-                    this.updateNotificationBadges(response.total_unread_count);
-                }
-            }
-
-        } catch (error) {
-            console.error('Conversation fetch error:', error.message);
-        }
-    }
-
-    // Update sidebar conversations
-    updateSidebar(conversations) {
-        conversations.forEach(conv => {
-            const item = document.querySelector(`.conversation-item[data-conversation-id="${conv.id}"]`);
-            if (item) {
-                this.updateConversationItem(item, conv);
-            }
-        });
-    }
-
-    // Update single conversation item
-    updateConversationItem(item, conv) {
-        // Update badge
-        let badge = item.querySelector('.conversation-badge');
-
-        if (conv.unread_count > 0) {
-            if (!badge) {
-                badge = document.createElement('span');
-                badge.className = 'conversation-badge';
-                badge.dataset.conversationId = conv.id;
-
-                const textRightDiv = item.querySelector('.text-right');
-                if (textRightDiv) textRightDiv.appendChild(badge);
-            }
-
-            badge.textContent = conv.unread_count > 99 ? '99+' : conv.unread_count;
-            badge.style.display = 'flex';
-            item.classList.add('has-unread-messages');
+// ===== SIDEBAR FUNCTIONS =====
+function updateAllNotificationBadges(totalUnreadCount) {
+    const globalBadge = document.getElementById('globalNotificationBadge');
+    if (globalBadge) {
+        if (totalUnreadCount > 0) {
+            globalBadge.textContent = totalUnreadCount > 99 ? '99+' : totalUnreadCount;
+            globalBadge.style.display = 'inline-block';
         } else {
-            if (badge) badge.style.display = 'none';
-            item.classList.remove('has-unread-messages');
-        }
-
-        // Update preview
-        const preview = item.querySelector('.conversation-preview');
-        if (preview) {
-            let previewText = '';
-
-            if (conv.unread_count > 0) {
-                const prefix = conv.last_sender_type === 'recruiter' ?
-                    `${Utils.escapeHtml(conv.recruiter_name || 'Recruiter')}: ` :
-                    'You: ';
-                previewText = `<strong>${prefix}${Utils.escapeHtml(conv.last_message || 'New message')}</strong>`;
-            } else {
-                const prefix = conv.last_sender_type === 'recruiter' ?
-                    `${Utils.escapeHtml(conv.recruiter_name || 'Recruiter')}: ` :
-                    'You: ';
-                previewText = `${prefix}${Utils.escapeHtml(conv.last_message || 'No messages yet')}`;
-            }
-
-            preview.innerHTML = previewText;
-        }
-
-        // Update time
-        const time = item.querySelector('.conversation-time');
-        if (time && conv.last_message_at) {
-            time.textContent = Utils.getTimeAgo(conv.last_message_at);
+            globalBadge.style.display = 'none';
         }
     }
 
-    // Update notification badges
-    updateNotificationBadges(totalUnread) {
-        const globalBadge = document.getElementById('globalNotificationBadge');
-        if (globalBadge) {
-            if (totalUnread > 0) {
-                globalBadge.textContent = totalUnread > 99 ? '99+' : totalUnread;
-                globalBadge.style.display = 'inline-block';
-            } else {
-                globalBadge.style.display = 'none';
-            }
+    const sectionBadge = document.querySelector('.sidebar-section .section-badge');
+    if (sectionBadge) {
+        if (totalUnreadCount > 0) {
+            sectionBadge.textContent = totalUnreadCount;
+            sectionBadge.style.display = 'inline-block';
+        } else {
+            sectionBadge.style.display = 'none';
         }
-
-        const sectionBadge = document.querySelector('.sidebar-section .section-badge');
-        if (sectionBadge) {
-            if (totalUnread > 0) {
-                sectionBadge.textContent = totalUnread;
-                sectionBadge.style.display = 'inline-block';
-            } else {
-                sectionBadge.style.display = 'none';
-            }
-        }
-    }
-
-    // AJAX request wrapper
-    async ajaxRequest(endpoint, data) {
-        return new Promise((resolve) => {
-            if (typeof ajax_post !== 'function') {
-                resolve({
-                    success: false,
-                    message: 'ajax_post not available'
-                });
-                return;
-            }
-
-            // Add CSRF token
-            if (window.csrfName && window.csrf) {
-                data[window.csrfName] = window.csrf;
-            }
-
-            ajax_post(endpoint, data, resolve);
-        });
     }
 }
 
-// ===== EVENT MANAGER =====
-class EventManager {
-    constructor(state, messageManager) {
-        this.state = state;
-        this.messageManager = messageManager;
+function updateSidebarConversationBadges(conversationsData) {
+    conversationsData.forEach(conv => {
+        const conversationItem = document.querySelector(
+            `.conversation-item[data-conversation-uuid="${conv.uuid}"]`);
+        if (conversationItem) {
+            updateSingleConversationBadge(conversationItem, conv);
+        }
+    });
+}
+
+function updateSingleConversationBadge(conversationItem, convData) {
+    let badge = conversationItem.querySelector('.conversation-badge');
+
+    if (convData.unread_count > 0) {
+        if (!badge) {
+            badge = document.createElement('span');
+            badge.className = 'conversation-badge';
+            badge.setAttribute('data-conversation-uuid', convData.uuid);
+
+            const textRightDiv = conversationItem.querySelector('.text-right');
+            if (textRightDiv) {
+                textRightDiv.appendChild(badge);
+            }
+        }
+
+        badge.textContent = convData.unread_count > 99 ? '99+' : convData.unread_count;
+        badge.style.display = 'flex';
+        conversationItem.classList.add('has-unread-messages');
+
+    } else {
+        if (badge) {
+            badge.style.display = 'none';
+        }
+        conversationItem.classList.remove('has-unread-messages');
     }
 
-    // Setup all event listeners
-    setup() {
-        this.setupMessageForm();
-        this.setupTabSwitching();
-        this.setupChatTypeSwitching();
+    const previewElement = conversationItem.querySelector('.conversation-preview');
+    if (previewElement) {
+        let previewText = '';
+
+        if (convData.unread_count > 0) {
+            if (convData.last_sender_type === 'recruiter') {
+                previewText =
+                    `<strong>${escapeHtml(convData.recruiter_name || 'Recruiter')}: ${escapeHtml(convData.last_message || 'New message')}</strong>`;
+            } else {
+                previewText = `<strong>You: ${escapeHtml(convData.last_message || 'New message')}</strong>`;
+            }
+        } else {
+            if (convData.last_sender_type === 'recruiter') {
+                previewText =
+                    `${escapeHtml(convData.recruiter_name || 'Recruiter')}: ${escapeHtml(convData.last_message || 'No messages yet')}`;
+            } else {
+                previewText = `You: ${escapeHtml(convData.last_message || 'No messages yet')}`;
+            }
+        }
+
+        previewElement.innerHTML = previewText;
+    }
+}
+
+// ===== EVENT LISTENERS =====
+function setupEventListeners() {
+    const messageForm = document.getElementById('messageForm');
+    const messageInput = document.getElementById('messageInput');
+
+    // Form submission
+    if (messageForm) {
+        // Remove existing listeners
+        const newForm = messageForm.cloneNode(true);
+        messageForm.parentNode.replaceChild(newForm, messageForm);
+
+        // Add new listener
+        document.getElementById('messageForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            sendMessage();
+            return false;
+        });
     }
 
-    // Setup message form events
-    setupMessageForm() {
-        const form = document.getElementById('messageForm');
-        const input = document.getElementById('messageInput');
-
-        if (form) {
-            form.addEventListener('submit', (e) => {
+    // Message input - Enter key
+    if (messageInput) {
+        messageInput.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();
-                this.handleSendMessage();
-            });
-        }
-
-        if (input) {
-            input.addEventListener('keydown', (e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault();
-                    this.handleSendMessage();
-                }
-            });
-
-            // Auto-focus
-            setTimeout(() => input.focus(), 500);
-        }
-    }
-
-    // Setup tab switching
-    setupTabSwitching() {
-        const tabs = document.querySelectorAll('.chat-type-tab');
-        tabs.forEach(tab => {
-            tab.addEventListener('click', () => {
-                const chatType = tab.dataset.chatType;
-                const url = new URL(window.location.href);
-
-                if (chatType === 'all') {
-                    url.searchParams.delete('chat_type');
-                } else {
-                    url.searchParams.set('chat_type', chatType);
-                }
-
-                window.location.href = url.toString();
-            });
-        });
-    }
-
-    // Setup chat type switching
-    setupChatTypeSwitching() {
-        const buttons = document.querySelectorAll('.switch-chat-type');
-        buttons.forEach(button => {
-            button.addEventListener('click', () => {
-                const action = button.dataset.action;
-                const recruiterId = button.dataset.recruiterId;
-                const conversationUuid = button.dataset.conversationUuid;
-
-                if (action === 'switch_to_general' && conversationUuid) {
-                    this.handleSwitchToGeneral(button, conversationUuid, recruiterId);
-                } else if (action === 'start_candidate_chat' && recruiterId) {
-                    window.location.href =
-                        `<?php echo site_url("agency/candidates/start_candidate_chat/"); ?>${recruiterId}`;
-                }
-            });
-        });
-    }
-
-    // Handle send message
-    handleSendMessage() {
-        const input = document.getElementById('messageInput');
-        const message = input.value.trim();
-
-        if (message) {
-            this.messageManager.send(message);
-        }
-    }
-
-    // Handle switch to general chat
-    handleSwitchToGeneral(button, conversationUuid, recruiterId) {
-        const originalText = button.innerHTML;
-        button.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Switching...';
-        button.disabled = true;
-
-        this.messageManager.ajaxRequest('ajax_switch_chat_to_general', {
-            conversation_uuid: conversationUuid,
-            recruiter_id: recruiterId
-        }).then(response => {
-            button.innerHTML = originalText;
-            button.disabled = false;
-
-            if (response.success && response.general_conversation_uuid) {
-                window.location.href =
-                    `<?php echo site_url("agency/chat/conversation/"); ?>${response.general_conversation_uuid}`;
-            } else {
-                Utils.showNotification(response.message || 'Switch failed', 'error');
+                sendMessage();
+                return false;
             }
         });
+
+        // Focus input
+        setTimeout(() => {
+            messageInput.focus();
+        }, 1000);
+    }
+
+    // Chat type filter buttons
+    const chatTypeTabs = document.querySelectorAll('.chat-type-tab');
+    chatTypeTabs.forEach(tab => {
+        tab.addEventListener('click', function() {
+            const chatType = this.getAttribute('data-chat-type');
+
+            // Update URL with filter parameter
+            const currentUrl = new URL(window.location.href);
+            if (chatType === 'all') {
+                currentUrl.searchParams.delete('chat_type');
+            } else {
+                currentUrl.searchParams.set('chat_type', chatType);
+            }
+
+            window.location.href = currentUrl.toString();
+        });
+    });
+
+    // Search functionality
+    const searchInput = document.querySelector('.form-control[placeholder="Find or start a conversation"]');
+    if (searchInput) {
+        searchInput.addEventListener('input', function() {
+            const searchTerm = this.value.toLowerCase();
+            const conversationItems = document.querySelectorAll('.conversation-item');
+
+            conversationItems.forEach(item => {
+                const recruiterName = item.querySelector('h6').textContent.toLowerCase();
+                const previewText = item.querySelector('.conversation-preview').textContent
+                    .toLowerCase();
+
+                if (recruiterName.includes(searchTerm) || previewText.includes(searchTerm)) {
+                    item.style.display = 'flex';
+                } else {
+                    item.style.display = 'none';
+                }
+            });
+        });
     }
 }
 
-// ===== POLLING MANAGER =====
-class PollingManager {
-    constructor(state, messageManager, conversationManager) {
-        this.state = state;
-        this.messageManager = messageManager;
-        this.conversationManager = conversationManager;
-    }
+// ===== POLLING MANAGEMENT =====
+function startPolling() {
+    console.log("Agency: Starting polling...");
 
-    // Start all polling
-    start() {
-        this.startMessagePolling();
-        this.startConversationPolling();
-    }
+    // Clear any existing intervals
+    if (chatState.pollInterval) clearInterval(chatState.pollInterval);
+    if (chatState.conversationInterval) clearInterval(chatState.conversationInterval);
 
-    // Start message polling
-    startMessagePolling() {
-        if (this.state.pollInterval) {
-            clearInterval(this.state.pollInterval);
-        }
+    // Message polling every 3 seconds
+    chatState.pollInterval = setInterval(fetchNewMessages, 3000);
 
-        this.state.pollInterval = setInterval(() => {
-            this.messageManager.fetchNew();
-        }, CONFIG.POLL_INTERVAL);
+    // Conversation polling every 15 seconds
+    chatState.conversationInterval = setInterval(fetchUpdatedConversations, 15000);
 
-        // Initial poll
-        setTimeout(() => this.messageManager.fetchNew(), 1000);
-    }
-
-    // Start conversation polling
-    startConversationPolling() {
-        if (this.state.conversationInterval) {
-            clearInterval(this.state.conversationInterval);
-        }
-
-        this.state.conversationInterval = setInterval(() => {
-            this.conversationManager.fetchUpdated();
-        }, CONFIG.CONVERSATION_POLL);
-
-        // Initial fetch
-        setTimeout(() => this.conversationManager.fetchUpdated(), 1500);
-    }
-
-    // Stop all polling
-    stop() {
-        if (this.state.pollInterval) {
-            clearInterval(this.state.pollInterval);
-            this.state.pollInterval = null;
-        }
-
-        if (this.state.conversationInterval) {
-            clearInterval(this.state.conversationInterval);
-            this.state.conversationInterval = null;
-        }
-    }
+    // Initial fetches
+    setTimeout(fetchNewMessages, 500);
+    setTimeout(fetchUpdatedConversations, 1000);
 }
 
-// ===== MAIN CHAT SYSTEM =====
-class ChatSystem {
-    constructor() {
-        this.state = new ChatState();
-        this.messageManager = new MessageManager(this.state);
-        this.conversationManager = new ConversationManager(this.state);
-        this.eventManager = new EventManager(this.state, this.messageManager);
-        this.pollingManager = new PollingManager(this.state, this.messageManager, this.conversationManager);
+function stopPolling() {
+    console.log("Agency: Stopping polling...");
+    chatState.activePolling = false;
 
-        this.initialize();
+    if (chatState.pollInterval) {
+        clearInterval(chatState.pollInterval);
+        chatState.pollInterval = null;
     }
 
-    // Initialize the chat system
-    initialize() {
-        console.log('🚀 Initializing Chat System...');
-
-        // Setup events
-        this.eventManager.setup();
-
-        // Start polling
-        this.pollingManager.start();
-
-        // Initial scroll
-        Utils.scrollToBottom();
-
-        console.log('✅ Chat System Ready');
-    }
-
-    // Public API
-    sendMessage(message) {
-        return this.messageManager.send(message);
-    }
-
-    fetchMessages() {
-        return this.messageManager.fetchNew();
-    }
-
-    stop() {
-        this.pollingManager.stop();
+    if (chatState.conversationInterval) {
+        clearInterval(chatState.conversationInterval);
+        chatState.conversationInterval = null;
     }
 }
 
 // ===== INITIALIZATION =====
-document.addEventListener('DOMContentLoaded', () => {
-    // Create global chat instance
-    window.chatSystem = new ChatSystem();
+function initializeChatSystem() {
+    console.log('=== AGENCY CHAT SYSTEM INITIALIZING ===');
 
-    // Test CSRF
-    testCsrf();
+    // Get current conversation UUID
+    const uuidField = document.getElementById('conversationUuid');
+    if (uuidField && uuidField.value) {
+        chatState.currentConversationUuid = uuidField.value;
+        console.log("Agency: Current conversation UUID:", chatState.currentConversationUuid);
+    } else {
+        console.error("Agency: No conversation UUID found!");
+        return;
+    }
+
+    // Initialize displayed messages
+    initializeDisplayedMessages();
+
+    // Setup event listeners
+    setupEventListeners();
+
+    // Wait for layout to settle, then scroll to bottom
+    setTimeout(() => {
+        scrollToBottom();
+        setTimeout(scrollToBottom, 500);
+    }, 300);
+
+    // Start polling
+    startPolling();
+
+    console.log('=== AGENCY CHAT SYSTEM INITIALIZED ===');
+}
+
+// ===== PAGE VISIBILITY =====
+document.addEventListener('visibilitychange', function() {
+    if (document.hidden) {
+        stopPolling();
+    } else {
+        chatState.activePolling = true;
+        startPolling();
+    }
 });
 
-// ===== CSRF TEST FUNCTION =====
-function testCsrf() {
-    console.log('Testing CSRF configuration...');
+// ===== TEST FUNCTION =====
+async function testAgencyAjax() {
+    console.log('Testing Agency AJAX...');
 
-    if (typeof ajax_post === 'function') {
-        ajax_post('ajax_get_conversations', {
-            test: true
-        }, (response) => {
-            if (response.success) {
-                console.log('✅ CSRF test passed');
-            } else {
-                console.error('❌ CSRF test failed:', response.message);
-            }
-        });
-    } else {
-        console.warn('⚠️ ajax_post not available for CSRF test');
+    try {
+        const response = await makeAjaxRequest('ajax_check_session', {});
+        console.log('Agency test response:', response);
+
+        if (response.success) {
+            console.log('✅ Agency AJAX working!');
+        } else {
+            console.log('❌ Agency AJAX failed:', response.message);
+        }
+    } catch (error) {
+        console.error('❌ Agency AJAX error:', error);
     }
 }
 
-// ===== PUBLIC API =====
-window.ChatUtils = {
-    sendTestMessage: function() {
-        const input = document.getElementById('messageInput');
-        if (input && window.chatSystem) {
-            input.value = 'Test at ' + new Date().toLocaleTimeString();
-            window.chatSystem.sendMessage(input.value);
-        }
-    },
+// ===== MAIN INITIALIZATION =====
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('Agency: DOM Content Loaded - Initializing Chat System');
 
-    refreshMessages: function() {
-        if (window.chatSystem) {
-            window.chatSystem.fetchMessages();
-        }
-    },
+    // Run test after a delay
+    setTimeout(testAgencyAjax, 1000);
 
-    getState: function() {
-        return window.chatSystem ? window.chatSystem.state : null;
-    }
-};
+    // Initialize chat system
+    setTimeout(initializeChatSystem, 500);
+});
 </script>
