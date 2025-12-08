@@ -39,6 +39,10 @@
     border-top-color: #000;
     z-index: 10000;
 }
+
+ul.pagination.justify-content-center.mb-2 {
+    display: none;
+}
 </style>
 
 <script>
@@ -201,7 +205,106 @@ function setupTooltips() {
         }
     });
 }
+// Force 10 candidates per page - TEMPORARY FIX
+function enforcePagination() {
+    console.log('Enforcing 10 candidates per page...');
 
+    // Wait for table to load
+    setTimeout(function() {
+        var table = document.querySelector('.data-table');
+        if (!table) return;
+
+        var rows = table.querySelectorAll('tbody tr:not(.expanded-list-item)');
+        console.log('Found ' + rows.length + ' candidate rows');
+
+        if (rows.length <= 10) {
+            console.log('Already showing 10 or fewer rows');
+            return;
+        }
+
+        // Get current page
+        var urlParams = new URLSearchParams(window.location.search);
+        var currentPage = parseInt(urlParams.get('page')) || 1;
+        var perPage = 10;
+
+        console.log('Current page: ' + currentPage);
+
+        // Calculate which rows to show
+        var startIndex = (currentPage - 1) * perPage;
+        var endIndex = startIndex + perPage;
+
+        console.log('Showing rows ' + (startIndex + 1) + ' to ' + Math.min(endIndex, rows.length));
+
+        // Show/hide rows
+        for (var i = 0; i < rows.length; i++) {
+            if (i >= startIndex && i < endIndex) {
+                rows[i].style.display = '';
+            } else {
+                rows[i].style.display = 'none';
+            }
+        }
+
+        // Create pagination if it doesn't exist
+        createSimplePagination(rows.length, currentPage);
+
+    }, 1000);
+}
+
+// Create simple pagination
+function createSimplePagination(totalRows, currentPage) {
+    var perPage = 10;
+    var totalPages = Math.ceil(totalRows / perPage);
+
+    if (totalPages <= 1) return;
+
+    // Remove existing custom pagination
+    var oldPagination = document.getElementById('simple-pagination');
+    if (oldPagination) oldPagination.remove();
+
+    // Create new pagination
+    var paginationHTML = '<div id="simple-pagination" style="margin: 20px 0; text-align: center;">';
+
+    // Previous button
+    if (currentPage > 1) {
+        paginationHTML += '<a href="?page=' + (currentPage - 1) +
+            '" style="margin: 0 5px; padding: 5px 10px; border: 1px solid #ddd;">&laquo; Previous</a>';
+    }
+
+    // Page numbers
+    for (var i = 1; i <= totalPages; i++) {
+        if (i === currentPage) {
+            paginationHTML += '<span style="margin: 0 5px; padding: 5px 10px; background: #007bff; color: white;">' +
+                i + '</span>';
+        } else {
+            paginationHTML += '<a href="?page=' + i +
+                '" style="margin: 0 5px; padding: 5px 10px; border: 1px solid #ddd;">' + i + '</a>';
+        }
+    }
+
+    // Next button
+    if (currentPage < totalPages) {
+        paginationHTML += '<a href="?page=' + (currentPage + 1) +
+            '" style="margin: 0 5px; padding: 5px 10px; border: 1px solid #ddd;">Next &raquo;</a>';
+    }
+
+    paginationHTML += '</div>';
+
+    // Add to page
+    var container = document.querySelector('.pagination-container') || document.querySelector('.card-body');
+    if (container) {
+        container.insertAdjacentHTML('beforeend', paginationHTML);
+    }
+}
+
+// Run on page load
+document.addEventListener('DOMContentLoaded', function() {
+    setTimeout(enforcePagination, 1500);
+});
+
+// Run when new rows are loaded
+$(document).on('batchLoaded', function() {
+    setTimeout(enforcePagination, 500);
+});
 // Run immediately and frequently
 setupTooltips();
 setInterval(setupTooltips, 500);

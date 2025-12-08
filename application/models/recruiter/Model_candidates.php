@@ -86,8 +86,78 @@ public function get_all($limit = null, $offset = null, $sort_by = 'first_name', 
         return $query;
     }
 
-// In Model_candidates.php for recruiter, add this method:
+public function ajax_pager_fetch_batch($batch = 1, $section = "", $template = "listing")
+{
+    log_message('debug', 'Candidates::ajax_pager_fetch_batch() called');
+    log_message('debug', '  batch=' . $batch . ', section="' . $section . '"');
+    
+    // Get current page from URL
+    $page = $this->input->get('page') ?: $batch;
+    $limit = $this->perPage; // Should be 10
+    
+    // Calculate offset
+    $offset = ($page - 1) * $limit;
+    
+    log_message('debug', '  Using page=' . $page . ', limit=' . $limit . ', offset=' . $offset);
+    
+    // Get filters from session
+    $filters = $this->get_filters_from_session();
+    log_message('debug', '  Active filters: ' . json_encode($filters));
+    
+    // Set filters to model
+    $this->{$this->model}->set_current_filters($filters);
+    
+    // Call parent with calculated limit/offset
+    $this->page = $batch;
+    
+    try {
+        // Call get_all with explicit limit/offset
+        $query = $this->{$this->model}->get_all($limit, $offset, 'first_name', 'ASC', $filters);
+    } catch(Exception $e) {
+        log_message('error', 'Error in get_all: ' . $e->getMessage());
+        
+        // Fallback to parent method
+        parent::ajax_pager_fetch_batch($batch, $section, $template);
+        return;
+    }
+    
+    $amount = $this->{$this->model}->count_all();
+    log_message('debug', '  Total candidates: ' . $amount);
+    
+    // Generate HTML
+    $html = $this->load->view('cms/crud/ajax_' . $template . '_rows', array(
+        'query' => $query,
+        'batch' => $batch,
+        'amount' => $amount
+    ), TRUE);
+    
+    $this->output->set_output($html);
+}
 
+/**
+ * Get paginated results with proper counting
+ */
+public function get_paginated($page = 1, $per_page = 10)
+{
+    $offset = ($page - 1) * $per_page;
+    
+    // Get filters from session via controller
+    $filters = isset($this->current_filters) ? $this->current_filters : [];
+    
+    // Get total count
+    $total = $this->count_all();
+    
+    // Get paginated results
+    $query = $this->get_all($per_page, $offset, 'first_name', 'ASC', $filters);
+    
+    return [
+        'data' => $query->result(),
+        'total' => $total,
+        'per_page' => $per_page,
+        'current_page' => $page,
+        'total_pages' => ceil($total / $per_page)
+    ];
+}
 /**
  * Get candidate details with job information
  */

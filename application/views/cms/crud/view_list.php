@@ -132,7 +132,8 @@ if (!empty($submodules[$this->pageName])) {
                     <div class="body">
                         <div class="table-responsive">
                             <table
-                                class="table table-hover js-basic-example dataTable table-custom m-b-0 <?= $tableClasses; ?>">
+                                class="table table-hover js-basic-example dataTable table-custom m-b-0 <?= $tableClasses; ?>"
+                                data-total-items="<?php echo isset($total_items) ? $total_items : 0; ?>">
                                 <thead>
                                     <tr class="header-row">
                                         <?php
@@ -187,6 +188,18 @@ if (!empty($submodules[$this->pageName])) {
                                 </tbody>
                             </table>
                         </div>
+
+                        <!-- ========== PAGINATION SECTION ========== -->
+                        <div class="pagination-container" style="padding: 20px 0; border-top: 1px solid #dee2e6;">
+                            <div id="fallback-pagination" style="display: none;">
+                                <nav aria-label="Page navigation">
+                                    <ul class="pagination justify-content-center mb-2">
+                                        <!-- Pagination links will be inserted here by JavaScript -->
+                                    </ul>
+                                </nav>
+                                <div class="text-center text-muted" id="pagination-info"></div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -214,6 +227,14 @@ var callOnce;
 var defaultSorting = new Object();
 var sorting = new Object();
 var autoCompleteTimer;
+
+// ========== PAGINATION VARIABLES ==========
+var currentPage = 1;
+var totalPages = 1;
+var totalItems = 0;
+var itemsPerPage = 10; // Should match $this->perPage in controller
+// ========== END PAGINATION VARIABLES ==========
+
 <?php
 if (!empty($this->sorting)) {
     foreach ($this->sorting as $field => $order) {
@@ -229,10 +250,18 @@ window.addEventListener('DOMContentLoaded', (event) => {
 
     load_results_init();
 
+    // ========== INITIALIZE PAGINATION ==========
+    setTimeout(function() {
+        setupPagination();
+    }, 500);
+
     $(document).on('batchLoaded', function() {
         $('[data-toggle="listing-tt"]').tooltip({
             trigger: 'hover'
         });
+
+        // Update pagination after batch loads
+        setTimeout(updatePaginationInfo, 100);
     });
 
 
@@ -382,6 +411,9 @@ window.addEventListener('DOMContentLoaded', (event) => {
         ajax_post('ajax_apply_filters', filters, function(d) {
             if (d.success) {
                 load_results_init();
+                // Reset to page 1 when filters change
+                currentPage = 1;
+                setTimeout(renderPagination, 500);
             }
         });
 
@@ -400,6 +432,9 @@ window.addEventListener('DOMContentLoaded', (event) => {
                 ajax_post('ajax_apply_filters', filters, function(d) {
                     if (d.success) {
                         load_results_init();
+                        // Reset to page 1 when filters change
+                        currentPage = 1;
+                        setTimeout(renderPagination, 500);
                     }
                 });
             }, 500);
@@ -414,6 +449,9 @@ window.addEventListener('DOMContentLoaded', (event) => {
         ajax_post('ajax_apply_filters', filters, function(d) {
             if (d.success) {
                 load_results_init();
+                // Reset to page 1 when filters change
+                currentPage = 1;
+                setTimeout(renderPagination, 500);
             }
         });
     });
@@ -429,6 +467,9 @@ window.addEventListener('DOMContentLoaded', (event) => {
             ajax_post('ajax_apply_filters', filters, function(d) {
                 if (d.success) {
                     load_results_init();
+                    // Reset to page 1 when filters change
+                    currentPage = 1;
+                    setTimeout(renderPagination, 500);
                 }
             });
         }
@@ -444,6 +485,9 @@ window.addEventListener('DOMContentLoaded', (event) => {
             ajax_post('ajax_apply_filters', filters, function(d) {
                 if (d.success) {
                     load_results_init();
+                    // Reset to page 1 when filters change
+                    currentPage = 1;
+                    setTimeout(renderPagination, 500);
                 }
             });
         }
@@ -605,6 +649,190 @@ window.addEventListener('DOMContentLoaded', (event) => {
 
 });
 
+// ========== PAGINATION FUNCTIONS ==========
+function setupPagination() {
+    console.log('Setting up pagination...');
+
+    // Check current page from URL
+    var urlParams = new URLSearchParams(window.location.search);
+    var pageParam = urlParams.get('page');
+
+    if (pageParam) {
+        currentPage = parseInt(pageParam);
+    }
+
+    // Get total items
+    getTotalCount();
+}
+
+function getTotalCount() {
+    // Get total from data attribute
+    var table = document.querySelector('.data-table[data-total-items]');
+
+    if (table) {
+        totalItems = parseInt(table.getAttribute('data-total-items')) || 0;
+        calculatePagination();
+        renderPagination();
+    } else {
+        // Try to get from visible rows
+        setTimeout(function() {
+            var rows = document.querySelectorAll('.data-table tbody tr:not(.expanded-list-item)');
+            totalItems = rows.length;
+
+            if (totalItems > 0) {
+                calculatePagination();
+                renderPagination();
+            }
+        }, 1000);
+    }
+}
+
+function calculatePagination() {
+    if (totalItems > 0 && itemsPerPage > 0) {
+        totalPages = Math.ceil(totalItems / itemsPerPage);
+    }
+}
+
+function renderPagination() {
+    if (totalPages <= 1) {
+        // Hide pagination if only one page
+        document.querySelector('.pagination-container').style.display = 'none';
+        return;
+    }
+
+    document.querySelector('.pagination-container').style.display = 'block';
+
+    var paginationHTML = generatePaginationHTML();
+    var paginationUl = document.querySelector('#fallback-pagination .pagination');
+
+    if (paginationUl) {
+        paginationUl.innerHTML = paginationHTML;
+        document.getElementById('fallback-pagination').style.display = 'block';
+
+        // Update info text
+        updatePaginationInfo();
+
+        // Attach click handlers
+        attachPaginationClickHandlers();
+    }
+}
+
+function generatePaginationHTML() {
+    var html = '';
+
+    // Previous button
+    if (currentPage > 1) {
+        html += '<li class="page-item"><a class="page-link pagination-link" href="#" data-page="' + (currentPage - 1) +
+            '">&laquo; Previous</a></li>';
+    } else {
+        html += '<li class="page-item disabled"><span class="page-link">&laquo; Previous</span></li>';
+    }
+
+    // Page numbers
+    var startPage = Math.max(1, currentPage - 2);
+    var endPage = Math.min(totalPages, currentPage + 2);
+
+    // First page
+    if (startPage > 1) {
+        html += '<li class="page-item"><a class="page-link pagination-link" href="#" data-page="1">1</a></li>';
+        if (startPage > 2) {
+            html += '<li class="page-item disabled"><span class="page-link">...</span></li>';
+        }
+    }
+
+    // Middle pages
+    for (var i = startPage; i <= endPage; i++) {
+        if (i === currentPage) {
+            html += '<li class="page-item active"><span class="page-link">' + i + '</span></li>';
+        } else {
+            html += '<li class="page-item"><a class="page-link pagination-link" href="#" data-page="' + i + '">' + i +
+                '</a></li>';
+        }
+    }
+
+    // Last page
+    if (endPage < totalPages) {
+        if (endPage < totalPages - 1) {
+            html += '<li class="page-item disabled"><span class="page-link">...</span></li>';
+        }
+        html += '<li class="page-item"><a class="page-link pagination-link" href="#" data-page="' + totalPages + '">' +
+            totalPages + '</a></li>';
+    }
+
+    // Next button
+    if (currentPage < totalPages) {
+        html += '<li class="page-item"><a class="page-link pagination-link" href="#" data-page="' + (currentPage + 1) +
+            '">Next &raquo;</a></li>';
+    } else {
+        html += '<li class="page-item disabled"><span class="page-link">Next &raquo;</span></li>';
+    }
+
+    return html;
+}
+
+function attachPaginationClickHandlers() {
+    document.querySelectorAll('.pagination-link').forEach(function(link) {
+        link.addEventListener('click', function(e) {
+            e.preventDefault();
+            var page = parseInt(this.getAttribute('data-page'));
+
+            if (page && page !== currentPage) {
+                goToPage(page);
+            }
+        });
+    });
+}
+
+function goToPage(page) {
+    // Update URL
+    var url = new URL(window.location);
+    url.searchParams.set('page', page);
+    window.history.pushState({}, '', url);
+
+    // Update current page
+    currentPage = page;
+
+    // Clear table and reload
+    $('.data-table tbody').empty();
+    load_results_init();
+
+    // Update pagination
+    setTimeout(renderPagination, 500);
+}
+
+function updatePaginationInfo() {
+    var infoDiv = document.getElementById('pagination-info');
+    if (infoDiv && totalItems > 0) {
+        var start = ((currentPage - 1) * itemsPerPage) + 1;
+        var end = Math.min(currentPage * itemsPerPage, totalItems);
+        infoDiv.innerHTML = 'Showing ' + start + ' to ' + end + ' of ' + totalItems + ' candidates';
+    }
+}
+
+// Handle browser back/forward buttons
+window.addEventListener('popstate', function() {
+    var urlParams = new URLSearchParams(window.location.search);
+    var pageParam = urlParams.get('page');
+
+    if (pageParam) {
+        var newPage = parseInt(pageParam);
+        if (newPage !== currentPage) {
+            currentPage = newPage;
+            $('.data-table tbody').empty();
+            load_results_init();
+            setTimeout(renderPagination, 500);
+        }
+    }
+});
+
+// Modify get_filter_params to include page
+var originalGetFilterParams = get_filter_params;
+get_filter_params = function() {
+    var filters = originalGetFilterParams();
+    filters.page = currentPage;
+    return filters;
+};
+
 function clear_filters() {
 
     $('.listing-filters .filter-value').val('');
@@ -618,7 +846,10 @@ function clear_filters() {
     filters.section = section;
     ajax_post('ajax_apply_filters', filters, function(d) {
         if (d.success) {
+            // Reset to page 1 when clearing filters
+            currentPage = 1;
             load_results_init();
+            setTimeout(renderPagination, 500);
         }
     });
 }
@@ -640,5 +871,45 @@ function clear_filters() {
 /* Keep default cursor for expanded items only */
 .data-table tbody tr.expanded-list-item {
     cursor: default !important;
+}
+
+/* Pagination styles */
+.pagination {
+    margin: 0;
+}
+
+.pagination .page-item.active .page-link {
+    background-color: #007bff;
+    border-color: #007bff;
+    color: white;
+}
+
+.pagination .page-link {
+    color: #007bff;
+    padding: 6px 12px;
+    margin: 0 2px;
+    border: 1px solid #dee2e6;
+    border-radius: 3px;
+}
+
+.pagination .page-link:hover {
+    background-color: #e9ecef;
+    text-decoration: none;
+}
+
+.pagination .page-item.disabled .page-link {
+    color: #6c757d;
+    pointer-events: none;
+    background-color: #fff;
+}
+
+.pagination-container {
+    padding: 20px 0;
+    border-top: 1px solid #dee2e6;
+}
+
+#pagination-info {
+    font-size: 0.9em;
+    color: #6c757d;
 }
 </style>

@@ -19,7 +19,7 @@ class Candidates extends CRUD_Controller
     {
         parent::__construct();
         $this->folder = 'recruiter';
-        $this->perPage = 25; 
+        $this->perPage = 10; 
 
         // Allow only recruiters
         $login_data = $this->session->userdata('login');
@@ -39,6 +39,8 @@ class Candidates extends CRUD_Controller
         $this->load->model('recruiter/Model_chat_messages');
         // Load notifications model
         $this->load->model('recruiter/Model_notifications');
+
+        log_message('debug', 'Candidates controller loaded with perPage: ' . $this->perPage);
     }
 
 
@@ -169,14 +171,37 @@ private function check_recruiter_candidate_access($candidate) {
     error_log("Access check - Recruiter ID: $recruiter_id, Candidate Agent ID: " . ($candidate->assigned_agent_id ?? 'NULL'));
     
     // Check if candidate belongs to this recruiter
-    // Adjust field name if different
     return isset($candidate->assigned_agent_id) && ($candidate->assigned_agent_id == $recruiter_id);
 }
 
 /**
  * Enforce access control
  */
-private function enforce_recruiter_candidate_access($candidate, $is_ajax = false) {
+private function enforce_recruiter_candidate_access($candidate_or_identifier, $is_ajax = false) {
+    // Handle both candidate object or identifier
+    if (is_string($candidate_or_identifier) || is_numeric($candidate_or_identifier)) {
+        // It's an identifier, get the candidate
+        $candidate = $this->{$this->model}->get_candidate($candidate_or_identifier);
+    } else {
+        // It's already a candidate object
+        $candidate = $candidate_or_identifier;
+    }
+    
+    if (!$candidate) {
+        if ($is_ajax) {
+            $this->output
+                ->set_content_type('application/json')
+                ->set_output(json_encode([
+                    'success' => false, 
+                    'message' => 'Candidate not found'
+                ]));
+        } else {
+            show_404();
+        }
+        return false;
+    }
+    
+    // Now check access
     if (!$this->check_recruiter_candidate_access($candidate)) {
         error_log("ACCESS DENIED - Recruiter tried to access candidate they don't own");
         
@@ -362,9 +387,8 @@ private function enforce_recruiter_candidate_access($candidate, $is_ajax = false
             }
         }
 
-    public function index(): void
+public function index(): void
 {
-   
     // Get job_id from URL parameters for filtering
     $job_id = $this->input->get('job_id');
     
@@ -377,18 +401,45 @@ private function enforce_recruiter_candidate_access($candidate, $is_ajax = false
     
     // Load the view_list_extra for chat functionality
     $this->view = 'listing';
-    $this->load->view('recruiter/candidates/view_list_extra'); // Add this line
-    // In index(), just for testing
-$this->session->unset_userdata('ecms_filters_candidates');
+    $this->load->view('recruiter/candidates/view_list_extra');
+    
+    // ========== Get total candidates count ==========
+    $filters = $this->get_filters_from_session();
+    $this->{$this->model}->set_current_filters($filters);
+    $total_candidates = $this->{$this->model}->count_all();
+    
+    // Get current page
+    $page = $this->input->get('page') ?: 1;
+    
     $this->load->view($this->folder . '/' . 'view_header');
     $this->load->view('cms/crud/view_list', array(
         'heading'           => lang($this->pageName . '_heading'),
         'noRows'            => lang($this->pageName . '_no_rows'),
         'filter_job_id'     => $job_id,
+        'total_items'       => $total_candidates,
+        'current_page'      => $page,
+        'per_page'          => 10, // Explicitly set per page
     ));
     $this->load->view($this->folder . '/' . 'view_footer');
 }
 
+
+public function ajax_get_total_count()
+{
+    if (!$this->input->is_ajax_request()) {
+        show_404();
+    }
+    
+    // Get filters
+    $filters = $this->get_filters_from_session();
+    $this->{$this->model}->set_current_filters($filters);
+    
+    // Get total count
+    $total = $this->{$this->model}->count_all();
+    
+    $this->output->set_content_type('application/json')
+                 ->set_output(json_encode(['total' => $total]));
+}
   public function edit($uuid_or_id = null)
 {
     // ✅ ADD ACCESS CONTROL
@@ -1542,73 +1593,166 @@ public function update($uuid_or_id = null)
             return true;
         }
 
-    public function get_all($limit = null, $offset = null, $sort_by = 'first_name', $sort_order = 'ASC', $filters = [])
-        {
-            // Select base candidate fields
-            $this->db->select('candidates.*');
+public function get_all($limit = null, $offset = null, $sort_by = 'first_name', $sort_order = 'ASC', $filters = [])
+{
+    // ========== PROPER PAGINATION HANDLING ==========
+    $actual_limit = 10; // Force 10 per page
+    $actual_offset = 0;
+    
+    // Check if this is a CRUD system call (string parameter)
+    if (is_string($limit) && $limit === 'listing') {
+        // Get page from URL or default to 1
+        $page = isset($_GET['page']) ? max(1, (int)$_GET['page']) : 1;
+        $actual_offset = ($page - 1) * $actual_limit;
+    } else if (is_numeric($limit)) {
+        // Direct call with numeric parameters
+        $actual_limit = (int)$limit;
+        $actual_offset = (int)$offset;
+    }
+    
+    log_message('debug', 'Pagination: limit=' . $actual_limit . ', offset=' . $actual_offset . ', page=' . ($page ?? 'N/A'));
+    
+    // ========== YOUR EXISTING QUERY CODE ==========
+    // Select base candidate fields
+    $this->db->select('candidates.*');
 
-            // Subquery: get all agency names for this candidate
-            $this->db->select("(SELECT GROUP_CONCAT(a.name SEPARATOR ', ')
-                                FROM candidate_agencies ca
-                                JOIN agencies a ON a.id = ca.agency_id
-                                WHERE ca.candidate_id = candidates.id
-                                AND a.removed = 0 AND a.enabled = 1
-                            ) AS agency_name", false);
+    // Subquery: get all agency names for this candidate
+    $this->db->select("(SELECT GROUP_CONCAT(a.name SEPARATOR ', ')
+                        FROM candidate_agencies ca
+                        JOIN agencies a ON a.id = ca.agency_id
+                        WHERE ca.candidate_id = candidates.id
+                        AND a.removed = 0 AND a.enabled = 1
+                    ) AS agency_name", false);
 
-            // Subquery: get all job names for this candidate
-            $this->db->select("(SELECT GROUP_CONCAT(j.name SEPARATOR ', ')
-                                FROM candidate_jobs cj
-                                JOIN mod_jobs j ON j.id = cj.job_id
-                                WHERE cj.candidate_id = candidates.id
-                                AND j.removed = 0 AND j.enabled = 1
-                            ) AS job_name", false);
+    // Subquery: get all job names for this candidate
+    $this->db->select("(SELECT GROUP_CONCAT(j.name SEPARATOR ', ')
+                        FROM candidate_jobs cj
+                        JOIN mod_jobs j ON j.id = cj.job_id
+                        WHERE cj.candidate_id = candidates.id
+                        AND j.removed = 0 AND j.enabled = 1
+                    ) AS job_name", false);
 
-            $this->db->from($this->table);
-            $this->db->where('candidates.removed', 0);
+    $this->db->from($this->table);
+    $this->db->where('candidates.removed', 0);
 
-            // ADD THIS: Filter by recruiter's assigned candidates - FIXED VERSION
-            $this->filter_by_recruiter();
+    // Filter by recruiter's assigned candidates
+    $this->filter_by_recruiter();
 
-            // Add job filtering if job_id is provided in filters
-            if (!empty($filters['job_id'])) {
-                $job_id = $filters['job_id'];
-                $this->db->group_start();
-                $this->db->where('candidates.job_id', $job_id); // Primary job assignment
-                $this->db->or_where("candidates.id IN (SELECT candidate_id FROM candidate_jobs WHERE job_id = $job_id)"); // Additional job assignments
-                $this->db->group_end();
-            }
+    // Add job filtering
+    if (!empty($filters['job_id'])) {
+        $job_id = $filters['job_id'];
+        $this->db->group_start();
+        $this->db->where('candidates.job_id', $job_id);
+        $this->db->or_where("candidates.id IN (SELECT candidate_id FROM candidate_jobs WHERE job_id = $job_id)");
+        $this->db->group_end();
+    }
 
-            // Apply any additional filters from the CRUD system
-            if (!empty($filters['general'])) {
-                $this->db->group_start();
-                foreach (['candidates.first_name', 'candidates.last_name', 'candidates.email', 'candidates.reference_number'] as $field) {
-                    $this->db->or_like($field, $filters['general']);
-                }
-                $this->db->group_end();
-            }
-
-            if (!empty($filters['status'])) {
-                $this->db->where('candidates.status', $filters['status']);
-            }
-
-            // Sorting
-            if ($sort_by) {
-                if (!in_array($sort_by, ['agency_name', 'job_name'])) {
-                    $this->db->order_by("candidates.$sort_by", $sort_order ?: 'ASC');
-                }
-            }
-
-            if ($limit !== null) {
-                $this->db->limit($limit, $offset);
-            }
-
-            // DEBUG: Log the final query
-            $query = $this->db->get();
-           
-
-            return $query;
+    // Apply search filter
+    if (!empty($filters['general'])) {
+        $this->db->group_start();
+        foreach (['candidates.first_name', 'candidates.last_name', 'candidates.email', 'candidates.reference_number'] as $field) {
+            $this->db->or_like($field, $filters['general']);
         }
+        $this->db->group_end();
+    }
 
+    // Apply status filter
+    if (!empty($filters['status'])) {
+        $this->db->where('candidates.status', $filters['status']);
+    }
+
+    // Sorting
+    if ($sort_by && !in_array($sort_by, ['agency_name', 'job_name'])) {
+        $this->db->order_by("candidates.$sort_by", $sort_order ?: 'ASC');
+    }
+
+    // ========== APPLY PAGINATION ==========
+    $this->db->limit($actual_limit, $actual_offset);
+
+    // Execute query
+    $query = $this->db->get();
+    
+    log_message('debug', 'Query returned ' . $query->num_rows() . ' rows');
+    log_message('debug', 'SQL: ' . $this->db->last_query());
+
+    return $query;
+}
+
+/**
+ * Override the CRUD's ajax_list to ensure proper pagination
+ */
+public function ajax_list($section = '', $template = 'listing')
+{
+    if (!$this->input->is_ajax_request()) {
+        show_404();
+    }
+    
+    // Get current page
+    $page = $this->input->post('page') ?: 1;
+    $perPage = 10; // Force 10 per page
+    
+    // Calculate offset
+    $offset = ($page - 1) * $perPage;
+    
+    // Get filters
+    $filters = $this->get_filters_from_session();
+    
+    // Get sorting
+    $sort_by = $this->input->post('sort_by') ?: 'first_name';
+    $sort_order = $this->input->post('sort_order') ?: 'ASC';
+    
+    // Get data with proper pagination
+    $this->{$this->model}->set_current_filters($filters);
+    $query = $this->{$this->model}->get_all($perPage, $offset, $sort_by, $sort_order, $filters);
+    
+    // Get total count for pagination
+    $total_rows = $this->{$this->model}->count_all();
+    
+    // Prepare data for view
+    $data = [
+        'rows' => $query->result(),
+        'heading' => lang($this->pageName . '_heading'),
+        'noRows' => lang($this->pageName . '_no_rows'),
+        'total_rows' => $total_rows,
+        'per_page' => $perPage,
+        'current_page' => $page,
+        'listFields' => $this->listFields,
+        'listActions' => $this->listActions,
+        'show_select' => true,
+    ];
+    
+    // Load the listing view
+    $this->load->view('cms/crud/' . $template, $data);
+}
+
+/**
+ * Debug method to test pagination
+ */
+public function debug_pagination()
+{
+    echo "<h1>Candidates Pagination Debug</h1>";
+    
+    // Test different calling patterns
+    echo "<h2>Test 1: Direct call with limit=10</h2>";
+    $result1 = $this->Model_candidates->get_all(10, 0);
+    echo "Rows returned: " . $result1->num_rows() . "<br><br>";
+    
+    echo "<h2>Test 2: CRUD-style call (string parameter)</h2>";
+    $result2 = $this->Model_candidates->get_all('listing');
+    echo "Rows returned: " . $result2->num_rows() . "<br><br>";
+    
+    echo "<h2>Test 3: Total count</h2>";
+    $total = $this->Model_candidates->count_all();
+    echo "Total candidates: " . $total . "<br><br>";
+    
+    echo "<h2>Check Logs</h2>";
+    echo "Look in: application/logs/log-[date].php<br>";
+    echo "Or enable browser console for JavaScript debugging<br>";
+    
+    echo "<h2>Live Test</h2>";
+    echo '<a href="' . site_url('recruiter/candidates') . '" target="_blank">View Candidates Page</a><br>';
+    echo '<a href="' . site_url('recruiter/candidates?page=2') . '" target="_blank">View Page 2</a>';
+}
      public function quick_manage_extra($id, $row): array
     {
         // If $id is a UUID string, get the actual ID
@@ -2765,49 +2909,38 @@ public function ajax_get_candidate_chat_info($candidate_id)
     ]);
 }
 
-/**
- * Start chat for candidate (recruiter side)
- */
- public function start_candidate_chat($uuid_or_id)
-    {
-        // ✅ ADD ACCESS CONTROL
-    if (!$this->enforce_recruiter_candidate_access($uuid_or_id)) {
-        return;
+public function start_candidate_chat($uuid_or_id)
+{
+    // Get candidate by UUID or ID first
+    $candidate = $this->{$this->model}->get_candidate($uuid_or_id);
+    
+    if (!$candidate) {
+        show_404();
     }
-        $recruiter_id = $this->get_recruiter_id();
-        
-        if (!$recruiter_id) {
-            show_error('Access denied', 403);
-        }
-        
-        // Get candidate by UUID or ID
-        $candidate = $this->{$this->model}->get_candidate($uuid_or_id);
-        
-        if (!$candidate) {
-            show_404();
-        }
-        
-        // Verify recruiter has access to this candidate
-        $has_access = $this->{$this->model}->check_recruiter_candidate_access($recruiter_id, $candidate->id);
-        
-        if (!$has_access) {
-            show_error('Access denied to this candidate', 403);
-        }
-        
-        // Create or get conversation using UUID
-        $conversation = $this->Model_chat_messages->get_or_create_candidate_conversation(
-            $candidate->agency_id,
-            $recruiter_id,
-            $candidate->id,
-            $candidate->job_id
-        );
-        
-        if ($conversation && !empty($conversation->uuid)) {
-            redirect('recruiter/chat/conversation/' . $conversation->uuid);
-        } else {
-            show_error('Failed to create chat conversation');
-        }
+    
+    // ✅ Now pass the candidate OBJECT to enforce_recruiter_candidate_access
+    if (!$this->enforce_recruiter_candidate_access($candidate)) {
+        return; // Already shows error
     }
+    
+    $recruiter_id = $this->get_recruiter_id();
+    
+    // Create or get conversation using UUID
+    $conversation = $this->Model_chat_messages->get_or_create_candidate_conversation(
+        $candidate->agency_id,
+        $recruiter_id,
+        $candidate->id,
+        $candidate->job_id
+    );
+    
+    if ($conversation && !empty($conversation->uuid)) {
+        redirect('recruiter/chat/conversation/' . $conversation->uuid);
+    } else {
+        show_error('Failed to create chat conversation');
+    }
+}
+
+
 public function conversation($uuid = null)
 {
     $recruiter_id = $this->get_recruiter_id();
@@ -3039,6 +3172,7 @@ public function ajax_submit_required_documents()
         ]));
     }
 }
+
 
 
 }
