@@ -15,7 +15,44 @@ $(document).ready(function() {
     //Init menu tooltips
     init_menu_tooltips();
 
+     $('body').attr('data-theme', 'dark');
+    localStorage.setItem('theme', 'dark');
+    
+    // Remove any toggle buttons/triggers from the DOM
+    $('[onclick*="toggle_dark_mode"]').remove();
+    $('.dark-mode-toggle, .theme-toggle').remove();
+
 });
+function enforceDarkMode() {
+    // Force dark mode
+    $('body').attr('data-theme', 'dark');
+    localStorage.setItem('theme', 'dark');
+    
+    // Remove any theme toggle buttons/links
+    $('*').each(function() {
+        var onclick = $(this).attr('onclick');
+        var href = $(this).attr('href');
+        
+        if (onclick && onclick.includes('toggle_dark_mode')) {
+            $(this).remove();
+        }
+        
+        if (href && href.includes('toggle_dark_mode')) {
+            $(this).remove();
+        }
+    });
+    
+    // Also check for event listeners
+    $(document).off('click', '[data-theme-toggle]');
+    $('[data-theme-toggle]').remove();
+}
+
+// Replace the toggle_dark_mode function
+function toggle_dark_mode() {
+    // Empty function - does nothing
+    return false;
+}
+
 
 function qm_init() {
     // Jerry asked for this. close quick manage whenever you click outside it
@@ -2009,8 +2046,8 @@ function toggle_dark_mode() {
 
     if (currentMode == 'dark') {
         //Activate light mode
-        $('body').attr('data-theme', 'light');
-        localStorage.setItem('theme', 'light');
+    $('body').attr('data-theme', 'dark');
+    localStorage.setItem('theme', 'dark');
     }
     else {
         //Activate dark mode
@@ -2116,14 +2153,3 @@ function init_menu_tooltips() {
 
 
 
-// Define base_url if not already defined
-if (typeof base_url === 'undefined') {
-    // Try to get it from meta tag or define it
-    var base_url = window.location.protocol + '//' + window.location.host + '/';
-    
-    // If your site is in a subdirectory, adjust accordingly
-    var pathArray = window.location.pathname.split('/');
-    if (pathArray.length > 2) {
-        base_url += pathArray[1] + '/';
-    }
-}

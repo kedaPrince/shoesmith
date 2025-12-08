@@ -250,6 +250,13 @@ if (typeof window.csrf_token_value === 'undefined') {
                                 You have <span class="notification-count"><?php echo $system_unread_count; ?></span>
                                 system notifications
                             </li>
+                            <li>
+                                <a class="dark-mode-toggle icon-menu" href="javascript:toggle_dark_mode()"
+                                    title="Toggle Dark Mode" data-toggle="tt" data-placement="top">
+                                    <i class="dark-mode-disabled fa fa-moon-o"></i>
+                                    <i class="dark-mode-enabled fa fa-sun-o"></i>
+                                </a>
+                            </li>
                             <li style="max-height: 250px; overflow-y: auto;">
                                 <ul class="menu" style="list-style: none; padding: 0; margin: 0;">
                                     <?php if (!empty($system_notifications)): ?>
@@ -386,6 +393,7 @@ if (typeof window.csrf_token_value === 'undefined') {
                                     <i class="fa fa-comments"></i> Open Chat
                                 </a>
                             </li>
+
                         </ul>
                     </li>
                     <li>

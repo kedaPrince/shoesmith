@@ -43,6 +43,35 @@
     <link rel="stylesheet" type="text/css"
         href="<?= site_url(); ?>resources/cms/css/custom.min.css?v=<?= $this->config->item('version'); ?>" />
 
+    <!-- Force Dark Mode CSS -->
+    <style>
+    /* Force dark mode permanently */
+    body {
+        --body-bg: #1a1a1a !important;
+        --card-bg: #2d2d2d !important;
+        --text-color: #ffffff !important;
+        --border-color: #404040 !important;
+        --primary-color: #59c4bc !important;
+        --secondary-color: #6c757d !important;
+        --success-color: #28a745 !important;
+        --danger-color: #dc3545 !important;
+        --warning-color: #ffc107 !important;
+        --info-color: #17a2b8 !important;
+        --light-color: #343a40 !important;
+        --dark-color: #f8f9fa !important;
+
+        background-color: #1a1a1a !important;
+        color: #ffffff !important;
+    }
+
+    /* Override any potential light mode styles */
+    body[data-theme="light"],
+    body:not([data-theme]) {
+        background-color: #1a1a1a !important;
+        color: #ffffff !important;
+    }
+    </style>
+
     <!-- Extra Plugin CSS -->
     <link rel="stylesheet" type="text/css" href="<?= site_url(); ?>resources/cms/css/cropper.min.css" />
     <link rel="stylesheet" type="text/css" href="<?= site_url(); ?>resources/cms/plugins/flatpickr/flatpickr.min.css" />
@@ -68,12 +97,9 @@ if (!empty($css)) {
     <!-- FIX THIS LINE: Change from assets/js/core.js to resources/cms/javascript/core.js -->
     <script type="text/javascript" src="<?= site_url(); ?>resources/cms/javascript/core.js"></script>
 
-
-
     <script>
     //Function to check if script has been loaded before executing
     function on_script_load(scriptName, func) {
-
         if (window[scriptName]) {
             //Script is loaded
             func();
@@ -84,13 +110,27 @@ if (!empty($css)) {
             }, 300);
         }
     }
+
+    // Override toggle_dark_mode to do nothing (or force dark mode)
+    function toggle_dark_mode() {
+        // Always set dark mode permanently
+        document.body.setAttribute("data-theme", "dark");
+        localStorage.setItem('theme', 'dark');
+
+        // Optional: Show notification
+        if (typeof flash_notification === 'function') {
+            flash_notification('System is permanently in dark mode', 'info');
+        }
+
+        return false;
+    }
     </script>
 
     <!-- In view_header.php - Update the script to use window. prefix -->
     <script>
     // Set global CSRF token for AJAX requests - Use window. prefix
     window.csrf_token_name = '<?php echo $this->security->get_csrf_token_name(); ?>';
-    window.csrf_token_value = '<?php echo $this->security->get_csrf_hash(); ?>'; // Changed from window.csrf_token
+    window.csrf_token_value = '<?php echo $this->security->get_csrf_hash(); ?>';
 
     // Function to get CSRF token for AJAX requests
     window.getCsrfToken = function() {
@@ -106,20 +146,33 @@ if (!empty($css)) {
         document.getElementById('csrf_token_input').value = newToken;
         document.querySelector('meta[name="csrf-token"]').content = newToken;
     };
+
+    // Force dark mode on page load
+    document.addEventListener('DOMContentLoaded', function() {
+        // Always set dark mode
+        document.body.setAttribute("data-theme", "dark");
+        localStorage.setItem('theme', 'dark');
+
+        // Remove any dark mode toggle buttons/triggers
+        var elements = document.querySelectorAll('*');
+        elements.forEach(function(el) {
+            if (el.onclick && el.onclick.toString().includes('toggle_dark_mode')) {
+                el.removeAttribute('onclick');
+                el.style.display = 'none'; // Or remove it completely
+            }
+
+            // Check for data attributes or classes that might trigger theme toggle
+            if (el.hasAttribute('data-theme-toggle') ||
+                el.classList.contains('dark-mode-toggle') ||
+                el.classList.contains('theme-toggle')) {
+                el.style.display = 'none';
+            }
+        });
+    });
     </script>
 </head>
 
-<body data-theme="<?= $this->config->item('dark_mode') ? 'dark' : 'light'; ?>"
-    data-color="<?= $this->config->item('theme'); ?>" class="font-nunito right_icon_toggle">
-    <script>
-    //Set dark/light mode
-    var ecmsTheme = localStorage.getItem('theme');
-    if (ecmsTheme == 'dark') {
-        document.body.setAttribute("data-theme", "dark");
-    } else {
-        document.body.setAttribute("data-theme", "light");
-    }
-    </script>
+<body data-theme="dark" data-color="<?= $this->config->item('theme'); ?>" class="font-nunito right_icon_toggle">
     <div id="wrapper">
 
         <!-- Page Loader -->

@@ -1,8 +1,9 @@
-its great that everything is showing as expected by the css is broken
 <?php defined('BASEPATH') || exit('No direct script access allowed'); ?>
 
 <div id="main-content">
     <!-- Header Section (Breadcrumbs & Title) -->
+    <input type="hidden" id="csrf-token" name="<?php echo $this->security->get_csrf_token_name(); ?>"
+        value="<?php echo $this->security->get_csrf_hash(); ?>">
     <header class="page-header">
         <div class="container-fluid">
             <div class="row clearfix">
@@ -498,10 +499,11 @@ its great that everything is showing as expected by the css is broken
 // Works perfectly — no more "jobId is not defined", no broken CSS
 // ====================================================================
 
-// These variables come directly from your controller (view() method)
 var jobId = <?php echo json_encode($job_id ?? 0); ?>;
-var jobUuid = '<?php echo addslashes($job_uuid ?? ''); ?>';
+var jobUuid = <?php echo json_encode($job_uuid ?? ''); ?>;
 var baseUrl = '<?php echo rtrim(site_url(), '/'); ?>/';
+var csrfTokenName = <?php echo json_encode($this->security->get_csrf_token_name()); ?>;
+var csrfTokenHash = <?php echo json_encode($this->security->get_csrf_hash()); ?>;
 
 // Attach main button
 document.addEventListener('DOMContentLoaded', function() {
@@ -560,23 +562,27 @@ function loadExistingCandidates() {
         didOpen: () => Swal.showLoading()
     });
 
+    // ✅ Get token from hidden input (not hardcoded PHP values)
+    const csrfInput = document.getElementById('csrf-token');
     const formData = new FormData();
     formData.append('job_id', jobId);
-    formData.append('<?php echo $this->security->get_csrf_token_name(); ?>',
-        '<?php echo $this->security->get_csrf_hash(); ?>');
-
-    ');
+    formData.append(csrfTokenName, csrfInput.value); // ← Use current token
 
     fetch(baseUrl + 'recruiter/jobs/ajax_get_candidates_for_job', {
             method: 'POST',
-            body: formData,
             headers: {
                 'X-Requested-With': 'XMLHttpRequest'
-            }
+            },
+            body: formData
         })
         .then(r => r.json())
         .then(res => {
             Swal.close();
+
+            // ✅ UPDATE hidden input with new token
+            if (res.csrf) {
+                csrfInput.value = res.csrf;
+            }
 
             if (!res.success || !res.candidates || res.candidates.length === 0) {
                 Swal.fire({
@@ -659,31 +665,57 @@ function submitCandidates(candidateIds) {
         didOpen: () => Swal.showLoading()
     });
 
+    // ✅ Always get token from hidden input
+    const csrfInput = document.getElementById('csrf-token');
+    if (!csrfInput) {
+        Swal.close();
+        Swal.fire('Error', 'CSRF token missing. Please refresh.', 'error');
+        return;
+    }
+
     const formData = new FormData();
     candidateIds.forEach(id => formData.append('candidate_ids[]', id));
     formData.append('job_id', jobId);
-    formData.append('<?php echo $this->security->get_csrf_token_name(); ?>',
-        '<?php echo $this->security->get_csrf_hash(); ?>');
+    formData.append(csrfTokenName, csrfInput.value); // ← Fresh token
 
     fetch(baseUrl + 'recruiter/jobs/ajax_assign_candidate_to_job', {
             method: 'POST',
-            body: formData,
             headers: {
                 'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: formData
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Server returned ' + response.status);
+            }
+            return response.json();
+        })
+        .then(data => {
+            Swal.close();
+
+            // ✅ Update token for future requests
+            if (data.csrf) {
+                csrfInput.value = data.csrf;
+            }
+
+            if (data.success) {
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Success!',
+                    text: `${candidateIds.length} candidate${candidateIds.length > 1 ? 's' : ''} submitted!`,
+                    confirmButtonText: 'View Candidates'
+                }).then(() => {
+                    window.location.href = baseUrl + 'recruiter/candidates/for_job/' + jobUuid;
+                });
+            } else {
+                Swal.fire('Error', data.message || 'Assignment failed.', 'error');
             }
         })
-        .then(() => {
-            Swal.fire({
-                icon: 'success',
-                title: 'Success!',
-                text: `${candidateIds.length} candidate${candidateIds.length > 1 ? 's' : ''} submitted successfully!`,
-                confirmButtonText: 'View Candidates'
-            }).then(() => {
-                window.location.href = baseUrl + 'recruiter/candidates/for_job/' + jobUuid;
-            });
-        })
-        .catch(() => {
-            Swal.fire('Error', 'Failed to submit candidates', 'error');
+        .catch(error => {
+            Swal.close();
+            console.error('Assignment error:', error);
+            Swal.fire('Error', 'Failed to submit candidates. Please refresh the page.', 'error');
         });
 }
 </script>

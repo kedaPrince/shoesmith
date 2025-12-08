@@ -1,6 +1,8 @@
 <?php defined('BASEPATH') || exit('No direct script access allowed'); ?>
 
 <div id="main-content">
+    <input type="hidden" id="csrf-token" name="<?php echo $this->security->get_csrf_token_name(); ?>"
+        value="<?php echo $this->security->get_csrf_hash(); ?>">
     <header class="page-header">
         <div class="container-fluid">
             <div class="row clearfix">
@@ -30,9 +32,7 @@
         </div>
     </header>
 
-    <!-- Hidden CSRF token field (required by CodeIgniter) -->
-    <input type="hidden" name="<?php echo $this->security->get_csrf_token_name(); ?>"
-        value="<?php echo $this->security->get_csrf_hash(); ?>" id="csrf-token">
+
 
     <div class="container-fluid">
         <!-- Job Details Header Section -->
@@ -198,151 +198,152 @@
 </div>
 
 <script>
-// Safely pass PHP values to JavaScript using json_encode
-const jobId = <?php echo json_encode((int)($job->id ?? 0)); ?>;
-const jobUuid = <?php echo json_encode($job->uuid ?? ''); ?>;
-const baseUrl = <?php echo json_encode(site_url()); ?>;
-const csrfTokenName = <?php echo json_encode($this->security->get_csrf_token_name()); ?>;
-const recruiterId = <?php echo json_encode($current_recruiter_id ?? 0); ?>;
+// Use the SAME variables as Job View
+var jobId = <?php echo json_encode($job_id ?? 0); ?>;
+var jobUuid = <?php echo json_encode($job_uuid ?? ''); ?>;
+var baseUrl = '<?php echo rtrim(site_url(), '/'); ?>/';
+var csrfTokenName = <?php echo json_encode($this->security->get_csrf_token_name()); ?>;
 
-// Functions to get CSRF token from DOM (more reliable)
-function getCsrfToken() {
-    const input = document.querySelector('input[name="' + csrfTokenName + '"]');
-    if (!input) {
-        console.error('CSRF token input not found!');
-        return '';
-    }
-    return input.value;
-}
-
-// Validate jobId
-if (jobId <= 0) {
-    console.error('Invalid jobId detected.');
-}
-
-// URLs
-const getCandidatesUrl = baseUrl + 'recruiter/jobs/ajax_get_candidates_for_job';
-const assignCandidateUrl = baseUrl + 'recruiter/jobs/ajax_assign_candidate_to_job';
+// No DOMContentLoaded needed — buttons use onclick
 
 function showSubmitCandidateModal() {
     Swal.fire({
         title: 'Submit Candidate',
         html: `
-            <div class="text-center">
-                <p class="mb-4">How would you like to submit a candidate for this job?</p>
-                <div class="row">
+            <div class="text-center py-4">
+                <p class="h5 mb-4">How would you like to submit a candidate?</p>
+                <div class="row g-4">
                     <div class="col-6">
-                        <button type="button" class="btn btn-primary btn-block py-3" onclick="submitNewCandidate()">
-                            <i class="fa fa-user-plus fa-2x mb-2"></i><br>New Candidate
+                        <button class="btn btn-primary btn-lg w-100 py-4 shadow-sm" onclick="goToAddCandidate()">
+                            <i class="fa fa-user-plus fa-2x mb-2 d-block"></i>
+                            <strong>New Candidate</strong>
                         </button>
                     </div>
                     <div class="col-6">
-                        <button type="button" class="btn btn-info btn-block py-3" onclick="showExistingCandidateModal()">
-                            <i class="fa fa-users fa-2x mb-2"></i><br>Existing Candidate
+                        <button class="btn btn-info btn-lg w-100 py-4 shadow-sm" onclick="loadExistingCandidates()">
+                            <i class="fa fa-users fa-2x mb-2 d-block"></i>
+                            <strong>Existing Candidate</strong>
                         </button>
                     </div>
                 </div>
             </div>
         `,
+        width: '600px',
         showCancelButton: true,
-        confirmButtonColor: '#6c757d',
-        confirmButtonText: 'Cancel',
-        showConfirmButton: true,
         cancelButtonText: 'Close',
-        width: '600px'
+        confirmButtonText: 'Cancel',
+        customClass: {
+            popup: 'rounded-3'
+        }
     });
 }
 
-function submitNewCandidate() {
+function goToAddCandidate() {
     Swal.close();
     window.location.href = baseUrl + 'recruiter/candidates/add/' + jobUuid;
 }
 
-function showExistingCandidateModal() {
+function loadExistingCandidates() {
     Swal.fire({
-        title: 'Loading Candidates...',
+        title: 'Loading your candidates...',
         allowOutsideClick: false,
-        showConfirmButton: false,
         didOpen: () => Swal.showLoading()
     });
 
-    // ✅ Use ID — more reliable than name
     const csrfInput = document.getElementById('csrf-token');
-    if (!csrfInput) {
-        Swal.close();
-        Swal.fire('Error', 'CSRF token missing. Please refresh the page.', 'error');
-        return;
-    }
-
     const formData = new FormData();
     formData.append('job_id', jobId);
-    formData.append(csrfTokenName, csrfInput.value); // ← from #csrf-token
+    formData.append(csrfTokenName, csrfInput.value);
 
-    fetch(getCandidatesUrl, {
+    fetch(baseUrl + 'recruiter/jobs/ajax_get_candidates_for_job', {
             method: 'POST',
             headers: {
                 'X-Requested-With': 'XMLHttpRequest'
             },
             body: formData
         })
-        .then(response => response.text().then(text => {
-            if (!response.ok) {
-                // Check if it's a CSRF error
-                if (text.includes('not allowed')) {
-                    throw new Error('CSRF token invalid');
-                }
-                throw new Error('Server error');
-            }
-            return JSON.parse(text);
-        }))
-        .then(data => {
+        .then(r => r.json())
+        .then(res => {
             Swal.close();
 
-            // ✅ UPDATE the input with new token
-            if (data.csrf) {
-                csrfInput.value = data.csrf; // ← This is critical
-                console.log('CSRF token updated:', data.csrf.substring(0, 10) + '...');
+            if (res.csrf) {
+                csrfInput.value = res.csrf;
             }
 
-            if (data.success && data.candidates?.length > 0) {
-                showCandidateSelectionModal(data.candidates);
-            } else {
-                // show no candidates modal
+            if (!res.success || !res.candidates || res.candidates.length === 0) {
+                Swal.fire({
+                    icon: 'info',
+                    title: 'No Candidates Found',
+                    text: 'You don’t have any candidates available to submit. Want to create one?',
+                    showCancelButton: true,
+                    confirmButtonText: 'Create New Candidate',
+                    cancelButtonText: 'Close'
+                }).then(r => r.isConfirmed && goToAddCandidate());
+                return;
             }
+
+            showCandidateSelectionModal(res.candidates);
         })
-        .catch(err => {
-            Swal.close();
-            Swal.fire('Error', 'Session expired. Please refresh the page.', 'error');
+        .catch(() => {
+            Swal.fire('Error', 'Failed to load candidates', 'error');
         });
 }
 
+function confirmRemoveCandidate(candidateId, candidateName, jobUuid) {
+    Swal.fire({
+        title: 'Confirm Removal',
+        text: 'Are you sure you want to remove ' + candidateName + ' from this job?',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#dc3545',
+        cancelButtonColor: '#6c757d',
+        confirmButtonText: 'Yes, Remove',
+        cancelButtonText: 'Cancel'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            // Build URL with CSRF token from hidden input
+            const csrfInput = document.getElementById('csrf-token');
+            const csrfToken = csrfInput ? csrfInput.value : '';
+            const url = baseUrl + 'recruiter/candidates/remove_from_job/' +
+                candidateId + '/' + jobUuid +
+                '?' + csrfTokenName + '=' + encodeURIComponent(csrfToken);
+            window.location.href = url;
+        }
+    });
+}
+
 function showCandidateSelectionModal(candidates) {
-    let optionsHtml = candidates.map(c => `
-        <div class="candidate-option">
-            <input type="checkbox" id="candidate_${c.id}" value="${c.id}" class="candidate-checkbox me-2">
-            <label for="candidate_${c.id}" class="candidate-label">
-                <strong>${c.first_name} ${c.last_name}</strong><br>
-                <small class="text-muted">${c.reference_number || '—'} • ${c.email}</small>
-            </label>
-        </div>
-    `).join('');
+    let html = '';
+    candidates.forEach(c => {
+        html += `
+            <div class="border rounded p-3 mb-2 bg-white shadow-sm">
+                <label class="d-flex align-items-center" style="cursor:pointer">
+                    <input type="checkbox" class="me-3 mt-1" value="${c.id}">
+                    <div>
+                        <strong>${c.first_name} ${c.last_name}</strong><br>
+                        <small class="text-muted">${c.reference_number || '—'} • ${c.email}</small>
+                    </div>
+                </label>
+            </div>`;
+    });
 
     Swal.fire({
-        title: 'Select Candidates to Assign',
+        title: `Select Candidate${candidates.length > 1 ? 's' : ''} to Submit`,
         html: `
-            <div style="max-height:400px; overflow-y:auto; padding:5px;">
-                ${optionsHtml}
+            <div style="max-height:420px; overflow-y:auto; padding:5px">
+                ${html}
             </div>
-            <div class="text-center mt-2">
+            <div class="text-center mt-3">
                 <strong>Selected: <span id="selectedCount">0</span></strong>
             </div>
         `,
         width: '700px',
         showCancelButton: true,
-        confirmButtonText: 'Assign Selected',
+        confirmButtonText: 'Submit Selected',
+        cancelButtonText: 'Cancel',
         preConfirm: () => {
-            const selected = Array.from(document.querySelectorAll('.candidate-checkbox:checked')).map(cb =>
-                cb.value);
+            const selected = Array.from(document.querySelectorAll('input[type=checkbox]:checked'))
+                .map(cb => cb.value);
             if (selected.length === 0) {
                 Swal.showValidationMessage('Please select at least one candidate');
                 return false;
@@ -350,77 +351,78 @@ function showCandidateSelectionModal(candidates) {
             return selected;
         },
         didOpen: () => {
-            let countEl = document.getElementById('selectedCount');
-            document.querySelectorAll('.candidate-checkbox').forEach(cb => {
+            document.querySelectorAll('input[type=checkbox]').forEach(cb => {
                 cb.addEventListener('change', () => {
-                    let count = document.querySelectorAll('.candidate-checkbox:checked')
+                    const count = document.querySelectorAll('input[type=checkbox]:checked')
                         .length;
-                    countEl.textContent = count;
+                    document.getElementById('selectedCount').textContent = count;
                 });
             });
         }
     }).then(result => {
-        if (result.isConfirmed) assignCandidatesToJob(result.value);
+        if (result.isConfirmed) {
+            submitCandidates(result.value);
+        }
     });
 }
 
-function assignCandidatesToJob(candidateIds) {
+function submitCandidates(candidateIds) {
     Swal.fire({
-        title: 'Assigning...',
+        title: 'Submitting...',
+        text: `Submitting ${candidateIds.length} candidate${candidateIds.length > 1 ? 's' : ''}...`,
         allowOutsideClick: false,
-        showConfirmButton: false,
         didOpen: () => Swal.showLoading()
     });
+
+    const csrfInput = document.getElementById('csrf-token');
+    if (!csrfInput) {
+        Swal.close();
+        Swal.fire('Error', 'CSRF token missing. Please refresh.', 'error');
+        return;
+    }
 
     const formData = new FormData();
     candidateIds.forEach(id => formData.append('candidate_ids[]', id));
     formData.append('job_id', jobId);
-    formData.append(csrfTokenName, getCsrfToken());
+    formData.append(csrfTokenName, csrfInput.value);
 
-    fetch(assignCandidateUrl, {
+    fetch(baseUrl + 'recruiter/jobs/ajax_assign_candidate_to_job', {
             method: 'POST',
             headers: {
                 'X-Requested-With': 'XMLHttpRequest'
             },
             body: formData
         })
-        .then(response => response.json())
+        .then(response => {
+            if (!response.ok) throw new Error('Server returned ' + response.status);
+            return response.json();
+        })
         .then(data => {
+            Swal.close();
+
             if (data.csrf) {
-                document.querySelector('input[name="' + csrfTokenName + '"]').value = data.csrf;
+                csrfInput.value = data.csrf;
             }
 
             if (data.success) {
-                Swal.fire('Success!', 'Candidates assigned successfully!', 'success')
-                    .then(() => window.location.reload());
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Success!',
+                    text: `${candidateIds.length} candidate${candidateIds.length > 1 ? 's' : ''} submitted!`,
+                    confirmButtonText: 'View Candidates'
+                }).then(() => {
+                    window.location.reload(); // ← Reload current page (candidate list)
+                });
             } else {
                 Swal.fire('Error', data.message || 'Assignment failed.', 'error');
             }
         })
-        .catch(() => {
-            Swal.fire('Error', 'Failed to assign candidates.', 'error');
+        .catch(error => {
+            Swal.close();
+            console.error('Assignment error:', error);
+            Swal.fire('Error', 'Failed to submit candidates. Please refresh the page.', 'error');
         });
 }
-
-function confirmRemoveCandidate(candidateId, candidateName, jobUuid) {
-    Swal.fire({
-        title: 'Confirm Removal',
-        text: `Remove ${candidateName} from this job?`,
-        icon: 'warning',
-        showCancelButton: true,
-        confirmButtonText: 'Yes, Remove',
-        confirmButtonColor: '#dc3545'
-    }).then(result => {
-        if (result.isConfirmed) {
-            const url =
-                `${baseUrl}recruiter/candidates/remove_from_job/${candidateId}/${jobUuid}?${csrfTokenName}=${encodeURIComponent(getCsrfToken())}`;
-            window.location.href = url;
-        }
-    });
-}
-
-// Expose globally (optional)
-window.showSubmitCandidateModal = showSubmitCandidateModal;
 </script>
 
 <style>

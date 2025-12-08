@@ -22,6 +22,8 @@ public function __construct()
 {
     parent::__construct();
 
+    
+
     $this->folder = 'recruiter';
 
     // Allow only recruiters
@@ -53,6 +55,8 @@ public function __construct()
         'closing_date' => 'DESC',
         'name' => 'ASC'
     );
+
+
 }
 /**
  * Check if a job is expired based on closing date
@@ -167,34 +171,36 @@ private function is_job_expired($job)
             ),
 
             'candidate_count' => array(
-                'label' => 'My Candidates',
-                'sort' => true,
-                'function' => function($str, $row) {
-                    // Load the model if not already loaded
-                    $this->load->model('recruiter/model_jobs');
-                    
-                    // Get current recruiter ID
-                    $recruiter_id = $this->get_current_recruiter_id();
-                    
-                    // Use the new method to count ONLY this recruiter's candidates
-                    $count = $this->model_jobs->get_candidate_count_for_job($row->id, $recruiter_id);
-                    
-                    $url = site_url('recruiter/candidates/for_job/' . $row->id);
-                    $is_expired = $this->is_job_expired($row);
-                    
-                    if ($count > 0) {
-                        if ($is_expired) {
-                            return '<span class="btn btn-sm btn-secondary expired-job-btn" title="Job expired - view only">' . $count . '</span>';
-                        }
-                        return '<a href="' . $url . '" class="btn btn-sm btn-info" title="View my ' . $count . ' Candidates">' . $count . '</a>';
-                    } else {
-                        if ($is_expired) {
-                            return '<span class="text-muted expired-job-text">0</span>';
-                        }
-                        return '<span class="text-muted">0</span>';
+            'label' => 'My Candidates',
+            'sort' => true,
+            'function' => function($str, $row) {
+                // Load the model if not already loaded
+                $this->load->model('recruiter/model_jobs');
+                
+                // Get current recruiter ID
+                $recruiter_id = $this->get_current_recruiter_id();
+                
+                // Use the new method to count ONLY this recruiter's candidates
+                $count = $this->model_jobs->get_candidate_count_for_job($row->id, $recruiter_id);
+                
+                // FIX: Use UUID instead of ID
+                $url = site_url('recruiter/candidates/for_job/' . $row->uuid); // <-- CHANGED TO UUID
+                
+                $is_expired = $this->is_job_expired($row);
+                
+                if ($count > 0) {
+                    if ($is_expired) {
+                        return '<span class="btn btn-sm btn-secondary expired-job-btn" title="Job expired - view only">' . $count . '</span>';
                     }
+                    return '<a href="' . $url . '" class="btn btn-sm btn-info" title="View my ' . $count . ' Candidates">' . $count . '</a>';
+                } else {
+                    if ($is_expired) {
+                        return '<span class="text-muted expired-job-text">0</span>';
+                    }
+                    return '<span class="text-muted">0</span>';
                 }
-            ),
+            }
+        ),
         );
 
            // In setup_listing() method, update the listActions:
@@ -288,18 +294,157 @@ private function is_job_expired($job)
     }
 
 
+public function ajax_assign_candidate_to_job()
+{
+    if (!$this->input->is_ajax_request()) {
+        echo json_encode([
+            'success' => false,
+            'message' => 'Direct access not allowed',
+            'csrf' => $this->security->get_csrf_hash()
+        ]);
+        return;
+    }
 
+    $candidate_ids = $this->input->post('candidate_ids');
+    $job_id = $this->input->post('job_id');
+    $recruiter_id = $this->get_current_recruiter_id();
+
+    if (!$recruiter_id) {
+        echo json_encode([
+            'success' => false,
+            'message' => 'Recruiter not found',
+            'csrf' => $this->security->get_csrf_hash()
+        ]);
+        return;
+    }
+
+    if (empty($job_id)) {
+        echo json_encode([
+            'success' => false,
+            'message' => 'Job ID is required',
+            'csrf' => $this->security->get_csrf_hash()
+        ]);
+        return;
+    }
+
+    if (empty($candidate_ids) || !is_array($candidate_ids)) {
+        echo json_encode([
+            'success' => false,
+            'message' => 'No candidates selected',
+            'csrf' => $this->security->get_csrf_hash()
+        ]);
+        return;
+    }
+
+    $success_count = 0;
+    $errors = [];
+
+    $job = $this->db->select('mod_jobs.*, agencies.name as agency_name')
+                    ->from('mod_jobs')
+                    ->join('agencies', 'agencies.id = mod_jobs.agency_id')
+                    ->where('mod_jobs.id', $job_id)
+                    ->get()
+                    ->row();
+
+    if (!$job) {
+        echo json_encode([
+            'success' => false,
+            'message' => 'Job not found',
+            'csrf' => $this->security->get_csrf_hash()
+        ]);
+        return;
+    }
+
+    foreach ($candidate_ids as $candidate_id) {
+        $candidate_id = (int) $candidate_id;
+
+        $existing = $this->db->where('candidate_id', $candidate_id)
+                            ->where('job_id', $job_id)
+                            ->where('removed', 0)
+                            ->get('candidate_job_assignments')
+                            ->row();
+
+        if ($existing) {
+            $errors[] = "Candidate already assigned";
+            continue;
+        }
+
+        $candidate = $this->db->select('c.*')
+                             ->from('candidates c')
+                             ->where('c.id', $candidate_id)
+                             ->where('c.assigned_agent_id', $recruiter_id)
+                             ->where('c.enabled', 1)
+                             ->where('c.removed', 0)
+                             ->get()
+                             ->row();
+
+        if (!$candidate) {
+            $errors[] = "Candidate not found or access denied";
+            continue;
+        }
+
+        $removed_assignment = $this->db->where('candidate_id', $candidate_id)
+                                      ->where('job_id', $job_id)
+                                      ->where('removed', 1)
+                                      ->get('candidate_job_assignments')
+                                      ->row();
+
+        if ($removed_assignment) {
+            $this->db->where('id', $removed_assignment->id)
+                    ->update('candidate_job_assignments', [
+                        'removed' => 0,
+                        'removed_at' => null,
+                        'status' => 'submitted',
+                        'updated_at' => date('Y-m-d H:i:s')
+                    ]);
+            $this->sync_candidate_jobs_table($candidate_id, $job_id, 'reactivate');
+            $success_count++;
+        } else {
+            $assignment_data = [
+                'candidate_id' => $candidate_id,
+                'job_id' => $job_id,
+                'assigned_agent_id' => $recruiter_id,
+                'assigned_at' => date('Y-m-d H:i:s'),
+                'status' => 'submitted',
+                'removed' => 0,
+                'created_at' => date('Y-m-d H:i:s'),
+                'updated_at' => date('Y-m-d H:i:s')
+            ];
+
+            if ($this->db->insert('candidate_job_assignments', $assignment_data)) {
+                $this->sync_candidate_jobs_table($candidate_id, $job_id, 'create');
+                $success_count++;
+            } else {
+                $errors[] = "Failed to assign candidate";
+            }
+        }
+
+        $this->create_agency_notification($candidate, $job, $recruiter_id);
+    }
+
+    if ($success_count > 0) {
+        echo json_encode([
+            'success' => true,
+            'message' => "Successfully assigned $success_count candidate(s) to the job",
+            'assigned_count' => $success_count,
+            'csrf' => $this->security->get_csrf_hash()
+        ]);
+    } else {
+        echo json_encode([
+            'success' => false,
+            'message' => !empty($errors) ? implode('; ', $errors) : 'Assignment failed',
+            'csrf' => $this->security->get_csrf_hash()
+        ]);
+    }
+}
 public function ajax_get_candidates_for_job()
 {
-    // Ensure this is an AJAX request
     if (!$this->input->is_ajax_request()) {
-        $this->output
-            ->set_content_type('application/json')
-            ->set_output(json_encode([
-                'success' => false,
-                'message' => 'Direct access not allowed',
-                'csrf' => $this->security->get_csrf_hash()
-            ]));
+        echo json_encode([
+            'success' => false,
+            'message' => 'Direct access not allowed',
+            'csrf' => $this->security->get_csrf_hash()
+        ]);
         return;
     }
 
@@ -307,7 +452,6 @@ public function ajax_get_candidates_for_job()
         $job_id = $this->input->post('job_id');
         $recruiter_id = $this->get_current_recruiter_id();
 
-        // Validate inputs
         if (empty($job_id)) {
             throw new Exception('Job ID is required');
         }
@@ -316,49 +460,35 @@ public function ajax_get_candidates_for_job()
             throw new Exception('Recruiter not found');
         }
 
-        // Get candidates that belong to this recruiter and are not ACTIVELY assigned to this job
         $this->db->select('c.id, c.first_name, c.last_name, c.reference_number, c.email, c.assigned_agent_id');
         $this->db->from('candidates c');
         $this->db->where('c.assigned_agent_id', $recruiter_id);
         $this->db->where('c.enabled', 1);
         $this->db->where('c.removed', 0);
-        
-        // Use LEFT JOIN to find candidates without active assignments to this job
-        $this->db->join(
-            'candidate_job_assignments cja',
-            "cja.candidate_id = c.id AND cja.job_id = " . $this->db->escape($job_id) . " AND cja.removed = 0",
-            'left'
-        );
-        $this->db->where('cja.id IS NULL'); // No active assignment exists
-        
+        $this->db->join('candidate_job_assignments cja', "cja.candidate_id = c.id AND cja.job_id = " . $this->db->escape($job_id) . " AND cja.removed = 0", 'left');
+        $this->db->where('cja.id IS NULL');
         $this->db->order_by('c.first_name', 'ASC');
         
         $query = $this->db->get();
         $candidates = $query->result_array();
 
-        // ✅ SUCCESS RESPONSE — NOW INCLUDES CSRF TOKEN
-        $this->output
-            ->set_content_type('application/json')
-            ->set_output(json_encode([
-                'success' => true,
-                'candidates' => $candidates,
-                'csrf' => $this->security->get_csrf_hash(), // ← THIS WAS MISSING!
-                'debug_info' => [
-                    'recruiter_id' => $recruiter_id,
-                    'total_candidates' => count($candidates),
-                    'candidate_ids' => array_column($candidates, 'id')
-                ]
-            ]));
+        echo json_encode([
+            'success' => true,
+            'candidates' => $candidates,
+            'csrf' => $this->security->get_csrf_hash(),
+            'debug_info' => [
+                'recruiter_id' => $recruiter_id,
+                'total_candidates' => count($candidates),
+                'candidate_ids' => array_column($candidates, 'id')
+            ]
+        ]);
 
     } catch (Exception $e) {
-        // ✅ ERROR RESPONSE — already includes CSRF (good)
-        $this->output
-            ->set_content_type('application/json')
-            ->set_output(json_encode([
-                'success' => false,
-                'message' => 'Failed to load candidates: ' . $e->getMessage(),
-                'csrf' => $this->security->get_csrf_hash()
-            ]));
+        echo json_encode([
+            'success' => false,
+            'message' => 'Failed to load candidates: ' . $e->getMessage(),
+            'csrf' => $this->security->get_csrf_hash()
+        ]);
     }
 }
     /**
@@ -440,10 +570,11 @@ public function ajax_get_candidates_for_job()
 }
 
     
-    public function view_candidates($job_uuid)
+public function view_candidates($job_uuid)
 {
     $recruiter_id = $this->get_current_recruiter_id();
-    
+    log_message('debug', 'view_candidates - Recruiter ID: ' . ($recruiter_id ?: 'NULL'));
+
     // Get job details by UUID
     $this->db->select('mod_jobs.*, agencies.name as agency_name');
     $this->db->from('mod_jobs');
@@ -451,6 +582,8 @@ public function ajax_get_candidates_for_job()
     $this->db->where('mod_jobs.uuid', $job_uuid);
     
     $user_agency_id = $this->get_user_agency_id();
+    log_message('debug', 'view_candidates - User agency ID: ' . ($user_agency_id ?: 'NULL'));
+    
     if ($user_agency_id) {
         $this->db->where('mod_jobs.agency_id', $user_agency_id);
     }
@@ -458,17 +591,22 @@ public function ajax_get_candidates_for_job()
     $job = $this->db->get()->row();
     
     if (!$job) {
+        log_message('error', 'Job not found for UUID: ' . $job_uuid);
         show_404();
     }
 
-    // Get candidates using the job ID (internal ID)
-    $data['candidates'] = $this->model_jobs->get_candidates_for_job($job->id, $recruiter_id);
-    $data['job'] = $job;
-    $data['job_uuid'] = $job->uuid; // Pass UUID to view
-    $data['job_id'] = $job->id; // Pass internal ID to view (for any JS operations)
-    $data['total_candidates'] = count($data['candidates']);
+    log_message('debug', 'Job found - ID: ' . $job->id . ', Agency: ' . $job->agency_id);
 
-    // Load your view
+    // ✅ FIX: Get candidates BEFORE logging count
+    $candidates = $this->model_jobs->get_candidates_for_job($job->id, $recruiter_id);
+    log_message('debug', 'Candidates count: ' . count($candidates));
+
+    $data['candidates'] = $candidates;
+    $data['job'] = $job;
+    $data['job_uuid'] = $job->uuid;
+    $data['job_id'] = $job->id;
+    $data['total_candidates'] = count($candidates);
+
     $this->load->view($this->folder . '/view_header');
     $this->load->view('recruiter/jobs/view_job_candidates', $data);
     $this->load->view($this->folder . '/view_footer');

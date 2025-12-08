@@ -19,6 +19,7 @@ class Candidates extends CRUD_Controller
     {
         parent::__construct();
         $this->folder = 'recruiter';
+        $this->perPage = 25; 
 
         // Allow only recruiters
         $login_data = $this->session->userdata('login');
@@ -100,30 +101,31 @@ class Candidates extends CRUD_Controller
         );
 
         $this->filters = array(
-            'search' => array(
-                'label' => lang('label_search'),
-                'type' => 'autocomplete',
-                'field' => array(
-                    'candidates.first_name',
-                    'candidates.last_name',
-                    'candidates.email',
-                    'candidates.reference_number',
-                ),
+               'general' => array(  // CHANGE 'search' to 'general'
+            'label' => lang('label_search'),
+            'type' => 'autocomplete',
+            'field' => array(
+                'candidates.first_name',
+                'candidates.last_name', 
+                'candidates.email',
+                'candidates.reference_number',
             ),
-            'status' => array(
-                'label' => lang('label_status'),
-                'type' => 'dropdown',
-                'field' => 'candidates.status',
-                'options' => array(
-                    'new' => 'New',
-                    'reviewed' => 'Reviewed',
-                    'shortlisted' => 'Shortlisted',
-                    'interviewed' => 'Interviewed',
-                    'rejected' => 'Rejected',
-                    'hired' => 'Hired',
-                    'on_hold' => 'On Hold',
-                ),
+        ),
+        'status' => array(
+            'label' => lang('label_status'),
+            'type' => 'dropdown',
+            'field' => 'candidates.status',
+            'options' => array(
+                '' => 'All Statuses',  // ADD empty option
+                'new' => 'New',
+                'reviewed' => 'Reviewed',
+                'shortlisted' => 'Shortlisted',
+                'interviewed' => 'Interviewed',
+                'rejected' => 'Rejected',
+                'hired' => 'Hired',
+                'on_hold' => 'On Hold',
             ),
+        ),
         );
     }
    
@@ -376,7 +378,8 @@ private function enforce_recruiter_candidate_access($candidate, $is_ajax = false
     // Load the view_list_extra for chat functionality
     $this->view = 'listing';
     $this->load->view('recruiter/candidates/view_list_extra'); // Add this line
-    
+    // In index(), just for testing
+$this->session->unset_userdata('ecms_filters_candidates');
     $this->load->view($this->folder . '/' . 'view_header');
     $this->load->view('cms/crud/view_list', array(
         'heading'           => lang($this->pageName . '_heading'),
@@ -700,195 +703,162 @@ public function view($uuid_or_id = null)
             return ucfirst(str_replace('_', ' ', $clean_field));
         }
 
-    public function create()
-        {
+public function create()
+{
+    
+    // Better AJAX detection
+    $is_ajax = $this->input->is_ajax_request() || 
+            (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && 
+                strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) == 'xmlhttprequest');
+    
+    if ($this->input->post()) {
+        // Validate form
+        if ($this->validate_form('create')) {
+            // Get post data
+            $data = $this->get_post_data();
             
-             // ✅ ADD CSRF VALIDATION for non-AJAX requests
-        if (!is_ajax()) {
-            $csrf_name = $this->security->get_csrf_token_name();
-            $csrf_token = $this->input->post($csrf_name);
-            
-            if (!$csrf_token || $csrf_token !== $this->security->get_csrf_hash()) {
-                flash_notification('Invalid CSRF token. Please try again.', 'error');
-                redir($this->pageName);
-                return;
+            // Check if candidate already exists for this email and job
+            if (!empty($data['email']) && !empty($data['job_id'])) {
+                $existing_candidate = $this->check_existing_candidate($data['email'], $data['job_id']);
+                
+                if ($existing_candidate) {
+                    // Update existing candidate instead of creating new one
+                    return $this->update_existing_candidate($existing_candidate->id, $data);
+                }
             }
-        }
-        
-            // Better AJAX detection
-            $is_ajax = $this->input->is_ajax_request() || 
-                    (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && 
-                        strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) == 'xmlhttprequest');
             
-            if ($this->input->post()) {
-                // Validate form
-                if ($this->validate_form('create')) {
-                    // Get post data
-                    $data = $this->get_post_data();
+            // Add extra parameters
+            $extra_params = $this->create_extra_params();
+            $data = array_merge($data, $extra_params);
+            
+            // Add created_at timestamp
+            $data['created_at'] = date('Y-m-d H:i:s');
+            
+            try {
+                // Insert the main record
+                $id = $this->{$this->model}->create($data);
+                
+                if ($id) {                    
+                    $success = true;
+                    $message = 'Candidate created successfully!';
+                    $warnings = [];
                     
-                    
-                    // CRITICAL: Ensure job_id is set from additional_job_ids
-                    // $additional_jobs = $this->input->post('additional_job_ids') ?: [];
-                    // if (empty($data['job_id']) && !empty($additional_jobs)) {
-                    //     $data['job_id'] = $additional_jobs[0];
-                    // }
-                    
-                    // // If still no job_id, return error
-                    // if (empty($data['job_id'])) {
-                    //     $error_message = 'Please select at least one job.';
-                        
-                    //     if ($is_ajax) {
-                    //         $this->output
-                    //             ->set_content_type('application/json')
-                    //             ->set_output(json_encode(['success' => false, 'error' => $error_message]));
-                    //         return;
-                    //     } else {
-                    //         $this->session->set_flashdata('error', $error_message);
-                    //         redirect(redir($this->pageName, true));
-                    //     }
-                    // }
-                    
-                    // Check if candidate already exists for this email and job
-                    if (!empty($data['email']) && !empty($data['job_id'])) {
-                        $existing_candidate = $this->check_existing_candidate($data['email'], $data['job_id']);
-                        
-                        if ($existing_candidate) {
-                            // Update existing candidate instead of creating new one
-                            return $this->update_existing_candidate($existing_candidate->id, $data);
-                        }
+                    // Handle file upload (continue even if it fails)
+                    try {
+                        $this->handle_file_upload_manual($id);
+                    } catch (Exception $e) {
+                        $warnings[] = 'File upload failed: ' . $e->getMessage();
                     }
                     
-                    // Add extra parameters
-                    $extra_params = $this->create_extra_params();
-                    $data = array_merge($data, $extra_params);
-                    
-                    // Add created_at timestamp
-                    $data['created_at'] = date('Y-m-d H:i:s');
-                    
-                    
+                    // Handle pivot tables (continue even if it fails)
                     try {
+                        $this->handle_pivot_tables($id);
+                    } catch (Exception $e) {
+                        $warnings[] = 'Failed to update agency/job assignments: ' . $e->getMessage();
+                    }
+                    
+                    // Send notification to agency about new candidate
+                    try {
+                        $job_id = $data['job_id'] ?? null;
+                        $recruiter_id = $this->get_recruiter_id();
                         
-                        // Insert the main record
-                        $id = $this->{$this->model}->create($data);
-                        
-                       // In the create() method, after the candidate is created successfully:
-                        if ($id) {                    
-                            $success = true;
-                            $message = 'Candidate created successfully!';
-                            $warnings = [];
-                            
-                            // Handle file upload (continue even if it fails)
-                            try {
-                                $this->handle_file_upload_manual($id);
-                            } catch (Exception $e) {
-                                $warnings[] = 'File upload failed: ' . $e->getMessage();
-                            }
-                            
-                            // Handle pivot tables (continue even if it fails)
-                            try {
-                                $this->handle_pivot_tables($id);
-                            } catch (Exception $e) {
-                                $warnings[] = 'Failed to update agency/job assignments: ' . $e->getMessage();
-                            }
-                            
-                            // ✅ ADD THIS: Send notification to agency about new candidate
-                            try {
-                                $job_id = $data['job_id'] ?? null;
-                                $recruiter_id = $this->get_recruiter_id();
-                                
-                                if ($job_id && $recruiter_id) {
-                                    $this->notify_agency_on_candidate_creation($id, $job_id, $recruiter_id);
-                                } else {
-                                    $warnings[] = 'Could not send agency notification: Missing job ID or recruiter ID';
-                                }
-                            } catch (Exception $e) {
-                                $warnings[] = 'Failed to send agency notification: ' . $e->getMessage();
-                            }
-                            
-                            // Send notifications to agencies (continue even if it fails)
-                            try {
-                                $this->send_agency_notifications($id);
-                            } catch (Exception $e) {
-                                $warnings[] = 'Failed to send notifications: ' . $e->getMessage();
-                            }
-                            
-                            // For AJAX requests, return JSON
-                            if ($is_ajax) {
-                                $response = [
-                                    'success' => $success,
-                                    'message' => $message,
-                                    'id' => $id
-                                ];
-                                
-                                if (!empty($warnings)) {
-                                    $response['warnings'] = $warnings;
-                                }
-                                
-                                $this->output
-                                    ->set_content_type('application/json')
-                                    ->set_output(json_encode($response));
-                                return;
-                            } else {
-                                // For non-AJAX requests
-                                $this->session->set_flashdata('success', $message);
-                                redirect(redir($this->pageName, true));
-                            }
+                        if ($job_id && $recruiter_id) {
+                            $this->notify_agency_on_candidate_creation($id, $job_id, $recruiter_id);
                         } else {
-                            throw new Exception('Failed to create candidate record');
+                            $warnings[] = 'Could not send agency notification: Missing job ID or recruiter ID';
                         }
                     } catch (Exception $e) {
-                        // Handle database errors
-                        $error_message = $e->getMessage();
-                        
-                        // Check if it's a duplicate entry error
-                        if (strpos($error_message, 'Duplicate entry') !== false && strpos($error_message, 'unique_email_job') !== false) {
-                            $error_message = 'A candidate with this email address already exists for the selected job. Please use a different email or select a different job.';
-                        }
-                        
-                        if ($is_ajax) {
-                            $this->output
-                                ->set_content_type('application/json')
-                                ->set_output(json_encode(['success' => false, 'error' => $error_message]));
-                            return;
-                        } else {
-                            $this->session->set_flashdata('error', $error_message);
-                            redirect(redir($this->pageName, true));
-                        }
+                        $warnings[] = 'Failed to send agency notification: ' . $e->getMessage();
                     }
+                    
+                    // Send notifications to agencies (continue even if it fails)
+                    try {
+                        $this->send_agency_notifications($id);
+                    } catch (Exception $e) {
+                        $warnings[] = 'Failed to send notifications: ' . $e->getMessage();
+                    }
+                    
+                    // For AJAX requests, return JSON with redirect URL
+                    if ($is_ajax) {
+                        $response = [
+                            'success' => $success,
+                            'message' => $message,
+                            'id' => $id,
+                            'redirect' => true,
+                            'redirect_url' => site_url('recruiter/candidates')
+                        ];
+                        
+                        if (!empty($warnings)) {
+                            $response['warnings'] = $warnings;
+                        }
+                        
+                        $this->output
+                            ->set_content_type('application/json')
+                            ->set_output(json_encode($response));
+                        return;
+                    } else {
+                        // For non-AJAX requests
+                        $this->session->set_flashdata('success', $message);
+                        redirect(redir($this->pageName, true));
+                    }
+                } else {
+                    throw new Exception('Failed to create candidate record');
                 }
+            } catch (Exception $e) {
+                // Handle database errors
+                $error_message = $e->getMessage();
                 
-                // If we get here, there was a validation error
-                $error_message = validation_errors() ?: 'Failed to create candidate. Please check the form data.';
+                // Check if it's a duplicate entry error
+                if (strpos($error_message, 'Duplicate entry') !== false && strpos($error_message, 'unique_email_job') !== false) {
+                    $error_message = 'A candidate with this email address already exists for the selected job. Please use a different email or select a different job.';
+                }
                 
                 if ($is_ajax) {
                     $this->output
                         ->set_content_type('application/json')
                         ->set_output(json_encode([
                             'success' => false, 
-                            'error' => $error_message,
-                            'fields' => $this->form_validation->error_array()
+                            'error' => $error_message
                         ]));
                     return;
                 } else {
                     $this->session->set_flashdata('error', $error_message);
-                    $this->add();
+                    redirect(redir($this->pageName, true));
                 }
             }
-            
-            // If no POST data and AJAX, return error
-            if ($is_ajax) {
-                $this->output
-                    ->set_content_type('application/json')
-                    ->set_output(json_encode(['success' => false, 'error' => 'No data received']));
-                return;
-            }
-            
-            // Show form for non-AJAX
+        }
+        
+        // If we get here, there was a validation error
+        $error_message = validation_errors() ?: 'Failed to create candidate. Please check the form data.';
+        
+        if ($is_ajax) {
+            $this->output
+                ->set_content_type('application/json')
+                ->set_output(json_encode([
+                    'success' => false, 
+                    'error' => $error_message,
+                    'fields' => $this->form_validation->error_array()
+                ]));
+            return;
+        } else {
+            $this->session->set_flashdata('error', $error_message);
             $this->add();
         }
-    /**
-     * Check if candidate already exists by email (without job requirement)
-     */
+    }
+    
+    // If no POST data and AJAX, return error
+    if ($is_ajax) {
+        $this->output
+            ->set_content_type('application/json')
+            ->set_output(json_encode(['success' => false, 'error' => 'No data received']));
+        return;
+    }
+    
+    // Show form for non-AJAX
+    $this->add();
+}
+
+
     private function check_existing_candidate_by_email($email)
         {
             $this->db->where('email', $email);
@@ -899,54 +869,55 @@ public function view($uuid_or_id = null)
             return $result;
         }
 
-      public function update($uuid_or_id = null)
-    {
-          // ✅ ADD CSRF VALIDATION for non-AJAX requests
-        if (!is_ajax()) {
-            $csrf_name = $this->security->get_csrf_token_name();
-            $csrf_token = $this->input->post($csrf_name);
-            
-            if (!$csrf_token || $csrf_token !== $this->security->get_csrf_hash()) {
-                flash_notification('Invalid CSRF token. Please try again.', 'error');
-                redir($this->pageName);
-                return;
-            }
-        }
-        // Better AJAX detection
-        $is_ajax = $this->input->is_ajax_request() || 
-                (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && 
-                    strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) == 'xmlhttprequest');
+public function update($uuid_or_id = null)
+{
+    // ✅ ADD CSRF VALIDATION for non-AJAX requests
+    if (!is_ajax()) {
+        $csrf_name = $this->security->get_csrf_token_name();
+        $csrf_token = $this->input->post($csrf_name);
         
-        // Get ID from URL if not provided
-        if (empty($uuid_or_id)) {
-            $uuid_or_id = $this->input->post('id');
+        if (!$csrf_token || $csrf_token !== $this->security->get_csrf_hash()) {
+            flash_notification('Invalid CSRF token. Please try again.', 'error');
+            redir($this->pageName);
+            return;
         }
-        
-        if (empty($uuid_or_id)) {
-            if ($is_ajax) {
-                $this->output
-                    ->set_content_type('application/json')
-                    ->set_output(json_encode(['success' => false, 'error' => 'Candidate identifier is required for update.']));
-                return;
-            } else {
-                show_404();
-            }
+    }
+    
+    // Better AJAX detection
+    $is_ajax = $this->input->is_ajax_request() || 
+            (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && 
+                strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) == 'xmlhttprequest');
+    
+    // Get ID from URL if not provided
+    if (empty($uuid_or_id)) {
+        $uuid_or_id = $this->input->post('id');
+    }
+    
+    if (empty($uuid_or_id)) {
+        if ($is_ajax) {
+            $this->output
+                ->set_content_type('application/json')
+                ->set_output(json_encode(['success' => false, 'error' => 'Candidate identifier is required for update.']));
+            return;
+        } else {
+            show_404();
         }
+    }
 
-                // Get the actual candidate to get the ID
-        $candidate = $this->{$this->model}->get_candidate($uuid_or_id);
-        if (!$candidate) {
-            if ($is_ajax) {
-                $this->output
-                    ->set_content_type('application/json')
-                    ->set_output(json_encode(['success' => false, 'error' => 'Candidate not found.']));
-                return;
-            } else {
-                show_404();
-            }
+    // Get the actual candidate to get the ID
+    $candidate = $this->{$this->model}->get_candidate($uuid_or_id);
+    if (!$candidate) {
+        if ($is_ajax) {
+            $this->output
+                ->set_content_type('application/json')
+                ->set_output(json_encode(['success' => false, 'error' => 'Candidate not found.']));
+            return;
+        } else {
+            show_404();
         }
+    }
 
-         // ✅✅✅ ADD ACCESS CONTROL CHECK HERE ✅✅✅
+    // ✅ ADD ACCESS CONTROL CHECK HERE
     $recruiter_id = $this->get_recruiter_id();
     if (!$recruiter_id || $candidate->assigned_agent_id != $recruiter_id) {
         if ($is_ajax) {
@@ -961,102 +932,84 @@ public function view($uuid_or_id = null)
         }
         return;
     }
-    // ✅✅✅ END OF ACCESS CONTROL ✅✅✅
-        $candidate_id = $candidate->id;
-        
-         if ($this->input->post()) {    
-            // Validate form
-            if ($this->validate_form('update')) {                
-                // Get post data
-                $data = $this->get_post_data();
+    
+    $candidate_id = $candidate->id;
+    
+    if ($this->input->post()) {    
+        // Validate form
+        if ($this->validate_form('update')) {                
+            // Get post data
+            $data = $this->get_post_data();
+            
+            // Check for status change before update
+            $old_candidate = $this->{$this->model}->get_by_id($candidate_id);
+            $old_status = $old_candidate->status ?? null;
+            $new_status = $data['status'] ?? null;
+            $status_changed = ($old_status && $new_status && $old_status !== $new_status);
+            
+            // Add extra parameters
+            $extra_params = $this->update_extra_params($candidate_id);                
+            $data = array_merge($data, $extra_params);                
+            
+            // Add updated_at timestamp
+            $data['updated_at'] = date('Y-m-d H:i:s');
+            
+            // CRITICAL: Handle job assignments properly
+            $additional_jobs = $this->input->post('additional_job_ids') ?: [];
+            
+            // If NO jobs are selected, set job_id to null
+            if (empty($additional_jobs)) {
+                $data['job_id'] = null;
+                $data['agency_id'] = null; // Also clear agency_id if no jobs
+            } else {
+                // Set primary job_id to the first selected job
+                $data['job_id'] = $additional_jobs[0];
                 
-                // Check for status change before update
-                $old_candidate = $this->{$this->model}->get_by_id($candidate_id);
-                $old_status = $old_candidate->status ?? null;
-                $new_status = $data['status'] ?? null;
-                $status_changed = ($old_status && $new_status && $old_status !== $new_status);
-                
-                // Add extra parameters
-                $extra_params = $this->update_extra_params($candidate_id);                
-                $data = array_merge($data, $extra_params);                
-                
-                // Add updated_at timestamp
-                $data['updated_at'] = date('Y-m-d H:i:s');
-                
-                // CRITICAL: Handle job assignments properly
-                $additional_jobs = $this->input->post('additional_job_ids') ?: [];
-                
-                // If NO jobs are selected, set job_id to null
-                if (empty($additional_jobs)) {
-                    $data['job_id'] = null;
-                    $data['agency_id'] = null; // Also clear agency_id if no jobs
-                } else {
-                    // Set primary job_id to the first selected job
-                    $data['job_id'] = $additional_jobs[0];
-                    
-                    // Get agency_id from the primary job
-                    $primary_job = $this->db->select('agency_id')->from('mod_jobs')->where('id', $data['job_id'])->get()->row();
-                    if ($primary_job) {
-                        $data['agency_id'] = $primary_job->agency_id;
-                    }
+                // Get agency_id from the primary job
+                $primary_job = $this->db->select('agency_id')->from('mod_jobs')->where('id', $data['job_id'])->get()->row();
+                if ($primary_job) {
+                    $data['agency_id'] = $primary_job->agency_id;
                 }
+            }
 
-                // CRITICAL: Ensure data is an array
-                if (!is_array($data)) {
-                    $data = array();
-                }
+            // CRITICAL: Ensure data is an array
+            if (!is_array($data)) {
+                $data = array();
+            }
 
-                try {
-                    // Update the main candidate record
-                    $result = $this->{$this->model}->update($data, $candidate_id, 'id');
+            try {
+                // Update the main candidate record
+                $result = $this->{$this->model}->update($data, $candidate_id, 'id');
+                
+                if ($result) {
+                    // Handle file upload
+                    $this->handle_file_upload_manual($candidate_id);
                     
-                    if ($result) {
-                        // Handle file upload
-                        $this->handle_file_upload_manual($candidate_id);
-                        
-                        // Handle pivot tables
-                        $this->handle_pivot_tables($candidate_id);
-                        
-                        // Send status change notification if status changed
-                        if ($status_changed) {
-                            try {
-                                $recruiter_id = $this->get_recruiter_id();
-                                $this->create_status_change_notification($candidate_id, $old_status, $new_status, $recruiter_id);
-                            } catch (Exception $e) {
-                                // Log but don't break the update
-                                log_message('error', 'Status change notification failed: ' . $e->getMessage());
-                            }
+                    // Handle pivot tables
+                    $this->handle_pivot_tables($candidate_id);
+                    
+                    // Send status change notification if status changed
+                    if ($status_changed) {
+                        try {
+                            $recruiter_id = $this->get_recruiter_id();
+                            $this->create_status_change_notification($candidate_id, $old_status, $new_status, $recruiter_id);
+                        } catch (Exception $e) {
+                            // Log but don't break the update
+                            log_message('error', 'Status change notification failed: ' . $e->getMessage());
                         }
-                        
-                        // Set success message
-                        $message = 'Candidate updated successfully!';
-                        
-                        if ($is_ajax) {
-                            $response = [
-                                'success' => true, 
-                                'message' => $message,
-                                'id' => $candidate_id,
-                                'uuid' => $candidate->uuid, // Include UUID in response
-                                'redirect_url' => site_url('recruiter/candidates')
-                            ];
-                            
-                            $this->output
-                                ->set_content_type('application/json')
-                                ->set_output(json_encode($response));
-                            return;
-                        } else {
-                            $this->session->set_flashdata('success', $message);
-                            redirect(redir($this->pageName, true));
-                        }
-                        
-                    } else {
-                        throw new Exception('No changes made or candidate not found');
                     }
-                } catch (Exception $e) {
+                    
+                    // Set success message
+                    $message = 'Candidate updated successfully!';
+                    
                     if ($is_ajax) {
                         $response = [
-                            'success' => false, 
-                            'error' => 'Update failed: ' . $e->getMessage()
+                            'success' => true, 
+                            'message' => $message,
+                            'id' => $candidate_id,
+                            'uuid' => $candidate->uuid,
+                            'redirect' => true,
+                            'redirect_url' => site_url('recruiter/candidates')
                         ];
                         
                         $this->output
@@ -1064,16 +1017,18 @@ public function view($uuid_or_id = null)
                             ->set_output(json_encode($response));
                         return;
                     } else {
-                        $this->session->set_flashdata('error', 'Update failed: ' . $e->getMessage());
+                        $this->session->set_flashdata('success', $message);
                         redirect(redir($this->pageName, true));
                     }
+                    
+                } else {
+                    throw new Exception('No changes made or candidate not found');
                 }
-            } else {
+            } catch (Exception $e) {
                 if ($is_ajax) {
                     $response = [
                         'success' => false, 
-                        'error' => validation_errors() ?: 'Validation failed',
-                        'fields' => $this->form_validation->error_array()
+                        'error' => 'Update failed: ' . $e->getMessage()
                     ];
                     
                     $this->output
@@ -1081,15 +1036,16 @@ public function view($uuid_or_id = null)
                         ->set_output(json_encode($response));
                     return;
                 } else {
-                    $this->session->set_flashdata('error', validation_errors());
-                    redirect(redir($this->pageName . '/edit/' . $candidate->uuid, true)); // Use UUID in redirect
+                    $this->session->set_flashdata('error', 'Update failed: ' . $e->getMessage());
+                    redirect(redir($this->pageName, true));
                 }
             }
         } else {
             if ($is_ajax) {
                 $response = [
                     'success' => false, 
-                    'error' => 'No POST data received'
+                    'error' => validation_errors() ?: 'Validation failed',
+                    'fields' => $this->form_validation->error_array()
                 ];
                 
                 $this->output
@@ -1097,10 +1053,26 @@ public function view($uuid_or_id = null)
                     ->set_output(json_encode($response));
                 return;
             } else {
-                show_404();
+                $this->session->set_flashdata('error', validation_errors());
+                redirect(redir($this->pageName . '/edit/' . $candidate->uuid, true));
             }
         }
+    } else {
+        if ($is_ajax) {
+            $response = [
+                'success' => false, 
+                'error' => 'No POST data received'
+            ];
+            
+            $this->output
+                ->set_content_type('application/json')
+                ->set_output(json_encode($response));
+            return;
+        } else {
+            show_404();
+        }
     }
+}
 
     
         /**
@@ -2446,7 +2418,7 @@ public function for_job($job_uuid)
         if (!$this->input->is_ajax_request()) {
             show_404();
         }
-// ✅ ADD CSRF VALIDATION
+
         $csrf_name = $this->security->get_csrf_token_name();
         $csrf_token = $this->input->post($csrf_name);
         
@@ -3067,4 +3039,6 @@ public function ajax_submit_required_documents()
         ]));
     }
 }
+
+
 }

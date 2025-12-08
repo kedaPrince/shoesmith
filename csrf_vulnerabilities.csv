@@ -1,5 +1,7 @@
 File Type,File Path,Vulnerable Methods/Issues,Status
+Controller,/recruiter/Candidates.php,"create, for_job",NEEDS_FIX
 Controller,/recruiter/Dashboard.php,"upload_document",NEEDS_FIX
+Controller,/recruiter/Jobs.php,"ajax_assign_candidate_to_job",NEEDS_FIX
 Controller,/Browser.php,All methods protected,OK
 Controller,/Cron.php,All methods protected,OK
 Controller,/Files.php,All methods protected,OK
@@ -23,9 +25,7 @@ Controller,/agency/Template_sections.php,All methods protected,OK
 Controller,/agency/Templates.php,All methods protected,OK
 Controller,/agency/Test_form_builder.php,All methods protected,OK
 Controller,/agency_staff/Candidates.php,All methods protected,OK
-Controller,/recruiter/Candidates.php,All methods protected,OK
 Controller,/recruiter/Chat.php,All methods protected,OK
-Controller,/recruiter/Jobs.php,All methods protected,OK
 Controller,/staff/Candidates.php,All methods protected,OK
 View,/admin/access_groups/ajax_manage.php,Forms have CSRF,OK
 View,/admin/administrators/ajax_manage.php,Forms have CSRF,OK

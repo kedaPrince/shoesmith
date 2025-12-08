@@ -1387,3 +1387,36 @@ table {
         gap: 4px !important;
     }
 }
+.block-header{
+    background: linear-gradient(93deg, #59c4bc -60%, rgba(23, 162, 184, 0) 55%) !important;
+    color: #ffffff;
+    padding: 20px;
+    margin: -20px -20px 20px -20px;
+}
+
+/* Force dark mode via CSS */
+
+
+/* Override any light mode specific classes */
+.light-mode,
+.theme-light {
+    background-color: #1a1a1a !important;
+    color: #ffffff !important;
+}
+
+
+a.btn.btn-sm.btn-outline-secondary.chat-row {
+    background-color: #28a745 !important;
+    color: #fff !important;
+    border: none !important;
+}
+a.btn.btn-sm.btn-outline-secondary.edit-row {
+    background-color: #ffcf74 !important;
+    color: #fff !important;
+    border: none !important;
+}
+a.btn.btn-sm.btn-outline-secondary.view-row {
+    background-color: #17a2b8 !important;
+    color: #fff !important;
+    border: none !important;
+}

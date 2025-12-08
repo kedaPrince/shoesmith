@@ -7,6 +7,8 @@ $form_action = !empty($uuid) ?
 ?>
 
 <?= form_open($form_action, ['enctype' => 'multipart/form-data', 'id' => 'mainCandidateForm']); ?>
+<input type="hidden" name="<?php echo $this->security->get_csrf_token_name(); ?>"
+    value="<?php echo $this->security->get_csrf_hash(); ?>">
 <?= form_hidden('id', !empty($row->id) ? $row->id : 0); ?>
 <?= form_hidden('uuid', !empty($uuid) ? $uuid : ''); ?>
 <a class="close-quick-manage"><i class="fa fa-times"></i></a>
@@ -38,6 +40,7 @@ $form_action = !empty($uuid) ?
 
     <div class="form-field-container">
         <?= form_open('', ['enctype' => 'multipart/form-data', 'id' => 'mainCandidateForm']); ?>
+
         <?= form_hidden('id', !empty($row->id) ? $row->id : 0); ?>
         <?= form_hidden('action', !empty($row->id) ? 'update' : 'create'); ?>
 
@@ -584,17 +587,27 @@ function submitFormData(form) {
 
     const formData = new FormData(form);
 
-    // PROPERLY get the ID value
+    // Get the ID value
     const idElement = document.querySelector('input[name="id"]');
     const id = idElement ? idElement.value : '0';
 
     console.log('ID value found:', id);
     console.log('Is update?', id && id != '0');
 
-    // CORRECTED: Use the proper endpoint
-    const action = id && id != '0' && id !== '0' ?
-        '<?= site_url("recruiter/candidates/update") ?>/' + id :
-        '<?= site_url("recruiter/candidates/create") ?>';
+    // Determine correct endpoint
+    let action;
+    if (id && id != '0' && id !== '0') {
+        // For update, use UUID if available
+        const uuidElement = document.querySelector('input[name="uuid"]');
+        const uuid = uuidElement ? uuidElement.value : null;
+        if (uuid) {
+            action = '<?= site_url("recruiter/candidates/update") ?>/' + uuid;
+        } else {
+            action = '<?= site_url("recruiter/candidates/update") ?>/' + id;
+        }
+    } else {
+        action = '<?= site_url("recruiter/candidates/create") ?>';
+    }
 
     const submitBtn = document.querySelector('.save-button');
     if (!submitBtn) {
@@ -610,26 +623,27 @@ function submitFormData(form) {
 
     console.log('Submitting to:', action);
 
-    // ADD THIS CRITICAL HEADER to make it a proper AJAX request
     fetch(action, {
             method: 'POST',
             body: formData,
             headers: {
-                'X-Requested-With': 'XMLHttpRequest' // THIS MAKES IT AN AJAX REQUEST
+                'X-Requested-With': 'XMLHttpRequest'
             }
         })
         .then(response => {
             console.log('Response status:', response.status);
             if (!response.ok) {
-                throw new Error('Network response was not ok: ' + response.status);
+                return response.text().then(text => {
+                    throw new Error(`Server error: ${response.status}. Response: ${text}`);
+                });
             }
-            return response.json(); // Expect JSON response
+            return response.json();
         })
         .then(result => {
             console.log('Response received:', result);
 
             if (result.success) {
-                // Success handling
+                // SUCCESS HANDLING - COMPLETE CODE
                 const successMessage = result.message || 'Candidate saved successfully!';
                 console.log('Success:', successMessage);
 
@@ -640,33 +654,51 @@ function submitFormData(form) {
                     alert(successMessage);
                 }
 
-                // CHECK IF WE'RE ON SINGLE VIEW PAGE
-                const isSingleViewPage = window.location.pathname.includes('/view/');
+                // Check if we should redirect
+                if (result.redirect && result.redirect_url) {
+                    console.log('Redirecting to:', result.redirect_url);
 
-                if (isSingleViewPage) {
-                    console.log('On single view page - redirecting to listing...');
-                    // Redirect to candidates listing after a short delay
+                    // Close modal if open
                     setTimeout(() => {
-                        window.location.href = '<?= site_url("recruiter/candidates") ?>';
+                        // Try to close any open modal
+                        if (typeof close_qm === 'function') {
+                            close_qm();
+                        } else if (typeof close_quick_manage === 'function') {
+                            close_quick_manage();
+                        }
+
+                        // Redirect after short delay
+                        setTimeout(() => {
+                            window.location.href = result.redirect_url;
+                        }, 500);
                     }, 1000);
                 } else {
-                    // Close the quick manage modal for other contexts
-                    if (typeof close_quick_manage === 'function') {
-                        close_quick_manage();
-                    } else if (typeof close_qm === 'function') {
-                        close_qm();
-                    } else {
-                        // Fallback: reload the page after a short delay
-                        setTimeout(() => {
+                    // Fallback - just close modal and reload
+                    setTimeout(() => {
+                        if (typeof close_qm === 'function') {
+                            close_qm();
+                            // Reload after modal closes
+                            setTimeout(() => {
+                                window.location.reload();
+                            }, 300);
+                        } else if (typeof close_quick_manage === 'function') {
+                            close_quick_manage();
+                            setTimeout(() => {
+                                window.location.reload();
+                            }, 300);
+                        } else {
+                            // No modal functions, just reload
                             window.location.reload();
-                        }, 1500);
-                    }
+                        }
+                    }, 1500);
                 }
+
             } else {
-                // Error handling
-                const errorMessage = result.error || 'Failed to save candidate';
+                // ERROR HANDLING - COMPLETE CODE
+                const errorMessage = result.error || result.message || 'Failed to save candidate';
                 console.error('Error:', errorMessage);
 
+                // Show error message
                 if (typeof toastr !== 'undefined') {
                     toastr.error(errorMessage);
                 } else {
@@ -676,25 +708,48 @@ function submitFormData(form) {
                 // Show validation errors if any
                 if (result.fields) {
                     console.log('Validation errors:', result.fields);
-                    // You can add code here to highlight invalid fields
+                    // Highlight invalid fields
+                    Object.keys(result.fields).forEach(fieldName => {
+                        const field = form.querySelector(`[name="${fieldName}"]`);
+                        if (field) {
+                            field.classList.add('is-invalid');
+                        }
+                    });
                 }
+
+                // Re-enable submit button
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = originalText;
             }
         })
         .catch(error => {
+            // CATCH HANDLING - COMPLETE CODE
             console.error('Fetch error:', error);
-            const errorMessage = 'Error saving candidate: ' + error.message;
 
+            let errorMessage = 'Error saving candidate. Please try again.';
+
+            if (error.message.includes('CSRF')) {
+                errorMessage = 'Session expired. Please refresh the page and try again.';
+            } else if (error.message.includes('Network')) {
+                errorMessage = 'Network error. Please check your connection and try again.';
+            } else if (error.message) {
+                errorMessage = error.message;
+            }
+
+            // Show error message
             if (typeof toastr !== 'undefined') {
                 toastr.error(errorMessage);
             } else {
                 alert(errorMessage);
             }
-        })
-        .finally(() => {
+
+            // Re-enable submit button
             submitBtn.disabled = false;
             submitBtn.innerHTML = originalText;
         });
 }
+
+
 
 // ========== FALLBACK FORM SUBMISSION ==========
 const mainForm = document.getElementById('mainCandidateForm');

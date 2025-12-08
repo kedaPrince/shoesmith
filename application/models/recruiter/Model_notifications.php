@@ -122,7 +122,115 @@ class Model_notifications extends CRUD_model
 
         return [];
     }
-
+/**
+ * Create candidate submission notification for agency
+ */
+public function create_candidate_submission_notification($candidateData, $createdById)
+{
+    try {
+        // Get candidate details from the candidateData array
+        $candidate_id = $candidateData['id'] ?? 0;
+        
+        // Load candidate details from database if not provided in array
+        if ($candidate_id) {
+            $this->db->select('first_name, last_name, reference_number, agency_id, job_id');
+            $this->db->from('candidates');
+            $this->db->where('id', $candidate_id);
+            $candidate = $this->db->get()->row();
+        } else {
+            // Create dummy candidate object from provided data
+            $candidate = (object)[
+                'first_name' => $candidateData['first_name'] ?? '',
+                'last_name' => $candidateData['last_name'] ?? '',
+                'reference_number' => $candidateData['reference_number'] ?? '',
+                'agency_id' => $candidateData['agency_id'] ?? 0,
+                'job_id' => $candidateData['job_id'] ?? null
+            ];
+        }
+        
+        if (!$candidate) {
+            return false;
+        }
+        
+        // Get recruiter details
+        $this->db->select('first_name, last_name, agency_id');
+        $this->db->from('recruiters');
+        $this->db->where('id', $createdById);
+        $recruiter = $this->db->get()->row();
+        
+        if (!$recruiter) {
+            return false;
+        }
+        
+        // Get job name
+        $job_name = 'Multiple Jobs';
+        if (!empty($candidate->job_id)) {
+            $job = $this->db->where('id', $candidate->job_id)->get('mod_jobs')->row();
+            if ($job) {
+                $job_name = $job->name;
+            }
+        }
+        
+        // Get recruiter name
+        $recruiter_name = '';
+        if ($recruiter) {
+            $recruiter_name = $recruiter->first_name . ' ' . $recruiter->last_name;
+        }
+        
+        // Get all agency staff for this agency to notify
+        $this->db->select('id, first_name, last_name');
+        $this->db->from('agency_staff');
+        $this->db->where('agency_id', $candidate->agency_id);
+        $this->db->where('enabled', 1);
+        $this->db->where('removed', 0);
+        $agency_users = $this->db->get()->result();
+        
+        if (empty($agency_users)) {
+            return false;
+        }
+        
+        $notifications_created = 0;
+        
+        foreach ($agency_users as $agency_user) {
+            $notification_data = [
+                'title' => ' New Candidate Submission',
+                'message' => "Recruiter {$recruiter_name} submitted candidate {$candidate->first_name} {$candidate->last_name} ({$candidate->reference_number}) for job: {$job_name}",
+                'type' => 'candidate_applied',
+                'sender_type' => 'recruiter',
+                'sender_id' => $createdById,
+                'receiver_type' => 'agency',
+                'receiver_id' => $agency_user->id,
+                'related_entity' => 'candidate',
+                'related_entity_id' => $candidate_id,
+                'metadata' => json_encode([
+                    'candidate_name' => $candidate->first_name . ' ' . $candidate->last_name,
+                    'candidate_reference' => $candidate->reference_number,
+                    'recruiter_name' => $recruiter_name,
+                    'job_name' => $job_name,
+                    'notification_type' => 'candidate_submission',
+                    'action_required' => 'Review candidate submission',
+                    'action_url' => site_url("agency/candidates/view/{$candidate_id}")
+                ]),
+                'is_read' => 0,
+                'created_at' => date('Y-m-d H:i:s'),
+                'updated_at' => date('Y-m-d H:i:s'),
+                'enabled' => 1
+            ];
+            
+            // Insert notification
+            if ($this->db->insert('notifications', $notification_data)) {
+                $notifications_created++;
+            }
+        }
+        
+        return $notifications_created > 0;
+        
+    } catch (Exception $e) {
+        // Log error if needed
+        log_message('error', 'Candidate submission notification creation failed: ' . $e->getMessage());
+        return false;
+    }
+}
     /**
      * Create job notification for recruiters
      */

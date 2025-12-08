@@ -42,103 +42,103 @@
 </style>
 
 <script>
-$(document).ready(function() {
+document.addEventListener('DOMContentLoaded', function() {
     // Handle chat button click with loading state (RECRUITER VERSION)
-    $(document).on('click', '.chat-row', function(e) {
-        e.preventDefault();
-        e.stopPropagation();
+    document.addEventListener('click', function(e) {
+        if (e.target.closest('.chat-row')) {
+            e.preventDefault();
+            e.stopPropagation();
 
-        var url = $(this).attr('href');
-        var candidateId = url.split('/').pop();
-        var $button = $(this);
+            var button = e.target.closest('.chat-row');
+            var url = button.getAttribute('href');
+            var candidateId = url.split('/').pop();
 
-        // Store original button content
-        var originalContent = $button.html();
-        var originalClass = $button.attr('class');
+            // Store original button content
+            var originalContent = button.innerHTML;
+            var originalClass = button.className;
 
-        // Show loading state
-        $button.html('<i class="fa fa-spinner fa-spin"></i> Loading...');
-        $button.attr('class', originalClass + ' disabled');
-        $button.prop('disabled', true);
+            // Show loading state
+            button.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Loading...';
+            button.className = originalClass + ' disabled';
+            button.disabled = true;
 
-        // Get chat info via AJAX (RECRUITER ENDPOINT)
-        $.ajax({
-            url: base_url + 'recruiter/candidates/ajax_get_candidate_chat_info/' + candidateId,
-            type: 'GET',
-            dataType: 'json',
-            success: function(response) {
-                if (response.success) {
-                    // Open chat in new tab
-                    window.open(response.chat_url, '_blank');
+            // Get chat info via AJAX (RECRUITER ENDPOINT)
+            fetch(base_url + 'recruiter/candidates/ajax_get_candidate_chat_info/' + candidateId)
+                .then(response => response.json())
+                .then(response => {
+                    if (response.success) {
+                        // Open chat in new tab
+                        window.open(response.chat_url, '_blank');
 
-                    // Show success message
-                    showToast('success', 'Chat opened in new tab');
-                } else {
-                    // Show error message
-                    showToast('error', response.message || 'Failed to start chat');
-                }
-            },
-            error: function(xhr, status, error) {
-                console.error('Chat error:', error);
-                showToast('error', 'Network error. Please try again.');
+                        // Show success message
+                        showToast('success', 'Chat opened in new tab');
+                    } else {
+                        // Show error message
+                        showToast('error', response.message || 'Failed to start chat');
+                    }
+                })
+                .catch(error => {
+                    console.error('Chat error:', error);
+                    showToast('error', 'Network error. Please try again.');
 
-                // Fallback: Try direct link
-                setTimeout(function() {
-                    window.open(url, '_blank');
-                }, 500);
-            },
-            complete: function() {
-                // Restore button state after a short delay
-                setTimeout(function() {
-                    $button.html(originalContent);
-                    $button.attr('class', originalClass);
-                    $button.prop('disabled', false);
-                }, 1000);
-            }
-        });
+                    // Fallback: Try direct link
+                    setTimeout(function() {
+                        window.open(url, '_blank');
+                    }, 500);
+                })
+                .finally(() => {
+                    // Restore button state after a short delay
+                    setTimeout(function() {
+                        button.innerHTML = originalContent;
+                        button.className = originalClass;
+                        button.disabled = false;
+                    }, 1000);
+                });
+        }
     });
 
     // Quick chat button handler
-    $(document).on('click', '.quick-chat-btn', function() {
-        var candidateId = $(this).data('candidate-id');
-        var candidateName = $(this).data('candidate-name');
+    document.addEventListener('click', function(e) {
+        if (e.target.closest('.quick-chat-btn')) {
+            var button = e.target.closest('.quick-chat-btn');
+            var candidateId = button.getAttribute('data-candidate-id');
+            var candidateName = button.getAttribute('data-candidate-name');
 
-        // Show loading
-        var $btn = $(this);
-        var originalHtml = $btn.html();
-        $btn.html('<i class="fa fa-spinner fa-spin"></i>');
+            // Show loading
+            var originalHtml = button.innerHTML;
+            button.innerHTML = '<i class="fa fa-spinner fa-spin"></i>';
 
-        // Get chat info
-        $.ajax({
-            url: base_url + 'recruiter/candidates/ajax_get_candidate_chat_info/' + candidateId,
-            type: 'GET',
-            dataType: 'json',
-            success: function(response) {
-                if (response.success) {
-                    window.open(response.chat_url, '_blank');
-                    showToast('success', 'Opening chat about ' + candidateName);
-                } else {
-                    showToast('error', response.message);
-                }
-            },
-            error: function() {
-                showToast('error', 'Failed to start chat');
-            },
-            complete: function() {
-                $btn.html(originalHtml);
-            }
-        });
+            // Get chat info
+            fetch(base_url + 'recruiter/candidates/ajax_get_candidate_chat_info/' + candidateId)
+                .then(response => response.json())
+                .then(response => {
+                    if (response.success) {
+                        window.open(response.chat_url, '_blank');
+                        showToast('success', 'Opening chat about ' + candidateName);
+                    } else {
+                        showToast('error', response.message);
+                    }
+                })
+                .catch(() => {
+                    showToast('error', 'Failed to start chat');
+                })
+                .finally(() => {
+                    button.innerHTML = originalHtml;
+                });
+        }
     });
 });
-
 /**
- * Show toast notification
+ * Show toast notification (Vanilla JS version)
  */
 function showToast(type, message) {
     // Check if toast container exists
-    if ($('#toast-container').length === 0) {
-        $('body').append(
-            '<div id="toast-container" style="position: fixed; top: 20px; right: 20px; z-index: 9999;"></div>');
+    var toastContainer = document.getElementById('toast-container');
+    if (!toastContainer) {
+        toastContainer = document.createElement('div');
+        toastContainer.id = 'toast-container';
+        toastContainer.style.cssText = 'position: fixed; top: 20px; right: 20px; z-index: 9999;';
+        document.body.appendChild(toastContainer);
     }
 
     var bgColor = type === 'success' ? '#28a745' : '#dc3545';
@@ -149,19 +149,40 @@ function showToast(type, message) {
         '; color: white; padding: 12px 20px; margin-bottom: 10px; border-radius: 4px; box-shadow: 0 2px 10px rgba(0,0,0,0.2); min-width: 250px; display: flex; align-items: center;">' +
         '<i class="fa ' + icon + '" style="margin-right: 10px;"></i>' +
         '<span>' + message + '</span>' +
-        '<button onclick="$(\'#' + toastId +
-        '\').remove()" style="margin-left: auto; background: none; border: none; color: white; cursor: pointer;">' +
+        '<button style="margin-left: auto; background: none; border: none; color: white; cursor: pointer;">' +
         '<i class="fa fa-times"></i>' +
         '</button>' +
         '</div>';
 
-    $('#toast-container').append(toastHtml);
+    var tempDiv = document.createElement('div');
+    tempDiv.innerHTML = toastHtml;
+    var toastElement = tempDiv.firstChild;
+
+    // Add click handler for close button
+    var closeBtn = toastElement.querySelector('button');
+    closeBtn.addEventListener('click', function() {
+        toastElement.style.opacity = '0';
+        toastElement.style.transition = 'opacity 0.3s';
+        setTimeout(function() {
+            if (toastElement.parentNode) {
+                toastElement.parentNode.removeChild(toastElement);
+            }
+        }, 300);
+    });
+
+    toastContainer.appendChild(toastElement);
 
     // Auto remove after 5 seconds
     setTimeout(function() {
-        $('#' + toastId).fadeOut(300, function() {
-            $(this).remove();
-        });
+        if (toastElement.parentNode) {
+            toastElement.style.opacity = '0';
+            toastElement.style.transition = 'opacity 0.3s';
+            setTimeout(function() {
+                if (toastElement.parentNode) {
+                    toastElement.parentNode.removeChild(toastElement);
+                }
+            }, 300);
+        }
     }, 5000);
 }
 

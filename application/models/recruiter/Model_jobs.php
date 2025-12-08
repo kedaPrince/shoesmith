@@ -74,6 +74,12 @@ class Model_jobs extends CRUD_Model
 
 public function get_candidates_for_job($job_id, $recruiter_id = null)
 {
+    // ✅ Validate job_id
+    if (empty($job_id) || !is_numeric($job_id)) {
+        log_message('error', 'Invalid job_id passed to get_candidates_for_job: ' . $job_id);
+        return [];
+    }
+
     $this->db->select('
         c.id,
         c.first_name,
@@ -86,19 +92,26 @@ public function get_candidates_for_job($job_id, $recruiter_id = null)
         cja.status as assignment_status
     ');
     $this->db->from('candidate_job_assignments cja');
-    $this->db->join('candidates c', 'c.id = cja.candidate_id');
-    $this->db->where('cja.job_id', $job_id);
+    $this->db->join('candidates c', 'c.id = cja.candidate_id', 'inner');
+    $this->db->where('cja.job_id', (int)$job_id);
     $this->db->where('cja.removed', 0); // Only active assignments
     $this->db->where('c.enabled', 1);
     $this->db->where('c.removed', 0);
     
-    if ($recruiter_id) {
-        $this->db->where('c.assigned_agent_id', $recruiter_id);
+    // ✅ Only filter by recruiter if provided and valid
+    if ($recruiter_id && is_numeric($recruiter_id)) {
+        $this->db->where('c.assigned_agent_id', (int)$recruiter_id);
+        log_message('debug', 'Filtering candidates by recruiter_id: ' . $recruiter_id);
+    } else {
+        log_message('debug', 'No recruiter_id provided — returning all candidates for job ' . $job_id);
     }
     
     $this->db->order_by('c.first_name', 'ASC');
     
-    return $this->db->get()->result();
+    $result = $this->db->get()->result();
+    log_message('debug', 'Raw candidate query: ' . $this->db->last_query());
+    
+    return $result;
 }
 
 public function get_candidate_count_for_job($job_id, $recruiter_id = null)
