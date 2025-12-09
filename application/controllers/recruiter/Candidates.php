@@ -756,7 +756,6 @@ public function view($uuid_or_id = null)
 
 public function create()
 {
-    
     // Better AJAX detection
     $is_ajax = $this->input->is_ajax_request() || 
             (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && 
@@ -767,6 +766,12 @@ public function create()
         if ($this->validate_form('create')) {
             // Get post data
             $data = $this->get_post_data();
+            
+            // Get recruiter ID
+            $recruiter_id = $this->get_recruiter_id();
+            
+            // Add recruiter_id to the data
+            $data['recruiter_id'] = $recruiter_id; // ← ADD THIS LINE
             
             // Check if candidate already exists for this email and job
             if (!empty($data['email']) && !empty($data['job_id'])) {
@@ -811,7 +816,6 @@ public function create()
                     // Send notification to agency about new candidate
                     try {
                         $job_id = $data['job_id'] ?? null;
-                        $recruiter_id = $this->get_recruiter_id();
                         
                         if ($job_id && $recruiter_id) {
                             $this->notify_agency_on_candidate_creation($id, $job_id, $recruiter_id);
@@ -2109,6 +2113,7 @@ public function debug_pagination()
             'agency_id' => $primary_agency_id, // Can be null
             'job_id' => $primary_job_id, // Can be null
             'assigned_agent_id' => $recruiter_id, // Auto-assign to the logged-in recruiter
+            'recruiter_id' => $recruiter_id, // ← ADD THIS
         ];
     }
 
