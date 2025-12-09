@@ -207,9 +207,11 @@ class Login extends MY_Controller {
 
 }
 
-  public function logout($group="")
+public function logout($group = "")
 {
+    // Allow both GET and POST requests for logout
     if ($this->input->server('REQUEST_METHOD') === 'POST') {
+        // For POST requests, validate CSRF token
         $csrf_name = $this->security->get_csrf_token_name();
         $csrf_token = $this->input->post($csrf_name);
         
@@ -218,6 +220,9 @@ class Login extends MY_Controller {
             return;
         }
     }
+    
+    // For GET requests, just proceed with logout (less secure but more user-friendly)
+    // Or you can require a confirmation page before logout
 
     $data = $this->session->login;
     $loginGroups = $this->config->item('login_groups');
@@ -225,28 +230,37 @@ class Login extends MY_Controller {
     if (!empty($group)) {
         if (isset($data[$group])) {
             Logger::log($data[$group]['first_name'].' '.$data[$group]['last_name'].' ('.$data[$group]['group'].') has logged out', $data[$group], $group, $data[$group]['id']);
-
             unset($data[$group]);
         }
-
-    }
-    else {
+    } else {
         foreach ($loginGroups as $g => $groupData) {
             if (isset($data[$g])) {
                 Logger::log($data[$g]['first_name'].' '.$data[$g]['last_name'].' ('.$data[$g]['group'].') has logged out', $data[$g], $g, $data[$g]['id']);
-
                 unset($data[$g]);
             }
         }
     }
 
+    // Clear the entire session
     $this->session->set_userdata('login', $data);
+    
+    // Also clear other session data to ensure complete logout
+    $this->session->unset_userdata('is_logged_in');
+    $this->session->unset_userdata('agency_id'); // Clear agency_id if set
+    $this->session->unset_userdata('loginRedirect');
+    
+    // Optionally destroy the entire session
+    $this->session->sess_destroy();
 
+    // Set a success message
+    $this->session->set_flashdata('success', 'You have been logged out successfully.');
+
+    // Redirect to appropriate login page
     if(isset($loginGroups[$group]) && isset($loginGroups[$group]['logout_redirect'])) {
-        redirect(site_url().$loginGroups[$group]['logout_redirect']);
-    }
-    else {
-        redirect(site_url().'login');
+        redirect($loginGroups[$group]['logout_redirect']);
+    } else {
+        // Redirect to generic login page
+        redirect('login');
     }
 }
 
