@@ -599,6 +599,9 @@ function formatFileSize($bytes) {
 </style>
 
 <div id="main-content">
+    <!-- Add this near the top of your view file -->
+    <input type="hidden" id="csrf_token_input" name="<?= $this->security->get_csrf_token_name() ?>"
+        value="<?= $this->security->get_csrf_hash() ?>">
     <div class="container-fluid">
         <div class="block-header">
             <div class="row">
@@ -1061,8 +1064,9 @@ function formatFileSize($bytes) {
                 <div class="modal-body">
                     <form id="hmDecisionForm">
                         <input type="hidden" name="candidate_id" value="<?= $candidate->id ?>">
-                        <!-- Add this at the top of your view file -->
-<input type="hidden" id="csrf_token" name="<?= $this->security->get_csrf_token_name() ?>" value="<?= $this->security->get_csrf_hash() ?>">
+                        <!-- IMPORTANT: Always get fresh CSRF token -->
+                        <input type="hidden" id="hm_modal_csrf" name="<?= $this->security->get_csrf_token_name() ?>"
+                            value="<?= $this->security->get_csrf_hash() ?>">
 
                         <div class="form-group">
                             <label for="decision"><strong>Decision</strong></label>
@@ -1102,8 +1106,10 @@ function formatFileSize($bytes) {
                 <div class="modal-body">
                     <form id="documentsDecisionForm">
                         <input type="hidden" name="candidate_id" value="<?= $candidate->id ?>">
-<!-- Add this at the top of your view file -->
-<input type="hidden" id="csrf_token" name="<?= $this->security->get_csrf_token_name() ?>" value="<?= $this->security->get_csrf_hash() ?>">
+                        <!-- IMPORTANT: Always get fresh CSRF token -->
+                        <input type="hidden" id="docs_modal_csrf" name="<?= $this->security->get_csrf_token_name() ?>"
+                            value="<?= $this->security->get_csrf_hash() ?>">
+
                         <div class="form-group">
                             <label for="documents_required"><strong>Are additional documents required?</strong></label>
                             <select class="form-control" id="documents_required" name="documents_required" required>
@@ -1130,15 +1136,16 @@ function formatFileSize($bytes) {
     </div>
 
     <!-- Documents Section -->
-        <!-- Documents Section -->
+    <!-- Documents Section -->
     <div class="card mt-4">
         <div class="card-header bg-warning text-white">
             <h4 class="card-title mb-0"> Required Documents</h4>
         </div>
         <div class="card-body">
             <!-- ADD CSRF TOKEN HERE -->
-            <input type="hidden" name="<?= $this->security->get_csrf_token_name() ?>" value="<?= $this->security->get_csrf_hash() ?>">
-            
+            <input type="hidden" name="<?= $this->security->get_csrf_token_name() ?>"
+                value="<?= $this->security->get_csrf_hash() ?>">
+
             <!-- Documents Status Alert -->
             <div id="documentsStatusAlert" class="alert alert-info">
                 <h5><i class="fa fa-info-circle"></i> Documents Status</h5>
@@ -1227,441 +1234,525 @@ function formatFileSize($bytes) {
 
 </div> <!-- Closing div for the main container -->
 
+<script>
+// ============================================
+// CSRF TOKEN MANAGEMENT
+// ============================================
 
-    <script>
-// At the top of your script, define the CSRF token
-const csrfToken = {
-    name: '<?= $this->security->get_csrf_token_name() ?>',
-    value: '<?= $this->security->get_csrf_hash() ?>'
-};
+// Function to get CSRF token from page
+function getCSRFTokenFromPage() {
+    // Look for CSRF token in this order
+    const selectors = [
+        'input[name="csrf_rfid_token"]',
+        'input[name="csrf_test_name"]',
+        '#csrf_token_input',
+        '#csrf_token',
+        'input[name^="csrf"]'
+    ];
 
-// Update your makeAjaxRequest function:
-async function makeAjaxRequest(url, data = {}) {
-    const formData = new FormData();
-    
-    // Add CSRF token
-    formData.append(csrfToken.name, csrfToken.value);
-    
-    // Add other data
-    Object.keys(data).forEach(key => {
-        formData.append(key, data[key]);
-    });
-    
-    try {
-        const response = await fetch(url, {
-            method: 'POST',
-            body: formData,
-            headers: {
-                'X-Requested-With': 'XMLHttpRequest'
-            }
-        });
-        
-        // ... rest of your code
-    } catch (error) {
-        console.error('AJAX Error:', error);
-        throw error;
-    }
-}
-    // Complete Vanilla JS solution for onboarding
-    document.addEventListener('DOMContentLoaded', function() {
-        console.log('Onboarding script initialized - Clean Version');
-
-        // Initialize progress bar animation
-        setTimeout(function() {
-            const progressBar = document.getElementById('animated-progress');
-            if (progressBar) {
-                progressBar.style.width = '<?= $candidate->onboarding_progress ?>%';
-            }
-        }, 500);
-
-        // Documents notes field toggle - SIMPLIFIED
-        const documentsRequired = document.getElementById('documents_required');
-        const notesGroup = document.getElementById('documentsNotesGroup');
-
-        if (documentsRequired && notesGroup) {
-            documentsRequired.addEventListener('change', function() {
-                notesGroup.style.display = this.value === '1' ? 'block' : 'none';
-            });
-        }
-
-        // Universal modal hiding function
-        function hideModal(modalId) {
-            const modalElement = document.getElementById(modalId);
-            if (modalElement) {
-                // Bootstrap 4 method
-                $(modalElement).modal('hide');
-            }
-        }
-
-        // Get CSRF token from page - FIXED VERSION
-        // Get CSRF token from page - UPDATED VERSION
-function getCSRFToken() {
-    // First try to get from meta tag (CodeIgniter sometimes puts it here)
-    const metaToken = document.querySelector('meta[name="csrf-token"]');
-    if (metaToken && metaToken.getAttribute('content')) {
-        return {
-            name: 'csrf_test_name',
-            value: metaToken.getAttribute('content')
-        };
-    }
-    
-    // Try from hidden input with id 'csrf_token'
-    const csrfInputById = document.getElementById('csrf_token');
-    if (csrfInputById) {
-        return {
-            name: csrfInputById.name,
-            value: csrfInputById.value
-        };
-    }
-    
-    // Try from hidden input with name 'csrf_test_name'
-    const csrfInputByName = document.querySelector('input[name="csrf_test_name"]');
-    if (csrfInputByName) {
-        return {
-            name: csrfInputByName.name,
-            value: csrfInputByName.value
-        };
-    }
-    
-    // Try from any form with CSRF token
-    const forms = document.querySelectorAll('form');
-    for (const form of forms) {
-        const csrfInput = form.querySelector('input[name="csrf_test_name"]');
-        if (csrfInput) {
+    for (const selector of selectors) {
+        const element = document.querySelector(selector);
+        if (element && element.value) {
             return {
-                name: csrfInput.name,
-                value: csrfInput.value
+                name: element.name,
+                value: element.value
             };
         }
     }
-    
-    console.error('CSRF token not found on page');
-    return null;
+
+    // Fallback to PHP-generated value
+    console.warn('CSRF token not found on page, using fallback');
+    return {
+        name: '<?= $this->security->get_csrf_token_name() ?>',
+        value: '<?= $this->security->get_csrf_hash() ?>'
+    };
 }
 
-        // Helper function to add CSRF token to FormData
-        function addCSRFToken(formData) {
-            const csrf = getCSRFToken();
-            if (csrf) {
-                formData.append(csrf.name, csrf.value);
+// Initialize CSRF token
+const csrfToken = getCSRFTokenFromPage();
+console.log('Initial CSRF Token loaded:', csrfToken.name, '=', csrfToken.value.substring(0, 10) + '...');
+
+// Function to update all CSRF tokens on the page
+function updateAllCSRFTokens(newToken) {
+    if (!newToken) return;
+
+    // Update all CSRF input fields
+    document.querySelectorAll(
+        'input[name="csrf_rfid_token"], input[name="csrf_test_name"], #csrf_token_input, #csrf_token, input[name^="csrf"]'
+    ).forEach(input => {
+        input.value = newToken;
+    });
+
+    // Update our global token
+    csrfToken.value = newToken;
+    console.log('Updated CSRF token globally:', newToken.substring(0, 10) + '...');
+}
+
+// ============================================
+// AJAX REQUEST FUNCTION
+// ============================================
+
+async function makeAjaxRequest(url, data = {}) {
+    // ALWAYS get fresh token from page
+    const csrfTokenInfo = getCSRFTokenFromPage();
+
+    // Create URLSearchParams
+    const params = new URLSearchParams();
+    params.append(csrfTokenInfo.name, csrfTokenInfo.value);
+
+    // Add other data
+    Object.keys(data).forEach(key => {
+        if (data[key] !== null && data[key] !== undefined) {
+            params.append(key, data[key]);
+        }
+    });
+
+    console.log('AJAX Request - CSRF Token:', csrfTokenInfo.value.substring(0, 10) + '...');
+
+    try {
+        const response = await fetch(url, {
+            method: 'POST',
+            body: params,
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'Accept': 'application/json'
             }
-            return formData;
+        });
+
+        const responseText = await response.text();
+        console.log('Raw response:', responseText);
+
+        if (response.status === 403) {
+            // CSRF failed at global level - get new token from page
+            const newToken = getCSRFTokenFromPage().value;
+            updateAllCSRFTokens(newToken);
+            throw new Error('CSRF token expired. Try again.');
         }
 
-        // Stage toggle functionality
-        const stageButtons = document.querySelectorAll('.btn-toggle-stage:not(:disabled)');
-        stageButtons.forEach(function(button) {
-            button.addEventListener('click', function(e) {
-                e.preventDefault();
-                console.log('Stage button clicked');
+        if (!response.ok) {
+            throw new Error(`HTTP error ${response.status}: ${responseText}`);
+        }
 
-                const stage = button.dataset.stage;
-                const value = button.dataset.value;
-                const stageName = button.dataset.stageName;
-                const action = button.dataset.action;
-                const candidateId = <?= $candidate->id ?>;
+        const result = JSON.parse(responseText);
+        console.log('Server response:', result);
 
-                let message = '';
-                if (action === 'complete') {
-                    message = `Are you sure you want to mark the "${stageName}" stage as complete?`;
+        // ALWAYS update CSRF token from response (regeneration is TRUE)
+        if (result.csrf_token) {
+            updateAllCSRFTokens(result.csrf_token);
+        }
+
+        return result;
+
+    } catch (error) {
+        console.error('AJAX Error:', error);
+
+        // Show user-friendly error
+        if (error.message.includes('CSRF') || error.message.includes('403') || error.message.includes('expired')) {
+            if (typeof toastr !== 'undefined') {
+                toastr.error('Security token expired. Please try again.');
+            } else {
+                alert('Security token expired. Please try again.');
+            }
+        } else if (typeof toastr !== 'undefined') {
+            toastr.error('An error occurred. Please try again.');
+        }
+
+        throw error;
+    }
+}
+// ============================================
+// MAIN ONBOARDING SCRIPT
+// ============================================
+
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('Onboarding script initialized - Clean Version');
+
+    // Initialize progress bar animation
+    setTimeout(function() {
+        const progressBar = document.getElementById('animated-progress');
+        if (progressBar) {
+            progressBar.style.width = '<?= $candidate->onboarding_progress ?>%';
+        }
+    }, 500);
+
+    // Documents notes field toggle
+    const documentsRequired = document.getElementById('documents_required');
+    const notesGroup = document.getElementById('documentsNotesGroup');
+
+    if (documentsRequired && notesGroup) {
+        documentsRequired.addEventListener('change', function() {
+            notesGroup.style.display = this.value === '1' ? 'block' : 'none';
+        });
+    }
+
+    // ============================================
+    // STAGE TOGGLE FUNCTIONALITY - FIXED VERSION
+    // ============================================
+
+    // Use event delegation instead of adding listeners to each button
+    document.addEventListener('click', function(e) {
+        // Check if clicked element is a stage button
+        const button = e.target.closest('.btn-toggle-stage:not(:disabled)');
+        if (!button) return;
+
+        e.preventDefault();
+        console.log('Stage button clicked');
+
+        const stage = button.dataset.stage;
+        const value = button.dataset.value;
+        const stageName = button.dataset.stageName;
+        const action = button.dataset.action;
+        const candidateId = <?= $candidate->id ?>;
+
+        let message = '';
+        if (action === 'complete') {
+            message = `Are you sure you want to mark the "${stageName}" stage as complete?`;
+        } else {
+            message =
+                `Are you sure you want to reopen the "${stageName}" stage? This will reset progress for subsequent stages.`;
+        }
+
+        const confirmationMessage = document.getElementById('confirmationMessage');
+        if (confirmationMessage) {
+            confirmationMessage.textContent = message;
+        }
+
+        // Store the button reference for use in the modal
+        window.currentStageButton = button;
+        window.currentStageData = {
+            stage,
+            value,
+            candidateId
+        };
+
+        // Show confirmation modal
+        $('#confirmationModal').modal('show');
+    });
+
+    // Handle confirmation modal button click
+    document.getElementById('confirmAction').addEventListener('click', async function() {
+        $('#confirmationModal').modal('hide');
+
+        const button = window.currentStageButton;
+        const data = window.currentStageData;
+
+        if (!button || !data) {
+            console.error('No stage data found');
+            return;
+        }
+
+        const originalText = button.innerHTML;
+        button.disabled = true;
+        button.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Processing...';
+        button.closest('.stage-card')?.classList.add('loading');
+
+        try {
+            const response = await makeAjaxRequest(
+                '<?= site_url("agency/candidates/update_onboarding_stage") ?>', {
+                    candidate_id: data.candidateId,
+                    stage: data.stage,
+                    value: data.value
+                });
+
+            if (response.success) {
+                if (typeof toastr !== 'undefined') {
+                    toastr.success('Stage updated successfully!');
+                }
+                setTimeout(function() {
+                    location.reload();
+                }, 1500);
+            } else {
+                throw new Error(response.message || 'Failed to update stage');
+            }
+        } catch (error) {
+            console.error('AJAX Error:', error);
+
+            let errorMessage = 'An error occurred while updating the stage. Please try again.';
+
+            if (error.message.includes('CSRF')) {
+                errorMessage = 'Security token expired. Please refresh the page and try again.';
+            } else if (error.message.includes('non-JSON')) {
+                errorMessage = 'Server error. Please check your internet connection and try again.';
+            }
+
+            if (typeof toastr !== 'undefined') {
+                toastr.error(errorMessage);
+            }
+
+            button.disabled = false;
+            button.innerHTML = originalText;
+            button.closest('.stage-card')?.classList.remove('loading');
+        }
+
+        // Clean up
+        window.currentStageButton = null;
+        window.currentStageData = null;
+    });
+
+    // ============================================
+    // HM DECISION FUNCTIONALITY
+    // ============================================
+
+    // HM Decision functionality
+    const saveHmDecision = document.getElementById('saveHmDecision');
+    if (saveHmDecision) {
+        saveHmDecision.addEventListener('click', async function() {
+            // Get fresh CSRF token from the MAIN PAGE (not the modal)
+            const csrfTokenInfo = getCSRFTokenFromPage();
+
+            const decision = document.getElementById('decision').value;
+            const notes = document.getElementById('notes').value;
+
+            if (!decision) {
+                toastr.warning('Please select a decision');
+                return;
+            }
+
+            const button = this;
+            const originalText = button.innerHTML;
+            button.disabled = true;
+            button.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Saving...';
+
+            try {
+                const data = await makeAjaxRequest(
+                    '<?= site_url("agency/candidates/update_hm_decision") ?>', {
+                        candidate_id: <?= $candidate->id ?>,
+                        decision: decision,
+                        notes: notes
+                    });
+
+                if (data.success) {
+                    toastr.success('Decision recorded successfully!');
+                    $('#hmDecisionModal').modal('hide');
+                    document.getElementById('hmDecisionForm').reset();
+                    setTimeout(function() {
+                        location.reload();
+                    }, 1500);
                 } else {
-                    message = `Are you sure you want to reopen the "${stageName}" stage? This will reset progress for subsequent stages.`;
+                    throw new Error(data.message || 'Failed to save decision');
                 }
+            } catch (error) {
+                console.error('AJAX Error:', error);
+                toastr.error('An error occurred while saving the decision. Please try again.');
+                button.disabled = false;
+                button.innerHTML = originalText;
+            }
+        });
+    }
 
-                const confirmationMessage = document.getElementById('confirmationMessage');
-                if (confirmationMessage) {
-                    confirmationMessage.textContent = message;
+    // ============================================
+    // DOCUMENTS DECISION FUNCTIONALITY
+    // ============================================
+    // Function to sync all modal CSRF tokens with main page
+    function syncAllModalCSRFTokens() {
+        const mainToken = getCSRFTokenFromPage().value;
+
+        // Update all modal CSRF inputs
+        const modalCSRFInputs = [
+            '#hm_modal_csrf',
+            '#docs_modal_csrf',
+            'input[name="csrf_rfid_token"]', // Any other forms
+            'input[name="csrf_test_name"]'
+        ];
+
+        modalCSRFInputs.forEach(selector => {
+            const inputs = document.querySelectorAll(selector);
+            inputs.forEach(input => {
+                if (input.value !== mainToken) {
+                    input.value = mainToken;
+                    console.log('Updated CSRF token for:', selector);
                 }
-
-                // Show confirmation modal
-                $('#confirmationModal').modal('show');
-
-                // Handle confirm action
-                const confirmAction = document.getElementById('confirmAction');
-                const newConfirmAction = confirmAction.cloneNode(true);
-                confirmAction.parentNode.replaceChild(newConfirmAction, confirmAction);
-
-                newConfirmAction.onclick = function() {
-                    $('#confirmationModal').modal('hide');
-
-                    const originalText = button.innerHTML;
-                    button.disabled = true;
-                    button.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Processing...';
-                    button.closest('.stage-card').classList.add('loading');
-
-                    // Make AJAX request
-                    const formData = new FormData();
-                    formData.append('candidate_id', candidateId);
-                    formData.append('stage', stage);
-                    formData.append('value', value);
-                    
-                    // Add CSRF token
-                    addCSRFToken(formData);
-
-                    fetch('<?= site_url("agency/candidates/update_onboarding_stage") ?>', {
-                            method: 'POST',
-                            body: formData,
-                            headers: {
-                                'X-Requested-With': 'XMLHttpRequest'
-                            }
-                        })
-                        .then(response => {
-                            // Check if response is JSON
-                            const contentType = response.headers.get('content-type');
-                            if (!contentType || !contentType.includes('application/json')) {
-                                // If not JSON, we likely got an error page
-                                return response.text().then(text => {
-                                    throw new Error('Server returned non-JSON response');
-                                });
-                            }
-                            return response.json();
-                        })
-                        .then(data => {
-                            if (data.success) {
-                                if (typeof toastr !== 'undefined') {
-                                    toastr.success('Stage updated successfully!');
-                                }
-                                setTimeout(function() {
-                                    location.reload();
-                                }, 1500);
-                            } else {
-                                throw new Error(data.message || 'Failed to update stage');
-                            }
-                        })
-                        .catch(error => {
-                            console.error('AJAX Error:', error);
-                            if (typeof toastr !== 'undefined') {
-                                toastr.error('An error occurred while updating the stage. Please try again.');
-                            }
-                            button.disabled = false;
-                            button.innerHTML = originalText;
-                            button.closest('.stage-card').classList.remove('loading');
-                        });
-                };
             });
         });
+    }
 
-        // HM Decision functionality
-        const saveHmDecision = document.getElementById('saveHmDecision');
-        if (saveHmDecision) {
-            saveHmDecision.addEventListener('click', function() {
-                const decision = document.getElementById('decision').value;
-                const notes = document.getElementById('notes').value;
+    // Run sync when any modal opens
+    $('.modal').on('show.bs.modal', function() {
+        console.log('Modal opening - syncing CSRF tokens...');
+        syncAllModalCSRFTokens();
+    });
 
-                if (!decision) {
-                    toastr.warning('Please select a decision');
-                    return;
-                }
+    // Also sync on page load
+    document.addEventListener('DOMContentLoaded', function() {
+        setTimeout(syncAllModalCSRFTokens, 1000); // Sync after 1 second
+    });
+    // Documents Decision functionality
+    const saveDocumentsDecision = document.getElementById('saveDocumentsDecision');
+    if (saveDocumentsDecision) {
+        saveDocumentsDecision.addEventListener('click', async function() {
+            // Get fresh CSRF token from the MAIN PAGE
+            const csrfTokenInfo = getCSRFTokenFromPage();
 
-                const button = this;
-                const originalText = button.innerHTML;
-                button.disabled = true;
-                button.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Saving...';
+            const documentsRequired = document.getElementById('documents_required').value;
+            const documentsNotes = document.getElementById('documents_notes').value;
 
-                const formData = new FormData();
-                formData.append('candidate_id', <?= $candidate->id ?>);
-                formData.append('decision', decision);
-                formData.append('notes', notes);
-                
-                // Add CSRF token
-                addCSRFToken(formData);
+            if (!documentsRequired) {
+                toastr.warning('Please select whether documents are required');
+                return;
+            }
 
-                fetch('<?= site_url("agency/candidates/update_hm_decision") ?>', {
-                        method: 'POST',
-                        body: formData,
-                        headers: {
-                            'X-Requested-With': 'XMLHttpRequest'
-                        }
-                    })
-                    .then(response => {
-                        // Check if response is JSON
-                        const contentType = response.headers.get('content-type');
-                        if (!contentType || !contentType.includes('application/json')) {
-                            return response.text().then(text => {
-                                throw new Error('Server returned non-JSON response');
-                            });
-                        }
-                        return response.json();
-                    })
-                    .then(data => {
-                        if (data.success) {
-                            toastr.success('Decision recorded successfully!');
-                            $('#hmDecisionModal').modal('hide');
-                            document.getElementById('hmDecisionForm').reset();
-                            setTimeout(function() {
-                                location.reload();
-                            }, 1500);
-                        } else {
-                            throw new Error(data.message || 'Failed to save decision');
-                        }
-                    })
-                    .catch(error => {
-                        console.error('AJAX Error:', error);
-                        toastr.error('An error occurred while saving the decision. Please try again.');
-                        button.disabled = false;
-                        button.innerHTML = originalText;
+            if (documentsRequired === '1' && !documentsNotes.trim()) {
+                toastr.warning('Please specify which documents are required');
+                return;
+            }
+
+            const button = this;
+            const originalText = button.innerHTML;
+            button.disabled = true;
+            button.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Saving...';
+
+            try {
+                const data = await makeAjaxRequest(
+                    '<?= site_url("agency/candidates/update_documents_decision") ?>', {
+                        candidate_id: <?= $candidate->id ?>,
+                        documents_required: documentsRequired,
+                        documents_notes: documentsNotes
                     });
-            });
-        }
 
-        // Documents Decision functionality - CLEAN VERSION
-        const saveDocumentsDecision = document.getElementById('saveDocumentsDecision');
-        if (saveDocumentsDecision) {
-            // Remove any existing event listeners
-            const newSaveBtn = saveDocumentsDecision.cloneNode(true);
-            saveDocumentsDecision.parentNode.replaceChild(newSaveBtn, saveDocumentsDecision);
+                if (data.success) {
+                    toastr.success(data.message || 'Documents decision saved successfully!');
+                    $('#documentsDecisionModal').modal('hide');
+                    document.getElementById('documentsDecisionForm').reset();
 
-            newSaveBtn.addEventListener('click', function() {
-                const documentsRequired = document.getElementById('documents_required').value;
-                const documentsNotes = document.getElementById('documents_notes').value;
+                    // Hide notes group
+                    const notesGroup = document.getElementById('documentsNotesGroup');
+                    if (notesGroup) notesGroup.style.display = 'none';
 
-                if (!documentsRequired) {
-                    toastr.warning('Please select whether documents are required');
-                    return;
+                    setTimeout(function() {
+                        location.reload();
+                    }, 1500);
+                } else {
+                    throw new Error(data.message || 'Failed to save documents decision');
                 }
+            } catch (error) {
+                console.error('AJAX Error:', error);
+                toastr.error(
+                    'An error occurred while saving the documents decision. Please try again.');
+                button.disabled = false;
+                button.innerHTML = originalText;
+            }
+        });
+    }
 
-                if (documentsRequired === '1' && !documentsNotes.trim()) {
-                    toastr.warning('Please specify which documents are required');
-                    return;
+    // ============================================
+    // MARK DOCUMENTS AS REVIEWED
+    // ============================================
+
+    const markDocumentsReviewed = document.getElementById('markDocumentsReviewed');
+    if (markDocumentsReviewed) {
+        markDocumentsReviewed.addEventListener('click', async function() {
+            const button = this;
+            const originalText = button.innerHTML;
+            button.disabled = true;
+            button.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Processing...';
+
+            try {
+                const data = await makeAjaxRequest(
+                    '<?= site_url("agency/candidates/update_onboarding_stage") ?>', {
+                        candidate_id: <?= $candidate->id ?>,
+                        stage: 'stage_requested_docs',
+                        value: '1'
+                    });
+
+                if (data.success) {
+                    toastr.success('Documents marked as reviewed! Stage completed.');
+                    setTimeout(function() {
+                        location.reload();
+                    }, 2000);
+                } else {
+                    throw new Error(data.message || 'Failed to mark documents as reviewed');
                 }
+            } catch (error) {
+                console.error('AJAX Error:', error);
+                toastr.error('An error occurred. Please try again.');
+                button.disabled = false;
+                button.innerHTML = originalText;
+            }
+        });
+    }
 
-                const button = this;
-                const originalText = button.innerHTML;
-                button.disabled = true;
-                button.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Saving...';
+    // ============================================
+    // MODAL RESET HANDLERS
+    // ============================================
 
-                const formData = new FormData();
-                formData.append('candidate_id', <?= $candidate->id ?>);
-                formData.append('documents_required', documentsRequired);
-                formData.append('documents_notes', documentsNotes);
-                
-                // Add CSRF token
-                addCSRFToken(formData);
+    $('#hmDecisionModal').on('hidden.bs.modal', function() {
+        document.getElementById('hmDecisionForm').reset();
+    });
 
-                console.log('Sending documents decision request...');
+    $('#documentsDecisionModal').on('hidden.bs.modal', function() {
+        document.getElementById('documentsDecisionForm').reset();
+        const notesGroup = document.getElementById('documentsNotesGroup');
+        if (notesGroup) notesGroup.style.display = 'none';
+    });
 
-                fetch('<?= site_url("agency/candidates/update_documents_decision") ?>', {
-                        method: 'POST',
-                        body: formData,
-                        headers: {
-                            'X-Requested-With': 'XMLHttpRequest'
-                        }
-                    })
-                    .then(response => {
-                        // Check if response is JSON
-                        const contentType = response.headers.get('content-type');
-                        if (!contentType || !contentType.includes('application/json')) {
-                            return response.text().then(text => {
-                                throw new Error('Server returned non-JSON response');
-                            });
-                        }
-                        return response.json();
-                    })
-                    .then(data => {
-                        console.log('Success response:', data);
-                        if (data.success) {
-                            toastr.success(data.message || 'Documents decision saved successfully!');
-                            $('#documentsDecisionModal').modal('hide');
-                            document.getElementById('documentsDecisionForm').reset();
+    $('#confirmationModal').on('hidden.bs.modal', function() {
+        // Clean up stored data
+        window.currentStageButton = null;
+        window.currentStageData = null;
+    });
 
-                            // Hide notes group
-                            const notesGroup = document.getElementById('documentsNotesGroup');
-                            if (notesGroup) notesGroup.style.display = 'none';
+    // ============================================
+    // HOVER EFFECTS FOR STAGE CARDS
+    // ============================================
 
-                            setTimeout(function() {
-                                location.reload();
-                            }, 1500);
-                        } else {
-                            throw new Error(data.message || 'Failed to save documents decision');
-                        }
-                    })
-                    .catch(error => {
-                        console.error('AJAX Error:', error);
-                        toastr.error('An error occurred while saving the documents decision. Please try again.');
-                        button.disabled = false;
-                        button.innerHTML = originalText;
-                    });
-            });
-        }
-
-        // Mark documents as reviewed
-        const markDocumentsReviewed = document.getElementById('markDocumentsReviewed');
-        if (markDocumentsReviewed) {
-            markDocumentsReviewed.addEventListener('click', function() {
-                const button = this;
-                const originalText = button.innerHTML;
-                button.disabled = true;
-                button.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Processing...';
-
-                const formData = new FormData();
-                formData.append('candidate_id', <?= $candidate->id ?>);
-                formData.append('stage', 'stage_requested_docs');
-                formData.append('value', '1');
-                
-                // Add CSRF token
-                addCSRFToken(formData);
-
-                fetch('<?= site_url("agency/candidates/update_onboarding_stage") ?>', {
-                        method: 'POST',
-                        body: formData,
-                        headers: {
-                            'X-Requested-With': 'XMLHttpRequest'
-                        }
-                    })
-                    .then(response => {
-                        // Check if response is JSON
-                        const contentType = response.headers.get('content-type');
-                        if (!contentType || !contentType.includes('application/json')) {
-                            return response.text().then(text => {
-                                throw new Error('Server returned non-JSON response');
-                            });
-                        }
-                        return response.json();
-                    })
-                    .then(data => {
-                        if (data.success) {
-                            toastr.success('Documents marked as reviewed! Stage completed.');
-                            setTimeout(function() {
-                                location.reload();
-                            }, 2000);
-                        } else {
-                            throw new Error(data.message || 'Failed to mark documents as reviewed');
-                        }
-                    })
-                    .catch(error => {
-                        console.error('AJAX Error:', error);
-                        toastr.error('An error occurred. Please try again.');
-                        button.disabled = false;
-                        button.innerHTML = originalText;
-                    });
-            });
-        }
-
-        // Reset forms when modals are hidden
-        $('#hmDecisionModal').on('hidden.bs.modal', function() {
-            document.getElementById('hmDecisionForm').reset();
+    const stageCards = document.querySelectorAll('.stage-card:not(.disabled-stage)');
+    stageCards.forEach(function(card) {
+        card.addEventListener('mouseenter', function() {
+            if (!this.classList.contains('completed') && !this.classList.contains('active')) {
+                this.style.transform = 'translateY(-2px)';
+            }
         });
 
-        $('#documentsDecisionModal').on('hidden.bs.modal', function() {
-            document.getElementById('documentsDecisionForm').reset();
-            const notesGroup = document.getElementById('documentsNotesGroup');
-            if (notesGroup) notesGroup.style.display = 'none';
-        });
-
-        // Hover effects for stage cards
-        const stageCards = document.querySelectorAll('.stage-card:not(.disabled-stage)');
-        stageCards.forEach(function(card) {
-            card.addEventListener('mouseenter', function() {
-                if (!this.classList.contains('completed') && !this.classList.contains('active')) {
-                    this.style.transform = 'translateY(-2px)';
-                }
-            });
-
-            card.addEventListener('mouseleave', function() {
-                if (!this.classList.contains('completed') && !this.classList.contains('active')) {
-                    this.style.transform = 'translateY(0)';
-                }
-            });
+        card.addEventListener('mouseleave', function() {
+            if (!this.classList.contains('completed') && !this.classList.contains('active')) {
+                this.style.transform = 'translateY(0)';
+            }
         });
     });
+
+    // ============================================
+    // CSRF TEST FUNCTION (optional)
+    // ============================================
+
+    // Test CSRF on page load (optional)
+    async function testCSRFOnLoad() {
+        try {
+            const testData = await makeAjaxRequest('<?= site_url("agency/candidates/test_csrf") ?>', {});
+            console.log('CSRF test on load:', testData);
+        } catch (error) {
+            console.warn('CSRF test failed on load:', error);
+        }
+    }
+
+    // Uncomment to test CSRF on page load
+    // testCSRFOnLoad();
+});
+
+// ============================================
+// GLOBAL HELPER FUNCTIONS
+// ============================================
+
+// Test function to verify CSRF is working
+async function testCSRF() {
+    console.log('Testing CSRF token...');
+    try {
+        const testData = await makeAjaxRequest('<?= site_url("agency/candidates/test_csrf") ?>', {});
+        console.log('CSRF test result:', testData);
+        return testData.success === true;
+    } catch (error) {
+        console.error('CSRF test failed:', error);
+        return false;
+    }
+}
+
+// Function to refresh CSRF token from the page (fallback)
+function refreshCSRFTokenFromPage() {
+    const token = getCSRFTokenFromPage();
+    if (token.value !== csrfToken.value) {
+        csrfToken.value = token.value;
+        console.log('Refreshed CSRF token from page');
+        return true;
+    }
+    return false;
+}
 </script>

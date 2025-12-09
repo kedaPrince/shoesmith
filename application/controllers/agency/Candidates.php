@@ -447,88 +447,123 @@ $this->listActions = array(
     }
 
     // In your update_onboarding_stage method or stage toggle handler:
-    public function update_onboarding_stage() {
-        if (!$this->enforce_candidate_access($candidate_id)) {
-        return;
-    }
+public function update_onboarding_stage() {
+    // Set JSON header
+    header('Content-Type: application/json; charset=UTF-8');
     
-          $csrf_name = $this->security->get_csrf_token_name();
-    $csrf_token = $this->input->post($csrf_name);
-    
-    if (!$csrf_token || $csrf_token !== $this->security->get_csrf_hash()) {
-        ajax_return([
-            'success' => false,
-            'message' => 'Invalid CSRF token. Please refresh and try again.'
-        ]);
-        return;
-    }
+    try {
+        // If CodeIgniter's global CSRF blocked this request, we wouldn't reach here
+        // So we can assume CSRF passed if we reach this point
+        
+        // Get POST data (CSRF token has been filtered out by CodeIgniter)
         $candidate_id = $this->input->post('candidate_id');
         $stage = $this->input->post('stage');
         $value = $this->input->post('value');
-
-        $agency_id = $this->get_user_agency_id();
-        if ($agency_id) {
-            $exists = $this->db->select('1')
-                ->from('candidate_agencies')
-                ->where('candidate_id', $candidate_id)
-                ->where('agency_id', $agency_id)
-                ->get()
-                ->row();
-            
-            if (!$exists) {
-                ajax_return([
-                    'success' => false,
-                    'message' => 'Candidate not found or access denied'
-                ]);
-                return;
-            }
+        
+        // Validate required fields
+        if (empty($candidate_id) || empty($stage) || !isset($value)) {
+            echo json_encode([
+                'success' => false,
+                'message' => 'Missing required fields',
+                'csrf_token' => $this->security->get_csrf_hash()
+            ]);
+            exit();
         }
-
-         $result = $this->{$this->model}->update_onboarding_stage($candidate_id, $stage, $value);
-
+        
+        // Check candidate access
+        if (!$this->enforce_candidate_access($candidate_id)) {
+            echo json_encode([
+                'success' => false,
+                'message' => 'Access denied to this candidate',
+                'csrf_token' => $this->security->get_csrf_hash()
+            ]);
+            exit();
+        }
+        
+        // Update the stage
+        $update_data = [
+            $stage => $value,
+            'onboarding_stage' => $stage,
+            'updated_at' => date('Y-m-d H:i:s')
+        ];
+        
+        // Add timestamp for completion
+        if ($value == '1') {
+            $timestamp_field = $stage . '_at';
+            $update_data[$timestamp_field] = date('Y-m-d H:i:s');
+        } else {
+            // If reopening, clear the timestamp
+            $timestamp_field = $stage . '_at';
+            $update_data[$timestamp_field] = null;
+        }
+        
+        // Update the candidate
+        $this->db->where('id', $candidate_id);
+        $result = $this->db->update('candidates', $update_data);
+        
         if ($result) {
-            // NEW: Send notification when position offered stage is completed
-            if ($stage === 'stage_position_offered' && $value == 1) {
-                $this->send_position_offered_notification($candidate_id, loginID('agency'));
-                
-                // Log the activity
-                $this->{$this->model}->log_candidate_activity([
-                    'candidate_id' => $candidate_id,
-                    'action' => 'position_offered',
-                    'description' => 'Position offered to candidate - notification sent to recruiter',
-                    'created_by' => loginID('agency'),
-                    'created_at' => date('Y-m-d H:i:s')
-                ]);
+            // Update onboarding progress - catch any errors here
+            try {
+                $this->update_onboarding_progress($candidate_id);
+            } catch (Exception $e) {
+                // Log error but don't fail the whole request
+                log_message('error', 'Error updating onboarding progress: ' . $e->getMessage());
             }
-
-            ajax_return([
+            
+            // Log activity
+            $action = $value == '1' ? 'completed' : 'reopened';
+            $this->{$this->model}->log_candidate_activity([
+                'candidate_id' => $candidate_id,
+                'action' => 'stage_' . $action,
+                'description' => ucfirst(str_replace('_', ' ', $stage)) . ' stage ' . $action,
+                'created_by' => loginID('agency'),
+                'created_at' => date('Y-m-d H:i:s')
+            ]);
+            
+            echo json_encode([
                 'success' => true,
-                'message' => 'Onboarding stage updated successfully'
+                'message' => 'Onboarding stage updated successfully',
+                'csrf_token' => $this->security->get_csrf_hash()
             ]);
         } else {
-            ajax_return([
+            echo json_encode([
                 'success' => false,
-                'message' => 'Failed to update onboarding stage'
+                'message' => 'Failed to update onboarding stage',
+                'csrf_token' => $this->security->get_csrf_hash()
             ]);
         }
+        
+    } catch (Exception $e) {
+        // Catch any unexpected errors
+        echo json_encode([
+            'success' => false,
+            'message' => 'Server error: ' . $e->getMessage(),
+            'csrf_token' => $this->security->get_csrf_hash()
+        ]);
     }
+    exit();
+}
 
     public function update_hm_decision() {
-         $csrf_name = $this->security->get_csrf_token_name();
-    $csrf_token = $this->input->post($csrf_name);
+    // Set JSON header
+    header('Content-Type: application/json; charset=UTF-8');
     
-    if (!$csrf_token || $csrf_token !== $this->security->get_csrf_hash()) {
-        ajax_return([
-            'success' => false,
-            'message' => 'Invalid CSRF token. Please refresh and try again.'
-        ]);
-        return;
-    }
-    
+    try {
+        // Get POST data (CSRF token is filtered out by CodeIgniter)
         $candidate_id = $this->input->post('candidate_id');
         $decision = $this->input->post('decision');
         $notes = $this->input->post('notes');
-
+        
+        // Validate required fields
+        if (empty($candidate_id) || empty($decision)) {
+            echo json_encode([
+                'success' => false,
+                'message' => 'Missing required fields',
+                'csrf_token' => $this->security->get_csrf_hash()
+            ]);
+            exit();
+        }
+        
         $agency_id = $this->get_user_agency_id();
         if ($agency_id) {
             $exists = $this->db->select('1')
@@ -539,21 +574,22 @@ $this->listActions = array(
                 ->row();
             
             if (!$exists) {
-                ajax_return([
+                echo json_encode([
                     'success' => false,
-                    'message' => 'Candidate not found or access denied'
+                    'message' => 'Candidate not found or access denied',
+                    'csrf_token' => $this->security->get_csrf_hash()
                 ]);
-                return;
+                exit();
             }
         }
-
+        
         $status_mapping = [
             'accepted' => 'hired',
             'rejected' => 'rejected'
         ];
-
+        
         $result = $this->{$this->model}->update_hm_decision($candidate_id, $decision, $notes);
-
+        
         if ($result) {
             if (isset($status_mapping[$decision])) {
                 $new_status = $status_mapping[$decision];
@@ -563,9 +599,9 @@ $this->listActions = array(
                     'updated_at' => date('Y-m-d H:i:s')
                 ]);
             }
-
+            
             $this->send_hm_decision_notification($candidate_id, $decision, $notes);
-
+            
             $decision_text = $decision === 'accepted' ? 'accepted' : 'rejected';
             $this->{$this->model}->log_candidate_activity([
                 'candidate_id' => $candidate_id,
@@ -574,196 +610,206 @@ $this->listActions = array(
                 'created_by' => loginID('agency'),
                 'created_at' => date('Y-m-d H:i:s')
             ]);
-
-            ajax_return([
+            
+            echo json_encode([
                 'success' => true,
                 'message' => 'Hiring Manager decision updated successfully',
-                'new_status' => $new_status ?? null
+                'new_status' => $new_status ?? null,
+                'csrf_token' => $this->security->get_csrf_hash()
             ]);
         } else {
-            ajax_return([
+            echo json_encode([
                 'success' => false,
-                'message' => 'Failed to update Hiring Manager decision'
+                'message' => 'Failed to update Hiring Manager decision',
+                'csrf_token' => $this->security->get_csrf_hash()
             ]);
         }
+        
+    } catch (Exception $e) {
+        echo json_encode([
+            'success' => false,
+            'message' => 'Server error: ' . $e->getMessage(),
+            'csrf_token' => $this->security->get_csrf_hash()
+        ]);
     }
+    exit();
+}
 
-    public function update_documents_decision() {
-        if (!$this->input->is_ajax_request()) {
-            show_404();
-        }
-// ✅ ADD CSRF VALIDATION
-    $csrf_name = $this->security->get_csrf_token_name();
-    $csrf_token = $this->input->post($csrf_name);
+   public function update_documents_decision() {
+    // Set JSON header FIRST
+    header('Content-Type: application/json; charset=UTF-8');
     
-    if (!$csrf_token || $csrf_token !== $this->security->get_csrf_hash()) {
-        $this->output
-            ->set_content_type('application/json')
-            ->set_output(json_encode([
-                'success' => false,
-                'message' => 'Invalid CSRF token. Please refresh and try again.'
-            ]));
-        return;
+    if (!$this->input->is_ajax_request()) {
+        echo json_encode([
+            'success' => false,
+            'message' => 'Invalid request method'
+        ]);
+        exit();
     }
-        try {
-            $candidate_id = $this->input->post('candidate_id');
-            $documents_required = $this->input->post('documents_required');
-            $documents_notes = $this->input->post('documents_notes');
+    
+    try {
+        // Get POST data (CSRF token will be validated by CodeIgniter automatically)
+        $candidate_id = $this->input->post('candidate_id');
+        $documents_required = $this->input->post('documents_required');
+        $documents_notes = $this->input->post('documents_notes');
 
-            if (empty($candidate_id)) {
-                throw new Exception('Candidate ID is required');
-            }
-
-            if ($documents_required === '') {
-                throw new Exception('Please specify if documents are required');
-            }
-
-            $agency_id = $this->get_user_agency_id();
-            if ($agency_id) {
-                $exists = $this->db->select('1')
-                    ->from('candidate_agencies')
-                    ->where('candidate_id', $candidate_id)
-                    ->where('agency_id', $agency_id)
-                    ->get()
-                    ->row();
-                
-                if (!$exists) {
-                    throw new Exception('Candidate not found or access denied');
-                }
-            }
-
-            $documents_required_bool = ($documents_required == '1');
-
-            $update_data = [
-                'stage_documents_decision' => 1,
-                'documents_required' => $documents_required_bool,
-                'documents_notes' => $documents_notes ?: null,
-                'stage_documents_decision_at' => date('Y-m-d H:i:s'),
-                'onboarding_stage' => 'stage_documents_decision',
-                'updated_at' => date('Y-m-d H:i:s')
-            ];
-
-            $this->db->where('id', $candidate_id);
-            $success = $this->db->update('candidates', $update_data);
-
-            if (!$success) {
-                throw new Exception('Failed to update database');
-            }
-
-            $this->{$this->model}->update_onboarding_progress($candidate_id);
-
-            if ($documents_required_bool) {
-                $this->send_documents_request_notification($candidate_id, $documents_notes);
-            }
-
-            $decision_text = $documents_required_bool ? 'documents_required' : 'no_documents_required';
-            $this->{$this->model}->log_candidate_activity([
-                'candidate_id' => $candidate_id,
-                'action' => $decision_text,
-                'description' => $documents_required_bool ? 'Additional documents required: ' . $documents_notes : 'No additional documents required',
-                'created_by' => loginID('agency'),
-                'created_at' => date('Y-m-d H:i:s')
-            ]);
-
-            $this->output
-                ->set_content_type('application/json')
-                ->set_output(json_encode([
-                    'success' => true,
-                    'message' => 'Documents decision updated successfully'
-                ]));
-
-        } catch (Exception $e) {
-            $this->output
-                ->set_content_type('application/json')
-                ->set_output(json_encode([
-                    'success' => false,
-                    'message' => $e->getMessage()
-                ]));
-        }
-    }
-
-    private function update_onboarding_progress($candidate_id)
-    {
-        $candidate = $this->get_candidate_details($candidate_id);
-        
-        if (!$candidate) {
-            return;
+        if (empty($candidate_id)) {
+            throw new Exception('Candidate ID is required');
         }
 
-        $stages = [
-            'stage_under_review',
-            'stage_submitted_to_hm', 
-            'stage_hm_decision',
-            'stage_documents_decision',
-            'stage_requested_docs',
-            'stage_position_offered'
-        ];
-
-        $completed_stages = 0;
-        $total_considered_stages = count($stages);
-        
-        foreach ($stages as $stage) {
-            if (isset($candidate->$stage) && $candidate->$stage == 1) {
-                $completed_stages++;
-            }
+        if ($documents_required === '') {
+            throw new Exception('Please specify if documents are required');
         }
 
-        if (isset($candidate->stage_documents_decision) && 
-            $candidate->stage_documents_decision == 1 && 
-            isset($candidate->documents_required) && 
-            $candidate->documents_required == 0) {
+        $agency_id = $this->get_user_agency_id();
+        if ($agency_id) {
+            $exists = $this->db->select('1')
+                ->from('candidate_agencies')
+                ->where('candidate_id', $candidate_id)
+                ->where('agency_id', $agency_id)
+                ->get()
+                ->row();
             
-            if (!isset($candidate->stage_requested_docs) || $candidate->stage_requested_docs == 0) {
-                $completed_stages++;
-            }
-            
-            if (isset($candidate->stage_position_offered) && $candidate->stage_position_offered == 1) {
-                $completed_stages = count($stages);
+            if (!$exists) {
+                throw new Exception('Candidate not found or access denied');
             }
         }
 
-        $current_stage = 'not_started';
-        
-        if ($completed_stages == count($stages)) {
-            $current_stage = 'completed';
-        } elseif ($completed_stages > 0) {
-            foreach ($stages as $stage) {
-                if ($stage === 'stage_requested_docs' && 
-                    isset($candidate->stage_documents_decision) && 
-                    $candidate->stage_documents_decision == 1 && 
-                    isset($candidate->documents_required) && 
-                    $candidate->documents_required == 0) {
-                    continue;
-                }
-                
-                if (!isset($candidate->$stage) || $candidate->$stage == 0) {
-                    $current_stage = $stage;
-                    break;
-                }
-            }
-        }
-
-        if ($completed_stages == count($stages)) {
-            $this->db->where('id', $candidate_id)->update($this->table, [
-                'onboarding_completed_at' => date('Y-m-d H:i:s')
-            ]);
-        } else {
-            $this->db->where('id', $candidate_id)->update($this->table, [
-                'onboarding_completed_at' => null
-            ]);
-        }
-
-        $progress_percentage = ($completed_stages / count($stages)) * 100;
+        $documents_required_bool = ($documents_required == '1');
 
         $update_data = [
-            'onboarding_stage' => $current_stage,
-            'onboarding_progress' => $progress_percentage,
+            'stage_documents_decision' => 1,
+            'documents_required' => $documents_required_bool,
+            'documents_notes' => $documents_notes ?: null,
+            'stage_documents_decision_at' => date('Y-m-d H:i:s'),
+            'onboarding_stage' => 'stage_documents_decision',
             'updated_at' => date('Y-m-d H:i:s')
         ];
 
-        $result = $this->db->where('id', $candidate_id)->update($this->table, $update_data);
-        return $result;
+        $this->db->where('id', $candidate_id);
+        $success = $this->db->update('candidates', $update_data);
+
+        if (!$success) {
+            throw new Exception('Failed to update database');
+        }
+
+        // Update onboarding progress
+        $this->update_onboarding_progress($candidate_id);
+
+        if ($documents_required_bool) {
+            $this->send_documents_request_notification($candidate_id, $documents_notes);
+        }
+
+        $decision_text = $documents_required_bool ? 'documents_required' : 'no_documents_required';
+        $this->{$this->model}->log_candidate_activity([
+            'candidate_id' => $candidate_id,
+            'action' => $decision_text,
+            'description' => $documents_required_bool ? 'Additional documents required: ' . $documents_notes : 'No additional documents required',
+            'created_by' => loginID('agency'),
+            'created_at' => date('Y-m-d H:i:s')
+        ]);
+
+        // Return success with CSRF token
+        echo json_encode([
+            'success' => true,
+            'message' => 'Documents decision updated successfully',
+            'csrf_token' => $this->security->get_csrf_hash()
+        ]);
+        exit();
+
+    } catch (Exception $e) {
+        echo json_encode([
+            'success' => false,
+            'message' => $e->getMessage(),
+            'csrf_token' => $this->security->get_csrf_hash()
+        ]);
+        exit();
     }
+}
+
+    private function update_onboarding_progress($candidate_id)
+{
+    $candidate = $this->get_candidate_details($candidate_id);
+    
+    if (!$candidate) {
+        return false;
+    }
+
+    $stages = [
+        'stage_under_review',
+        'stage_submitted_to_hm', 
+        'stage_hm_decision',
+        'stage_documents_decision',
+        'stage_requested_docs',
+        'stage_position_offered'
+    ];
+
+    $completed_stages = 0;
+    
+    foreach ($stages as $stage) {
+        if (isset($candidate->$stage) && $candidate->$stage == 1) {
+            $completed_stages++;
+        }
+    }
+
+    if (isset($candidate->stage_documents_decision) && 
+        $candidate->stage_documents_decision == 1 && 
+        isset($candidate->documents_required) && 
+        $candidate->documents_required == 0) {
+        
+        if (!isset($candidate->stage_requested_docs) || $candidate->stage_requested_docs == 0) {
+            $completed_stages++;
+        }
+        
+        if (isset($candidate->stage_position_offered) && $candidate->stage_position_offered == 1) {
+            $completed_stages = count($stages);
+        }
+    }
+
+    $current_stage = 'not_started';
+    
+    if ($completed_stages == count($stages)) {
+        $current_stage = 'completed';
+    } elseif ($completed_stages > 0) {
+        foreach ($stages as $stage) {
+            if ($stage === 'stage_requested_docs' && 
+                isset($candidate->stage_documents_decision) && 
+                $candidate->stage_documents_decision == 1 && 
+                isset($candidate->documents_required) && 
+                $candidate->documents_required == 0) {
+                continue;
+            }
+            
+            if (!isset($candidate->$stage) || $candidate->$stage == 0) {
+                $current_stage = $stage;
+                break;
+            }
+        }
+    }
+
+    // FIX: Don't use $this->table - use the actual table name
+    if ($completed_stages == count($stages)) {
+        $this->db->where('id', $candidate_id)->update('candidates', [
+            'onboarding_completed_at' => date('Y-m-d H:i:s')
+        ]);
+    } else {
+        $this->db->where('id', $candidate_id)->update('candidates', [
+            'onboarding_completed_at' => null
+        ]);
+    }
+
+    $progress_percentage = ($completed_stages / count($stages)) * 100;
+
+    $update_data = [
+        'onboarding_stage' => $current_stage,
+        'onboarding_progress' => $progress_percentage,
+        'updated_at' => date('Y-m-d H:i:s')
+    ];
+
+    // FIX: Use the correct table name
+    $result = $this->db->where('id', $candidate_id)->update('candidates', $update_data);
+    return $result;
+}
 
     private function send_documents_request_notification($candidate_id, $documents_notes) {
         try {
@@ -1726,4 +1772,7 @@ private function enforce_candidate_access($candidate_id) {
     }
     return true;
 }
+
+
+
 }

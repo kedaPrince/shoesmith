@@ -116,6 +116,18 @@ class Dashboard extends CRUD_Controller {
      * Page to view all notifications
      */
     public function notifications() {
+        // Check if this is a POST request (form submission)
+    if ($this->input->server('REQUEST_METHOD') === 'POST') {
+        // If it's a POST without valid CSRF, redirect to GET version
+        $csrf_name = $this->security->get_csrf_token_name();
+        $csrf_token = $this->input->post($csrf_name);
+        
+        if (!$csrf_token || !hash_equals($this->security->get_csrf_hash(), $csrf_token)) {
+            // Redirect to GET version of the page
+            redirect('recruiter/dashboard/notifications', 'refresh');
+            return;
+        }
+    }
         $recruiter_id = $this->get_recruiter_id();
         
         $data['notifications'] = $this->Model_notifications->get_all_notifications($recruiter_id);

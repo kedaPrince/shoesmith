@@ -2282,7 +2282,6 @@ function addMessageToDisplay(message, isRecruiter = false) {
     scrollToBottom();
 }
 
-// ===== AJAX HELPER FUNCTION FOR RECRUITER =====
 async function makeAjaxRequest(url, data = {}, options = {}) {
     // Get the current page's base URL
     let fullUrl = url;
@@ -2301,14 +2300,17 @@ async function makeAjaxRequest(url, data = {}, options = {}) {
 
     console.log(`Making AJAX request to: ${fullUrl}`);
 
-    // Use the latest CSRF token
+    // ALWAYS USE THE LATEST CSRF TOKEN
     const csrfTokenName = 'csrf_rfid_token';
-    let csrfTokenValue = window.latestCsrfToken || currentCsrfToken;
 
-    // If no token available yet, use the initial one
-    if (!csrfTokenValue) {
-        csrfTokenValue = '<?php echo isset($csrf_token["hash"]) ? $csrf_token["hash"] : ""; ?>';
-    }
+    // Check multiple sources for the latest token
+    let csrfTokenValue = window.latestCsrfToken ||
+        currentCsrfToken ||
+        '<?php echo isset($csrf_token["hash"]) ? $csrf_token["hash"] : ""; ?>';
+
+    console.log(
+        `Sending CSRF token: ${csrfTokenName} = ${csrfTokenValue ? csrfTokenValue.substring(0, 10) + '...' : 'EMPTY'}`
+        );
 
     // Create FormData
     const formData = new FormData();
@@ -2323,6 +2325,12 @@ async function makeAjaxRequest(url, data = {}, options = {}) {
         }
     });
 
+    // For debugging: log all form data
+    console.log('FormData contents:');
+    for (let pair of formData.entries()) {
+        console.log(pair[0] + ': ' + (pair[0] === csrfTokenName ? pair[1].substring(0, 10) + '...' : pair[1]));
+    }
+
     try {
         const response = await fetch(fullUrl, {
             method: 'POST',
@@ -2335,16 +2343,19 @@ async function makeAjaxRequest(url, data = {}, options = {}) {
 
         // Check response status
         if (!response.ok) {
+            console.error(`HTTP error ${response.status} for ${fullUrl}`);
             throw new Error(`HTTP error ${response.status}`);
         }
 
         // Parse response
         const result = await response.json();
+        console.log(`Response status: ${response.status} ${response.statusText}`);
 
-        // Update CSRF token if server sent a new one
+        // CRITICAL FIX: Always update the CSRF token from server response
         if (result && result.csrf_token) {
             window.latestCsrfToken = result.csrf_token;
-            console.log('Updated CSRF token from server');
+            currentCsrfToken = result.csrf_token;
+            console.log('Updated CSRF token from server:', result.csrf_token.substring(0, 10) + '...');
         }
 
         return result;

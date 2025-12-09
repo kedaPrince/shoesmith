@@ -29,67 +29,62 @@ $form_action = !empty($uuid) ?
         <li rel="2">Professional Info</li>
         <li rel="3">Application</li>
         <li rel="4">Agency & Job</li>
-        <?php if ((isset($has_pending_documents_request) && $has_pending_documents_request === true) || 
-          (isset($force_required_tab) && $force_required_tab === true)): ?>
-        <li rel="5" class="required-documents-tab">
-            Required Documents
-            <span class="badge badge-danger ml-1">!</span>
-        </li>
-        <?php endif; ?>
+        <!-- REMOVED: Required Documents Tab - Now handled separately -->
     </ul>
 
     <div class="form-field-container">
-        <?= form_open('', ['enctype' => 'multipart/form-data', 'id' => 'mainCandidateForm']); ?>
+        <div class="form-field-container">
+            <!-- REMOVED: <?= form_open('', ['enctype' => 'multipart/form-data', 'id' => 'mainCandidateForm']); ?> -->
 
-        <?= form_hidden('id', !empty($row->id) ? $row->id : 0); ?>
-        <?= form_hidden('action', !empty($row->id) ? 'update' : 'create'); ?>
+            <?= form_hidden('id', !empty($row->id) ? $row->id : 0); ?>
+            <?= form_hidden('action', !empty($row->id) ? 'update' : 'create'); ?>
 
-        <!-- Tab 1: Personal -->
-        <div rel="1" class="qm-tabs-tab active">
-            <div class="row">
-                <div class="col-lg-6">
-                    <div class="form-group">
-                        <label for="reference_number"><?= lang('label_reference_number') ?> *</label>
-                        <div class="input-group">
-                            <input type="text" name="reference_number" id="reference_number" class="form-control"
-                                value="<?= !empty($row->reference_number) ? htmlspecialchars($row->reference_number, ENT_QUOTES, 'UTF-8') : '' ?>"
-                                required placeholder="e.g., CAND-001">
-                            <div class="input-group-append">
-                                <button type="button" class="btn btn-outline-secondary" id="refresh-reference"
-                                    title="Generate new reference">
-                                    <i class="fa fa-refresh"></i>
-                                </button>
+            <!-- Tab 1: Personal -->
+            <div rel="1" class="qm-tabs-tab active">
+                <div class="row">
+                    <div class="col-lg-6">
+                        <div class="form-group">
+                            <label for="reference_number"><?= lang('label_reference_number') ?> *</label>
+                            <div class="input-group">
+                                <input type="text" name="reference_number" id="reference_number" class="form-control"
+                                    value="<?= !empty($row->reference_number) ? htmlspecialchars($row->reference_number, ENT_QUOTES, 'UTF-8') : '' ?>"
+                                    required placeholder="e.g., CAND-001">
+                                <div class="input-group-append">
+                                    <button type="button" class="btn btn-outline-secondary" id="refresh-reference"
+                                        title="Generate new reference">
+                                        <i class="fa fa-refresh"></i>
+                                    </button>
+                                </div>
                             </div>
+                            <small class="text-muted">Reference number is auto-generated</small>
                         </div>
-                        <small class="text-muted">Reference number is auto-generated</small>
+                    </div>
+                    <div class="col-lg-6">
+                        <?= field_input('email', $row, 'required valid-email', [], 'email', 'candidate@email.com'); ?>
                     </div>
                 </div>
-                <div class="col-lg-6">
-                    <?= field_input('email', $row, 'required valid-email', [], 'email', 'candidate@email.com'); ?>
+                <div class="row">
+                    <div class="col-lg-6">
+                        <?= field_input('first_name', $row, 'required', [], 'text', 'First Name'); ?>
+                    </div>
+                    <div class="col-lg-6">
+                        <?= field_input('last_name', $row, 'required', [], 'text', 'Last Name'); ?>
+                    </div>
                 </div>
-            </div>
-            <div class="row">
-                <div class="col-lg-6">
-                    <?= field_input('first_name', $row, 'required', [], 'text', 'First Name'); ?>
+                <div class="row">
+                    <div class="col-lg-6">
+                        <?= field_input('phone|label_phone', $row, '', [], 'text', 'Phone Number'); ?>
+                    </div>
+                    <div class="col-lg-6">
+                        <?= field_input('id_number|label_security_number', $row, '', [], 'text', 'Security Number'); ?>
+                    </div>
                 </div>
-                <div class="col-lg-6">
-                    <?= field_input('last_name', $row, 'required', [], 'text', 'Last Name'); ?>
-                </div>
-            </div>
-            <div class="row">
-                <div class="col-lg-6">
-                    <?= field_input('phone|label_phone', $row, '', [], 'text', 'Phone Number'); ?>
-                </div>
-                <div class="col-lg-6">
-                    <?= field_input('id_number|label_security_number', $row, '', [], 'text', 'Security Number'); ?>
-                </div>
-            </div>
-            <div class="row">
-                <div class="col-lg-6">
-                    <?= field_date('date_of_birth|label_date_of_birth', $row, '', 'yyyy-mm-dd', []); ?>
-                </div>
-                <div class="col-lg-6">
-                    <?= field_dropdown('gender|label_gender', 
+                <div class="row">
+                    <div class="col-lg-6">
+                        <?= field_date('date_of_birth|label_date_of_birth', $row, '', 'yyyy-mm-dd', []); ?>
+                    </div>
+                    <div class="col-lg-6">
+                        <?= field_dropdown('gender|label_gender', 
                 [
                     '' => '-- Select Gender --',
                     'male' => 'Male',
@@ -97,63 +92,63 @@ $form_action = !empty($uuid) ?
                     'other' => 'Other'
                 ], 
                 $row, ''); ?>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-lg-12">
+                        <?= field_textarea('address|label_address', $row, '', [], 'Full Address'); ?>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-lg-4">
+                        <?= field_input('city|label_city', $row, '', [], 'text', 'City'); ?>
+                    </div>
+                    <div class="col-lg-4">
+                        <?= field_input('province|label_state', $row, '', [], 'text', 'State'); ?>
+                    </div>
+                    <div class="col-lg-4">
+                        <?= field_input('postal_code|label_postal_code', $row, '', [], 'text', 'Postal Code'); ?>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-lg-12">
+                        <?= field_input('country|label_country', $row, '', [], 'text', 'Country', 'Australia'); ?>
+                    </div>
                 </div>
             </div>
-            <div class="row">
-                <div class="col-lg-12">
-                    <?= field_textarea('address|label_address', $row, '', [], 'Full Address'); ?>
-                </div>
-            </div>
-            <div class="row">
-                <div class="col-lg-4">
-                    <?= field_input('city|label_city', $row, '', [], 'text', 'City'); ?>
-                </div>
-                <div class="col-lg-4">
-                    <?= field_input('province|label_state', $row, '', [], 'text', 'State'); ?>
-                </div>
-                <div class="col-lg-4">
-                    <?= field_input('postal_code|label_postal_code', $row, '', [], 'text', 'Postal Code'); ?>
-                </div>
-            </div>
-            <div class="row">
-                <div class="col-lg-12">
-                    <?= field_input('country|label_country', $row, '', [], 'text', 'Country', 'Australia'); ?>
-                </div>
-            </div>
-        </div>
 
-        <!-- Tab 2: Professional -->
-        <div rel="2" class="qm-tabs-tab">
-            <div class="row">
-                <div class="col-lg-6">
-                    <?= field_input('highest_qualification|label_highest_qualification', $row, '', [], 'text', 'Highest Qualification'); ?>
+            <!-- Tab 2: Professional -->
+            <div rel="2" class="qm-tabs-tab">
+                <div class="row">
+                    <div class="col-lg-6">
+                        <?= field_input('highest_qualification|label_highest_qualification', $row, '', [], 'text', 'Highest Qualification'); ?>
+                    </div>
+                    <div class="col-lg-6">
+                        <?= field_input('years_experience|label_years_experience', $row, 'numeric', [], 'number', 'Years of Experience'); ?>
+                    </div>
                 </div>
-                <div class="col-lg-6">
-                    <?= field_input('years_experience|label_years_experience', $row, 'numeric', [], 'number', 'Years of Experience'); ?>
+                <div class="row">
+                    <div class="col-lg-6">
+                        <?= field_input('current_position|label_current_position', $row, '', [], 'text', 'Current Job Title'); ?>
+                    </div>
+                    <div class="col-lg-6">
+                        <?= field_input('current_company|label_current_company', $row, '', [], 'text', 'Current Employer'); ?>
+                    </div>
                 </div>
-            </div>
-            <div class="row">
-                <div class="col-lg-6">
-                    <?= field_input('current_position|label_current_position', $row, '', [], 'text', 'Current Job Title'); ?>
+                <div class="row">
+                    <div class="col-lg-6">
+                        <?= field_input('current_salary|label_current_salary', $row, 'decimal', [], 'text', 'Current Salary'); ?>
+                    </div>
+                    <div class="col-lg-6">
+                        <?= field_input('expected_salary|label_expected_salary', $row, 'decimal', [], 'text', 'Expected Salary'); ?>
+                    </div>
                 </div>
-                <div class="col-lg-6">
-                    <?= field_input('current_company|label_current_company', $row, '', [], 'text', 'Current Employer'); ?>
-                </div>
-            </div>
-            <div class="row">
-                <div class="col-lg-6">
-                    <?= field_input('current_salary|label_current_salary', $row, 'decimal', [], 'text', 'Current Salary'); ?>
-                </div>
-                <div class="col-lg-6">
-                    <?= field_input('expected_salary|label_expected_salary', $row, 'decimal', [], 'text', 'Expected Salary'); ?>
-                </div>
-            </div>
-            <div class="row">
-                <div class="col-lg-6">
-                    <?= field_input('notice_period|label_notice_period', $row, 'numeric', [], 'number', 'Notice Period (days)'); ?>
-                </div>
-                <div class="col-lg-6">
-                    <?= field_dropdown('source|label_source', 
+                <div class="row">
+                    <div class="col-lg-6">
+                        <?= field_input('notice_period|label_notice_period', $row, 'numeric', [], 'number', 'Notice Period (days)'); ?>
+                    </div>
+                    <div class="col-lg-6">
+                        <?= field_dropdown('source|label_source', 
                 [
                     'website' => 'Website',
                     'agency' => 'Agency',
@@ -163,79 +158,82 @@ $form_action = !empty($uuid) ?
                     'other' => 'Other'
                 ], 
                 $row, ''); ?>
+                    </div>
                 </div>
-            </div>
-            <div class="row">
-                <div class="col-lg-12">
-                    <?= field_textarea('cover_letter|label_cover_letter', $row, '', [], 'Cover Letter'); ?>
+                <div class="row">
+                    <div class="col-lg-12">
+                        <?= field_textarea('cover_letter|label_cover_letter', $row, '', [], 'Cover Letter'); ?>
+                    </div>
                 </div>
-            </div>
-            <div class="row">
-                <div class="col-lg-12">
-                    <div class="form-group">
-                        <label for="cv_file">CV/Resume *</label>
-                        <?php if (!empty($row->cv_file)): ?>
-                        <div class="current-file mb-2">
-                            <p class="mb-1">
-                                <strong>Current file:</strong>
-                                <a href="<?= base_url('uploads/candidates/cv/' . $row->cv_file) ?>" target="_blank"
-                                    class="text-primary">
-                                    <i class="fa fa-download"></i> Download CV
-                                </a>
-                            </p>
-                            <small class="text-muted">Upload a new file to replace the current one</small>
+                <div class="row">
+                    <div class="col-lg-12">
+                        <div class="form-group">
+                            <label for="cv_file">CV/Resume *</label>
+                            <?php if (!empty($row->cv_file)): ?>
+                            <div class="current-file mb-2">
+                                <p class="mb-1">
+                                    <strong>Current file:</strong>
+                                    <a href="<?= base_url('uploads/candidates/cv/' . $row->cv_file) ?>" target="_blank"
+                                        class="text-primary">
+                                        <i class="fa fa-download"></i> Download CV
+                                    </a>
+                                </p>
+                                <small class="text-muted">Upload a new file to replace the current one</small>
+                            </div>
+                            <?php endif; ?>
+                            <input type="file" name="cv_file" id="cv_file" class="form-control"
+                                accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                                <?= empty($row->cv_file) ? 'required' : '' ?>>
+                            <small class="text-muted">
+                                <strong>File Requirements:</strong> PDF, DOC, DOCX | Max Size: 10MB
+                                <?= empty($row->cv_file) ? '<span class="text-danger">* Required</span>' : '' ?>
+                            </small>
                         </div>
-                        <?php endif; ?>
-                        <input type="file" name="cv_file" id="cv_file" class="form-control"
-                            accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-                            <?= empty($row->cv_file) ? 'required' : '' ?>>
-                        <small class="text-muted">
-                            <strong>File Requirements:</strong> PDF, DOC, DOCX | Max Size: 10MB
-                            <?= empty($row->cv_file) ? '<span class="text-danger">* Required</span>' : '' ?>
-                        </small>
                     </div>
                 </div>
             </div>
-        </div>
 
-        <!-- Tab 3: Application -->
-        <div rel="3" class="qm-tabs-tab">
-            <div class="row">
-                <div class="col-lg-6">
-                    <div class="form-group">
-                        <label for="status"><?= lang('label_status') ?> *</label>
-                        <select name="status" id="status" class="form-control" required>
-                            <option value="">-- Select Status --</option>
-                            <option value="new"
-                                <?= (!empty($row->status) && $row->status == 'new') ? 'selected' : '' ?>>New</option>
-                            <option value="reviewed"
-                                <?= (!empty($row->status) && $row->status == 'reviewed') ? 'selected' : '' ?>>Reviewed
-                            </option>
-                            <option value="shortlisted"
-                                <?= (!empty($row->status) && $row->status == 'shortlisted') ? 'selected' : '' ?>>
-                                Shortlisted</option>
-                            <option value="interviewed"
-                                <?= (!empty($row->status) && $row->status == 'interviewed') ? 'selected' : '' ?>>
-                                Interviewed</option>
-                            <option value="rejected"
-                                <?= (!empty($row->status) && $row->status == 'rejected') ? 'selected' : '' ?>>Rejected
-                            </option>
-                            <option value="hired"
-                                <?= (!empty($row->status) && $row->status == 'hired') ? 'selected' : '' ?>>Hired
-                            </option>
-                            <option value="on_hold"
-                                <?= (!empty($row->status) && $row->status == 'on_hold') ? 'selected' : '' ?>>On Hold
-                            </option>
-                        </select>
+            <!-- Tab 3: Application -->
+            <div rel="3" class="qm-tabs-tab">
+                <div class="row">
+                    <div class="col-lg-6">
+                        <div class="form-group">
+                            <label for="status"><?= lang('label_status') ?> *</label>
+                            <select name="status" id="status" class="form-control" required>
+                                <option value="">-- Select Status --</option>
+                                <option value="new"
+                                    <?= (!empty($row->status) && $row->status == 'new') ? 'selected' : '' ?>>New
+                                </option>
+                                <option value="reviewed"
+                                    <?= (!empty($row->status) && $row->status == 'reviewed') ? 'selected' : '' ?>>
+                                    Reviewed
+                                </option>
+                                <option value="shortlisted"
+                                    <?= (!empty($row->status) && $row->status == 'shortlisted') ? 'selected' : '' ?>>
+                                    Shortlisted</option>
+                                <option value="interviewed"
+                                    <?= (!empty($row->status) && $row->status == 'interviewed') ? 'selected' : '' ?>>
+                                    Interviewed</option>
+                                <option value="rejected"
+                                    <?= (!empty($row->status) && $row->status == 'rejected') ? 'selected' : '' ?>>
+                                    Rejected
+                                </option>
+                                <option value="hired"
+                                    <?= (!empty($row->status) && $row->status == 'hired') ? 'selected' : '' ?>>Hired
+                                </option>
+                                <option value="on_hold"
+                                    <?= (!empty($row->status) && $row->status == 'on_hold') ? 'selected' : '' ?>>On Hold
+                                </option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="col-lg-6">
+                        <?= field_date('application_date|label_application_date', $row, '', 'yyyy-mm-dd', []); ?>
                     </div>
                 </div>
-                <div class="col-lg-6">
-                    <?= field_date('application_date|label_application_date', $row, '', 'yyyy-mm-dd', []); ?>
-                </div>
-            </div>
-            <div class="row">
-                <div class="col-lg-6">
-                    <?= field_dropdown('rating|label_rating', 
+                <div class="row">
+                    <div class="col-lg-6">
+                        <?= field_dropdown('rating|label_rating', 
             [
                 '' => '-- Select Rating --',
                 '1' => '★ (1) Poor',
@@ -245,199 +243,87 @@ $form_action = !empty($uuid) ?
                 '5' => '★★★★★ (5) Excellent'
             ], 
             $row, ''); ?>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-lg-12">
+                        <?= field_textarea('notes|label_notes', $row, '', [], 'Internal Notes & Comments'); ?>
+                    </div>
                 </div>
             </div>
-            <div class="row">
-                <div class="col-lg-12">
-                    <?= field_textarea('notes|label_notes', $row, '', [], 'Internal Notes & Comments'); ?>
-                </div>
-            </div>
-        </div>
 
-        <!-- Tab 4: Agency & Job -->
-        <div rel="4" class="qm-tabs-tab">
-            <div class="row">
-                <div class="col-lg-6">
-                    <?= field_multi_select('additional_agency_ids|label_agencies', 
+            <!-- Tab 4: Agency & Job -->
+            <div rel="4" class="qm-tabs-tab">
+                <div class="row">
+                    <div class="col-lg-6">
+                        <?= field_multi_select('additional_agency_ids|label_agencies', 
                 $additional_agency_options, 
                 $additional_agency_ids,
                 'Select agencies (first selected becomes primary)',
                 [], // empty array for attributes instead of true
                 false // CHANGED: Make agencies optional
                 ); ?>
-                    <small class="text-muted"><?= lang('help_first_agency_primary') ?></small>
-                </div>
-                <div class="col-lg-6">
-                    <?= field_multi_select('additional_job_ids|label_jobs', 
+                        <small class="text-muted"><?= lang('help_first_agency_primary') ?></small>
+                    </div>
+                    <div class="col-lg-6">
+                        <?= field_multi_select('additional_job_ids|label_jobs', 
                 $additional_job_options, 
                 $additional_job_ids,
                 'Select jobs (first selected becomes primary)',
                 [], // CHANGED: Remove required parameter
                 false // CHANGED: Make jobs optional
                 ); ?>
-                    <small class="text-muted"><?= lang('help_first_job_primary') ?></small>
+                        <small class="text-muted"><?= lang('help_first_job_primary') ?></small>
+                    </div>
                 </div>
-            </div>
 
-            <div class="row">
-                <div class="col-lg-6">
-                    <div class="form-group">
-                        <label for="assigned_agent_id"><?= lang('label_assigned_agent') ?> *</label>
+                <div class="row">
+                    <div class="col-lg-6">
+                        <div class="form-group">
+                            <label for="assigned_agent_id"><?= lang('label_assigned_agent') ?> *</label>
 
-                        <?php if (empty($id) && !empty($logged_in_recruiter)): ?>
-                        <!-- For new candidates: Auto-assign and show as read-only -->
-                        <input type="hidden" name="assigned_agent_id" value="<?= $logged_in_recruiter->id ?>">
-                        <input type="text" class="form-control"
-                            value="<?= htmlspecialchars($logged_in_recruiter->first_name . ' ' . $logged_in_recruiter->last_name . ' (' . $logged_in_recruiter->email . ')', ENT_QUOTES, 'UTF-8') ?>"
-                            readonly>
-                        <small class="text-muted text-success">
-                            <i class="fa fa-user-check"></i> You are automatically assigned as the recruiter for this
-                            candidate
-                        </small>
-                        <?php else: ?>
-                        <!-- For existing candidates: Show dropdown -->
-                        <select name="assigned_agent_id" id="assigned_agent_id" class="form-control" required>
-                            <option value="">-- Select Recruiter --</option>
-                            <?php if (!empty($agents_all)): ?>
-                            <?php foreach ($agents_all as $agent): ?>
-                            <option value="<?= $agent->id ?>"
-                                <?= (!empty($row->assigned_agent_id) && $row->assigned_agent_id == $agent->id) ? 'selected' : '' ?>>
-                                <?= htmlspecialchars($agent->first_name . ' ' . $agent->last_name . ' (' . $agent->email . ')', ENT_QUOTES, 'UTF-8') ?>
-                            </option>
-                            <?php endforeach; ?>
+                            <?php if (empty($id) && !empty($logged_in_recruiter)): ?>
+                            <!-- For new candidates: Auto-assign and show as read-only -->
+                            <input type="hidden" name="assigned_agent_id" value="<?= $logged_in_recruiter->id ?>">
+                            <input type="text" class="form-control"
+                                value="<?= htmlspecialchars($logged_in_recruiter->first_name . ' ' . $logged_in_recruiter->last_name . ' (' . $logged_in_recruiter->email . ')', ENT_QUOTES, 'UTF-8') ?>"
+                                readonly>
+                            <small class="text-muted text-success">
+                                <i class="fa fa-user-check"></i> You are automatically assigned as the recruiter for
+                                this
+                                candidate
+                            </small>
                             <?php else: ?>
-                            <option value="">-- No recruiters available --</option>
+                            <!-- For existing candidates: Show dropdown -->
+                            <select name="assigned_agent_id" id="assigned_agent_id" class="form-control" required>
+                                <option value="">-- Select Recruiter --</option>
+                                <?php if (!empty($agents_all)): ?>
+                                <?php foreach ($agents_all as $agent): ?>
+                                <option value="<?= $agent->id ?>"
+                                    <?= (!empty($row->assigned_agent_id) && $row->assigned_agent_id == $agent->id) ? 'selected' : '' ?>>
+                                    <?= htmlspecialchars($agent->first_name . ' ' . $agent->last_name . ' (' . $agent->email . ')', ENT_QUOTES, 'UTF-8') ?>
+                                </option>
+                                <?php endforeach; ?>
+                                <?php else: ?>
+                                <option value="">-- No recruiters available --</option>
+                                <?php endif; ?>
+                            </select>
+                            <small class="text-muted">Select which recruiter this candidate is assigned to</small>
                             <?php endif; ?>
-                        </select>
-                        <small class="text-muted">Select which recruiter this candidate is assigned to</small>
-                        <?php endif; ?>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Tab 5: Required Documents -->
-        <?php if ((isset($has_pending_documents_request) && $has_pending_documents_request === true) || (isset($force_required_tab) && $force_required_tab === true)): ?>
-
-        <div rel="5" class="qm-tabs-tab">
-            <!-- Documents Request Alert -->
-            <div class="alert alert-warning">
-                <h5><i class="fa fa-exclamation-triangle"></i> Documents Requested by Agency</h5>
-                <p class="mb-2"><strong>Required Documents:</strong> <?= $documents_request_notes ?></p>
-                <p class="mb-0">Please upload the requested documents below. The agency will be notified when you submit
-                    these documents.</p>
-            </div>
-
-            <!-- Single Unified Upload Form -->
-            <div class="unified-documents-form">
-                <form id="unifiedDocumentsForm" method="POST" enctype="multipart/form-data">
-                    <!-- Add CSRF token here -->
-                    <input type="hidden" name="<?= $this->security->get_csrf_token_name() ?>"
-                        value="<?= $this->security->get_csrf_hash() ?>">
-
-                    <input type="hidden" name="candidate_id" value="<?= $row->id ?>">
-                    <input type="hidden" name="is_required_documents" value="1">
-                    <?php if (!empty($pending_notification_id)): ?>
-                    <input type="hidden" name="notification_id" value="<?= $pending_notification_id ?>">
-                    <?php endif; ?>
-
-                    <!-- Document Upload Fields -->
-                    <div class="document-upload-section">
-                        <h5 class="mb-3"><i class="fa fa-upload"></i> Upload Required Documents</h5>
-
-                        <div id="documentUploadContainer">
-                            <!-- First document field is always shown -->
-                            <div class="document-upload-row mb-3 p-3 border rounded">
-                                <div class="row">
-                                    <div class="col-md-4">
-                                        <div class="form-group">
-                                            <label>Document Name *</label>
-                                            <input type="text" name="required_documents[0][name]"
-                                                class="form-control document-name"
-                                                placeholder="e.g., ID Copy, Degree Certificate" data-required="true">
-                                        </div>
-                                    </div>
-                                    <div class="col-md-4">
-                                        <div class="form-group">
-                                            <label>File *</label>
-                                            <input type="file" name="required_documents[0][file]"
-                                                class="form-control document-file"
-                                                accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" data-required="true">
-                                        </div>
-                                    </div>
-                                    <div class="col-md-3">
-                                        <div class="form-group">
-                                            <label>Description (Optional)</label>
-                                            <textarea name="required_documents[0][description]"
-                                                class="form-control document-description" rows="1"
-                                                placeholder="Brief description..."></textarea>
-                                        </div>
-                                    </div>
-                                    <div class="col-md-1">
-                                        <div class="form-group">
-                                            <label>&nbsp;</label>
-                                            <button type="button"
-                                                class="btn btn-outline-danger btn-block remove-document"
-                                                style="margin-top: 32px;" disabled>
-                                                <i class="fa fa-trash"></i>
-                                            </button>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Add More Documents Button -->
-                        <div class="text-center mb-4">
-                            <button type="button" class="btn btn-outline-primary" id="addMoreDocuments">
-                                <i class="fa fa-plus"></i> Add Another Document
-                            </button>
-                        </div>
-                    </div>
-
-                    <!-- Submission Notes -->
-                    <div class="form-group">
-                        <label>Additional Notes for Agency (Optional)</label>
-                        <textarea name="submission_notes" class="form-control" rows="2"
-                            placeholder="Add any additional notes or comments for the agency..."></textarea>
-                    </div>
-
-                    <!-- Submit Button -->
-                    <div class="text-center mt-4">
-                        <button type="submit" class="btn btn-success btn-lg" id="submitDocumentsBtn">
-                            <i class="fa fa-paper-plane"></i> Submit All Documents to Agency
-                        </button>
-                    </div>
-                </form>
-            </div>
-
-            <!-- Previously Submitted Documents Section -->
-            <div class="submitted-documents-section mt-5">
-                <div class="card">
-                    <div class="card-header bg-light">
-                        <h5 class="mb-0"><i class="fa fa-history"></i> Previously Submitted Documents</h5>
-                    </div>
-                    <div class="card-body">
-                        <div id="submittedRequiredDocuments" class="table-responsive">
-                            <!-- Submitted documents will be loaded here via AJAX -->
-                            <div class="text-center text-muted py-4">
-                                <i class="fa fa-spinner fa-spin"></i> Loading submitted documents...
-                            </div>
                         </div>
                     </div>
                 </div>
             </div>
-        </div>
-        <?php endif; ?>
 
-        <div class="btn-container">
-            <?= qm_tab_buttons(); ?>
-            <?= qm_close_button(); ?>
-            <button type="submit" class="btn btn-primary save-button">
-                <i class="fa fa-save"></i> Save Candidate
-            </button>
+            <div class="btn-container">
+                <?= qm_tab_buttons(); ?>
+                <?= qm_close_button(); ?>
+                <button type="submit" class="btn btn-primary save-button">
+                    <i class="fa fa-save"></i> Save Candidate
+                </button>
+            </div>
+            <?= form_close(); ?>
         </div>
-        <?= form_close(); ?>
     </div>
 </div>
 
@@ -509,7 +395,7 @@ function generateReferenceNumber() {
     fetch('<?= site_url("recruiter/candidates/generate_reference") ?>')
         .then(response => {
             if (!response.ok) {
-                throw new Error('Network response was not ok: ' + response.status);
+                throw new Error('Network response was not ok: '.response.status);
             }
             return response.json();
         })
@@ -811,354 +697,6 @@ document.addEventListener('DOMContentLoaded', function() {
         console.log('This should be a CREATE operation');
     }
 });
-
-// ========== CLEAN DOCUMENTS FORM SETUP ==========
-
-// Function to setup the documents form
-function setupDocumentsForm() {
-    console.log('Setting up documents form...');
-
-    // Find the form or create it if missing
-    let form = document.getElementById('unifiedDocumentsForm');
-
-    if (!form) {
-        console.log('Form not found, checking if we need to create it...');
-
-        const unifiedDiv = document.querySelector('.unified-documents-form');
-        if (!unifiedDiv) {
-            console.error('unified-documents-form div not found');
-            return;
-        }
-
-        // Check if form fields exist but form wrapper is missing
-        if (unifiedDiv.querySelector('input[name="candidate_id"]') &&
-            !unifiedDiv.querySelector('form')) {
-
-            console.log('Form wrapper missing, creating it...');
-
-            // Create form element
-            form = document.createElement('form');
-            form.id = 'unifiedDocumentsForm';
-            form.method = 'POST';
-            form.enctype = 'multipart/form-data';
-
-            // Move all children from div to form
-            while (unifiedDiv.firstChild) {
-                form.appendChild(unifiedDiv.firstChild);
-            }
-
-            // Add form back to div
-            unifiedDiv.appendChild(form);
-
-            console.log('✅ Form created successfully');
-        }
-    }
-
-    // Get the form (should exist now)
-    form = document.getElementById('unifiedDocumentsForm');
-    if (!form) {
-        console.error('Form still not found after setup');
-        return;
-    }
-
-    // Fix submit button
-    const submitBtn = document.getElementById('submitDocumentsBtn');
-    if (submitBtn) {
-        // Change button type to submit
-        submitBtn.type = 'submit';
-
-        // Add form submit handler
-        form.addEventListener('submit', handleDocumentsFormSubmit);
-
-        console.log('✅ Form setup complete');
-    }
-}
-
-// Function to handle form submission
-// Function to handle form submission
-async function handleDocumentsFormSubmit(e) {
-    e.preventDefault();
-    console.log('Form submission started...');
-
-    const form = e.target;
-    const submitBtn = form.querySelector('#submitDocumentsBtn');
-
-    if (!submitBtn) {
-        console.error('Submit button not found');
-        return;
-    }
-
-    // Save original button state
-    const originalText = submitBtn.innerHTML;
-    const originalDisabled = submitBtn.disabled;
-
-    // Show loading state
-    submitBtn.disabled = true;
-    submitBtn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Submitting...';
-
-    try {
-        // Validate form
-        const nameInputs = form.querySelectorAll('.document-name');
-        const fileInputs = form.querySelectorAll('.document-file');
-        let isValid = true;
-        let errorMessages = [];
-
-        nameInputs.forEach((input, index) => {
-            if (!input.value.trim()) {
-                isValid = false;
-                input.classList.add('is-invalid');
-                errorMessages.push(`Document ${index + 1}: Name is required`);
-            } else {
-                input.classList.remove('is-invalid');
-            }
-        });
-
-        fileInputs.forEach((input, index) => {
-            if (!input.files || input.files.length === 0) {
-                isValid = false;
-                input.classList.add('is-invalid');
-                errorMessages.push(`Document ${index + 1}: File is required`);
-            } else {
-                // Check file size (max 10MB)
-                const file = input.files[0];
-                if (file.size > 10 * 1024 * 1024) {
-                    isValid = false;
-                    input.classList.add('is-invalid');
-                    errorMessages.push(`Document ${index + 1}: File size exceeds 10MB`);
-                } else {
-                    input.classList.remove('is-invalid');
-                }
-            }
-        });
-
-        if (!isValid) {
-            alert('Please fix the following errors:\n\n' + errorMessages.join('\n'));
-            submitBtn.disabled = originalDisabled;
-            submitBtn.innerHTML = originalText;
-            return;
-        }
-
-        // Create FormData
-        const formData = new FormData(form);
-
-        // Submit via AJAX
-        const response = await fetch(
-            '<?php echo site_url("recruiter/candidates/upload_required_documents"); ?>', {
-                method: 'POST',
-                body: formData,
-                headers: {
-                    'X-Requested-With': 'XMLHttpRequest'
-                }
-            });
-
-        const result = await response.json();
-        console.log('Submission result:', result);
-
-        if (result.success) {
-            // Show success message
-            if (typeof toastr !== 'undefined') {
-                toastr.success(result.message || 'Documents submitted successfully!');
-            } else {
-                alert(result.message || 'Documents submitted successfully!');
-            }
-
-            // CRITICAL FIX: Check if we should redirect
-            if (result.redirect && result.redirect_url) {
-                console.log('Redirecting to:', result.redirect_url);
-                // Short delay to show success message
-                setTimeout(() => {
-                    window.location.href = result.redirect_url;
-                }, 1500);
-            } else {
-                // Close the modal or refresh
-                setTimeout(() => {
-                    if (typeof close_qm === 'function') {
-                        close_qm();
-                    } else if (typeof smartCloseForm === 'function') {
-                        smartCloseForm();
-                    } else {
-                        window.location.reload();
-                    }
-                }, 1500);
-            }
-        } else {
-            // Show error
-            if (typeof toastr !== 'undefined') {
-                toastr.error(result.error || 'Failed to submit documents');
-            } else {
-                alert('Error: ' + (result.error || 'Failed to submit documents'));
-            }
-
-            submitBtn.disabled = originalDisabled;
-            submitBtn.innerHTML = originalText;
-        }
-
-    } catch (error) {
-        console.error('Submission error:', error);
-        alert('Error submitting documents: ' + error.message);
-        submitBtn.disabled = originalDisabled;
-        submitBtn.innerHTML = originalText;
-    }
-}
-
-// Function to add more document fields
-function addDocumentField() {
-    const container = document.getElementById('documentUploadContainer');
-    if (!container) return;
-
-    const count = container.querySelectorAll('.document-upload-row').length;
-    const index = count;
-
-    const newRow = document.createElement('div');
-    newRow.className = 'document-upload-row mb-3 p-3 border rounded';
-    newRow.innerHTML = `
-        <div class="row">
-            <div class="col-md-4">
-                <div class="form-group">
-                    <label>Document Name *</label>
-                    <input type="text" name="required_documents[${index}][name]" 
-                           class="form-control document-name" 
-                           placeholder="e.g., ID Copy, Degree Certificate" 
-                           data-required="true">
-                </div>
-            </div>
-            <div class="col-md-4">
-                <div class="form-group">
-                    <label>File *</label>
-                    <input type="file" name="required_documents[${index}][file]" 
-                           class="form-control document-file" 
-                           accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" 
-                           data-required="true">
-                </div>
-            </div>
-            <div class="col-md-3">
-                <div class="form-group">
-                    <label>Description (Optional)</label>
-                    <textarea name="required_documents[${index}][description]" 
-                              class="form-control document-description" 
-                              rows="1" 
-                              placeholder="Brief description..."></textarea>
-                </div>
-            </div>
-            <div class="col-md-1">
-                <div class="form-group">
-                    <label>&nbsp;</label>
-                    <button type="button" class="btn btn-outline-danger btn-block remove-document" style="margin-top: 32px;">
-                        <i class="fa fa-trash"></i>
-                    </button>
-                </div>
-            </div>
-        </div>
-    `;
-
-    container.appendChild(newRow);
-
-    // Enable remove button for the first row if this is the second row
-    if (index === 1) {
-        const firstRemoveBtn = container.querySelector('.document-upload-row:first-child .remove-document');
-        if (firstRemoveBtn) {
-            firstRemoveBtn.disabled = false;
-        }
-    }
-
-    // Add event listener to the new remove button
-    const removeBtn = newRow.querySelector('.remove-document');
-    if (removeBtn) {
-        removeBtn.addEventListener('click', function() {
-            newRow.remove();
-            updateDocumentIndices();
-        });
-    }
-
-    console.log(`Added document field ${index + 1}`);
-}
-
-// Function to update document indices after removal
-function updateDocumentIndices() {
-    const rows = document.querySelectorAll('.document-upload-row');
-    rows.forEach((row, index) => {
-        // Update name inputs
-        const nameInput = row.querySelector('.document-name');
-        if (nameInput) {
-            nameInput.name = `required_documents[${index}][name]`;
-        }
-
-        // Update file inputs
-        const fileInput = row.querySelector('.document-file');
-        if (fileInput) {
-            fileInput.name = `required_documents[${index}][file]`;
-        }
-
-        // Update description inputs
-        const descInput = row.querySelector('.document-description');
-        if (descInput) {
-            descInput.name = `required_documents[${index}][description]`;
-        }
-    });
-
-    // Disable remove button if only one row remains
-    const removeButtons = document.querySelectorAll('.remove-document');
-    if (removeButtons.length === 1) {
-        removeButtons[0].disabled = true;
-    }
-}
-
-// Setup function for Tab 5
-function setupTab5() {
-    console.log('Setting up Tab 5...');
-
-    // Find the required documents tab header
-    const requiredTab = document.querySelector('.required-documents-tab');
-    if (requiredTab) {
-        console.log('Required documents tab found');
-
-        // Add click listener
-        requiredTab.addEventListener('click', function() {
-            console.log('Required documents tab clicked!');
-
-            // Wait for tab to become active
-            const checkTab = setInterval(() => {
-                const tab5 = document.querySelector('.qm-tabs-tab[rel="5"]');
-                if (tab5 && tab5.classList.contains('active')) {
-                    clearInterval(checkTab);
-                    console.log('Tab 5 is now active');
-
-                    // Setup the form
-                    setupDocumentsForm();
-
-                    // Setup add more button
-                    const addMoreBtn = document.getElementById('addMoreDocuments');
-                    if (addMoreBtn) {
-                        addMoreBtn.addEventListener('click', addDocumentField);
-                    }
-                }
-            }, 100);
-        });
-    }
-
-    // Check if Tab 5 is already active on page load
-    const activeTab = document.querySelector('.qm-tabs-tab.active');
-    if (activeTab && activeTab.getAttribute('rel') === '5') {
-        console.log('Tab 5 is already active on page load');
-
-        // Setup form and buttons
-        setupDocumentsForm();
-
-        const addMoreBtn = document.getElementById('addMoreDocuments');
-        if (addMoreBtn) {
-            addMoreBtn.addEventListener('click', addDocumentField);
-        }
-    }
-}
-
-// Initialize when page loads
-document.addEventListener('DOMContentLoaded', function() {
-    console.log('DOM loaded, setting up Tab 5...');
-    setupTab5();
-});
-
-// Also run setup after a delay in case of dynamic loading
-setTimeout(setupTab5, 1000);
 </script>
 <style>
 .is-invalid {
@@ -1172,128 +710,5 @@ setTimeout(setupTab5, 1000);
 
 .quick-manage-form-container .form-control.is-invalid {
     border-left: 3px solid #dc3545;
-}
-</style>
-
-<style>
-.unified-documents-form {
-    background: #f8f9fa;
-    padding: 25px;
-    border-radius: 10px;
-    border: 1px solid #dee2e6;
-}
-
-.document-upload-row {
-    background: white;
-    transition: all 0.3s ease;
-}
-
-.document-upload-row:hover {
-    background: #f8f9fa;
-    border-color: #007bff !important;
-}
-
-.required-documents-tab {
-    background: #fff3cd !important;
-    border-color: #ffeaa7 !important;
-}
-
-.badge {
-    font-size: 0.7em;
-}
-
-.alert h5 {
-    margin-bottom: 10px;
-}
-
-.alert p {
-    margin-bottom: 5px;
-}
-
-.btn-lg {
-    padding: 12px 30px;
-    font-size: 1.1rem;
-}
-
-.card-header {
-    font-weight: 600;
-}
-
-.multi-select {
-    height: 120px !important;
-    min-height: 120px;
-}
-
-.multi-select option {
-    padding: 8px 12px;
-}
-
-.current-file {
-    background: #f8f9fa;
-    padding: 8px 12px;
-    border-radius: 4px;
-    margin-bottom: 8px;
-    border: 1px solid #e9ecef;
-}
-
-.current-file a {
-    color: #007bff;
-    text-decoration: none;
-}
-
-.current-file a:hover {
-    text-decoration: underline;
-}
-
-.parsley-errors-list {
-    color: #dc3545;
-    font-size: 0.875em;
-    margin-top: 0.25rem;
-}
-
-.parsley-error {
-    border-color: #dc3545 !important;
-}
-
-.alert {
-    margin: 15px;
-    border-radius: 4px;
-}
-
-.input-group .form-control.is-valid {
-    border-color: #28a745;
-}
-
-.input-group .form-control.is-warning {
-    border-color: #ffc107;
-}
-
-#refresh-reference:hover {
-    background-color: #007bff;
-    color: white;
-}
-
-.submitted-documents-section {
-    border-top: 2px solid #e9ecef;
-    padding-top: 20px;
-}
-
-.document-upload-section {
-    background: white;
-    padding: 20px;
-    border-radius: 8px;
-    margin-bottom: 20px;
-}
-
-.btn-block {
-    width: 100%;
-}
-
-.is-invalid {
-    border-color: #dc3545 !important;
-}
-
-.text-muted {
-    color: #6c757d !important;
 }
 </style>

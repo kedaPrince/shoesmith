@@ -1240,55 +1240,95 @@ public function update($uuid_or_id = null)
             return null;
         }
 
- public function upload_required_documents()
-    {
-        // ✅ ADD CSRF VALIDATION
-        $csrf_name = $this->security->get_csrf_token_name();
-        $csrf_token = $this->input->post($csrf_name);
+public function upload_required_documents()
+{
+    
+    // ========== DUAL CSRF VALIDATION ==========
+    $csrf_name = $this->security->get_csrf_token_name();
+    $csrf_token = $this->input->post($csrf_name);
+    
+    // Try multiple validation methods
+    $csrf_valid = false;
+    
+    // Method 1: Standard CodeIgniter validation
+    if ($csrf_token && $this->security->csrf_verify($csrf_token)) {
+        $csrf_valid = true;
+    }
+    
+    // Method 2: Check if token exists in our database
+    if (!$csrf_valid && $csrf_token) {
+        $csrf_valid = $this->validate_csrf_from_database($csrf_token);
+    }
+    
+    // Method 3: Check raw input for multipart forms
+    if (!$csrf_valid) {
+        $raw_input = file_get_contents('php://input');
+        parse_str($raw_input, $input_data);
+        $raw_csrf_token = isset($input_data[$csrf_name]) ? $input_data[$csrf_name] : null;
         
-        if (!$csrf_token || $csrf_token !== $this->security->get_csrf_hash()) {
-            if ($this->input->is_ajax_request()) {
-                ajax_return(['success' => false, 'message' => 'Invalid CSRF token. Please refresh and try again.']);
-            } else {
-                $this->session->set_flashdata('error', 'Invalid CSRF token. Please refresh and try again.');
-                redirect('recruiter/candidates');
+        if ($raw_csrf_token) {
+            if ($this->security->csrf_verify($raw_csrf_token)) {
+                $csrf_valid = true;
+                $csrf_token = $raw_csrf_token;
+            } elseif ($this->validate_csrf_from_database($raw_csrf_token)) {
+                $csrf_valid = true;
+                $csrf_token = $raw_csrf_token;
             }
-            return;
         }
-        // BETTER AJAX DETECTION
-        $is_ajax = $this->input->is_ajax_request() || 
-                  (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && 
-                   strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) == 'xmlhttprequest');
-        
-        $candidate_identifier = $this->input->post('candidate_id');
-        $notification_id = $this->input->post('notification_id');
-        $submission_notes = $this->input->post('submission_notes');
-        
-        // Get candidate by UUID or ID
-        $candidate = $this->{$this->model}->get_candidate($candidate_identifier);
-        if (empty($candidate)) {
-            if ($is_ajax) {
-                ajax_return(['success' => false, 'message' => 'Candidate not found.']);
-            } else {
-                $this->session->set_flashdata('error', 'Candidate not found.');
-                redirect('recruiter/candidates');
+    }
+    
+    // Method 4: Check headers
+    if (!$csrf_valid) {
+        $header_token = $this->input->get_request_header('X-CSRF-TOKEN');
+        if ($header_token) {
+            if ($this->security->csrf_verify($header_token)) {
+                $csrf_valid = true;
+                $csrf_token = $header_token;
+            } elseif ($this->validate_csrf_from_database($header_token)) {
+                $csrf_valid = true;
+                $csrf_token = $header_token;
             }
-            return;
         }
+    }
+    
+    if (!$csrf_valid) {
+        // Generate new token for next request
+        $new_csrf_hash = $this->security->get_csrf_hash();
         
-        $candidate_id = $candidate->id;
+        $response = [
+            'success' => false, 
+            'message' => 'Security validation failed. Please refresh the form and try again.',
+            'csrf_token' => $new_csrf_hash,
+            'csrf_name' => $csrf_name,
+            'debug' => 'CSRF validation failed all methods'
+        ];
+        
+        $this->output->set_content_type('application/json')->set_output(json_encode($response));
+        return;
+    }
+    
+    // ========== REST OF THE METHOD (unchanged) ==========
+    $candidate_identifier = $this->input->post('candidate_id');
+    $notification_id = $this->input->post('notification_id');
+    $submission_notes = $this->input->post('submission_notes');
+    
+    // Get candidate by UUID or ID
+    $candidate = $this->{$this->model}->get_candidate($candidate_identifier);
+    if (empty($candidate)) {
+        $response = ['success' => false, 'message' => 'Candidate not found.'];
+        $this->output->set_content_type('application/json')->set_output(json_encode($response));
+        return;
+    }
+    
+    $candidate_id = $candidate->id;
     
     // Check access
     $has_access = $this->{$this->model}->check_recruiter_candidate_access($this->get_recruiter_id(), $candidate_id);
-        if (!$has_access) {
-            if ($is_ajax) {
-                ajax_return(['success' => false, 'message' => 'Access denied.']);
-            } else {
-                $this->session->set_flashdata('error', 'Access denied.');
-                redirect('recruiter/candidates');
-            }
-            return;
-        }
+    if (!$has_access) {
+        $response = ['success' => false, 'message' => 'Access denied.'];
+        $this->output->set_content_type('application/json')->set_output(json_encode($response));
+        return;
+    }
     
     // Handle multiple document uploads
     $uploaded_documents = [];
@@ -1297,52 +1337,39 @@ public function update($uuid_or_id = null)
     // Get the document data from POST
     $document_names = $this->input->post('required_documents');
     
-    if (!empty($document_names) && is_array($document_names)) {
-        foreach ($document_names as $index => $document_data) {
-            if (!empty($document_data['name']) && isset($_FILES['required_documents']['name'][$index]['file'])) {
-                $document_name = $document_data['name'];
-                $description = isset($document_data['description']) ? $document_data['description'] : '';
-                
-                $upload_result = $this->upload_single_required_document(
-                    $candidate_id, 
-                    $document_name, 
-                    $description,
-                    $index
-                );
-                
-                if ($upload_result['success']) {
-                    $uploaded_documents[] = $upload_result['document'];
-                } else {
-                    $errors[] = "Document '{$document_name}': " . $upload_result['error'];
-                }
+    // Check if we have documents to upload
+    if (empty($document_names) || !is_array($document_names)) {
+        $response = ['success' => false, 'message' => 'No documents to upload.'];
+        $this->output->set_content_type('application/json')->set_output(json_encode($response));
+        return;
+    }
+    
+    // Process each document
+    foreach ($document_names as $index => $document_data) {
+        if (!empty($document_data['name']) && isset($_FILES['required_documents']['name'][$index]['file'])) {
+            $document_name = $document_data['name'];
+            $description = isset($document_data['description']) ? $document_data['description'] : '';
+            
+            $upload_result = $this->upload_single_required_document(
+                $candidate_id, 
+                $document_name, 
+                $description,
+                $index
+            );
+            
+            if ($upload_result['success']) {
+                $uploaded_documents[] = $upload_result['document'];
             } else {
-                $errors[] = "Document at index {$index} is missing name or file";
+                $errors[] = "Document '{$document_name}': " . $upload_result['error'];
             }
-        }
-    } else {
-         if ($is_ajax) {
-            ajax_return([
-                'success' => true, 
-                'message' => $message, 
-                'documents' => $uploaded_documents,
-                'stage_updated' => $stage_updated,
-                'redirect' => true,
-                'redirect_url' => site_url('recruiter/candidates')
-            ]);
         } else {
-            // For non-AJAX requests
-            $this->session->set_flashdata('success', $message);
-            redirect('recruiter/candidates');
+            $errors[] = "Document at index {$index} is missing name or file";
         }
     }
     
     if (!empty($errors) && empty($uploaded_documents)) {
-        if ($is_ajax) {
-            ajax_return(['success' => false, 'message' => 'All uploads failed: ' . implode(', ', $errors)]);
-        } else {
-            $this->session->set_flashdata('error', 'All uploads failed: ' . implode(', ', $errors));
-            redirect('recruiter/candidates/view/' . $candidate_id);
-        }
+        $response = ['success' => false, 'message' => 'All uploads failed: ' . implode(', ', $errors)];
+        $this->output->set_content_type('application/json')->set_output(json_encode($response));
         return;
     }
     
@@ -1397,124 +1424,189 @@ public function update($uuid_or_id = null)
             $message .= ' (Note: Agency notification failed to send)';
         }
         
-        // CRITICAL FIX: Handle response differently based on AJAX vs normal request
-        if ($is_ajax) {
-            ajax_return([
-                'success' => true, 
-                'message' => $message, 
-                'documents' => $uploaded_documents,
-                'stage_updated' => $stage_updated,
-                // ADD REDIRECTION INFO FOR AJAX
-                'redirect' => true,
-                'redirect_url' => site_url('recruiter/candidates')
-            ]);
-        } else {
-            // For non-AJAX requests
-            $this->session->set_flashdata('success', $message);
-            redirect('recruiter/candidates');
-        }
+        // Generate NEW CSRF token for next request
+        $new_csrf_hash = $this->security->get_csrf_hash();
+        
+        $response = [
+            'success' => true, 
+            'message' => $message, 
+            'documents' => $uploaded_documents,
+            'stage_updated' => $stage_updated,
+            'redirect' => true,
+            'redirect_url' => site_url('recruiter/candidates'),
+            'csrf_token' => $new_csrf_hash,
+            'csrf_name' => $csrf_name
+        ];
+        
+        $this->output->set_content_type('application/json')->set_output(json_encode($response));
     } else {
-        if ($is_ajax) {
-            ajax_return(['success' => false, 'message' => 'No documents were successfully uploaded.']);
-        } else {
-            $this->session->set_flashdata('error', 'No documents were successfully uploaded.');
-            redirect('recruiter/candidates/view/' . $candidate_id);
-        }
+        // Generate NEW CSRF token for next request
+        $new_csrf_hash = $this->security->get_csrf_hash();
+        
+        $response = [
+            'success' => false, 
+            'message' => 'No documents were successfully uploaded.',
+            'csrf_token' => $new_csrf_hash,
+            'csrf_name' => $csrf_name
+        ];
+        
+        $this->output->set_content_type('application/json')->set_output(json_encode($response));
     }
 }
 
+/**
+ * Validate CSRF token from database (for cross-window validation)
+ */
+private function validate_csrf_from_database($csrf_token)
+{
+    if (empty($csrf_token)) {
+        return false;
+    }
     
-        private function upload_single_required_document($candidate_id, $document_name, $description, $file_index)
-        {
-            $config['upload_path'] = './uploads/candidate_documents/required/';
-            $config['allowed_types'] = 'pdf|doc|docx|jpg|jpeg|png';
-            $config['max_size'] = 10240; // 10MB
-            $config['encrypt_name'] = true;
-            
-            // Create upload directory if it doesn't exist
-            if (!is_dir($config['upload_path'])) {
-                mkdir($config['upload_path'], 0755, true);
-            }
-            
-            $this->load->library('upload', $config);
-            
-            // Handle the file upload for this specific index - FIXED VERSION
-            $file_data = [
-                'name' => $_FILES['required_documents']['name'][$file_index]['file'],
-                'type' => $_FILES['required_documents']['type'][$file_index]['file'],
-                'tmp_name' => $_FILES['required_documents']['tmp_name'][$file_index]['file'],
-                'error' => $_FILES['required_documents']['error'][$file_index]['file'],
-                'size' => $_FILES['required_documents']['size'][$file_index]['file']
-            ];
-            
-            // Check if file was actually uploaded
-            if ($file_data['error'] !== UPLOAD_ERR_OK) {
-                return [
-                    'success' => false,
-                    'error' => 'File upload error: ' . $this->get_upload_error_message($file_data['error'])
-                ];
-            }
-            
-            // Use a temporary global $_FILES variable for the upload library
-            $_FILES['document_file'] = $file_data;
-            
-            if (!$this->upload->do_upload('document_file')) {
-                return [
-                    'success' => false,
-                    'error' => $this->upload->display_errors()
-                ];
-            }
-            
-            $upload_data = $this->upload->data();
-            
-            // Save document to database with special type
-            $document_data = [
-                'candidate_id' => $candidate_id,
-                'document_name' => $document_name,
-                'file_name' => $upload_data['file_name'],
-                'file_path' => 'uploads/candidate_documents/required/' . $upload_data['file_name'],
-                'file_size' => $upload_data['file_size'],
-                'file_type' => $upload_data['file_type'],
-                'uploaded_by' => $this->get_recruiter_id(),
-                'uploaded_by_type' => 'recruiter',
-                'document_type' => 'required_document',
-                'description' => $description,
-                'is_required_submission' => 1,
-                'created_at' => date('Y-m-d H:i:s'),
-                'updated_at' => date('Y-m-d H:i:s')
-            ];
-            
-            $result = $this->{$this->model}->save_candidate_document($document_data);
-            
-            if ($result) {
-                return [
-                    'success' => true,
-                    'document' => $document_data
-                ];
-            } else {
-                // Delete the uploaded file if database save failed
-                unlink($upload_data['full_path']);
-                return [
-                    'success' => false,
-                    'error' => 'Failed to save document information'
-                ];
-            }
-        }
+    // Check if token exists in database and is not expired
+    $this->db->where('token', $csrf_token)
+             ->where('expires_at >', date('Y-m-d H:i:s'))
+             ->limit(1);
+    
+    $token_record = $this->db->get('csrf_tokens')->row();
+    
+    if ($token_record) {
+        // Token is valid, delete it (one-time use)
+        $this->db->where('id', $token_record->id)->delete('csrf_tokens');
+        return true;
+    }
+    
+    return false;
+}
 
-    private function get_upload_error_message($error_code)
-        {
-            $errors = [
-                UPLOAD_ERR_INI_SIZE => 'The uploaded file exceeds the upload_max_filesize directive in php.ini',
-                UPLOAD_ERR_FORM_SIZE => 'The uploaded file exceeds the MAX_FILE_SIZE directive that was specified in the HTML form',
-                UPLOAD_ERR_PARTIAL => 'The uploaded file was only partially uploaded',
-                UPLOAD_ERR_NO_FILE => 'No file was uploaded',
-                UPLOAD_ERR_NO_TMP_DIR => 'Missing a temporary folder',
-                UPLOAD_ERR_CANT_WRITE => 'Failed to write file to disk',
-                UPLOAD_ERR_EXTENSION => 'A PHP extension stopped the file upload',
-            ];
-            
-            return isset($errors[$error_code]) ? $errors[$error_code] : 'Unknown upload error';
-        }
+    private function upload_single_required_document($candidate_id, $document_name, $description, $file_index)
+{
+    // Ensure upload path exists
+    $upload_path = FCPATH . 'uploads/candidate_documents/required/';
+    if (!is_dir($upload_path)) {
+        mkdir($upload_path, 0755, true);
+        file_put_contents($upload_path . 'index.html', '');
+    }
+    
+    $config['upload_path'] = $upload_path;
+    
+    // ========== FIXED FILE UPLOAD CONFIGURATION ==========
+    $config['allowed_types'] = 'pdf|doc|docx|jpg|jpeg|png';
+    $config['file_ext_tolower'] = true; // Convert extensions to lowercase
+    $config['detect_mime'] = true; // Keep MIME detection on
+    
+    // Explicit MIME type definitions to fix recognition issues
+    $config['mimes'] = array(
+        'pdf' => array('application/pdf'),
+        'doc' => array('application/msword', 'application/vnd.ms-office'),
+        'docx' => array('application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/zip'),
+        'jpg' => array('image/jpeg', 'image/pjpeg'),
+        'jpeg' => array('image/jpeg', 'image/pjpeg'),
+        'png' => array('image/png', 'image/x-png')
+    );
+    
+    $config['max_size'] = 10240; // 10MB
+    $config['encrypt_name'] = true;
+    $config['overwrite'] = false;
+    
+    $this->load->library('upload', $config);
+    
+    // Handle the file upload for this specific index
+    $file_data = [
+        'name' => $_FILES['required_documents']['name'][$file_index]['file'],
+        'type' => $_FILES['required_documents']['type'][$file_index]['file'],
+        'tmp_name' => $_FILES['required_documents']['tmp_name'][$file_index]['file'],
+        'error' => $_FILES['required_documents']['error'][$file_index]['file'],
+        'size' => $_FILES['required_documents']['size'][$file_index]['file']
+    ];
+    
+    // Check if file was actually uploaded
+    if ($file_data['error'] !== UPLOAD_ERR_OK) {
+        return [
+            'success' => false,
+            'error' => 'File upload error: ' . $this->get_upload_error_message($file_data['error'])
+        ];
+    }
+    
+    // Use a temporary global $_FILES variable for the upload library
+    $_FILES['document_file'] = $file_data;
+    
+    if (!$this->upload->do_upload('document_file')) {
+        return [
+            'success' => false,
+            'error' => $this->upload->display_errors()
+        ];
+    }
+    
+    $upload_data = $this->upload->data();
+    
+    // Save document to database with special type
+    $document_data = [
+        'candidate_id' => $candidate_id,
+        'document_name' => $document_name,
+        'file_name' => $upload_data['file_name'],
+        'file_path' => 'uploads/candidate_documents/required/' . $upload_data['file_name'],
+        'file_size' => $upload_data['file_size'],
+        'file_type' => $upload_data['file_type'],
+        'uploaded_by' => $this->get_recruiter_id(),
+        'uploaded_by_type' => 'recruiter',
+        'document_type' => 'required_document',
+        'description' => $description,
+        'is_required_submission' => 1,
+        'created_at' => date('Y-m-d H:i:s'),
+        'updated_at' => date('Y-m-d H:i:s')
+    ];
+    
+    $result = $this->{$this->model}->save_candidate_document($document_data);
+    
+    if ($result) {
+        return [
+            'success' => true,
+            'document' => $document_data
+        ];
+    } else {
+        // Delete the uploaded file if database save failed
+        @unlink($upload_data['full_path']);
+        return [
+            'success' => false,
+            'error' => 'Failed to save document information'
+        ];
+    }
+}
+private function get_upload_error_message($error_code)
+{
+    $errors = [
+        UPLOAD_ERR_INI_SIZE => 'The uploaded file exceeds the upload_max_filesize directive in php.ini',
+        UPLOAD_ERR_FORM_SIZE => 'The uploaded file exceeds the MAX_FILE_SIZE directive that was specified in the HTML form',
+        UPLOAD_ERR_PARTIAL => 'The uploaded file was only partially uploaded',
+        UPLOAD_ERR_NO_FILE => 'No file was uploaded',
+        UPLOAD_ERR_NO_TMP_DIR => 'Missing a temporary folder',
+        UPLOAD_ERR_CANT_WRITE => 'Failed to write file to disk',
+        UPLOAD_ERR_EXTENSION => 'A PHP extension stopped the file upload',
+    ];
+    
+    return isset($errors[$error_code]) ? $errors[$error_code] : 'Unknown upload error';
+}
+/**
+ * Get fresh CSRF token (AJAX endpoint)
+ */
+public function get_csrf_token()
+{
+    // Set JSON header - DON'T require AJAX for this endpoint
+    $this->output->set_content_type('application/json');
+    
+    // Regenerate CSRF token
+    $csrf_name = $this->security->get_csrf_token_name();
+    $csrf_hash = $this->security->get_csrf_hash();
+    
+    // Return the token
+    echo json_encode([
+        'success' => true,
+        'csrf_name' => $csrf_name,
+        'csrf_token' => $csrf_hash
+    ]);
+}
+
 
     public function get_submitted_required_documents($candidate_id)
         {
@@ -3174,5 +3266,339 @@ public function ajax_submit_required_documents()
 }
 
 
+/**
+ * Get fresh CSRF token for AJAX forms
+ */
+public function get_fresh_csrf_token()
+{
+    // Set content type FIRST
+    $this->output->set_content_type('application/json');
+    
+    try {
+        // Get current CSRF info
+        $csrf_name = $this->security->get_csrf_token_name();
+        $csrf_hash = $this->security->get_csrf_hash();
+        
+        // Return the token
+        echo json_encode([
+            'success' => true,
+            'csrf_name' => $csrf_name,
+            'csrf_token' => $csrf_hash,
+            'timestamp' => time()
+        ]);
+        
+    } catch (Exception $e) {
+        // Return error
+        echo json_encode([
+            'success' => false,
+            'error' => 'Failed to generate security token',
+            'message' => $e->getMessage()
+        ]);
+    }
+}
 
+public function submit_required_documents()
+{
+    // Set JSON header
+    header('Content-Type: application/json; charset=UTF-8');
+    
+    try {
+        // Check session
+        $recruiter_id = $this->get_recruiter_id();
+        if (!$recruiter_id) {
+            throw new Exception('Please log in to continue.');
+        }
+        
+        // Get POST data
+        $candidate_id = $this->input->post('candidate_id');
+        $notification_id = $this->input->post('notification_id');
+        $submission_notes = $this->input->post('submission_notes');
+        
+        if (empty($candidate_id)) {
+            throw new Exception('Candidate ID is required.');
+        }
+        
+        // Check if files were uploaded
+        if (empty($_FILES['document_files']['name'][0])) {
+            throw new Exception('Please select at least one file to upload.');
+        }
+        
+        // Get document names
+        $document_names = $this->input->post('document_names');
+        $document_descriptions = $this->input->post('document_descriptions');
+        
+        if (empty($document_names) || !is_array($document_names)) {
+            throw new Exception('Document names are required.');
+        }
+        
+        // Process uploads
+        $uploaded_count = 0;
+        $upload_errors = [];
+        
+        // Create upload directory
+        $upload_path = FCPATH . 'uploads/candidate_documents/required/';
+        if (!is_dir($upload_path)) {
+            mkdir($upload_path, 0755, true);
+        }
+        
+        // Process each file
+        $file_count = count($_FILES['document_files']['name']);
+        
+        for ($i = 0; $i < $file_count; $i++) {
+            if (!empty($_FILES['document_files']['name'][$i])) {
+                $document_name = isset($document_names[$i]) ? trim($document_names[$i]) : '';
+                $description = isset($document_descriptions[$i]) ? trim($document_descriptions[$i]) : '';
+                
+                if (empty($document_name)) {
+                    $upload_errors[] = "Document #" . ($i + 1) . " is missing a name";
+                    continue;
+                }
+                
+                // Configure upload
+                $config['upload_path'] = $upload_path;
+                $config['allowed_types'] = 'pdf|doc|docx|jpg|jpeg|png';
+                $config['max_size'] = 10240; // 10MB
+                $config['encrypt_name'] = true;
+                
+                $this->load->library('upload', $config);
+                
+                // Prepare file data
+                $file_data = [
+                    'name' => $_FILES['document_files']['name'][$i],
+                    'type' => $_FILES['document_files']['type'][$i],
+                    'tmp_name' => $_FILES['document_files']['tmp_name'][$i],
+                    'error' => $_FILES['document_files']['error'][$i],
+                    'size' => $_FILES['document_files']['size'][$i]
+                ];
+                
+                $_FILES['upload_file'] = $file_data;
+                
+                if ($this->upload->do_upload('upload_file')) {
+                    $upload_data = $this->upload->data();
+                    
+                    // Save to database
+                    $document_data = [
+                        'candidate_id' => $candidate_id,
+                        'document_name' => $document_name,
+                        'file_name' => $upload_data['file_name'],
+                        'file_path' => 'uploads/candidate_documents/required/' . $upload_data['file_name'],
+                        'file_size' => $upload_data['file_size'],
+                        'file_type' => $upload_data['file_type'],
+                        'uploaded_by' => $recruiter_id,
+                        'uploaded_by_type' => 'recruiter',
+                        'document_type' => 'required_document',
+                        'description' => $description,
+                        'is_required_submission' => 1,
+                        'created_at' => date('Y-m-d H:i:s'),
+                        'updated_at' => date('Y-m-d H:i:s')
+                    ];
+                    
+                    // Insert into database
+                    $this->db->insert('candidate_documents', $document_data);
+                    
+                    if ($this->db->insert_id()) {
+                        $uploaded_count++;
+                        error_log("Uploaded: {$document_name} as {$upload_data['file_name']}");
+                    } else {
+                        @unlink($upload_data['full_path']);
+                        $upload_errors[] = "Failed to save '{$document_name}' to database";
+                    }
+                    
+                } else {
+                    $upload_errors[] = "Document '{$document_name}': " . $this->upload->display_errors();
+                }
+            }
+        }
+        
+        if ($uploaded_count > 0) {
+            // Mark notification as read
+            if (!empty($notification_id)) {
+                $this->load->model('recruiter/Model_notifications');
+                $this->Model_notifications->mark_as_read($notification_id, $recruiter_id);
+            }
+            
+            $message = $uploaded_count . ' document(s) uploaded successfully!';
+            if (!empty($upload_errors)) {
+                $message .= ' Some failed: ' . implode(', ', $upload_errors);
+            }
+            
+            echo json_encode([
+                'success' => true,
+                'message' => $message,
+                'uploaded_count' => $uploaded_count,
+                'csrf_token' => $this->security->get_csrf_hash()
+            ]);
+            
+        } else {
+            $error_msg = 'No documents were uploaded.';
+            if (!empty($upload_errors)) {
+                $error_msg .= ' Errors: ' . implode(', ', $upload_errors);
+            }
+            throw new Exception($error_msg);
+        }
+        
+    } catch (Exception $e) {
+        error_log('File upload error: ' . $e->getMessage());
+        
+        echo json_encode([
+            'success' => false,
+            'message' => $e->getMessage(),
+            'csrf_token' => $this->security->get_csrf_hash()
+        ]);
+    }
+}
+// Add this helper method for CSRF validation
+private function validate_csrf_token($token)
+{
+    $expected = $this->security->get_csrf_hash();
+    
+    if (!$token || !hash_equals($expected, $token)) {
+        // Return JSON error instead of throwing exception
+        echo json_encode([
+            'success' => false,
+            'message' => 'Invalid security token. Please refresh and try again.',
+            'csrf_token' => $this->security->get_csrf_hash()
+        ]);
+        exit();
+    }
+}
+public function show_required_documents_form()
+{
+    // Enable error reporting temporarily
+    error_reporting(E_ALL);
+    ini_set('display_errors', 1);
+    
+    // Get parameters
+    $candidate_id = $this->input->get('candidate_id');
+    $notification_id = $this->input->get('notification_id');
+    $documents_notes = $this->input->get('documents_notes');
+    
+    if (empty($candidate_id)) {
+        show_error('Candidate ID is required', 400);
+        return;
+    }
+    
+    // Get candidate
+    $candidate = $this->{$this->model}->get_candidate($candidate_id);
+    if (!$candidate) {
+        show_error('Candidate not found', 404);
+        return;
+    }
+    
+    // Check access
+    $recruiter_id = $this->get_recruiter_id();
+    if (!$recruiter_id) {
+        show_error('Recruiter not logged in', 403);
+        return;
+    }
+    
+    // Verify the candidate belongs to this recruiter
+    if ($candidate->assigned_agent_id != $recruiter_id) {
+        show_error('Access denied to this candidate', 403);
+        return;
+    }
+    
+    // Get fresh CSRF token
+    $csrf_name = $this->security->get_csrf_token_name();
+    $csrf_hash = $this->security->get_csrf_hash();
+    
+    // Get documents request data
+    $documents_request_data = $this->check_pending_documents_request($candidate->id);
+    
+    // Use provided notes or fallback
+    $notes = '';
+    if (!empty($documents_notes)) {
+        $notes = urldecode($documents_notes);
+    } elseif (!empty($documents_request_data['notes'])) {
+        $notes = $documents_request_data['notes'];
+    }
+    
+    // Load a clean view with complete HTML structure
+    $this->load->view('recruiter/candidates/required_documents_form', [
+        'candidate_id' => $candidate->id,
+        'documents_request_notes' => $notes,
+        'notification_id' => !empty($notification_id) ? $notification_id : ($documents_request_data['notification_id'] ?? null),
+        'csrf_token_name' => $csrf_name,
+        'csrf_token_hash' => $csrf_hash,
+        'candidate_name' => $candidate->first_name . ' ' . $candidate->last_name,
+        'candidate_ref' => $candidate->reference_number
+    ]);
+}
+
+/**
+ * Store CSRF token in database for cross-window validation
+ */
+private function store_csrf_token_for_validation($csrf_token, $recruiter_id, $candidate_id)
+{
+    // Clean up old tokens (older than 1 hour)
+    $this->db->where('created_at <', date('Y-m-d H:i:s', strtotime('-1 hour')))
+             ->delete('csrf_tokens');
+    
+    // Store new token
+    $token_data = [
+        'token' => $csrf_token,
+        'recruiter_id' => $recruiter_id,
+        'candidate_id' => $candidate_id,
+        'created_at' => date('Y-m-d H:i:s'),
+        'expires_at' => date('Y-m-d H:i:s', strtotime('+1 hour'))
+    ];
+    
+    $this->db->insert('csrf_tokens', $token_data);
+    return $this->db->insert_id();
+}
+
+
+public function test_csrf_security()
+{
+    $this->output->set_content_type('application/json');
+    
+    $csrf_name = $this->security->get_csrf_token_name();
+    $csrf_token = $this->input->post($csrf_name);
+    $current_hash = $this->security->get_csrf_hash();
+    
+    $is_valid = ($csrf_token && hash_equals($current_hash, $csrf_token));
+    
+    echo json_encode([
+        'csrf_enabled' => true,
+        'token_provided' => !empty($csrf_token),
+        'token_valid' => $is_valid,
+        'security_status' => $is_valid ? 'SECURE' : 'INSECURE'
+    ]);
+}
+
+// Add this method to your controller for testing
+public function test_csrf_endpoint()
+{
+    header('Content-Type: application/json; charset=UTF-8');
+    
+    $csrf_name = $this->security->get_csrf_token_name();
+    $csrf_token = $this->input->post($csrf_name);
+    $current_hash = $this->security->get_csrf_hash();
+    
+    $is_valid = ($csrf_token && hash_equals($current_hash, $csrf_token));
+    
+    echo json_encode([
+        'csrf_enabled' => true,
+        'token_provided' => !empty($csrf_token),
+        'token_valid' => $is_valid,
+        'csrf_name' => $csrf_name,
+        'csrf_hash' => $current_hash,
+        'security_status' => $is_valid ? 'SECURE' : 'INSECURE'
+    ]);
+    exit();
+}
+
+public function debug_file_upload()
+{
+    header('Content-Type: application/json; charset=UTF-8');
+    
+    echo json_encode([
+        'post_data' => $_POST,
+        'files_data' => $_FILES,
+        'session_id' => session_id(),
+        'recruiter_id' => $this->get_recruiter_id(),
+        'debug' => 'File upload debug'
+    ]);
+    exit();
+}
 }

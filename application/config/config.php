@@ -547,11 +547,15 @@ $config['csrf_token_name'] = 'csrf_rfid_token';
 $config['csrf_cookie_name'] = 'csrf_cookie_name';
 $config['csrf_expire'] = 7200; // 2 hours - matches your needs
 $config['csrf_regenerate'] = TRUE; // ✅ This is what you want!
-$config['csrf_exclude_uris'] = array(); // ✅ Keep empty for security
+$config['csrf_exclude_uris'] = array(); 
+// $config['csrf_exclude_uris'] = array(
+//     'recruiter/candidates/submit_required_documents',
+//     'recruiter/candidates/show_required_documents_form'
+// );
 
 // Also important for AJAX
 $config['csrf_redirect'] = FALSE; // Don't redirect on CSRF failure
-
+$config['allowed_types'] = '*';
 /*
   |--------------------------------------------------------------------------
   | Output Compression

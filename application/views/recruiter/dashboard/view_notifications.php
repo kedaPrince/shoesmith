@@ -627,18 +627,6 @@
                                     <?php endif; ?>
 
                                     <div class="notification-expandable">
-                                        <!-- Documents Request Notice -->
-                                        <?php if ($is_documents_request): ?>
-                                        <div class="alert alert-warning">
-                                            <h5><i class="fa fa-file-alt"></i> Additional Documents Required</h5>
-                                            <p class="mb-2">The hiring manager requires additional documents for this
-                                                candidate.</p>
-                                            <a href="<?php echo site_url('recruiter/candidates/view/' . $notification->related_entity_id . '?tab=required'); ?>"
-                                                class="btn btn-primary btn-sm">
-                                                <i class="fa fa-upload"></i> Upload Documents in Candidate Profile
-                                            </a>
-                                        </div>
-                                        <?php endif; ?>
 
                                         <!-- HM Decision Notes -->
                                         <?php if ($is_hm_decision && $metadata && (!empty($metadata->notes) || !empty($metadata->decision_notes) || !empty($metadata->required_documents))): ?>
@@ -730,6 +718,7 @@
                                         </div>
 
                                         <!-- Action Buttons -->
+
                                         <div class="notification-actions">
                                             <div class="action-buttons">
                                                 <?php if (!empty($job_id) && !$is_hm_decision): ?>
@@ -739,16 +728,25 @@
                                                 </a>
                                                 <?php elseif ($is_hm_decision && $metadata): ?>
                                                 <?php 
-                                                // Determine the correct URL based on notification type
-                                                $candidate_url = site_url('recruiter/candidates/view/' . $notification->related_entity_id);
-                                                if ($is_documents_request) {
-                                                    $candidate_url .= '?tab=required';
-                                                }
-                                                ?>
+                                            // Determine the correct URL based on notification type
+                                            $candidate_url = site_url('recruiter/candidates/view/' . $notification->related_entity_id);
+                                            if ($is_documents_request) {
+                                                $candidate_url .= '?tab=required';
+                                            }
+                                            ?>
                                                 <a href="<?php echo $candidate_url; ?>"
                                                     class="btn btn-notification btn-view-job">
                                                     <i class="fa fa-user"></i> View Candidate
                                                 </a>
+                                                <!-- ADD THIS: Button to open required documents modal -->
+                                                <?php if ($is_documents_request): ?>
+                                                <button class="btn btn-warning btn-open-documents-modal"
+                                                    data-candidate-id="<?php echo $notification->related_entity_id; ?>"
+                                                    data-notification-id="<?php echo $notification->id; ?>"
+                                                    data-documents-notes="<?php echo !empty($metadata->required_documents) ? htmlspecialchars($metadata->required_documents) : htmlspecialchars($metadata->notes ?? ''); ?>">
+                                                    <i class="fa fa-upload"></i> Submit Required Documents
+                                                </button>
+                                                <?php endif; ?>
                                                 <?php else: ?>
                                                 <span class="text-muted small">No linked content</span>
                                                 <?php endif; ?>
@@ -837,12 +835,46 @@
                                         <?php endif; ?>
                                     </div>
 
+                                    <!-- Action Buttons -->
                                     <div class="notification-actions">
                                         <div class="action-buttons">
+                                            <?php if (!empty($job_id) && !$is_hm_decision): ?>
+                                            <a href="<?php echo site_url('recruiter/jobs/view/' . $job_id); ?>"
+                                                class="btn btn-notification btn-view-job">
+                                                <i class="fa fa-eye"></i> View Full Job Details
+                                            </a>
+                                            <?php elseif ($is_hm_decision && $metadata): ?>
+                                            <?php 
+        // Determine the correct action based on notification type
+        if ($is_documents_request): 
+        ?>
+                                            <!-- FOR DOCUMENTS REQUIRED: Use button to open modal -->
+                                            <button class="btn btn-warning btn-open-documents-modal"
+                                                data-candidate-id="<?php echo $notification->related_entity_id; ?>"
+                                                data-notification-id="<?php echo $notification->id; ?>"
+                                                data-documents-notes="<?php 
+                echo !empty($metadata->required_documents) ? 
+                    htmlspecialchars($metadata->required_documents) : 
+                    htmlspecialchars($metadata->notes ?? ''); 
+            ?>">
+                                                <i class="fa fa-upload"></i> Submit Required Documents
+                                            </button>
+
+                                            <!-- Optional: Also provide link to view candidate -->
                                             <a href="<?php echo site_url('recruiter/candidates/view/' . $notification->related_entity_id); ?>"
-                                                class="btn btn-notification btn-view-candidate">
+                                                class="btn btn-outline-primary btn-sm">
                                                 <i class="fa fa-user"></i> View Candidate
                                             </a>
+                                            <?php else: ?>
+                                            <!-- FOR OTHER HM DECISIONS: Link to candidate -->
+                                            <a href="<?php echo site_url('recruiter/candidates/view/' . $notification->related_entity_id); ?>"
+                                                class="btn btn-notification btn-view-job">
+                                                <i class="fa fa-user"></i> View Candidate
+                                            </a>
+                                            <?php endif; ?>
+                                            <?php else: ?>
+                                            <span class="text-muted small">No linked content</span>
+                                            <?php endif; ?>
                                         </div>
 
                                         <?php if (!$notification->is_read): ?>
@@ -924,6 +956,11 @@
 <script>
 // Fixed JavaScript - No syntax errors
 document.addEventListener('DOMContentLoaded', function() {
+    initializeNotificationCards();
+    setupDocumentsModalHandlers();
+});
+
+function initializeNotificationCards() {
     const notificationCards = document.querySelectorAll('.notification-card');
 
     console.log('Found notification cards:', notificationCards.length);
@@ -936,7 +973,9 @@ document.addEventListener('DOMContentLoaded', function() {
             if (e.target.closest('.btn-notification') ||
                 e.target.closest('.action-buttons') ||
                 e.target.closest('a') ||
-                e.target.tagName === 'BUTTON') {
+                e.target.tagName === 'BUTTON' ||
+                e.target.closest('.btn-open-documents-modal') ||
+                e.target.closest('.btn-mark-read')) {
                 console.log('Clicked on action button, skipping toggle');
                 return;
             }
@@ -960,11 +999,54 @@ document.addEventListener('DOMContentLoaded', function() {
     // Highlight update notifications
     const updateNotifications = document.querySelectorAll('.notification-card.updated');
     console.log('Found update notifications:', updateNotifications.length);
-    updateNotifications.forEach(card => {
-        console.log('Update notification:', card.dataset.notificationId, 'Type:', card.dataset
-            .notificationType);
+}
+
+function setupDocumentsModalHandlers() {
+    // Add click handlers for all document modal buttons
+    document.querySelectorAll('.btn-open-documents-modal').forEach(button => {
+        button.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+
+            const candidateId = this.getAttribute('data-candidate-id');
+            const notificationId = this.getAttribute('data-notification-id');
+            const documentsNotes = this.getAttribute('data-documents-notes');
+
+            console.log('Opening documents modal:', {
+                candidateId,
+                notificationId,
+                documentsNotes
+            });
+
+            // Open the modal
+            openRequiredDocumentsModal(candidateId, notificationId, documentsNotes);
+        });
     });
-});
+}
+
+// Function to open required documents modal
+function openRequiredDocumentsModal(candidateId, notificationId, documentsNotes) {
+    console.log('Opening required documents modal for candidate:', candidateId);
+
+    // Create a new window or use modal
+    const url = '<?php echo site_url("recruiter/candidates/show_required_documents_form"); ?>' +
+        '?candidate_id=' + candidateId +
+        '&notification_id=' + (notificationId || '') +
+        '&documents_notes=' + encodeURIComponent(documentsNotes || '');
+
+    // Open in new window (more reliable than modal for file uploads)
+    const newWindow = window.open(url, 'requiredDocuments',
+        'width=900,height=800,scrollbars=yes,resizable=yes');
+
+    // Focus the new window
+    if (newWindow) {
+        newWindow.focus();
+    } else {
+        // Fallback to modal if popup blocked
+        $('#requiredDocumentsModal').modal('show');
+        $('#required-documents-modal-content').load(url);
+    }
+}
 
 // Close notifications when clicking outside
 document.addEventListener('click', function(e) {
@@ -1040,71 +1122,27 @@ function updateNotificationBadge(count) {
 }
 
 function showToast(message, type = 'info') {
+    // Remove existing toasts
+    document.querySelectorAll('.custom-toast').forEach(toast => toast.remove());
+
     const toast = document.createElement('div');
-    toast.className = `alert alert-${type} alert-dismissible fade show`;
+    toast.className = `custom-toast alert alert-${type} alert-dismissible fade show`;
     toast.style.cssText = 'position: fixed; top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
     toast.innerHTML = `
         ${message}
         <button type="button" class="close" data-dismiss="alert">&times;</button>
     `;
     document.body.appendChild(toast);
-    setTimeout(() => {
-        toast.remove();
-    }, 3000);
-}
 
-// Real-time HM Decision Notifications
-function showHMDecisionToast(notification) {
-    // Safely get decision with fallback
-    const decision = notification.metadata?.decision || 'unknown';
-
-    const toast = document.createElement('div');
-    toast.className = `hm-decision-toast ${decision}`;
-
-    toast.innerHTML = `
-        <div class="toast-header">
-            <h4 class="toast-title">
-                ${decision === 'accepted' ? '🎉' : '❌'}
-                ${notification.title}
-            </h4>
-            <button class="toast-close">&times;</button>
-        </div>
-        <div class="toast-body">
-            <div class="candidate-info-grid">
-                <div class="candidate-info-item">
-                    <div class="candidate-info-label">Candidate</div>
-                    <div class="candidate-info-value">${notification.metadata?.candidate_name || 'N/A'}</div>
-                </div>
-                <div class="candidate-info-item">
-                    <div class="candidate-info-label">Job</div>
-                    <div class="candidate-info-value">${notification.metadata?.job_name || 'N/A'}</div>
-                </div>
-            </div>
-            ${notification.metadata?.notes ? `
-                <div class="toast-notes">
-                    <strong>HM Notes:</strong><br>
-                    ${notification.metadata.notes}
-                </div>
-            ` : ''}
-        </div>
-    `;
-
-    document.body.appendChild(toast);
-
-    // Close button
-    toast.querySelector('.toast-close').addEventListener('click', function() {
-        toast.remove();
-    });
-
-    // Auto-remove after 10 seconds
+    // Auto-remove after 3 seconds
     setTimeout(() => {
         if (toast.parentNode) {
             toast.remove();
         }
-    }, 10000);
+    }, 3000);
 }
 
-// Check for new HM decision notifications periodically
+// Real-time HM Decision Notifications (optional - you can keep or remove)
 function checkForNewHMNotifications() {
     const recruiterId = <?php echo $recruiter_id ?? 'null'; ?>;
 
@@ -1119,10 +1157,14 @@ function checkForNewHMNotifications() {
         success: function(response) {
             if (response.success && response.notifications.length > 0) {
                 response.notifications.forEach(notification => {
-                    showHMDecisionToast(notification);
+                    // Handle new documents required notifications
+                    if (notification.metadata?.decision === 'documents_required' ||
+                        notification.title?.includes('Documents Required')) {
 
-                    // Mark as read after showing
-                    markAsRead(notification.id);
+                        // Show a toast notification
+                        showToast('New documents required notification: ' + notification.title,
+                            'warning');
+                    }
                 });
             }
         }
@@ -1133,7 +1175,114 @@ function checkForNewHMNotifications() {
 setInterval(checkForNewHMNotifications, 30000);
 
 // Also check when page loads
-document.addEventListener('DOMContentLoaded', function() {
-    setTimeout(checkForNewHMNotifications, 2000);
-});
+setTimeout(checkForNewHMNotifications, 2000);
+
+// Add this event trigger for successful submission
+function triggerDocumentsSubmittedEvent(success, message) {
+    const event = new CustomEvent('requiredDocumentsSubmitted', {
+        detail: {
+            success: success,
+            message: message
+        }
+    });
+    document.dispatchEvent(event);
+}
+
+// Update your handleRequiredDocumentsSubmit function to trigger the event
+async function handleRequiredDocumentsSubmit(e) {
+    e.preventDefault();
+    console.log('Required documents submission started...');
+
+    const form = e.target;
+    const submitBtn = form.querySelector('#submitDocumentsBtn');
+
+    if (!submitBtn) return;
+
+    // Save original state
+    const originalText = submitBtn.innerHTML;
+    const originalDisabled = submitBtn.disabled;
+
+    // Show loading
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Submitting...';
+
+    try {
+        const formData = new FormData(form);
+        console.log('Submitting required documents...');
+
+        const response = await fetch('<?= site_url("recruiter/candidates/submit_required_documents") ?>', {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        });
+
+        console.log('Response status:', response.status);
+
+        const contentType = response.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+            const text = await response.text();
+            console.error('Non-JSON response:', text.substring(0, 200));
+            throw new Error('Server returned non-JSON response');
+        }
+
+        const result = await response.json();
+        console.log('Submission result:', result);
+
+        if (result.success) {
+            // Show success
+            if (typeof toastr !== 'undefined') {
+                toastr.success(result.message || 'Documents submitted successfully!');
+            } else {
+                alert(result.message || 'Documents submitted successfully!');
+            }
+
+            // Trigger custom event for parent page
+            triggerDocumentsSubmittedEvent(true, result.message);
+
+            // Close modal and redirect
+            setTimeout(() => {
+                if (typeof $ !== 'undefined' && $.fn.modal) {
+                    $('.modal').modal('hide');
+                }
+                if (result.redirect_url) {
+                    window.location.href = result.redirect_url;
+                } else {
+                    window.location.reload();
+                }
+            }, 1500);
+
+        } else {
+            // Show error
+            const errorMsg = result.message || 'Failed to submit documents';
+            if (typeof toastr !== 'undefined') {
+                toastr.error(errorMsg);
+            } else {
+                alert('Error: ' + errorMsg);
+            }
+
+            // Update CSRF token if provided
+            if (result.csrf_token) {
+                const csrfInput = form.querySelector('input[name="csrf_rfid_token"]');
+                if (csrfInput) {
+                    csrfInput.value = result.csrf_token;
+                }
+            }
+
+            // Trigger event with failure
+            triggerDocumentsSubmittedEvent(false, errorMsg);
+
+            submitBtn.disabled = originalDisabled;
+            submitBtn.innerHTML = originalText;
+        }
+
+    } catch (error) {
+        console.error('Submission error:', error);
+        alert('Error submitting documents: '.error.message);
+        triggerDocumentsSubmittedEvent(false, error.message);
+        submitBtn.disabled = originalDisabled;
+        submitBtn.innerHTML = originalText;
+    }
+}
 </script>
