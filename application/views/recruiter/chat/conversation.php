@@ -1276,6 +1276,77 @@
     padding: 20px;
     margin: -20px -20px 20px -20px;
 }
+
+/* ===== ENHANCED BADGE STYLES ===== */
+.conversation-meta-badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin: 4px 0;
+}
+
+.conversation-meta-badge {
+    font-size: 0.65rem;
+    padding: 2px 6px;
+    border-radius: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    white-space: nowrap;
+}
+
+.conversation-meta-badge.chat-type {
+    background: rgba(139, 92, 246, 0.2);
+    color: #C4B5FD;
+    border: 1px solid rgba(139, 92, 246, 0.3);
+}
+
+.conversation-meta-badge.chat-type.candidate {
+    background: rgba(139, 92, 246, 0.2);
+    color: #C4B5FD;
+    border: 1px solid rgba(139, 92, 246, 0.3);
+}
+
+.conversation-meta-badge.chat-type.general {
+    background: rgba(16, 185, 129, 0.2);
+    color: #A7F3D0;
+    border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.conversation-meta-badge.job {
+    background: rgba(245, 158, 11, 0.2);
+    color: #FDE68A;
+    border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.conversation-meta-badge.agency {
+    background: rgba(59, 130, 246, 0.2);
+    color: #93C5FD;
+    border: 1px solid rgba(59, 130, 246, 0.3);
+}
+
+/* Enhanced conversation item with badges */
+.conversation-item-with-badges {
+    position: relative;
+}
+
+.conversation-badge-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    margin-left: 8px;
+}
+
+/* Badge for job name in conversation list */
+.job-name-badge {
+    max-width: 120px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
 </style>
 <div id="main-content">
 
@@ -1630,15 +1701,15 @@
                             </div>
                             <?php else: ?>
                             <?php foreach ($filtered_conversations as $conv): ?>
+                            <!-- Inside the conversation list in recruiter view -->
                             <a href="<?php echo site_url('recruiter/chat/conversation/' . $conv->uuid); ?>"
                                 class="list-group-item list-group-item-action d-flex align-items-center conversation-item <?php echo (isset($conversation) && $conversation->uuid == $conv->uuid) ? 'active' : ''; ?>"
-                                style="border: none; border-radius: 8px; margin-bottom: 5px; padding: 10px 15px; transition: all 0.2s;"
+                                style="border: none; border-radius: 8px; margin-bottom: 5px; padding: 10px 15px; transition: all 0.2s; <?= !empty($conv->candidate_id) ? 'border-left: 3px solid #8B5CF6 !important;' : 'border-left: 3px solid #10B981 !important;' ?>"
                                 data-conversation-uuid="<?php echo $conv->uuid; ?>">
-                                <!-- Changed to uuid -->
 
                                 <div class="conversation-avatar mr-3 position-relative">
                                     <div class="avatar"
-                                        style="width: 40px; height: 40px; border-radius: 50%; background-color: #128C7E; display: flex; align-items: center; justify-content: center; font-weight: bold; color: #ffffff;">
+                                        style="width: 40px; height: 40px; border-radius: 50%; background-color: <?= !empty($conv->candidate_id) ? '#8B5CF6' : '#10B981' ?>; display: flex; align-items: center; justify-content: center; font-weight: bold; color: #ffffff;">
                                         <?php echo substr(htmlspecialchars($conv->agency_name), 0, 1); ?>
                                     </div>
                                     <?php if (isset($conv->is_online) && $conv->is_online): ?>
@@ -1647,13 +1718,44 @@
                                 </div>
 
                                 <div class="flex-grow-1">
-                                    <h6 class="mb-0" style="color: #ffffff; font-weight: 500;">
-                                        <?php echo htmlspecialchars($conv->agency_name); ?>
-                                    </h6>
+                                    <!-- Agency Name with Badges -->
+                                    <div class="d-flex align-items-center mb-1">
+                                        <h6 class="mb-0" style="color: #ffffff; font-weight: 500; margin-right: 8px;">
+                                            <?php echo htmlspecialchars($conv->agency_name); ?>
+                                        </h6>
+
+                                        <!-- ADDED: Chat Type Badge -->
+                                        <span
+                                            class="conversation-meta-badge chat-type <?= !empty($conv->candidate_id) ? 'candidate' : 'general' ?>">
+                                            <i class="fa fa-<?= !empty($conv->candidate_id) ? 'user' : 'comments' ?> mr-1"
+                                                style="font-size: 0.6rem;"></i>
+                                            <?= !empty($conv->candidate_id) ? 'Candidate' : 'General' ?>
+                                        </span>
+                                    </div>
+
+                                    <!-- ADDED: Job Badge (if exists) -->
+                                    <?php if (!empty($conv->job_name)): ?>
+                                    <div class="conversation-meta-badges">
+                                        <span class="conversation-meta-badge job job-name-badge"
+                                            title="<?= htmlspecialchars($conv->job_name) ?>">
+                                            <i class="fa fa-briefcase mr-1" style="font-size: 0.6rem;"></i>
+                                            <?= strlen($conv->job_name) > 20 ? substr(htmlspecialchars($conv->job_name), 0, 20) . '...' : htmlspecialchars($conv->job_name) ?>
+                                        </span>
+                                    </div>
+                                    <?php endif; ?>
+
+                                    <!-- ADDED: Agency Badge (always shown for recruiter) -->
+                                    <div class="conversation-meta-badges">
+                                        <span class="conversation-meta-badge agency">
+                                            <i class="fa fa-building mr-1" style="font-size: 0.6rem;"></i>
+                                            Agency
+                                        </span>
+                                    </div>
+
+                                    <!-- Message Preview -->
                                     <small class="text-muted d-block conversation-preview"
                                         style="font-size: 0.75rem; max-width: 150px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"
                                         data-conversation-uuid="<?php echo $conv->uuid; ?>">
-                                        <!-- Changed to uuid -->
                                         <?php if (isset($conv->unread_count) && $conv->unread_count > 0): ?>
                                         <strong><?php echo htmlspecialchars($conv->last_message ?: 'New message'); ?></strong>
                                         <?php else: ?>
@@ -1665,13 +1767,11 @@
                                 <div class="text-right ml-2">
                                     <small class="text-muted d-block conversation-time" style="font-size: 0.7rem;"
                                         data-conversation-uuid="<?php echo $conv->uuid; ?>">
-                                        <!-- Changed to uuid -->
                                         <?php echo time_ago($conv->last_message_at ?: $conv->created_at); ?>
                                     </small>
                                     <?php if (isset($conv->unread_count) && $conv->unread_count > 0): ?>
                                     <span class="conversation-badge"
                                         data-conversation-uuid="<?php echo $conv->uuid; ?>">
-                                        <!-- Changed to uuid -->
                                         <?php echo $conv->unread_count > 99 ? '99+' : $conv->unread_count; ?>
                                     </span>
                                     <?php endif; ?>
@@ -2310,7 +2410,7 @@ async function makeAjaxRequest(url, data = {}, options = {}) {
 
     console.log(
         `Sending CSRF token: ${csrfTokenName} = ${csrfTokenValue ? csrfTokenValue.substring(0, 10) + '...' : 'EMPTY'}`
-        );
+    );
 
     // Create FormData
     const formData = new FormData();

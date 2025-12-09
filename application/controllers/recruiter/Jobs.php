@@ -205,27 +205,36 @@ private function is_job_expired($job)
 
            // In setup_listing() method, update the listActions:
         $this->listActions = array(
-            'view' => array(
-                'label'     => lang('label_view'),
-                'url'       => url($this->pageName . '/view/{uuid}'), // Changed from {id}
-                'icon'      => 'fa-eye',
-                'class'     => 'view-row btn-info',
-                'title'     => 'View job details',
-            ),
-            'view_candidates' => array(
-                'label'     => 'View Candidates',
-                'url'       => url('candidates/for_job/{uuid}'), // Changed from {id}
-                'icon'      => 'fa-users',
-                'class'     => 'view-candidates-row btn-primary',
-                'title'     => 'View candidates for this job',
-            ),
-            'add_candidate' => array(
-                'label'     => 'Add Candidate',
-                'url'       => url('candidates/add/{uuid}'), // Changed from {id}
-                'icon'      => 'fa-user-plus',
-                'class'     => 'add-candidate-row btn-success',
-            ),
-        );
+    'view' => array(
+        'label'     => lang('label_view'),
+        'url'       => url($this->pageName . '/view/{uuid}'),
+        'icon'      => 'fa-eye',
+        'class'     => 'view-row btn-info',
+        'title'     => 'View job details',
+    ),
+    'view_candidates' => array(
+        'label'     => 'View Candidates',
+        'url'       => url('candidates/for_job/{uuid}'),
+        'icon'      => 'fa-users',
+        'class'     => 'view-candidates-row btn-primary',
+        'title'     => 'View candidates for this job',
+    ),
+    'add_candidate' => array(
+        'label'     => 'Add Candidate',
+        'url'       => url('candidates/add/{uuid}'),
+        'icon'      => 'fa-user-plus',
+        'class'     => 'add-candidate-row btn-success',
+        'title'     => 'Add candidate to this job',
+    ),
+    // ADD THIS NEW ACTION FOR CHAT
+    'chat' => array(
+        'label'     => 'Chat',
+        'url'       => url('chat/start_job_chat/{uuid}'),
+        'icon'      => 'fa-comments',
+        'class'     => 'chat-job-row btn-warning',
+        'title'     => 'Chat with agency about this job',
+    ),
+);
 
         //built-in listRowAttributes for styling
         $this->listRowAttributes = function($row) {

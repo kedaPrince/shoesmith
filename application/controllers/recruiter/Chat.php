@@ -593,7 +593,95 @@ public function ajax_mark_notifications_read()
         'csrf_token' => $this->security->get_csrf_hash()
     ]);
 }
+/**
+ * Start a job chat - creates/redirects to chat about a specific job
+ */
+public function start_job_chat($job_uuid)
+{
+    // Debug logging
+    log_message('debug', 'start_job_chat called with UUID: ' . $job_uuid);
+    
+    // Get recruiter ID from session
+    $login_data = $this->session->userdata('login');
+    $recruiter_id = !empty($login_data['recruiter']['id']) ? $login_data['recruiter']['id'] : null;
+    
+    if (!$recruiter_id) {
+        log_message('error', 'No recruiter ID found in session');
+        redirect('recruiter/dashboard');
+    }
 
+    log_message('debug', 'Recruiter ID: ' . $recruiter_id);
+
+    // Get job details by UUID
+    $this->db->select('mod_jobs.*, agencies.name as agency_name, agencies.id as agency_id');
+    $this->db->from('mod_jobs');
+    $this->db->join('agencies', 'agencies.id = mod_jobs.agency_id', 'left');
+    $this->db->where('mod_jobs.uuid', $job_uuid);
+    
+    // Get user agency ID for filtering (if needed)
+    $user_agency_id = !empty($login_data['recruiters']['agency_id']) ? $login_data['recruiters']['agency_id'] : null;
+    
+    if ($user_agency_id) {
+        $this->db->where('mod_jobs.agency_id', $user_agency_id);
+    }
+    
+    $job = $this->db->get()->row();
+    
+    if (!$job) {
+        log_message('error', 'Job not found for UUID: ' . $job_uuid);
+        show_404();
+    }
+
+    log_message('debug', 'Job found: ' . $job->name . ' (ID: ' . $job->id . ', Agency: ' . $job->agency_id . ')');
+
+    // Load Chat model
+    $this->load->model('recruiter/Model_chat_messages');
+    
+    // Check if conversation exists for this job and recruiter
+    $this->db->select('*');
+    $this->db->from('chat_conversations');
+    $this->db->where('job_id', $job->id);
+    $this->db->where('recruiter_id', $recruiter_id);
+    $this->db->where('removed', 0);
+    $this->db->order_by('created_at', 'DESC');
+    $this->db->limit(1);
+    
+    $existing_conversation = $this->db->get()->row();
+    
+    if ($existing_conversation) {
+        log_message('debug', 'Existing conversation found: ' . $existing_conversation->uuid);
+        // Redirect to existing conversation
+        redirect('recruiter/chat/conversation/' . $existing_conversation->uuid);
+        return;
+    }
+    
+    log_message('debug', 'No existing conversation, creating new one');
+    
+    // Create new conversation
+    $conversation_uuid = bin2hex(random_bytes(16));
+    
+    $conversation_data = [
+        'uuid' => $conversation_uuid,
+        'agency_id' => $job->agency_id,
+        'recruiter_id' => $recruiter_id,
+        'job_id' => $job->id,
+        'candidate_id' => NULL, // This is a job chat, not candidate chat
+        'title' => 'Job: ' . $job->name,
+        'created_at' => date('Y-m-d H:i:s'),
+        'updated_at' => date('Y-m-d H:i:s'),
+        'removed' => 0,
+        'enabled' => 1
+    ];
+    
+    if ($this->db->insert('chat_conversations', $conversation_data)) {
+        log_message('debug', 'New conversation created: ' . $conversation_uuid);
+        // Redirect to the new conversation
+        redirect('recruiter/chat/conversation/' . $conversation_uuid);
+    } else {
+        log_message('error', 'Failed to create conversation');
+        show_error('Failed to create chat conversation. Please try again.');
+    }
+}
 public function ajax_get_conversations()
 {
     $recruiter_id = $this->get_recruiter_id();

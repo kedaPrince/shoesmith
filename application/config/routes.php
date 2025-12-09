@@ -38,6 +38,13 @@ $route['recruiter/chat/conversation/(:num)'] = 'recruiter/chat/conversation/$1';
 
 $route['agency/notifications/ajax_get_chat_notifications'] = 'agency/notifications/ajax_get_chat_notifications';
 $route['agency/candidates/open_candidate_chat/(:num)'] = 'agency/candidates/open_candidate_chat/$1';
+// In config/routes.php
+// Add this route for job chats
+$route['recruiter/chat/start_job_chat/(:any)'] = 'recruiter/chat/start_job_chat/$1';
+
+// Also add this if you want the generic pattern
+$route['recruiter/chat/start_conversation/(:any)/(:any)'] = 'recruiter/chat/start_conversation/$1/$2';
+
 
 // Add this too for any UUID format (more flexible)
 $route['agency/chat/conversation/([a-fA-F0-9\-]{36})'] = 'agency/chat/conversation/$1';

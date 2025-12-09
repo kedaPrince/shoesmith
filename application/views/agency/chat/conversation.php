@@ -1086,6 +1086,77 @@
 .avatar.new {
     background: linear-gradient(135deg, #F59E0B, #D97706) !important;
 }
+
+/* ===== ENHANCED BADGE STYLES ===== */
+.conversation-meta-badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin: 4px 0;
+}
+
+.conversation-meta-badge {
+    font-size: 0.65rem;
+    padding: 2px 6px;
+    border-radius: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    white-space: nowrap;
+}
+
+.conversation-meta-badge.chat-type {
+    background: rgba(139, 92, 246, 0.2);
+    color: #C4B5FD;
+    border: 1px solid rgba(139, 92, 246, 0.3);
+}
+
+.conversation-meta-badge.chat-type.candidate {
+    background: rgba(139, 92, 246, 0.2);
+    color: #C4B5FD;
+    border: 1px solid rgba(139, 92, 246, 0.3);
+}
+
+.conversation-meta-badge.chat-type.general {
+    background: rgba(16, 185, 129, 0.2);
+    color: #A7F3D0;
+    border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.conversation-meta-badge.job {
+    background: rgba(245, 158, 11, 0.2);
+    color: #FDE68A;
+    border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.conversation-meta-badge.agency {
+    background: rgba(59, 130, 246, 0.2);
+    color: #93C5FD;
+    border: 1px solid rgba(59, 130, 246, 0.3);
+}
+
+/* Enhanced conversation item with badges */
+.conversation-item-with-badges {
+    position: relative;
+}
+
+.conversation-badge-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    margin-left: 8px;
+}
+
+/* Badge for job name in conversation list */
+.job-name-badge {
+    max-width: 120px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
 </style>
 <div id="main-content">
     <!-- Cosmic Chat Header - Dark Theme -->
@@ -1443,6 +1514,7 @@
                         <?php else: ?>
                         <div class="list-group" style="background-color: transparent;">
                             <?php foreach ($filtered_conversations as $conv): ?>
+                            <!-- Inside the conversation list in agency view -->
                             <a href="<?php echo site_url('agency/chat/conversation/' .  $conv->uuid); ?>"
                                 class="list-group-item list-group-item-action d-flex align-items-center conversation-item <?php echo (isset($conversation) && $conversation->uuid == $conv->uuid) ? 'active' : ''; ?>"
                                 style="border: none; border-radius: 8px; margin-bottom: 5px; padding: 10px 15px; transition: all 0.2s; <?= !empty($conv->candidate_id) ? 'border-left: 3px solid #8B5CF6 !important;' : 'border-left: 3px solid #10B981 !important;' ?>"
@@ -1465,16 +1537,25 @@
                                             <?php echo htmlspecialchars($conv->recruiter_name); ?>
                                         </h6>
 
-                                        <!-- Chat Type Badge -->
-                                        <span class="chat-type-badge"
-                                            style="font-size: 0.65rem; padding: 2px 6px; border-radius: 10px; <?= !empty($conv->candidate_id) ? 'background: rgba(139, 92, 246, 0.2); color: #C4B5FD;' : 'background: rgba(16, 185, 129, 0.2); color: #A7F3D0;' ?>">
-                                            <?php if (!empty($conv->candidate_id)): ?>
-                                            <i class="fa fa-user mr-1" style="font-size: 0.6rem;"></i> Candidate
-                                            <?php else: ?>
-                                            <i class="fa fa-comments mr-1" style="font-size: 0.6rem;"></i> General
-                                            <?php endif; ?>
+                                        <!-- ADDED: Chat Type Badge in conversation list -->
+                                        <span
+                                            class="conversation-meta-badge chat-type <?= !empty($conv->candidate_id) ? 'candidate' : 'general' ?>">
+                                            <i class="fa fa-<?= !empty($conv->candidate_id) ? 'user' : 'comments' ?> mr-1"
+                                                style="font-size: 0.6rem;"></i>
+                                            <?= !empty($conv->candidate_id) ? 'Candidate' : 'General' ?>
                                         </span>
                                     </div>
+
+                                    <!-- ADDED: Job Badge (if exists) -->
+                                    <?php if (!empty($conv->job_name)): ?>
+                                    <div class="conversation-meta-badges">
+                                        <span class="conversation-meta-badge job job-name-badge"
+                                            title="<?= htmlspecialchars($conv->job_name) ?>">
+                                            <i class="fa fa-briefcase mr-1" style="font-size: 0.6rem;"></i>
+                                            <?= strlen($conv->job_name) > 20 ? substr(htmlspecialchars($conv->job_name), 0, 20) . '...' : htmlspecialchars($conv->job_name) ?>
+                                        </span>
+                                    </div>
+                                    <?php endif; ?>
 
                                     <!-- Candidate Info (only for candidate chats) -->
                                     <?php if (!empty($conv->candidate_info)): ?>
@@ -1484,15 +1565,6 @@
                                         <?= htmlspecialchars($conv->candidate_info->first_name . ' ' . $conv->candidate_info->last_name) ?>
                                         <span
                                             style="color: rgba(196, 181, 253, 0.7);">(<?= htmlspecialchars($conv->candidate_info->reference_number) ?>)</span>
-                                    </small>
-                                    <?php endif; ?>
-
-                                    <!-- Job Info -->
-                                    <?php if (!empty($conv->job_name)): ?>
-                                    <small class="d-block"
-                                        style="color: #9CA3AF; font-size: 0.7rem; margin: 2px 0; display: flex; align-items: center; gap: 4px;">
-                                        <i class="fa fa-briefcase" style="font-size: 0.6rem;"></i>
-                                        <?= htmlspecialchars($conv->job_name) ?>
                                     </small>
                                     <?php endif; ?>
 

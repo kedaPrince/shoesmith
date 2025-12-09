@@ -204,4 +204,68 @@ $(document).ready(function() {
         $(this).trigger('change');
     });
 });
+
+// Add this JavaScript function
+function startJobChat(button) {
+    const jobUuid = button.getAttribute('data-job-uuid');
+    const buttonElement = $(button);
+
+    if (!jobUuid) {
+        alert('Job UUID not found');
+        return;
+    }
+
+    // Show loading state
+    const originalHtml = buttonElement.html();
+    buttonElement.html('<i class="fa fa-spinner fa-spin"></i> Opening chat...');
+    buttonElement.prop('disabled', true);
+
+    // Make AJAX request to get/create chat conversation
+    $.ajax({
+        url: '<?php echo site_url("recruiter/jobs/ajax_get_job_chat_url/"); ?>' + jobUuid,
+        type: 'POST',
+        dataType: 'json',
+        data: {
+            '<?php echo $this->security->get_csrf_token_name(); ?>': '<?php echo $this->security->get_csrf_hash(); ?>'
+        },
+        success: function(response) {
+            if (response.success && response.chat_url) {
+                // Open chat in new tab or redirect
+                window.open(response.chat_url, '_blank');
+            } else {
+                alert(response.message || 'Failed to start chat');
+            }
+        },
+        error: function(xhr, status, error) {
+            console.error('Chat AJAX error:', error);
+            alert('Failed to connect to chat. Please try again.');
+        },
+        complete: function() {
+            // Restore button state
+            buttonElement.html(originalHtml);
+            buttonElement.prop('disabled', false);
+        }
+    });
+}
+
+/**
+ * Enhance job chat button functionality
+ */
+document.addEventListener('DOMContentLoaded', function() {
+    // Add click handlers for chat buttons
+    const chatButtons = document.querySelectorAll('.chat-job-row');
+
+    chatButtons.forEach(button => {
+        // Check if job is expired
+        const jobRow = button.closest('tr');
+        if (jobRow && jobRow.classList.contains('expired-job-row')) {
+            button.classList.add('disabled');
+            button.title = 'This job has expired - chat unavailable';
+            button.addEventListener('click', function(e) {
+                e.preventDefault();
+                alert('This job has expired. Chat is no longer available.');
+            });
+        }
+    });
+});
 </script>
