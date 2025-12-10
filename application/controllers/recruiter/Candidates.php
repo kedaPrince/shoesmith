@@ -3553,57 +3553,111 @@ private function store_csrf_token_for_validation($csrf_token, $recruiter_id, $ca
 }
 
 
-public function test_csrf_security()
+
+
+/**
+ * Onboarding Management Listing - Recruiter View Only (No Actions)
+ * Shows only candidates belonging to the logged-in recruiter
+ */
+public function onboarding_listing() 
 {
-    $this->output->set_content_type('application/json');
+    $recruiter_id = $this->get_recruiter_id();
     
-    $csrf_name = $this->security->get_csrf_token_name();
-    $csrf_token = $this->input->post($csrf_name);
-    $current_hash = $this->security->get_csrf_hash();
+    if (!$recruiter_id) {
+        show_error('Access denied', 403);
+    }
+
+    // Get ONLY recruiter's candidates for onboarding - Filter by recruiter_id
+    $this->db->select('c.*, j.name as job_name, 
+        c.stage_under_review, c.stage_submitted_to_hm, c.stage_hm_decision,
+        c.stage_documents_decision, c.stage_requested_docs, c.stage_position_offered,
+        c.onboarding_stage, c.onboarding_progress, c.hm_decision, c.status,
+        c.documents_required, c.updated_at, r.first_name as recruiter_first_name, 
+        r.last_name as recruiter_last_name');
+    $this->db->from('candidates c');
+    $this->db->join('mod_jobs j', 'j.id = c.job_id', 'left');
+    $this->db->join('recruiters r', 'r.id = c.assigned_agent_id', 'left');
     
-    $is_valid = ($csrf_token && hash_equals($current_hash, $csrf_token));
+    // CRITICAL: Filter by recruiter's ID - multiple possible fields
+    $this->db->group_start();
+    $this->db->where('c.assigned_agent_id', $recruiter_id); // Most likely field
+    $this->db->or_where('c.recruiter_id', $recruiter_id); // Alternative field
+    $this->db->group_end();
     
-    echo json_encode([
-        'csrf_enabled' => true,
-        'token_provided' => !empty($csrf_token),
-        'token_valid' => $is_valid,
-        'security_status' => $is_valid ? 'SECURE' : 'INSECURE'
-    ]);
+    $this->db->where('c.removed', 0);
+    $this->db->group_by('c.id');
+    $this->db->order_by('c.onboarding_progress', 'DESC');
+    
+    // Debug query
+    // echo $this->db->last_query(); die();
+    
+    $candidates = $this->db->get()->result();
+
+    // Calculate statistics
+    $stats = new stdClass();
+    $stats->total_candidates = count($candidates);
+    $stats->under_review_count = 0;
+    $stats->submitted_hm_count = 0;
+    $stats->hm_decision_count = 0;
+    $stats->completed_count = 0;
+    $stats->not_started_count = 0;
+    
+    foreach ($candidates as $candidate) {
+        // Count by stage
+        if ($candidate->onboarding_stage === 'completed' || $candidate->stage_position_offered) {
+            $stats->completed_count++;
+        } elseif ($candidate->stage_hm_decision && !empty($candidate->hm_decision)) {
+            $stats->hm_decision_count++;
+        } elseif ($candidate->stage_submitted_to_hm) {
+            $stats->submitted_hm_count++;
+        } elseif ($candidate->stage_under_review) {
+            $stats->under_review_count++;
+        } else {
+            $stats->not_started_count++;
+        }
+    }
+
+    $this->breadcrumbs = array(
+        array(
+            'title' => lang('candidates_heading'),
+            'url'   => site_url('recruiter/candidates')
+        ),
+        array(
+            'title' => 'Onboarding Management',
+            'url'   => site_url('recruiter/candidates/onboarding_listing')
+        ),
+    );
+
+    $this->load->view($this->folder . '/view_header');
+    $this->load->view('recruiter/candidates/onboarding_listing', array(
+        'candidates' => $candidates,
+        'stats' => $stats,
+        'heading' => 'Onboarding Management (View Only)',
+        'current_recruiter_id' => $recruiter_id,
+        'recruiter_name' => $this->get_recruiter_name($recruiter_id)
+    ));
+    $this->load->view($this->folder . '/view_footer');
 }
 
-// Add this method to your controller for testing
-public function test_csrf_endpoint()
+/**
+ * Get recruiter's name for display
+ */
+private function get_recruiter_name($recruiter_id)
 {
-    header('Content-Type: application/json; charset=UTF-8');
+    $this->db->select('first_name, last_name');
+    $this->db->from('recruiters');
+    $this->db->where('id', $recruiter_id);
+    $this->db->where('removed', 0);
+    $this->db->where('enabled', 1);
     
-    $csrf_name = $this->security->get_csrf_token_name();
-    $csrf_token = $this->input->post($csrf_name);
-    $current_hash = $this->security->get_csrf_hash();
+    $recruiter = $this->db->get()->row();
     
-    $is_valid = ($csrf_token && hash_equals($current_hash, $csrf_token));
+    if ($recruiter) {
+        return $recruiter->first_name . ' ' . $recruiter->last_name;
+    }
     
-    echo json_encode([
-        'csrf_enabled' => true,
-        'token_provided' => !empty($csrf_token),
-        'token_valid' => $is_valid,
-        'csrf_name' => $csrf_name,
-        'csrf_hash' => $current_hash,
-        'security_status' => $is_valid ? 'SECURE' : 'INSECURE'
-    ]);
-    exit();
+    return 'Recruiter';
 }
 
-public function debug_file_upload()
-{
-    header('Content-Type: application/json; charset=UTF-8');
-    
-    echo json_encode([
-        'post_data' => $_POST,
-        'files_data' => $_FILES,
-        'session_id' => session_id(),
-        'recruiter_id' => $this->get_recruiter_id(),
-        'debug' => 'File upload debug'
-    ]);
-    exit();
-}
+
 }

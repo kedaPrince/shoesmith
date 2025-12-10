@@ -41,7 +41,9 @@ $route['agency/candidates/open_candidate_chat/(:num)'] = 'agency/candidates/open
 // In config/routes.php
 // Add this route for job chats
 $route['recruiter/chat/start_job_chat/(:any)'] = 'recruiter/chat/start_job_chat/$1';
-
+// ADD THESE ROUTES FOR RECRUITER ONBOARDING LISTING
+$route['recruiter/candidates/onboarding_listing'] = 'recruiter/candidates/onboarding_listing';
+$route['recruiter/candidates/onboarding_listing/(:any)'] = 'recruiter/candidates/onboarding_listing/$1';
 // Also add this if you want the generic pattern
 $route['recruiter/chat/start_conversation/(:any)/(:any)'] = 'recruiter/chat/start_conversation/$1/$2';
 // In config/routes.php

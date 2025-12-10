@@ -50,6 +50,15 @@ $this->siteMap = array(
                 'url'           => url('candidates_resume_listings'),
                 'show'          => true,
             ],
+            // ADD ONBOARDING MANAGEMENT FOR RECRUITERS HERE
+            (object) [
+                'page'          => 'candidates_onboarding',
+                'view'          => 'onboarding_listing',
+                'label'         => 'Onboarding Management',
+                'icon'          => 'fa-tasks',
+                'url'           => url('candidates/onboarding_listing'),
+                'show'          => true,
+            ],
         ),
     ],
      (object)array(

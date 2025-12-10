@@ -46,49 +46,68 @@
         <!-- Tab panes -->
 
         <?php
-            if ( ! empty($this->siteMap)) {
-                $submodules = $this->session->submodules;
+if (!empty($this->siteMap)) {
+    $submodules = $this->session->submodules;
 
+    echo '
+    <div class="tab-content padding-0">
+        <div class="tab-pane active" id="mainmenu">
+            <nav id="left-sidebar-nav" class="sidebar-nav">
+                <ul class="metismenu li_animation_delay">
+    ';
+
+    foreach ($this->siteMap as $menuGroup) {
+        // Check if menuGroup has required properties
+        if (!is_object($menuGroup)) continue;
+        
+        // Determine whether or not to show menu group
+        if (isset($menuGroup->show) && !$menuGroup->show) {
+            continue;
+        }
+
+        $groupClass = ($this->group == ($menuGroup->group ?? '') ? (!empty($menuGroup->items) ? 'active' : 'single-active') : '');
+        $groupClass .= (!empty($menuGroup->class) ? ' '.$menuGroup->class : '');
+        
+        // Check if page property exists
+        $resetSubmodule = (!empty($menuGroup->page) && !empty($submodules[$menuGroup->page])) ? '/reset' : '';
+        
+        echo '
+        <li class="'.$groupClass.'">
+            <a href="'.($menuGroup->url ?? '#').$resetSubmodule.'" class="'.(!empty($menuGroup->items) ? 'has-arrow' : '').'">
+                <i class="fa '.($menuGroup->icon ?? 'fa-circle').'"></i>
+                <span>'.($menuGroup->label ?? 'Menu').'</span>
+            </a>';
+        
+        // Check if there are submenu items and generate them
+        if (!empty($menuGroup->items) && is_array($menuGroup->items)) {
+            echo '<ul class="submenu">';
+            foreach ($menuGroup->items as $subItem) {
+                if (isset($subItem->show) && !$subItem->show) continue;
+                
+                $subActiveClass = ($this->page == ($subItem->page ?? '') && $this->view == ($subItem->view ?? '')) ? 'active' : '';
+                
                 echo '
-                <div class="tab-content padding-0">
-                    <div class="tab-pane active" id="mainmenu">
-                        <nav id="left-sidebar-nav" class="sidebar-nav">
-                            <ul class="metismenu li_animation_delay">
-                ';
-
-                //Menu Icons
-           foreach ($this->siteMap as $menuGroup) {
-    // Check if menuGroup has required properties
-    if (!is_object($menuGroup)) continue;
-    
-    // Determine whether or not to show menu group
-    if (isset($menuGroup->show) && ! $menuGroup->show) {
-        continue;
+                <li class="'.$subActiveClass.'">
+                    <a href="'.($subItem->url ?? '#').'">
+                        <i class="fa '.($subItem->icon ?? 'fa-circle').'"></i>
+                        <span>'.($subItem->label ?? 'Submenu').'</span>
+                    </a>
+                </li>';
+            }
+            echo '</ul>';
+        }
+        
+        echo '</li>';
     }
 
-    $groupClass = ($this->group == ($menuGroup->group ?? '') ? (!empty($menuGroup->items) ? 'active' : 'single-active') : '');
-    $groupClass .= (!empty($menuGroup->class) ? ' '.$menuGroup->class : '');
-    
-    // Fix: Check if page property exists
-    $resetSubmodule = (!empty($menuGroup->page) && !empty($submodules[$menuGroup->page])) ? '/reset' : '';
-    
     echo '
-    <li class="'.$groupClass.'">
-        <a href="'.($menuGroup->url ?? '#').$resetSubmodule.'" class="'.(!empty($menuGroup->items) ? 'has-arrow' : '').'">
-            <i class="fa '.($menuGroup->icon ?? 'fa-circle').'"></i>
-            <span>'.($menuGroup->label ?? 'Menu').'</span>
-        </a>';
-
+                </ul>
+            </nav>
+        </div>
+    </div>
+    ';
 }
-
-                echo '
-                            </ul>
-                        </nav>
-                    </div>
-                </div>
-                ';
-            }
-            ?>
+?>
 
     </div>
 </div>
