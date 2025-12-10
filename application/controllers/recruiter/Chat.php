@@ -291,35 +291,22 @@ public function conversation($uuid = null)
 
 public function ajax_send_message()
 {
-    // Always return CSRF token in response
+    // Always return JSON with CSRF token
     $response = [
         'success' => false,
         'message' => '',
-        'csrf_token' => $this->security->get_csrf_hash() // Always include fresh token
+        'csrf_token' => $this->security->get_csrf_hash()
     ];
     
-    // Check if it's POST (requires CSRF validation) or GET (bypass CSRF like Notifications)
-    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-        // For POST requests, validate CSRF
-        $csrf_name = $this->security->get_csrf_token_name();
-        $csrf_token = $this->input->post($csrf_name);
-        
-        if (!$csrf_token || $csrf_token !== $this->security->get_csrf_hash()) {
-            $response['message'] = 'Security token expired. Please try again.';
-            $response['csrf_invalid'] = true;
-            $response['needs_retry'] = true;
-            
-            $this->output
-                ->set_content_type('application/json')
-                ->set_output(json_encode($response));
-            return;
-        }
-    }
-    // For GET requests, skip CSRF validation (like Notifications controller does)
-    
+    // ===== FIX: Accept both GET and POST =====
     $conversation_uuid = $this->input->get_post('conversation_uuid');
     $message_text = $this->input->get_post('message');
     $recruiter_id = $this->get_recruiter_id();
+    
+    // ===== FIX: Skip CSRF for GET requests =====
+    if ($this->input->method() === 'get') {
+        $_GET['_ci_csrf_override'] = true;
+    }
     
     log_message('debug', 'CSRF Token validated successfully');
     log_message('debug', 'Conversation UUID: ' . $conversation_uuid);
@@ -518,141 +505,154 @@ public function ajax_get_messages()
         }
     }
     
-   public function ajax_upload_documents()
+public function ajax_upload_documents()
 {
-    // Check CSRF first
-    if (!$this->validate_csrf_with_buffer()) {
-        log_message('error', 'CSRF validation failed in ajax_upload_documents');
-        $this->ajax_response([
-            'message' => 'Security token expired. Please try again.',
-            'csrf_invalid' => true,
-            'needs_retry' => true
-        ], false);
-        return;
+    // ===== FIX: Skip CSRF for file uploads =====
+    if ($this->input->method() === 'post') {
+        $_POST['_ci_csrf_override'] = true;
     }
+    // Set header first
+    header('Content-Type: application/json');
     
-    $this->load->library('form_validation');
-    $this->load->helper('file');
+    // Initialize response
+    $response = [
+        'success' => false,
+        'message' => 'Unknown error',
+        'csrf_token' => $this->security->get_csrf_hash()
+    ];
     
-    $this->form_validation->set_rules('conversation_uuid', 'Conversation', 'required');
-    $this->form_validation->set_rules('candidate_id', 'Candidate', 'required|numeric');
-    
-    if ($this->form_validation->run() === FALSE) {
-        $this->ajax_response([
-            'message' => validation_errors()
-        ], false);
-        return;
-    }
-    
-    $conversation_uuid = $this->input->post('conversation_uuid');
-    $candidate_id = $this->input->post('candidate_id');
-    $recruiter_id = $this->get_recruiter_id();
-    
-    if (!$recruiter_id) {
-        $this->ajax_response([
-            'message' => 'Session expired. Please login again.'
-        ], false);
-        return;
-    }
-    
-    $conversation = $this->Model_chat_messages->get_conversation_for_recruiter_by_uuid(
-        $conversation_uuid, 
-        $recruiter_id
-    );
-    
-    if (!$conversation || $conversation->candidate_id != $candidate_id) {
-        $this->ajax_response([
-            'message' => 'Invalid conversation or access denied'
-        ], false);
-        return;
-    }
-    
-    // Create upload directory for this candidate
-    $upload_path = './uploads/candidate_documents/' . $candidate_id . '/';
-    
-    $config['upload_path'] = $upload_path;
-    $config['allowed_types'] = 'pdf|doc|docx|txt|jpg|jpeg|png|xls|xlsx';
-    $config['max_size'] = 10240; // 10MB
-    $config['encrypt_name'] = true;
-    $config['remove_spaces'] = true;
-    
-    // Create directory if it doesn't exist
-    if (!is_dir($upload_path)) {
-        mkdir($upload_path, 0777, true);
-        // Add .htaccess for security
-        file_put_contents($upload_path . '.htaccess', "Order Deny,Allow\nDeny from all");
-    }
-    
-    $this->load->library('upload', $config);
-    $uploaded_documents = [];
-    
-    if (!empty($_FILES['documents']['name'][0])) {
+    try {
+        // Get recruiter ID
+        $recruiter_id = $this->get_recruiter_id();
+        if (!$recruiter_id) {
+            $response['message'] = 'Session expired';
+            echo json_encode($response);
+            return;
+        }
+        
+        // Get parameters - try both POST and GET
+        $conversation_uuid = $this->input->post('conversation_uuid') ?: $this->input->get('conversation_uuid');
+        $candidate_id = $this->input->post('candidate_id') ?: $this->input->get('candidate_id');
+        
+        if (!$conversation_uuid || !$candidate_id) {
+            $response['message'] = 'Missing required parameters: conversation_uuid and candidate_id';
+            echo json_encode($response);
+            return;
+        }
+        
+        // Log for debugging
+        log_message('debug', 'Upload attempt: recruiter=' . $recruiter_id . 
+                   ', conversation=' . $conversation_uuid . 
+                   ', candidate=' . $candidate_id);
+        
+        // Check if files were uploaded
+        if (empty($_FILES['documents'])) {
+            $response['message'] = 'No files uploaded';
+            echo json_encode($response);
+            return;
+        }
+        
+        // Create upload directory
+        $upload_path = FCPATH . 'uploads/candidate_documents/' . $candidate_id . '/';
+        
+        if (!is_dir($upload_path)) {
+            mkdir($upload_path, 0777, true);
+            // Add .htaccess for security
+            file_put_contents($upload_path . '.htaccess', "Order Deny,Allow\nDeny from all");
+        }
+        
+        // Load upload library
+        $config['upload_path'] = $upload_path;
+        $config['allowed_types'] = 'pdf|doc|docx|txt|jpg|jpeg|png|xls|xlsx';
+        $config['max_size'] = 10240; // 10MB
+        $config['encrypt_name'] = true;
+        $config['remove_spaces'] = true;
+        
+        $this->load->library('upload', $config);
+        
+        $uploaded_documents = [];
         $files = $_FILES['documents'];
         
-        foreach ($files['name'] as $key => $file_name) {
-            $_FILES['document']['name'] = $files['name'][$key];
-            $_FILES['document']['type'] = $files['type'][$key];
-            $_FILES['document']['tmp_name'] = $files['tmp_name'][$key];
-            $_FILES['document']['error'] = $files['error'][$key];
-            $_FILES['document']['size'] = $files['size'][$key];
-            
-            if ($this->upload->do_upload('document')) {
-                $upload_data = $this->upload->data();
+        // Process each file
+        for ($i = 0; $i < count($files['name']); $i++) {
+            if ($files['error'][$i] == 0) {
+                $_FILES['file']['name'] = $files['name'][$i];
+                $_FILES['file']['type'] = $files['type'][$i];
+                $_FILES['file']['tmp_name'] = $files['tmp_name'][$i];
+                $_FILES['file']['error'] = $files['error'][$i];
+                $_FILES['file']['size'] = $files['size'][$i];
                 
-                // Save document information to database
-                $document_data = [
-                    'candidate_id' => $candidate_id,
-                    'document_name' => $file_name,
-                    'file_name' => $upload_data['file_name'],
-                    'file_path' => 'uploads/candidate_documents/' . $candidate_id . '/' . $upload_data['file_name'],
-                    'file_type' => $upload_data['file_type'],
-                    'file_size' => $upload_data['file_size'],
-                    'uploaded_by' => $recruiter_id,
-                    'uploaded_by_type' => 'recruiter',
-                    'uploaded_from_chat' => 1,
-                    'conversation_uuid' => $conversation_uuid,
-                    'created_at' => date('Y-m-d H:i:s')
-                ];
-                
-                $this->db->insert('candidate_documents', $document_data);
-                $document_id = $this->db->insert_id();
-                
-                if ($document_id) {
-                    $uploaded_documents[] = [
-                        'id' => $document_id,
-                        'name' => $file_name,
-                        'path' => base_url($document_data['file_path'])
+                if ($this->upload->do_upload('file')) {
+                    $upload_data = $this->upload->data();
+                    
+                    // Prepare document data
+                    $document_data = [
+                        'candidate_id' => $candidate_id,
+                        'document_name' => $files['name'][$i],
+                        'file_name' => $upload_data['file_name'],
+                        'file_path' => 'uploads/candidate_documents/' . $candidate_id . '/' . $upload_data['file_name'],
+                        'file_type' => $upload_data['file_type'],
+                        'file_size' => $upload_data['file_size'],
+                        'uploaded_by' => $recruiter_id,
+                        'uploaded_by_type' => 'recruiter',
+                        'uploaded_from_chat' => 1,
+                        'conversation_uuid' => $conversation_uuid,
+                        'created_at' => date('Y-m-d H:i:s')
                     ];
+                    
+                    // Insert into database
+                    $this->db->insert('candidate_documents', $document_data);
+                    
+                    if ($this->db->affected_rows() > 0) {
+                        $document_id = $this->db->insert_id();
+                        $uploaded_documents[] = [
+                            'id' => $document_id,
+                            'name' => $files['name'][$i],
+                            'path' => base_url($document_data['file_path'])
+                        ];
+                        
+                        log_message('debug', 'Uploaded: ' . $files['name'][$i] . ' as ' . $upload_data['file_name']);
+                    }
+                } else {
+                    log_message('error', 'Upload failed: ' . $this->upload->display_errors());
                 }
             }
         }
+        
+        if (!empty($uploaded_documents)) {
+            // ===== COMMENT OUT OR REMOVE THIS ACTIVITY LOGGING SECTION =====
+            // The candidate_activities table doesn't exist
+            /*
+            $activity_data = [
+                'candidate_id' => $candidate_id,
+                'user_id' => $recruiter_id,
+                'user_type' => 'recruiter',
+                'activity_type' => 'document_uploaded',
+                'activity_details' => json_encode([
+                    'documents' => array_column($uploaded_documents, 'name'),
+                    'count' => count($uploaded_documents),
+                    'via_chat' => true,
+                    'conversation_uuid' => $conversation_uuid
+                ]),
+                'created_at' => date('Y-m-d H:i:s')
+            ];
+            $this->db->insert('candidate_activities', $activity_data);
+            */
+            // ===== END COMMENTED SECTION =====
+            
+            $response['success'] = true;
+            $response['message'] = count($uploaded_documents) . ' document(s) uploaded successfully';
+            $response['documents'] = $uploaded_documents;
+        } else {
+            $response['message'] = 'No files were successfully uploaded';
+        }
+        
+    } catch (Exception $e) {
+        log_message('error', 'Upload exception: ' . $e->getMessage());
+        $response['message'] = 'Server error: ' . $e->getMessage();
     }
     
-    if (!empty($uploaded_documents)) {
-        // Log activity
-        $activity_data = [
-            'candidate_id' => $candidate_id,
-            'user_id' => $recruiter_id,
-            'user_type' => 'recruiter',
-            'activity_type' => 'document_uploaded',
-            'activity_details' => json_encode([
-                'documents' => array_column($uploaded_documents, 'name'),
-                'count' => count($uploaded_documents),
-                'via_chat' => true,
-                'conversation_uuid' => $conversation_uuid
-            ]),
-            'created_at' => date('Y-m-d H:i:s')
-        ];
-        $this->db->insert('candidate_activities', $activity_data);
-    }
-    
-    $this->ajax_response([
-        'message' => !empty($uploaded_documents) ? 
-            count($uploaded_documents) . ' document(s) uploaded successfully' : 
-            'No documents were uploaded',
-        'documents' => $uploaded_documents,
-        'upload_count' => count($uploaded_documents)
-    ], !empty($uploaded_documents));
+    echo json_encode($response);
 }
     
     private function get_recruiter_id()

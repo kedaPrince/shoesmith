@@ -1535,6 +1535,21 @@ $csrf_name = $this->security->get_csrf_token_name();
     color: #128C7E !important;
 }
 
+/* Prevent multiple file dialog openings */
+#documentUploadBtn {
+    pointer-events: auto !important;
+}
+
+#documentUploadBtn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+/* Hide any duplicate file inputs */
+input[type="file"]:not(#fileInput) {
+    display: none !important;
+}
+
 @keyframes pulse {
     0% {
         opacity: 1;
@@ -2126,19 +2141,6 @@ $csrf_name = $this->security->get_csrf_token_name();
                             <input type="hidden" id="candidateId"
                                 value="<?php echo isset($candidate_details) ? $candidate_details->id : ''; ?>">
 
-                            <!-- Upload Progress -->
-                            <div id="uploadProgress" style="display: none; margin-top: 5px;">
-                                <div class="progress" style="height: 4px;">
-                                    <div class="progress-bar" role="progressbar" style="width: 0%;"></div>
-                                </div>
-                                <small class="text-muted" id="uploadStatus">Uploading...</small>
-                            </div>
-
-                            <!-- Document Preview -->
-                            <div id="documentPreview"
-                                style="display: none; margin-top: 5px; max-height: 100px; overflow-y: auto;">
-                                <div class="d-flex flex-wrap" id="previewFiles"></div>
-                            </div>
                         </div>
                     </div>
 
@@ -2741,6 +2743,11 @@ function createMessageElement(message, isRecruiter = false) {
         minute: '2-digit'
     });
 
+    // Check if message contains HTML (like document links)
+    const messageContent = message.message || '';
+    const isHtmlMessage = messageContent.includes('<a') || messageContent.includes('<br>') ||
+        messageContent.includes('📎') || messageContent.includes('❌');
+
     messageDiv.innerHTML = `
         <div class="message-container" style="max-width: 70%;">
             <div class="message-content d-flex align-items-baseline ${isRecruiter ? 'justify-content-end' : 'justify-content-start'}">
@@ -2749,9 +2756,9 @@ function createMessageElement(message, isRecruiter = false) {
                             padding: 8px 12px; 
                             border-radius: ${borderRadius};
                             box-shadow: 0 1px 0.5px rgba(0,0,0,0.13);">
-                    <span class="message-text" style="font-size: 14.2px; color: #303030; line-height: 1.3; margin-right: 8px;">
-                        ${escapeHtml(message.message)}
-                    </span>
+                    <div class="message-text" style="font-size: 14.2px; color: #303030; line-height: 1.3; margin-right: 8px;">
+                        ${isHtmlMessage ? messageContent : escapeHtml(messageContent)}
+                    </div>
                     <span class="message-meta d-inline-flex align-items-center">
                         <small class="message-time" style="font-size: 11px; color: #667781; white-space: nowrap;">
                             ${timeString}
@@ -2803,59 +2810,276 @@ function addMessageToDisplay(message, isRecruiter = false) {
     scrollToBottom();
 }
 
-// ===== DOCUMENT UPLOAD FUNCTIONS =====
 function initializeDocumentUpload() {
-    console.log('Initializing document upload...');
+    console.log('🚀 Initializing document upload system...');
 
+    // Clear any existing event listeners first
+    const originalBtn = document.getElementById('documentUploadBtn');
+    const originalInput = document.getElementById('fileInput');
+
+    if (originalBtn && originalInput) {
+        // Create completely new elements to remove old listeners
+        const newBtn = originalBtn.cloneNode(true);
+        const newInput = originalInput.cloneNode(true);
+
+        originalBtn.parentNode.replaceChild(newBtn, originalBtn);
+        originalInput.parentNode.replaceChild(newInput, originalInput);
+
+        console.log('✅ Removed old event listeners');
+    }
+
+    // Get fresh references
     const uploadBtn = document.getElementById('documentUploadBtn');
     const fileInput = document.getElementById('fileInput');
 
     if (!uploadBtn || !fileInput) {
-        console.log('Missing required elements');
+        console.error('❌ Missing required elements');
         return;
     }
 
-    console.log('Found upload button and file input');
+    console.log('✅ Found upload elements');
 
-    // Remove any existing listeners by cloning
-    const newUploadBtn = uploadBtn.cloneNode(true);
-    const newFileInput = fileInput.cloneNode(true);
-
-    uploadBtn.parentNode.replaceChild(newUploadBtn, uploadBtn);
-    fileInput.parentNode.replaceChild(newFileInput, fileInput);
-
-    // Get fresh references
-    const freshUploadBtn = document.getElementById('documentUploadBtn');
-    const freshFileInput = document.getElementById('fileInput');
-
-    // Add simple click handler
-    freshUploadBtn.addEventListener('click', function(e) {
-        console.log('Upload button clicked');
+    // Add simple click handler - just opens file picker
+    uploadBtn.addEventListener('click', function(e) {
         e.preventDefault();
         e.stopPropagation();
-
-        // Check if this is a candidate chat
-        const candidateId = document.getElementById('candidateId').value;
-        if (!candidateId) {
-            alert('Document upload is only available for candidate chats.');
-            return;
-        }
-
-        // Open file dialog
-        freshFileInput.click();
+        console.log('📎 Paperclip clicked - opening file picker');
+        fileInput.click();
     });
 
     // Handle file selection
-    freshFileInput.addEventListener('change', function(e) {
-        console.log('Files selected:', this.files.length);
+    fileInput.addEventListener('change', async function(e) {
+        console.log('📂 File input changed - processing files...');
 
-        if (this.files.length > 0) {
-            handleFileSelection(this.files);
+        // Get the files immediately
+        const files = Array.from(this.files);
+
+        if (files.length === 0) {
+            console.log('No files selected');
+            return;
+        }
+
+        console.log(`Selected ${files.length} file(s):`, files.map(f => f.name));
+
+        // Clear the input immediately to prevent double triggers
+        this.value = '';
+
+        // Get required data
+        const candidateId = document.getElementById('candidateId')?.value;
+        const conversationUuid = document.getElementById('conversationUuid')?.value;
+
+        if (!candidateId || !conversationUuid) {
+            alert('⚠️ Document upload requires an active candidate conversation.');
+            return;
+        }
+
+        // Validate files
+        const maxSize = 10 * 1024 * 1024; // 10MB
+        const allowedExtensions = ['.pdf', '.doc', '.docx', '.txt', '.jpg', '.jpeg', '.png', '.xls',
+            '.xlsx'
+        ];
+
+        const validFiles = files.filter(file => {
+            if (file.size > maxSize) {
+                alert(`❌ "${file.name}" is too large (max 10MB)`);
+                return false;
+            }
+
+            const extension = '.' + file.name.split('.').pop().toLowerCase();
+            if (!allowedExtensions.includes(extension)) {
+                alert(`❌ "${file.name}" is not an allowed file type`);
+                return false;
+            }
+
+            return true;
+        });
+
+        if (validFiles.length === 0) {
+            console.log('No valid files to upload');
+            return;
+        }
+
+        console.log(`📤 Uploading ${validFiles.length} valid file(s)...`);
+
+        // Show loading state on paperclip
+        const originalHtml = uploadBtn.innerHTML;
+        uploadBtn.innerHTML = '<i class="fa fa-spinner fa-spin fa-lg"></i>';
+        uploadBtn.disabled = true;
+
+        // Show progress overlay
+        const progressOverlay = document.createElement('div');
+        progressOverlay.id = 'uploadProgressOverlay';
+        progressOverlay.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 9998;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        `;
+
+        const progressCard = document.createElement('div');
+        progressCard.style.cssText = `
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            text-align: center;
+            min-width: 300px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+        `;
+        progressCard.innerHTML = `
+            <i class="fa fa-spinner fa-spin fa-2x mb-3" style="color: #4CAF50;"></i>
+            <h4 style="margin-bottom: 10px; color: #333;">Uploading Files</h4>
+            <p style="color: #666; margin-bottom: 20px;">${validFiles.length} file(s) selected</p>
+            <div id="uploadProgressBar" style="height: 6px; background: #f0f0f0; border-radius: 3px; overflow: hidden;">
+                <div style="width: 0%; height: 100%; background: linear-gradient(90deg, #4CAF50, #8BC34A); transition: width 0.3s;"></div>
+            </div>
+        `;
+
+        progressOverlay.appendChild(progressCard);
+        document.body.appendChild(progressOverlay);
+
+        try {
+            // Upload each file sequentially
+            for (let i = 0; i < validFiles.length; i++) {
+                const file = validFiles[i];
+
+                // Update progress
+                const progressPercent = ((i) / validFiles.length * 100).toFixed(0);
+                document.querySelector('#uploadProgressBar div').style.width = `${progressPercent}%`;
+                progressCard.querySelector('p').textContent =
+                    `Uploading ${i + 1} of ${validFiles.length}: ${file.name}`;
+
+                console.log(`Uploading file ${i + 1}/${validFiles.length}: ${file.name}`);
+
+                // Get current CSRF token
+                const csrfToken = document.querySelector('input[name="csrf_rfid_token"]').value;
+
+                // 1. Upload file to server
+                const formData = new FormData();
+                formData.append('documents[]', file);
+                formData.append('conversation_uuid', conversationUuid);
+                formData.append('candidate_id', candidateId);
+                formData.append('csrf_rfid_token', csrfToken);
+
+                const uploadResponse = await fetch(window.location.origin +
+                    '/shoesmith/recruiter/chat/ajax_upload_documents', {
+                        method: 'POST',
+                        body: formData
+                    });
+
+                const uploadResult = await uploadResponse.json();
+                console.log('Upload response:', uploadResult);
+
+                if (!uploadResult.success) {
+                    throw new Error(`Failed to upload "${file.name}": ${uploadResult.message}`);
+                }
+
+                // Update CSRF token
+                if (uploadResult.csrf_token) {
+                    document.querySelectorAll('input[name="csrf_rfid_token"]').forEach(input => {
+                        input.value = uploadResult.csrf_token;
+                    });
+                }
+
+                // 2. Send chat message about the upload
+                let chatMessage = `📎 Uploaded document: ${file.name}`;
+                if (uploadResult.documents && uploadResult.documents[0]?.path) {
+                    chatMessage =
+                        `📎 Uploaded: <a href="${uploadResult.documents[0].path}" target="_blank" style="color: #128C7E; text-decoration: underline;">${file.name}</a>`;
+                }
+
+                // Use GET method (this works!)
+                const encodedMessage = encodeURIComponent(chatMessage);
+                const messageUrl =
+                    `${window.location.origin}/shoesmith/recruiter/chat/ajax_send_message?conversation_uuid=${encodeURIComponent(conversationUuid)}&message=${encodedMessage}&csrf_rfid_token=${encodeURIComponent(uploadResult.csrf_token || csrfToken)}&is_document_notification=true`;
+
+                console.log('Sending chat message via GET...');
+                const messageResponse = await fetch(messageUrl, {
+                    method: 'GET',
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'Accept': 'application/json'
+                    }
+                });
+
+                const messageResult = await messageResponse.json();
+                console.log('Message response:', messageResult);
+
+                if (messageResult.success) {
+                    console.log(`✅ "${file.name}" uploaded and message sent`);
+                } else {
+                    console.warn(`⚠️ Message for "${file.name}" failed, but file was uploaded`);
+                }
+            }
+
+            // Update to 100% complete
+            document.querySelector('#uploadProgressBar div').style.width = '100%';
+            progressCard.innerHTML = `
+                <i class="fa fa-check-circle fa-2x mb-3" style="color: #4CAF50;"></i>
+                <h4 style="margin-bottom: 10px; color: #333;">Upload Complete!</h4>
+                <p style="color: #666; margin-bottom: 20px;">${validFiles.length} file(s) uploaded successfully</p>
+                <button id="closeUploadOverlay" style="background: #4CAF50; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer;">
+                    Close
+                </button>
+            `;
+
+            console.log('✅ All files uploaded successfully!');
+
+            // Add close button event
+            document.getElementById('closeUploadOverlay').addEventListener('click', function() {
+                progressOverlay.remove();
+            });
+
+            // Auto-refresh chat messages
+            setTimeout(() => {
+                if (typeof fetchNewMessages === 'function') {
+                    fetchNewMessages();
+                }
+            }, 1000);
+
+        } catch (error) {
+            console.error('❌ Upload error:', error);
+
+            progressCard.innerHTML = `
+                <i class="fa fa-times-circle fa-2x mb-3" style="color: #F44336;"></i>
+                <h4 style="margin-bottom: 10px; color: #333;">Upload Failed</h4>
+                <p style="color: #666; margin-bottom: 20px;">${error.message}</p>
+                <button id="closeErrorOverlay" style="background: #F44336; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer;">
+                    Close
+                </button>
+            `;
+
+            document.getElementById('closeErrorOverlay').addEventListener('click', function() {
+                progressOverlay.remove();
+            });
+
+            alert(`Upload failed: ${error.message}`);
+
+        } finally {
+            // Reset button
+            uploadBtn.innerHTML = originalHtml;
+            uploadBtn.disabled = false;
+
+            // Auto-remove overlay after 3 seconds (if not already removed)
+            setTimeout(() => {
+                if (progressOverlay.parentNode) {
+                    progressOverlay.remove();
+                }
+            }, 3000);
         }
     });
 
-    console.log('Document upload initialized successfully');
+    console.log('✅ Document upload system initialized successfully');
 }
+
+// Now call it to initialize
+initializeDocumentUpload();
+console.log('🔄 Re-initialized upload system for immediate upload');
 
 function handleFileSelection(files) {
     const maxSize = 10 * 1024 * 1024; // 10MB
@@ -3809,48 +4033,6 @@ function debugEndpoint(endpoint) {
 // ===== DOCUMENT UPLOAD FUNCTIONS =====
 
 
-function initializeDocumentUpload() {
-    console.log('Initializing document upload...');
-
-    const uploadBtn = document.getElementById('documentUploadBtn');
-    const fileInput = document.getElementById('fileInput');
-
-    if (!uploadBtn || !fileInput) {
-        console.log('Missing required elements');
-        return;
-    }
-
-    console.log('Found upload button and file input');
-
-    // Add click handler
-    uploadBtn.addEventListener('click', function(e) {
-        console.log('Upload button clicked');
-        e.preventDefault();
-        e.stopPropagation();
-
-        // Check if this is a candidate chat
-        const candidateId = document.getElementById('candidateId').value;
-        if (!candidateId) {
-            alert('Document upload is only available for candidate chats.');
-            return;
-        }
-
-        // Open file dialog
-        fileInput.click();
-    });
-
-    // Handle file selection
-    fileInput.addEventListener('change', function(e) {
-        console.log('Files selected:', this.files.length);
-
-        if (this.files.length > 0) {
-            handleFileSelection(this.files);
-        }
-    });
-
-    console.log('Document upload initialized successfully');
-}
-
 function handleFileSelection(files) {
     const maxSize = 10 * 1024 * 1024; // 10MB
     const allowedTypes = ['application/pdf', 'application/msword',
@@ -3999,6 +4181,29 @@ async function uploadDocuments() {
         uploadBtn.classList.add('uploading');
         uploadBtn.disabled = true;
         uploadStatus.textContent = 'Preparing upload...';
+        progressBar.style.width = '10%';
+
+        // Show optimistic upload message
+        const fileNames = selectedFiles.map(f => f.name).join(', ');
+        const optimisticMessage = `📎 Uploading ${selectedFiles.length} document(s): ${fileNames}`;
+
+        // Create optimistic message display
+        const optimisticMsgId = 'temp_upload_' + Date.now();
+        const optimisticMessageObj = {
+            id: optimisticMsgId,
+            message: optimisticMessage,
+            created_at: new Date().toISOString(),
+            sender_type: 'recruiter',
+            is_read: false,
+            sender_name: 'You',
+            is_document: true
+        };
+
+        addMessageToDisplay(optimisticMessageObj, true);
+
+        // Update progress
+        progressBar.style.width = '30%';
+        uploadStatus.textContent = 'Uploading files...';
 
         const response = await makeAjaxRequest('ajax_upload_documents', {
             conversation_uuid: conversationUuid,
@@ -4009,24 +4214,58 @@ async function uploadDocuments() {
         console.log('Upload response:', response);
 
         if (response.success) {
-            // Success - send message about uploaded documents
-            const fileNames = selectedFiles.map(f => f.name).join(', ');
-            const message = `📎 Uploaded ${selectedFiles.length} document(s): ${fileNames}`;
+            // Update progress to complete
+            progressBar.style.width = '100%';
+            uploadStatus.textContent = 'Upload complete!';
 
-            // Send message about the upload
-            await sendDocumentMessage(message);
+            // Remove optimistic message
+            const optimisticMsg = document.querySelector(`[data-message-id="${optimisticMsgId}"]`);
+            if (optimisticMsg) optimisticMsg.remove();
+
+            // Create success message with download links
+            let successMessage = '';
+            if (response.documents && response.documents.length > 0) {
+                successMessage = `📎 Uploaded ${response.documents.length} document(s):<br>`;
+                response.documents.forEach((doc, index) => {
+                    successMessage +=
+                        `${index + 1}. <a href="${doc.path}" target="_blank" style="color: #128C7E; text-decoration: underline;">${doc.name}</a><br>`;
+                });
+            } else {
+                successMessage = `📎 Uploaded ${selectedFiles.length} document(s): ${fileNames}`;
+            }
+
+            // Send the success message to chat
+            const messageResponse = await makeAjaxRequest('ajax_send_message', {
+                conversation_uuid: conversationUuid,
+                message: successMessage,
+                is_document_notification: true
+            });
+
+            if (messageResponse.success && messageResponse.message_id) {
+                // Add the real message to display
+                const messageObj = {
+                    id: messageResponse.message_id,
+                    message: successMessage,
+                    created_at: new Date().toISOString(),
+                    sender_type: 'recruiter',
+                    is_read: false,
+                    sender_name: 'You',
+                    is_document: true
+                };
+
+                addMessageToDisplay(messageObj, true);
+                console.log('✅ Document notification sent to chat');
+            }
 
             // Reset upload state
             selectedFiles = [];
             updateFilePreview();
 
-            // Show success message
-            uploadStatus.textContent = 'Upload complete!';
-            progressBar.style.width = '100%';
+            // Show success styling
             progressBar.classList.remove('progress-bar');
             progressBar.classList.add('bg-success');
 
-            // Notify user in chat
+            // Add system success message
             addSystemMessage('✅ Documents uploaded successfully to candidate profile.');
 
             // Update candidate documents in sidebar if available
@@ -4042,6 +4281,11 @@ async function uploadDocuments() {
 
     } catch (error) {
         console.error('❌ Upload error:', error);
+
+        // Remove optimistic message if exists
+        const optimisticMsg = document.querySelector('[data-message-id^="temp_upload_"]');
+        if (optimisticMsg) optimisticMsg.remove();
+
         uploadStatus.textContent = 'Upload failed: ' + error.message;
         progressBar.style.width = '100%';
         progressBar.classList.remove('progress-bar');
@@ -4049,6 +4293,16 @@ async function uploadDocuments() {
 
         // Show error to user
         addSystemMessage(`❌ Upload failed: ${error.message}`);
+
+        // Add error message to chat
+        try {
+            await makeAjaxRequest('ajax_send_message', {
+                conversation_uuid: conversationUuid,
+                message: `❌ Failed to upload documents: ${error.message}`
+            });
+        } catch (e) {
+            console.error('Failed to send error message:', e);
+        }
 
         // Reset after error
         setTimeout(() => {
