@@ -42,6 +42,7 @@ $csrf_name = $this->security->get_csrf_token_name();
     align-items: center;
     gap: 10px;
     flex-wrap: wrap;
+    padding: 4px 0 0 33px;
 }
 
 .nav-item {
@@ -384,21 +385,96 @@ $csrf_name = $this->security->get_csrf_token_name();
 }
 
 /* ===== CHAT STYLES ===== */
-/* WhatsApp Message Styles */
-.message-bubble.sent {
-    background: #dcf8c6 !important;
-    margin-left: auto;
-    border-top-right-radius: 0px !important;
+/* WhatsApp Message Styles - COMPACT FIX */
+#chatMessages {
+    display: block !important;
+    flex-direction: column !important;
+    height: calc(74vh - 120px) !important;
+    overflow-y: auto !important;
+    flex-shrink: 0 !important;
+    padding: 8px 12px !important;
+    background-color: #e5ddd5 !important;
+    background-image: url('data:image/svg+xml,<svg width="100" height="100" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><path d="M11 18c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm48 25c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm-43-7c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm63 31c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM34 90c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm56-76c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM12 86c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm28-65c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm23-11c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-6 60c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm29 22c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zM32 63c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm57-13c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-9-21c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM60 91c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM35 41c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM12 60c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2z" fill="%2391a29e" fill-opacity="0.1" fill-rule="evenodd"/></svg>') !important;
 }
 
-.message-bubble.received {
-    background: #ffffff !important;
-    margin-right: auto;
-    border-top-left-radius: 0px !important;
+.message-wrapper {
+    display: flex !important;
+    margin-bottom: 8px !important;
+    clear: both !important;
+}
+
+.message-sent {
+    justify-content: flex-end !important;
+}
+
+.message-received {
+    justify-content: flex-start !important;
+}
+
+.message-content {
+    max-width: 65% !important;
+    padding: 6px 9px 4px 9px !important;
+    border-radius: 7.5px !important;
+    box-shadow: 0 1px 0.5px rgba(0, 0, 0, 0.13) !important;
+    position: relative !important;
+    word-wrap: break-word !important;
+    word-break: break-word !important;
+    display: inline-block !important;
+}
+
+.message-sent .message-content {
+    background-color: #dcf8c6 !important;
+    border-radius: 7.5px 0 7.5px 7.5px !important;
+}
+
+.message-received .message-content {
+    background-color: #ffffff !important;
+    border-radius: 0 7.5px 7.5px 7.5px !important;
+}
+
+.message-text-wrapper {
+    display: inline !important;
+    line-height: 1.28 !important;
 }
 
 .message-text {
+    font-size: 14.2px !important;
+    color: #111b21 !important;
+    line-height: 19px !important;
     font-family: 'Segoe UI', 'Helvetica Neue', sans-serif !important;
+    word-wrap: break-word !important;
+    white-space: inherit;
+    text-align: left !important;
+    display: inline !important;
+    margin-right: 8px !important;
+}
+
+.message-meta {
+    display: inline-flex !important;
+    align-items: center !important;
+    vertical-align: bottom !important;
+    height: 15px !important;
+    margin-left: 4px !important;
+}
+
+.message-time {
+    font-size: 11px !important;
+    color: #667781 !important;
+    white-space: nowrap !important;
+    display: inline-block !important;
+    line-height: 15px !important;
+}
+
+.message-status {
+    display: inline-flex !important;
+    align-items: center !important;
+    margin-left: 4px !important;
+    height: 15px !important;
+}
+
+.message-status i {
+    font-size: 10px !important;
+    line-height: 15px !important;
 }
 
 /* WhatsApp-style Conversation Badges */
@@ -510,14 +586,6 @@ $csrf_name = $this->security->get_csrf_token_name();
 }
 
 /* Chat Container Styles */
-#chatMessages {
-    display: block !important;
-    flex-direction: column !important;
-    height: calc(74vh - 120px) !important;
-    overflow-y: auto !important;
-    flex-shrink: 0 !important;
-}
-
 #main-content {
     overflow: hidden !important;
 }
@@ -618,7 +686,7 @@ $csrf_name = $this->security->get_csrf_token_name();
         flex: 0 0 100%;
     }
 
-    .message-bubble {
+    .message-content {
         max-width: 85% !important;
     }
 
@@ -2018,20 +2086,7 @@ input[type="file"]:not(#fileInput) {
 
             <!-- Main Chat Area with Right Sidebar -->
             <div class="col-md-8 col-lg-9"
-                style="background-color: #e5ddd5; display: flex; flex-direction: column; height: 100%; background-image: url('data:image/svg+xml,%3Csvg width=\"
-                100\" height=\"100\" viewBox=\"0 0 100 100\" xmlns=\"http://www.w3.org/2000/svg\"%3E%3Cpath d=\"M11
-                18c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm48 25c3.866 0 7-3.134 7-7s-3.134-7-7-7-7
-                3.134-7 7 3.134 7 7 7zm-43-7c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm63 31c1.657 0
-                3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM34 90c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3
-                1.343 3 3 3zm56-76c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM12 86c2.21 0 4-1.79
-                4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm28-65c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4
-                4zm23-11c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-6 60c2.21 0 4-1.79 4-4s-1.79-4-4-4-4
-                1.79-4 4 1.79 4 4 4zm29 22c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zM32 63c2.76 0 5-2.24
-                5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm57-13c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5
-                5zm-9-21c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM60 91c1.105 0 2-.895 2-2s-.895-2-2-2-2
-                .895-2 2 .895 2 2 2zM35 41c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM12 60c1.105 0 2-.895
-                2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2z' fill=\"%2391a29e\" fill-opacity=\"0.1\"
-                fill-rule=\"evenodd\"/%3E%3C/svg%3E');">
+                style="background-color: #e5ddd5; display: flex; flex-direction: column; height: 100%;">
 
                 <!-- Mobile Sidebar Toggle -->
                 <button class="sidebar-toggle" id="sidebarToggle">
@@ -2060,55 +2115,52 @@ input[type="file"]:not(#fileInput) {
                             </div>
                         </div>
 
-                        <!-- Messages Area - WhatsApp Style -->
-                        <div class="flex-grow-1 overflow-auto p-2" id="chatMessages"
-                            style="display: block; padding: 8px 12px; position: relative; height: calc(74vh - 120px); overflow-y: auto;">
+                        <!-- Messages Area - WhatsApp Style - COMPACT FIXED -->
+                        <div id="chatMessages">
                             <?php if (!empty($messages)): ?>
-                            <?php foreach ($messages as $message): ?>
-                            <div
-                                class="d-flex <?php echo $message->sender_type == 'recruiter' ? 'justify-content-end' : 'justify-content-start'; ?> mb-2">
-                                <div class="message-container" style="max-width: 70%;">
-                                    <div
-                                        class="message-content d-flex align-items-baseline <?php echo $message->sender_type == 'recruiter' ? 'justify-content-end' : 'justify-content-start'; ?>">
-                                        <div class="message-text-time d-inline-flex align-items-baseline" style="background-color: <?php echo $message->sender_type == 'recruiter' ? '#dcf8c6' : '#ffffff'; ?>; 
-                                    padding: 8px 12px; 
-                                    border-radius: 7.5px;
-                                    box-shadow: 0 1px 0.5px rgba(0,0,0,0.13);">
-                                            <span class="message-text"
-                                                style="font-size: 14.2px; color: #303030; line-height: 1.3; margin-right: 8px; font-family: 'Segoe UI', 'Helvetica Neue', sans-serif;">
-                                                <?php echo nl2br(htmlspecialchars($message->message)); ?>
+                            <div id="messagesContainer">
+                                <?php foreach ($messages as $message): ?>
+                                <div
+                                    class="message-wrapper <?php echo $message->sender_type == 'recruiter' ? 'message-sent' : 'message-received'; ?>">
+                                    <div class="message-content">
+                                        <span class="message-text-wrapper">
+                                            <span class="message-text">
+                                                <?php 
+                                                if (strpos($message->message, '<a ') !== false && strpos($message->message, 'target="_blank"') !== false) {
+                                                    echo $message->message;
+                                                } else {
+                                                    echo nl2br(htmlspecialchars($message->message));
+                                                }
+                                                ?>
                                             </span>
-                                            <span class="message-meta d-inline-flex align-items-center">
-                                                <small class="message-time"
-                                                    style="font-size: 11px; color: #667781; white-space: nowrap;">
-                                                    <?php echo date('g:i A', strtotime($message->created_at)); ?>
-                                                </small>
+                                            <span class="message-meta">
+                                                <span class="message-time">
+                                                    <?php echo date('h:i A', strtotime($message->created_at)); ?>
+                                                </span>
                                                 <?php if ($message->sender_type == 'recruiter'): ?>
-                                                <span class="message-status" style="margin-left: 4px;">
-                                                    <i class="fa fa-check<?php echo $message->is_read ? '-double' : ''; ?>"
-                                                        style="font-size: 10px; color: <?php echo $message->is_read ? '#128C7E' : '#667781'; ?>;"></i>
+                                                <span class="message-status">
+                                                    <i
+                                                        class="fa fa-check<?php echo $message->is_read ? '-double' : ''; ?>"></i>
                                                 </span>
                                                 <?php endif; ?>
                                             </span>
-                                        </div>
+                                        </span>
                                     </div>
                                 </div>
+                                <?php endforeach; ?>
                             </div>
-                            <?php endforeach; ?>
                             <?php else: ?>
-                            <div class="text-center text-muted d-flex align-items-center justify-content-center h-100"
-                                style="font-size: 1rem;">
-                                <div>
-                                    <i class="fa fa-comments fa-2x mb-2" style="color: #128C7E;"></i>
-                                    <p style="margin: 0;">No messages yet. Start the conversation!</p>
+                            <div class="no-messages"
+                                style="display: flex; align-items: center; justify-content: center; height: 100%;">
+                                <div class="text-center" style="color: #667781;">
+                                    <i class="fa fa-comments fa-3x mb-3" style="color: #128C7E;"></i>
+                                    <p style="font-size: 1rem; margin: 0;">No messages yet. Start the conversation!</p>
                                 </div>
                             </div>
                             <?php endif; ?>
                         </div>
 
-
                         <!-- Message Input - Simplified -->
-                        <!-- Replace the entire message input section with this: -->
                         <div class="border-top p-2"
                             style="border-color: #e0e0e0; background-color: #f0f0f0; height: 60px; flex-shrink: 0; min-height: 60px;">
                             <div class="d-flex h-100 align-items-center">
@@ -2487,7 +2539,6 @@ input[type="file"]:not(#fileInput) {
 
 <script>
 // ===== CSRF TOKEN MANAGEMENT =====
-// ===== CSRF TOKEN MANAGEMENT =====
 let currentCsrfToken = '<?php echo $csrf_token; ?>';
 const csrfTokenName = '<?php echo $csrf_name; ?>';
 
@@ -2728,85 +2779,97 @@ function escapeHtml(text) {
 
 // ===== MESSAGE DISPLAY FUNCTIONS =====
 function createMessageElement(message, isRecruiter = false) {
-    const messageDiv = document.createElement('div');
-    messageDiv.className = `d-flex ${isRecruiter ? 'justify-content-end' : 'justify-content-start'} mb-2`;
-    messageDiv.dataset.messageId = message.id;
+    const messageWrapper = document.createElement('div');
+    messageWrapper.className = `message-wrapper ${isRecruiter ? 'message-sent' : 'message-received'}`;
+    messageWrapper.dataset.messageId = message.id;
 
-    const senderName = isRecruiter ? 'You' : (message.sender_name || 'Agency');
-    const bgColor = isRecruiter ? '#dcf8c6' : '#ffffff';
-    const borderRadius = isRecruiter ? '7.5px 7.5px 0 7.5px' : '7.5px 7.5px 7.5px 0';
-
-    // Format time
     const messageTime = new Date(message.created_at);
     const timeString = messageTime.toLocaleTimeString([], {
         hour: '2-digit',
         minute: '2-digit'
     });
 
-    // Check if message contains HTML (like document links)
-    const messageContent = message.message || '';
-    const isHtmlMessage = messageContent.includes('<a') || messageContent.includes('<br>') ||
-        messageContent.includes('📎') || messageContent.includes('❌');
+    const renderedContent = renderMessageContent(message.message || '');
 
-    messageDiv.innerHTML = `
-        <div class="message-container" style="max-width: 70%;">
-            <div class="message-content d-flex align-items-baseline ${isRecruiter ? 'justify-content-end' : 'justify-content-start'}">
-                <div class="message-text-time d-inline-flex align-items-baseline" 
-                     style="background-color: ${bgColor}; 
-                            padding: 8px 12px; 
-                            border-radius: ${borderRadius};
-                            box-shadow: 0 1px 0.5px rgba(0,0,0,0.13);">
-                    <div class="message-text" style="font-size: 14.2px; color: #303030; line-height: 1.3; margin-right: 8px;">
-                        ${isHtmlMessage ? messageContent : escapeHtml(messageContent)}
-                    </div>
-                    <span class="message-meta d-inline-flex align-items-center">
-                        <small class="message-time" style="font-size: 11px; color: #667781; white-space: nowrap;">
-                            ${timeString}
-                        </small>
-                        ${isRecruiter ? `
-                            <span class="message-status" style="margin-left: 4px;">
-                                <i class="fa fa-check${message.is_read ? '-double' : ''}" 
-                                   style="font-size: 10px; color: ${message.is_read ? '#128C7E' : '#667781'};"></i>
-                            </span>
-                        ` : ''}
+    messageWrapper.innerHTML = `
+        <div class="message-content">
+            <span class="message-text-wrapper">
+                <span class="message-text">
+                    ${renderedContent}
+                </span>
+                <span class="message-meta">
+                    <span class="message-time">
+                        ${timeString}
                     </span>
-                </div>
-            </div>
+                    ${isRecruiter ? `
+                        <span class="message-status">
+                            <i class="fa fa-check${message.is_read ? '-double' : ''}"></i>
+                        </span>
+                    ` : ''}
+                </span>
+            </span>
         </div>
     `;
 
-    return messageDiv;
+    return messageWrapper;
+}
+
+function renderMessageContent(content) {
+    // Check if content has HTML tags for document links
+    if (content.includes('<a ') && content.includes('target="_blank"')) {
+        // Create a temporary div to parse the HTML
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = content;
+
+        // Get all links and make sure they're safe
+        const links = tempDiv.querySelectorAll('a');
+        links.forEach(link => {
+            // Ensure links are safe (only allow target="_blank" and basic attributes)
+            const href = link.getAttribute('href');
+            if (href && href.startsWith('http')) {
+                // Make sure it opens in new tab
+                link.setAttribute('target', '_blank');
+                link.setAttribute('rel', 'noopener noreferrer');
+            }
+        });
+
+        return tempDiv.innerHTML;
+    }
+
+    // For regular text, escape HTML and preserve line breaks
+    const escaped = escapeHtml(content);
+    return escaped.replace(/\n/g, '<br>');
 }
 
 function addMessageToDisplay(message, isRecruiter = false) {
     const chatMessages = document.getElementById('chatMessages');
     if (!chatMessages) return;
 
-    // Check if message already displayed
     if (chatState.displayedMessageIds.has(parseInt(message.id))) {
         return;
     }
 
-    // Create message wrapper
-    const messageWrapper = document.createElement('div');
-    messageWrapper.className = `d-flex ${isRecruiter ? 'justify-content-end' : 'justify-content-start'} mb-2`;
-    messageWrapper.style.flexShrink = '0';
-    messageWrapper.dataset.messageId = message.id;
+    // Check if there's a messages container, if not create one
+    let messagesContainer = document.getElementById('messagesContainer');
+    if (!messagesContainer) {
+        // Remove the "no messages" content
+        const noMessages = chatMessages.querySelector('.no-messages');
+        if (noMessages) noMessages.remove();
 
-    // Create message element
+        // Create container
+        messagesContainer = document.createElement('div');
+        messagesContainer.id = 'messagesContainer';
+        chatMessages.appendChild(messagesContainer);
+    }
+
     const messageElement = createMessageElement(message, isRecruiter);
-    messageWrapper.appendChild(messageElement);
-
-    // Add to chat messages
-    chatMessages.appendChild(messageWrapper);
+    messagesContainer.appendChild(messageElement);
     chatState.displayedMessageIds.add(parseInt(message.id));
 
-    // Update last message ID
     if (parseInt(message.id) > chatState.lastMessageId) {
         chatState.lastMessageId = parseInt(message.id);
     }
 
-    // Scroll to bottom for new messages
     scrollToBottom();
 }
 
@@ -3081,217 +3144,6 @@ function initializeDocumentUpload() {
 initializeDocumentUpload();
 console.log('🔄 Re-initialized upload system for immediate upload');
 
-function handleFileSelection(files) {
-    const maxSize = 10 * 1024 * 1024; // 10MB
-    const allowedTypes = ['application/pdf', 'application/msword',
-        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-        'text/plain', 'image/jpeg', 'image/png', 'image/jpg',
-        'application/vnd.ms-excel',
-        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-    ];
-
-    for (let file of files) {
-        // Check file size
-        if (file.size > maxSize) {
-            alert(`File "${file.name}" is too large. Maximum size is 10MB.`);
-            continue;
-        }
-
-        // Check file type
-        if (!allowedTypes.includes(file.type) && !file.name.match(/\.(pdf|doc|docx|txt|jpg|jpeg|png|xls|xlsx)$/i)) {
-            alert(`File "${file.name}" is not an allowed type.`);
-            continue;
-        }
-
-        // Add to selected files if not already added
-        if (!selectedFiles.some(f => f.name === file.name && f.size === file.size)) {
-            selectedFiles.push(file);
-        }
-    }
-
-    // Update preview
-    updateFilePreview();
-}
-
-function updateFilePreview() {
-    const previewArea = document.getElementById('documentPreview');
-    const previewFiles = document.getElementById('previewFiles');
-
-    if (!previewArea || !previewFiles) return;
-
-    if (selectedFiles.length === 0) {
-        previewArea.style.display = 'none';
-        return;
-    }
-
-    previewArea.style.display = 'block';
-    previewFiles.innerHTML = '';
-
-    selectedFiles.forEach((file, index) => {
-        const fileItem = createFilePreviewItem(file, index);
-        previewFiles.appendChild(fileItem);
-    });
-
-    // Add upload button
-    const uploadButton = document.createElement('button');
-    uploadButton.id = 'startUploadBtn';
-    uploadButton.className = 'btn btn-success btn-sm mt-2';
-    uploadButton.innerHTML = '<i class="fa fa-upload mr-1"></i> Upload Documents';
-    uploadButton.addEventListener('click', function() {
-        uploadDocuments();
-    });
-
-    previewFiles.appendChild(uploadButton);
-}
-
-function createFilePreviewItem(file, index) {
-    const div = document.createElement('div');
-    div.className = 'document-preview-item d-flex align-items-center';
-
-    // Get file icon based on type
-    const iconClass = getFileIconClass(file);
-
-    // Format file size
-    const fileSize = formatFileSize(file.size);
-
-    div.innerHTML = `
-        <div class="document-icon ${iconClass}">
-            <i class="fa ${getFileIcon(file)}"></i>
-        </div>
-        <div style="flex: 1; min-width: 0;">
-            <div class="document-name" title="${file.name}">${file.name}</div>
-            <div class="file-size">${fileSize}</div>
-        </div>
-        <div class="remove-document" data-index="${index}">
-            <i class="fa fa-times"></i>
-        </div>
-    `;
-
-    // Add remove event listener
-    div.querySelector('.remove-document').addEventListener('click', function() {
-        const idx = parseInt(this.getAttribute('data-index'));
-        selectedFiles.splice(idx, 1);
-        updateFilePreview();
-    });
-
-    return div;
-}
-
-function getFileIcon(file) {
-    if (file.type.includes('pdf')) return 'fa-file-pdf';
-    if (file.type.includes('word') || file.type.includes('document')) return 'fa-file-word';
-    if (file.type.includes('excel') || file.type.includes('spreadsheet')) return 'fa-file-excel';
-    if (file.type.includes('image')) return 'fa-file-image';
-    if (file.type.includes('text')) return 'fa-file-alt';
-    return 'fa-file';
-}
-
-function getFileIconClass(file) {
-    if (file.type.includes('pdf')) return 'document-pdf';
-    if (file.type.includes('word') || file.type.includes('document')) return 'document-doc';
-    if (file.type.includes('excel') || file.type.includes('spreadsheet')) return 'document-excel';
-    if (file.type.includes('image')) return 'document-image';
-    return 'document-generic';
-}
-
-function formatFileSize(bytes) {
-    if (bytes === 0) return '0 Bytes';
-    const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-}
-
-async function uploadDocuments() {
-    if (selectedFiles.length === 0) return;
-
-    const conversationUuid = document.getElementById('conversationUuid').value;
-    const candidateId = document.getElementById('candidateId').value;
-
-    if (!conversationUuid) {
-        alert('No conversation selected');
-        return;
-    }
-
-    if (!candidateId) {
-        alert('This feature is only available for candidate chats');
-        return;
-    }
-
-    const uploadBtn = document.getElementById('documentUploadBtn');
-    const progressBar = document.querySelector('#uploadProgress .progress-bar');
-    const uploadStatus = document.getElementById('uploadStatus');
-    const uploadProgress = document.getElementById('uploadProgress');
-
-    try {
-        // Show upload progress
-        uploadProgress.style.display = 'block';
-        uploadBtn.classList.add('uploading');
-        uploadBtn.disabled = true;
-        uploadStatus.textContent = 'Preparing upload...';
-
-        const response = await makeAjaxRequest('ajax_upload_documents', {
-            conversation_uuid: conversationUuid,
-            candidate_id: candidateId,
-            documents: selectedFiles
-        });
-
-        console.log('Upload response:', response);
-
-        if (response.success) {
-            // Success - send message about uploaded documents
-            const fileNames = selectedFiles.map(f => f.name).join(', ');
-            const message = `📎 Uploaded ${selectedFiles.length} document(s): ${fileNames}`;
-
-            // Send message about the upload
-            await sendDocumentMessage(message);
-
-            // Reset upload state
-            selectedFiles = [];
-            updateFilePreview();
-
-            // Show success message
-            uploadStatus.textContent = 'Upload complete!';
-            progressBar.style.width = '100%';
-            progressBar.classList.remove('progress-bar');
-            progressBar.classList.add('bg-success');
-
-            // Notify user in chat
-            addSystemMessage('✅ Documents uploaded successfully to candidate profile.');
-
-            // Update candidate documents in sidebar if available
-            if (response.documents && response.documents.length > 0) {
-                updateCandidateDocuments(response.documents);
-            }
-
-            console.log('✅ Upload successful!');
-
-        } else {
-            throw new Error(response.message || 'Upload failed');
-        }
-
-    } catch (error) {
-        console.error('❌ Upload error:', error);
-        uploadStatus.textContent = 'Upload failed: ' + error.message;
-        progressBar.style.width = '100%';
-        progressBar.classList.remove('progress-bar');
-        progressBar.classList.add('bg-danger');
-
-        // Show error to user
-        addSystemMessage(`❌ Upload failed: ${error.message}`);
-
-        // Reset after error
-        setTimeout(() => {
-            uploadProgress.style.display = 'none';
-            uploadBtn.classList.remove('uploading');
-            uploadBtn.disabled = false;
-            progressBar.classList.remove('bg-danger');
-            progressBar.classList.add('progress-bar');
-            progressBar.style.width = '0%';
-        }, 3000);
-    }
-}
-
 async function sendMessage() {
     const messageInput = document.getElementById('messageInput');
     const messageText = messageInput.value.trim();
@@ -3544,68 +3396,6 @@ function initializeDisplayedMessages() {
     console.log(`Initialized ${chatState.displayedMessageIds.size} displayed messages`);
 }
 
-async function sendDocumentMessage(message) {
-    const conversationUuid = document.getElementById('conversationUuid').value;
-
-    if (!message || !conversationUuid) return;
-
-    try {
-        const response = await makeAjaxRequest('ajax_send_message', {
-            conversation_uuid: conversationUuid,
-            message: message,
-            is_document_notification: true
-        });
-
-        if (response.success && response.message_id) {
-            // Add the message to display
-            const messageObj = {
-                id: response.message_id,
-                message: message,
-                created_at: new Date().toISOString(),
-                sender_type: 'recruiter',
-                is_read: false,
-                sender_name: 'You',
-                is_document: true
-            };
-
-            addMessageToDisplay(messageObj, true);
-
-            // Refresh conversations
-            setTimeout(fetchUpdatedConversations, 500);
-
-            console.log('✅ Document notification sent to chat');
-        } else {
-            console.error('Failed to send document message:', response.message);
-        }
-    } catch (error) {
-        console.error('Failed to send document message:', error);
-    }
-}
-
-function addSystemMessage(text) {
-    const chatMessages = document.getElementById('chatMessages');
-    if (!chatMessages) return;
-
-    const systemMsg = document.createElement('div');
-    systemMsg.className = 'text-center mb-2';
-    systemMsg.innerHTML = `
-        <span style="background: rgba(0, 0, 0, 0.1); color: #666; font-size: 0.8rem; 
-              padding: 4px 12px; border-radius: 12px; display: inline-block;">
-            <i class="fa fa-info-circle"></i> ${text}
-        </span>
-    `;
-
-    chatMessages.appendChild(systemMsg);
-    scrollToBottom();
-}
-
-function updateCandidateDocuments(documents) {
-    // Update the sidebar documents section if it exists
-    const documentsContainer = document.querySelector('.candidate-documents');
-    if (!documentsContainer) return;
-    console.log('New documents uploaded:', documents);
-}
-
 // ===== POLLING MANAGEMENT =====
 function startPolling() {
     console.log("Starting polling...");
@@ -3642,23 +3432,7 @@ function stopPolling() {
 
 // ===== EVENT LISTENERS =====
 function setupEventListeners() {
-    const messageForm = document.getElementById('messageForm');
     const messageInput = document.getElementById('messageInput');
-
-    // Form submission
-    if (messageForm) {
-        // Remove existing listeners
-        const newForm = messageForm.cloneNode(true);
-        messageForm.parentNode.replaceChild(newForm, messageForm);
-
-        // Add new listener
-        document.getElementById('messageForm').addEventListener('submit', function(e) {
-            e.preventDefault();
-            e.stopPropagation();
-            sendMessage();
-            return false;
-        });
-    }
 
     // Message input - Enter key
     if (messageInput) {
@@ -4028,353 +3802,5 @@ function debugEndpoint(endpoint) {
     });
 
     return strategies[0]; // Use first strategy as default
-}
-
-// ===== DOCUMENT UPLOAD FUNCTIONS =====
-
-
-function handleFileSelection(files) {
-    const maxSize = 10 * 1024 * 1024; // 10MB
-    const allowedTypes = ['application/pdf', 'application/msword',
-        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-        'text/plain', 'image/jpeg', 'image/png', 'image/jpg',
-        'application/vnd.ms-excel',
-        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-    ];
-
-    for (let file of files) {
-        // Check file size
-        if (file.size > maxSize) {
-            alert(`File "${file.name}" is too large. Maximum size is 10MB.`);
-            continue;
-        }
-
-        // Check file type
-        if (!allowedTypes.includes(file.type) && !file.name.match(/\.(pdf|doc|docx|txt|jpg|jpeg|png|xls|xlsx)$/i)) {
-            alert(`File "${file.name}" is not an allowed type.`);
-            continue;
-        }
-
-        // Add to selected files if not already added
-        if (!selectedFiles.some(f => f.name === file.name && f.size === file.size)) {
-            selectedFiles.push(file);
-        }
-    }
-
-    // Update preview
-    updateFilePreview();
-}
-
-function updateFilePreview() {
-    const previewArea = document.getElementById('documentPreview');
-    const previewFiles = document.getElementById('previewFiles');
-
-    if (!previewArea || !previewFiles) return;
-
-    if (selectedFiles.length === 0) {
-        previewArea.style.display = 'none';
-        return;
-    }
-
-    previewArea.style.display = 'block';
-    previewFiles.innerHTML = '';
-
-    selectedFiles.forEach((file, index) => {
-        const fileItem = createFilePreviewItem(file, index);
-        previewFiles.appendChild(fileItem);
-    });
-
-    // Add upload button
-    const uploadButton = document.createElement('button');
-    uploadButton.id = 'startUploadBtn';
-    uploadButton.className = 'btn btn-success btn-sm mt-2';
-    uploadButton.innerHTML = '<i class="fa fa-upload mr-1"></i> Upload Documents';
-    uploadButton.addEventListener('click', function() {
-        uploadDocuments();
-    });
-
-    previewFiles.appendChild(uploadButton);
-}
-
-function createFilePreviewItem(file, index) {
-    const div = document.createElement('div');
-    div.className = 'document-preview-item d-flex align-items-center';
-
-    // Get file icon based on type
-    const iconClass = getFileIconClass(file);
-
-    // Format file size
-    const fileSize = formatFileSize(file.size);
-
-    div.innerHTML = `
-        <div class="document-icon ${iconClass}">
-            <i class="fa ${getFileIcon(file)}"></i>
-        </div>
-        <div style="flex: 1; min-width: 0;">
-            <div class="document-name" title="${file.name}">${file.name}</div>
-            <div class="file-size">${fileSize}</div>
-        </div>
-        <div class="remove-document" data-index="${index}">
-            <i class="fa fa-times"></i>
-        </div>
-    `;
-
-    // Add remove event listener
-    div.querySelector('.remove-document').addEventListener('click', function() {
-        const idx = parseInt(this.getAttribute('data-index'));
-        selectedFiles.splice(idx, 1);
-        updateFilePreview();
-    });
-
-    return div;
-}
-
-function getFileIcon(file) {
-    if (file.type.includes('pdf')) return 'fa-file-pdf';
-    if (file.type.includes('word') || file.type.includes('document')) return 'fa-file-word';
-    if (file.type.includes('excel') || file.type.includes('spreadsheet')) return 'fa-file-excel';
-    if (file.type.includes('image')) return 'fa-file-image';
-    if (file.type.includes('text')) return 'fa-file-alt';
-    return 'fa-file';
-}
-
-function getFileIconClass(file) {
-    if (file.type.includes('pdf')) return 'document-pdf';
-    if (file.type.includes('word') || file.type.includes('document')) return 'document-doc';
-    if (file.type.includes('excel') || file.type.includes('spreadsheet')) return 'document-excel';
-    if (file.type.includes('image')) return 'document-image';
-    return 'document-generic';
-}
-
-function formatFileSize(bytes) {
-    if (bytes === 0) return '0 Bytes';
-    const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-}
-
-async function uploadDocuments() {
-    if (selectedFiles.length === 0) return;
-
-    const conversationUuid = document.getElementById('conversationUuid').value;
-    const candidateId = document.getElementById('candidateId').value;
-
-    if (!conversationUuid) {
-        alert('No conversation selected');
-        return;
-    }
-
-    if (!candidateId) {
-        alert('This feature is only available for candidate chats');
-        return;
-    }
-
-    const uploadBtn = document.getElementById('documentUploadBtn');
-    const progressBar = document.querySelector('#uploadProgress .progress-bar');
-    const uploadStatus = document.getElementById('uploadStatus');
-    const uploadProgress = document.getElementById('uploadProgress');
-
-    try {
-        // Show upload progress
-        uploadProgress.style.display = 'block';
-        uploadBtn.classList.add('uploading');
-        uploadBtn.disabled = true;
-        uploadStatus.textContent = 'Preparing upload...';
-        progressBar.style.width = '10%';
-
-        // Show optimistic upload message
-        const fileNames = selectedFiles.map(f => f.name).join(', ');
-        const optimisticMessage = `📎 Uploading ${selectedFiles.length} document(s): ${fileNames}`;
-
-        // Create optimistic message display
-        const optimisticMsgId = 'temp_upload_' + Date.now();
-        const optimisticMessageObj = {
-            id: optimisticMsgId,
-            message: optimisticMessage,
-            created_at: new Date().toISOString(),
-            sender_type: 'recruiter',
-            is_read: false,
-            sender_name: 'You',
-            is_document: true
-        };
-
-        addMessageToDisplay(optimisticMessageObj, true);
-
-        // Update progress
-        progressBar.style.width = '30%';
-        uploadStatus.textContent = 'Uploading files...';
-
-        const response = await makeAjaxRequest('ajax_upload_documents', {
-            conversation_uuid: conversationUuid,
-            candidate_id: candidateId,
-            documents: selectedFiles
-        });
-
-        console.log('Upload response:', response);
-
-        if (response.success) {
-            // Update progress to complete
-            progressBar.style.width = '100%';
-            uploadStatus.textContent = 'Upload complete!';
-
-            // Remove optimistic message
-            const optimisticMsg = document.querySelector(`[data-message-id="${optimisticMsgId}"]`);
-            if (optimisticMsg) optimisticMsg.remove();
-
-            // Create success message with download links
-            let successMessage = '';
-            if (response.documents && response.documents.length > 0) {
-                successMessage = `📎 Uploaded ${response.documents.length} document(s):<br>`;
-                response.documents.forEach((doc, index) => {
-                    successMessage +=
-                        `${index + 1}. <a href="${doc.path}" target="_blank" style="color: #128C7E; text-decoration: underline;">${doc.name}</a><br>`;
-                });
-            } else {
-                successMessage = `📎 Uploaded ${selectedFiles.length} document(s): ${fileNames}`;
-            }
-
-            // Send the success message to chat
-            const messageResponse = await makeAjaxRequest('ajax_send_message', {
-                conversation_uuid: conversationUuid,
-                message: successMessage,
-                is_document_notification: true
-            });
-
-            if (messageResponse.success && messageResponse.message_id) {
-                // Add the real message to display
-                const messageObj = {
-                    id: messageResponse.message_id,
-                    message: successMessage,
-                    created_at: new Date().toISOString(),
-                    sender_type: 'recruiter',
-                    is_read: false,
-                    sender_name: 'You',
-                    is_document: true
-                };
-
-                addMessageToDisplay(messageObj, true);
-                console.log('✅ Document notification sent to chat');
-            }
-
-            // Reset upload state
-            selectedFiles = [];
-            updateFilePreview();
-
-            // Show success styling
-            progressBar.classList.remove('progress-bar');
-            progressBar.classList.add('bg-success');
-
-            // Add system success message
-            addSystemMessage('✅ Documents uploaded successfully to candidate profile.');
-
-            // Update candidate documents in sidebar if available
-            if (response.documents && response.documents.length > 0) {
-                updateCandidateDocuments(response.documents);
-            }
-
-            console.log('✅ Upload successful!');
-
-        } else {
-            throw new Error(response.message || 'Upload failed');
-        }
-
-    } catch (error) {
-        console.error('❌ Upload error:', error);
-
-        // Remove optimistic message if exists
-        const optimisticMsg = document.querySelector('[data-message-id^="temp_upload_"]');
-        if (optimisticMsg) optimisticMsg.remove();
-
-        uploadStatus.textContent = 'Upload failed: ' + error.message;
-        progressBar.style.width = '100%';
-        progressBar.classList.remove('progress-bar');
-        progressBar.classList.add('bg-danger');
-
-        // Show error to user
-        addSystemMessage(`❌ Upload failed: ${error.message}`);
-
-        // Add error message to chat
-        try {
-            await makeAjaxRequest('ajax_send_message', {
-                conversation_uuid: conversationUuid,
-                message: `❌ Failed to upload documents: ${error.message}`
-            });
-        } catch (e) {
-            console.error('Failed to send error message:', e);
-        }
-
-        // Reset after error
-        setTimeout(() => {
-            uploadProgress.style.display = 'none';
-            uploadBtn.classList.remove('uploading');
-            uploadBtn.disabled = false;
-            progressBar.classList.remove('bg-danger');
-            progressBar.classList.add('progress-bar');
-            progressBar.style.width = '0%';
-        }, 3000);
-    }
-}
-
-async function sendDocumentMessage(message) {
-    const conversationUuid = document.getElementById('conversationUuid').value;
-
-    if (!message || !conversationUuid) return;
-
-    try {
-        const response = await makeAjaxRequest('ajax_send_message', {
-            conversation_uuid: conversationUuid,
-            message: message,
-            is_document_notification: true
-        });
-
-        if (response.success && response.message_id) {
-            // Add the message to display
-            const messageObj = {
-                id: response.message_id,
-                message: message,
-                created_at: new Date().toISOString(),
-                sender_type: 'recruiter',
-                is_read: false,
-                sender_name: 'You',
-                is_document: true
-            };
-
-            addMessageToDisplay(messageObj, true);
-
-            // Refresh conversations
-            setTimeout(fetchUpdatedConversations, 500);
-
-            console.log('✅ Document notification sent to chat');
-        } else {
-            console.error('Failed to send document message:', response.message);
-        }
-    } catch (error) {
-        console.error('Failed to send document message:', error);
-    }
-}
-
-function addSystemMessage(text) {
-    const chatMessages = document.getElementById('chatMessages');
-    if (!chatMessages) return;
-
-    const systemMsg = document.createElement('div');
-    systemMsg.className = 'text-center mb-2';
-    systemMsg.innerHTML = `
-        <span style="background: rgba(0, 0, 0, 0.1); color: #666; font-size: 0.8rem; 
-              padding: 4px 12px; border-radius: 12px; display: inline-block;">
-            <i class="fa fa-info-circle"></i> ${text}
-        </span>
-    `;
-
-    chatMessages.appendChild(systemMsg);
-    scrollToBottom();
-}
-
-function updateCandidateDocuments(documents) {
-    // Update the sidebar documents section if it exists
-    const documentsContainer = document.querySelector('.candidate-documents');
-    if (!documentsContainer) return;
-    console.log('New documents uploaded:', documents);
 }
 </script>

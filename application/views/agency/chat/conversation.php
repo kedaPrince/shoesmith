@@ -393,22 +393,96 @@ $csrf_name = $this->security->get_csrf_token_name();
     opacity: 0.2;
 }
 
-/* ===== CHAT STYLES ===== */
-/* WhatsApp Message Styles */
-.message-bubble.sent {
-    background: #dcf8c6 !important;
-    margin-left: auto;
-    border-top-right-radius: 0px !important;
+/* ===== WHATSAPP MESSAGE STYLES - COMPACT FIX ===== */
+#chatMessages {
+    display: block !important;
+    flex-direction: column !important;
+    height: calc(74vh - 120px) !important;
+    overflow-y: auto !important;
+    flex-shrink: 0 !important;
+    padding: 8px 12px !important;
+    background-color: #e5ddd5 !important;
+    background-image: url('data:image/svg+xml,<svg width="100" height="100" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><path d="M11 18c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm48 25c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm-43-7c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm63 31c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM34 90c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm56-76c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM12 86c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm28-65c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm23-11c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-6 60c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm29 22c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zM32 63c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm57-13c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-9-21c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM60 91c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM35 41c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM12 60c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2z" fill="%2391a29e" fill-opacity="0.1" fill-rule="evenodd"/></svg>') !important;
 }
 
-.message-bubble.received {
-    background: #ffffff !important;
-    margin-right: auto;
-    border-top-left-radius: 0px !important;
+.message-wrapper {
+    display: flex !important;
+    margin-bottom: 8px !important;
+    clear: both !important;
+}
+
+.message-sent {
+    justify-content: flex-end !important;
+}
+
+.message-received {
+    justify-content: flex-start !important;
+}
+
+.message-content {
+    max-width: 65% !important;
+    padding: 6px 9px 4px 9px !important;
+    border-radius: 7.5px !important;
+    box-shadow: 0 1px 0.5px rgba(0, 0, 0, 0.13) !important;
+    position: relative !important;
+    word-wrap: break-word !important;
+    word-break: break-word !important;
+    display: inline-block !important;
+}
+
+.message-sent .message-content {
+    background-color: #dcf8c6 !important;
+    border-radius: 7.5px 0 7.5px 7.5px !important;
+}
+
+.message-received .message-content {
+    background-color: #ffffff !important;
+    border-radius: 0 7.5px 7.5px 7.5px !important;
+}
+
+.message-text-wrapper {
+    display: inline !important;
+    line-height: 1.28 !important;
 }
 
 .message-text {
+    font-size: 14.2px !important;
+    color: #111b21 !important;
+    line-height: 19px !important;
     font-family: 'Segoe UI', 'Helvetica Neue', sans-serif !important;
+    word-wrap: break-word !important;
+    white-space: inherit;
+    text-align: left !important;
+    display: inline !important;
+    margin-right: 8px !important;
+}
+
+.message-meta {
+    display: inline-flex !important;
+    align-items: center !important;
+    vertical-align: bottom !important;
+    height: 15px !important;
+    margin-left: 4px !important;
+}
+
+.message-time {
+    font-size: 11px !important;
+    color: #667781 !important;
+    white-space: nowrap !important;
+    display: inline-block !important;
+    line-height: 15px !important;
+}
+
+.message-status {
+    display: inline-flex !important;
+    align-items: center !important;
+    margin-left: 4px !important;
+    height: 15px !important;
+}
+
+.message-status i {
+    font-size: 10px !important;
+    line-height: 15px !important;
 }
 
 /* WhatsApp-style Conversation Badges */
@@ -520,14 +594,6 @@ $csrf_name = $this->security->get_csrf_token_name();
 }
 
 /* Chat Container Styles */
-#chatMessages {
-    display: block !important;
-    flex-direction: column !important;
-    height: calc(74vh - 120px) !important;
-    overflow-y: auto !important;
-    flex-shrink: 0 !important;
-}
-
 #main-content {
     overflow: hidden !important;
 }
@@ -628,7 +694,7 @@ $csrf_name = $this->security->get_csrf_token_name();
         flex: 0 0 100%;
     }
 
-    .message-bubble {
+    .message-content {
         max-width: 85% !important;
     }
 
@@ -1671,20 +1737,7 @@ $csrf_name = $this->security->get_csrf_token_name();
 
             <!-- Main Chat Area -->
             <div class="col-md-8 col-lg-9"
-                style="background-color: #e5ddd5; display: flex; flex-direction: column; height: 100%; background-image: url('data:image/svg+xml,%3Csvg width=\"
-                100\" height=\"100\" viewBox=\"0 0 100 100\" xmlns=\"http://www.w3.org/2000/svg\"%3E%3Cpath d=\"M11
-                18c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm48 25c3.866 0 7-3.134 7-7s-3.134-7-7-7-7
-                3.134-7 7 3.134 7 7 7zm-43-7c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm63 31c1.657 0
-                3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM34 90c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3
-                1.343 3 3 3zm56-76c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM12 86c2.21 0 4-1.79
-                4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm28-65c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4
-                4zm23-11c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-6 60c2.21 0 4-1.79 4-4s-1.79-4-4-4-4
-                1.79-4 4 1.79 4 4 4zm29 22c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zM32 63c2.76 0 5-2.24
-                5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm57-13c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5
-                5zm-9-21c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM60 91c1.105 0 2-.895 2-2s-.895-2-2-2-2
-                .895-2 2 .895 2 2 2zM35 41c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM12 60c1.105 0 2-.895
-                2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2z\' fill=\"%2391a29e\" fill-opacity=\"0.1\"
-                fill-rule=\"evenodd\"/%3E%3C/svg%3E');">
+                style="background-color: #e5ddd5; display: flex; flex-direction: column; height: 100%;">
 
                 <?php if (isset($conversation)): ?>
                 <div class="d-flex" style="flex: 1; overflow: hidden;">
@@ -1723,53 +1776,51 @@ $csrf_name = $this->security->get_csrf_token_name();
                             </div>
                         </div>
 
-                        <!-- Messages Area - WhatsApp Style -->
-                        <div class="flex-grow-1 overflow-auto p-2" id="chatMessages"
-                            style="display: block; padding: 8px 12px; position: relative; height: calc(74vh - 120px); overflow-y: auto;">
+                        <!-- Messages Area - WhatsApp Style - COMPACT FIXED -->
+                        <div id="chatMessages">
                             <?php if (!empty($messages)): ?>
-                            <?php foreach ($messages as $message): ?>
-                            <div
-                                class="d-flex <?php echo $message->sender_type == 'agency' ? 'justify-content-end' : 'justify-content-start'; ?> mb-2">
-                                <div class="message-container" style="max-width: 70%;">
-                                    <div
-                                        class="message-content d-flex align-items-baseline <?php echo $message->sender_type == 'agency' ? 'justify-content-end' : 'justify-content-start'; ?>">
-                                        <div class="message-text-time d-inline-flex align-items-baseline" style="background-color: <?php echo $message->sender_type == 'agency' ? '#dcf8c6' : '#ffffff'; ?>; 
-                                        padding: 8px 12px; 
-                                        border-radius: 7.5px;
-                                        box-shadow: 0 1px 0.5px rgba(0,0,0,0.13);">
-                                            <span class="message-text"
-                                                style="font-size: 14.2px; color: #303030; line-height: 1.3; margin-right: 8px; font-family: 'Segoe UI', 'Helvetica Neue', sans-serif;">
-                                                <?php echo nl2br(htmlspecialchars($message->message)); ?>
+                            <div id="messagesContainer">
+                                <?php foreach ($messages as $message): ?>
+                                <div
+                                    class="message-wrapper <?php echo $message->sender_type == 'agency' ? 'message-sent' : 'message-received'; ?>">
+                                    <div class="message-content">
+                                        <span class="message-text-wrapper">
+                                            <span class="message-text">
+                                                <?php 
+                                                if (strpos($message->message, '<a ') !== false && strpos($message->message, 'target="_blank"') !== false) {
+                                                    echo $message->message;
+                                                } else {
+                                                    echo nl2br(htmlspecialchars($message->message));
+                                                }
+                                                ?>
                                             </span>
-                                            <span class="message-meta d-inline-flex align-items-center">
-                                                <small class="message-time"
-                                                    style="font-size: 11px; color: #667781; white-space: nowrap;">
-                                                    <?php echo date('g:i A', strtotime($message->created_at)); ?>
-                                                </small>
+                                            <span class="message-meta">
+                                                <span class="message-time">
+                                                    <?php echo date('h:i A', strtotime($message->created_at)); ?>
+                                                </span>
                                                 <?php if ($message->sender_type == 'agency'): ?>
-                                                <span class="message-status" style="margin-left: 4px;">
-                                                    <i class="fa fa-check<?php echo $message->is_read ? '-double' : ''; ?>"
-                                                        style="font-size: 10px; color: <?php echo $message->is_read ? '#128C7E' : '#667781'; ?>;"></i>
+                                                <span class="message-status">
+                                                    <i
+                                                        class="fa fa-check<?php echo $message->is_read ? '-double' : ''; ?>"></i>
                                                 </span>
                                                 <?php endif; ?>
                                             </span>
-                                        </div>
+                                        </span>
                                     </div>
                                 </div>
+                                <?php endforeach; ?>
                             </div>
-                            <?php endforeach; ?>
                             <?php else: ?>
-                            <div class="text-center text-muted d-flex align-items-center justify-content-center h-100"
-                                style="font-size: 1rem;">
-                                <div>
-                                    <i class="fa fa-comments fa-2x mb-2" style="color: #128C7E;"></i>
-                                    <p style="margin: 0;">No messages yet. Start the conversation!</p>
+                            <div class="no-messages"
+                                style="display: flex; align-items: center; justify-content: center; height: 100%;">
+                                <div class="text-center" style="color: #667781;">
+                                    <i class="fa fa-comments fa-3x mb-3" style="color: #128C7E;"></i>
+                                    <p style="font-size: 1rem; margin: 0;">No messages yet. Start the conversation!</p>
                                 </div>
                             </div>
                             <?php endif; ?>
                         </div>
 
-                        <!-- Message Input -->
                         <!-- Message Input -->
                         <div class="border-top p-2"
                             style="border-color: #e0e0e0; background-color: #f0f0f0; height: 60px; flex-shrink: 0; min-height: 60px;">
@@ -1977,87 +2028,111 @@ function scrollToBottom() {
 
 function escapeHtml(text) {
     if (!text) return '';
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
+    const map = {
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#039;'
+    };
+    return text.replace(/[&<>"']/g, function(m) {
+        return map[m];
+    });
+}
+
+function renderMessageContent(content) {
+    // Check if content has HTML tags for document links
+    if (content.includes('<a ') && content.includes('target="_blank"')) {
+        // Create a temporary div to parse the HTML
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = content;
+
+        // Get all links and make sure they're safe
+        const links = tempDiv.querySelectorAll('a');
+        links.forEach(link => {
+            // Ensure links are safe (only allow target="_blank" and basic attributes)
+            const href = link.getAttribute('href');
+            if (href && href.startsWith('http')) {
+                // Make sure it opens in new tab
+                link.setAttribute('target', '_blank');
+                link.setAttribute('rel', 'noopener noreferrer');
+            }
+        });
+
+        return tempDiv.innerHTML;
+    }
+
+    // For regular text, escape HTML and preserve line breaks
+    const escaped = escapeHtml(content);
+    return escaped.replace(/\n/g, '<br>');
 }
 
 // ===== MESSAGE DISPLAY FUNCTIONS =====
 function createMessageElement(message, isAgency = false) {
-    const messageDiv = document.createElement('div');
-    messageDiv.className = `d-flex ${isAgency ? 'justify-content-end' : 'justify-content-start'} mb-2`;
-    messageDiv.dataset.messageId = message.id;
+    const messageWrapper = document.createElement('div');
+    messageWrapper.className = `message-wrapper ${isAgency ? 'message-sent' : 'message-received'}`;
+    messageWrapper.dataset.messageId = message.id;
 
-    const senderName = isAgency ? 'You' : (message.sender_name || 'Recruiter');
-    const bgColor = isAgency ? '#dcf8c6' : '#ffffff';
-    const borderRadius = isAgency ? '7.5px 7.5px 0 7.5px' : '7.5px 7.5px 7.5px 0';
-
-    // Format time
     const messageTime = new Date(message.created_at);
     const timeString = messageTime.toLocaleTimeString([], {
         hour: '2-digit',
         minute: '2-digit'
     });
 
-    messageDiv.innerHTML = `
-        <div class="message-container" style="max-width: 70%;">
-            <div class="message-content d-flex align-items-baseline ${isAgency ? 'justify-content-end' : 'justify-content-start'}">
-                <div class="message-text-time d-inline-flex align-items-baseline" 
-                     style="background-color: ${bgColor}; 
-                            padding: 8px 12px; 
-                            border-radius: ${borderRadius};
-                            box-shadow: 0 1px 0.5px rgba(0,0,0,0.13);">
-                    <span class="message-text" style="font-size: 14.2px; color: #303030; line-height: 1.3; margin-right: 8px;">
-                        ${escapeHtml(message.message)}
+    const renderedContent = renderMessageContent(message.message || '');
+
+    messageWrapper.innerHTML = `
+        <div class="message-content">
+            <span class="message-text-wrapper">
+                <span class="message-text">
+                    ${renderedContent}
+                </span>
+                <span class="message-meta">
+                    <span class="message-time">
+                        ${timeString}
                     </span>
-                    <span class="message-meta d-inline-flex align-items-center">
-                        <small class="message-time" style="font-size: 11px; color: #667781; white-space: nowrap;">
-                            ${timeString}
-                        </small>
-                        ${isAgency ? `
-                            <span class="message-status" style="margin-left: 4px;">
-                                <i class="fa fa-check${message.is_read ? '-double' : ''}" 
-                                   style="font-size: 10px; color: ${message.is_read ? '#128C7E' : '#667781'};"></i>
-                            </span>
-                        ` : ''}
-                    </span>
-                </div>
-            </div>
+                    ${isAgency ? `
+                        <span class="message-status">
+                            <i class="fa fa-check${message.is_read ? '-double' : ''}"></i>
+                        </span>
+                    ` : ''}
+                </span>
+            </span>
         </div>
     `;
 
-    return messageDiv;
+    return messageWrapper;
 }
 
 function addMessageToDisplay(message, isAgency = false) {
     const chatMessages = document.getElementById('chatMessages');
     if (!chatMessages) return;
 
-    // Check if message already displayed
     if (chatState.displayedMessageIds.has(parseInt(message.id))) {
         return;
     }
 
-    // Create message wrapper
-    const messageWrapper = document.createElement('div');
-    messageWrapper.className = `d-flex ${isAgency ? 'justify-content-end' : 'justify-content-start'} mb-2`;
-    messageWrapper.style.flexShrink = '0';
-    messageWrapper.dataset.messageId = message.id;
+    // Check if there's a messages container, if not create one
+    let messagesContainer = document.getElementById('messagesContainer');
+    if (!messagesContainer) {
+        // Remove the "no messages" content
+        const noMessages = chatMessages.querySelector('.no-messages');
+        if (noMessages) noMessages.remove();
 
-    // Create message element
+        // Create container
+        messagesContainer = document.createElement('div');
+        messagesContainer.id = 'messagesContainer';
+        chatMessages.appendChild(messagesContainer);
+    }
+
     const messageElement = createMessageElement(message, isAgency);
-    messageWrapper.appendChild(messageElement);
-
-    // Add to chat messages
-    chatMessages.appendChild(messageWrapper);
+    messagesContainer.appendChild(messageElement);
     chatState.displayedMessageIds.add(parseInt(message.id));
 
-    // Update last message ID
     if (parseInt(message.id) > chatState.lastMessageId) {
         chatState.lastMessageId = parseInt(message.id);
     }
 
-    // Scroll to bottom for new messages
     scrollToBottom();
 }
 
