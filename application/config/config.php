@@ -203,7 +203,18 @@ $config['charset'] = 'UTF-8';
   | setting this variable to TRUE (boolean).  See the user guide for details.
   |
  */
-$config['enable_hooks'] = FALSE;
+// application/config/config.php
+$config['enable_hooks'] = TRUE;
+
+$config['hooks'] = array(
+    array(
+        'class'    => 'ForceJsonForAjax',
+        'function' => 'post_controller_constructor',
+        'filename' => 'ForceJsonForAjax.php',
+        'filepath' => 'hooks',
+        'params'   => array()
+    ),
+);
 
 /*
   |--------------------------------------------------------------------------
@@ -556,6 +567,13 @@ $config['csrf_exclude_uris'] = array();
 // Also important for AJAX
 $config['csrf_redirect'] = FALSE; // Don't redirect on CSRF failure
 $config['allowed_types'] = '*';
+
+// If you add file uploads, ensure:
+$config['upload_path'] = './uploads/chat/';
+$config['allowed_types'] = 'jpg|jpeg|png|gif|pdf|doc|docx';
+$config['max_size'] = 5120; // 5MB max
+$config['encrypt_name'] = TRUE; // Randomize filenames
+$config['remove_spaces'] = TRUE;
 /*
   |--------------------------------------------------------------------------
   | Output Compression

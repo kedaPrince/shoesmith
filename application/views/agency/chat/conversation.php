@@ -1,4 +1,10 @@
-<?php defined('BASEPATH') || exit('No direct script access allowed'); ?>
+<?php 
+defined('BASEPATH') || exit('No direct script access allowed');
+
+// ===== CSRF FIX: Store token once to prevent multiple different tokens =====
+$csrf_token = $this->security->get_csrf_hash();
+$csrf_name = $this->security->get_csrf_token_name();
+?>
 <style>
 /* ===== DARK THEME COLOR SCHEME ===== */
 :root {
@@ -1159,6 +1165,10 @@
 }
 </style>
 <div id="main-content">
+    <div id="csrf-container" style="display: none;">
+        <input type="hidden" name="<?php echo $csrf_name; ?>" id="csrf_rfid_token" value="<?php echo $csrf_token; ?>">
+        <meta name="csrf-token" content="<?php echo $csrf_token; ?>">
+    </div>
     <!-- Cosmic Chat Header - Dark Theme -->
     <div class="cosmic-chat-header">
         <div class="cosmic-container">
@@ -1760,6 +1770,7 @@
                         </div>
 
                         <!-- Message Input -->
+                        <!-- Message Input -->
                         <div class="border-top p-2"
                             style="border-color: #e0e0e0; background-color: #f0f0f0; height: 60px; flex-shrink: 0; min-height: 60px;">
                             <form id="messageForm" class="h-100" onsubmit="return false;">
@@ -1792,6 +1803,10 @@
                                 <input type="hidden" id="conversationUuid"
                                     value="<?php echo isset($conversation) ? $conversation->uuid : ''; ?>">
 
+                                <!-- ADD THIS: CSRF TOKEN -->
+                                <input type="hidden" name="<?php echo $csrf_name; ?>"
+                                    value="<?php echo $csrf_token; ?>">
+
                             </form>
                         </div>
                     </div>
@@ -1815,13 +1830,9 @@
 
 
 <script>
-// Add this at the beginning of your JavaScript
-console.log('CSRF Token Name:', '<?php echo $csrf_token["name"] ?? "csrf_rfid_token"; ?>');
-console.log('CSRF Token Value:', '<?php echo $csrf_token["hash"] ?? ""; ?>');
-
 // ===== CSRF TOKEN MANAGEMENT =====
-let currentCsrfToken = '<?php echo isset($csrf_token["hash"]) ? $csrf_token["hash"] : ""; ?>';
-const csrfTokenName = '<?php echo isset($csrf_token["name"]) ? $csrf_token["name"] : "csrf_rfid_token"; ?>';
+let currentCsrfToken = '<?php echo $csrf_token; ?>';
+const csrfTokenName = '<?php echo $csrf_name; ?>';
 
 // ===== GLOBAL STATE =====
 let chatState = {
@@ -1835,16 +1846,123 @@ let chatState = {
     activePolling: true
 };
 
-// Initialize displayed message IDs from existing messages
-function initializeDisplayedMessages() {
-    const existingMessages = document.querySelectorAll('#chatMessages [data-message-id]');
-    existingMessages.forEach(msg => {
-        const msgId = msg.dataset.messageId;
-        if (msgId && !msgId.startsWith('temp_')) {
-            chatState.displayedMessageIds.add(parseInt(msgId));
+// ===== CSRF HELPER FUNCTIONS =====
+
+// Get fresh CSRF token from page
+function getFreshCsrfToken() {
+    // Check hidden input
+    const csrfInput = document.querySelector('input[name="csrf_rfid_token"]');
+    if (csrfInput && csrfInput.value && csrfInput.value.length > 10) {
+        return csrfInput.value;
+    }
+
+    // Check meta tag
+    const metaToken = document.querySelector('meta[name="csrf-token"]');
+    if (metaToken && metaToken.content && metaToken.content.length > 10) {
+        return metaToken.content;
+    }
+
+    // Check JavaScript variable
+    if (typeof currentCsrfToken !== 'undefined' && currentCsrfToken && currentCsrfToken.length > 10) {
+        return currentCsrfToken;
+    }
+
+    console.error('No valid CSRF token found on page');
+    return null;
+}
+
+// Update CSRF token on page
+function updateCsrfTokenOnPage(newToken) {
+    if (!newToken || newToken.length < 10) {
+        console.error('Invalid CSRF token received for update');
+        return false;
+    }
+
+    console.log(`Updated CSRF token to: ${newToken.substring(0, 10)}...`);
+
+    // Update hidden input
+    const csrfInput = document.querySelector('input[name="csrf_rfid_token"]');
+    if (csrfInput) {
+        csrfInput.value = newToken;
+    }
+
+    // Update meta tag
+    const metaToken = document.querySelector('meta[name="csrf-token"]');
+    if (metaToken) {
+        metaToken.content = newToken;
+    }
+
+    // Update JavaScript variables
+    window.latestCsrfToken = newToken;
+    if (typeof currentCsrfToken !== 'undefined') {
+        currentCsrfToken = newToken;
+    }
+
+    return true;
+}
+
+// ===== AJAX HELPER FUNCTION (EXACTLY LIKE RECRUITER) =====
+async function makeAjaxRequest(endpoint, data = {}) {
+    console.log(`Making AJAX request to: ${endpoint}`);
+
+    // Use the correct URL pattern - CHANGED TO AGENCY
+    const baseUrl = window.location.origin + '/shoesmith/agency/chat/';
+    let fullUrl = baseUrl + endpoint;
+
+    console.log(`Full URL: ${fullUrl}`);
+
+    // Get CSRF token (still include it for consistency)
+    const csrfToken = document.querySelector('input[name="csrf_rfid_token"]')?.value;
+
+    // Build query string for GET request (EXACTLY LIKE RECRUITER)
+    const params = new URLSearchParams();
+
+    // Add CSRF token if available
+    if (csrfToken) {
+        params.append('csrf_rfid_token', csrfToken);
+    }
+
+    // Add other data
+    Object.keys(data).forEach(key => {
+        if (data[key] !== null && data[key] !== undefined) {
+            params.append(key, data[key]);
         }
     });
-    console.log(`Agency: Initialized ${chatState.displayedMessageIds.size} displayed messages`);
+
+    // Append query string to URL
+    const queryString = params.toString();
+    if (queryString) {
+        fullUrl += '?' + queryString;
+    }
+
+    try {
+        // Use GET method (EXACTLY LIKE RECRUITER)
+        const response = await fetch(fullUrl, {
+            method: 'GET',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'Accept': 'application/json'
+            }
+        });
+
+        const result = await response.json();
+
+        // Update CSRF token if provided (even though we use GET)
+        if (result.csrf_token) {
+            document.querySelectorAll('input[name="csrf_rfid_token"]').forEach(input => {
+                input.value = result.csrf_token;
+            });
+        }
+
+        return result;
+
+    } catch (error) {
+        console.error('Request failed:', error);
+        return {
+            success: false,
+            message: 'Network error: ' + error.message
+        };
+    }
 }
 
 // ===== UTILITY FUNCTIONS =====
@@ -1862,101 +1980,6 @@ function escapeHtml(text) {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
-}
-
-function getTimeAgo(timestamp) {
-    const now = new Date();
-    const messageTime = new Date(timestamp);
-    const diffMs = now - messageTime;
-    const diffMins = Math.floor(diffMs / 60000);
-    const diffHours = Math.floor(diffMs / 3600000);
-    const diffDays = Math.floor(diffMs / 86400000);
-
-    if (diffMins < 1) return 'Just now';
-    if (diffMins < 60) return `${diffMins}m`;
-    if (diffHours < 24) return `${diffHours}h`;
-    if (diffDays < 7) return `${diffDays}d`;
-    return messageTime.toLocaleDateString();
-}
-
-// ===== AJAX HELPER FUNCTION FOR AGENCY =====
-async function makeAjaxRequest(endpoint, data = {}) {
-    // Build URL from current path (like recruiter side)
-    let fullUrl = endpoint;
-
-    // Get current page path
-    const currentPath = window.location.pathname;
-
-    if (currentPath.includes('/conversation/')) {
-        // Extract base path (agency/chat)
-        const basePath = currentPath.substring(0, currentPath.indexOf('/conversation/'));
-        fullUrl = basePath + '/' + endpoint.replace(/^\//, '');
-    } else {
-        // For other pages, use current directory
-        const basePath = window.location.pathname.replace(/\/[^\/]*$/, '');
-        fullUrl = basePath + '/' + endpoint.replace(/^\//, '');
-    }
-
-    fullUrl = window.location.origin + fullUrl;
-
-    console.log(`Agency AJAX request to: ${fullUrl}`);
-
-    // Use the latest CSRF token
-    const csrfTokenName = 'csrf_rfid_token';
-    let csrfTokenValue = window.latestCsrfToken || currentCsrfToken;
-
-    // If no token available yet, use the initial one
-    if (!csrfTokenValue) {
-        csrfTokenValue = '<?php echo isset($csrf_token["hash"]) ? $csrf_token["hash"] : ""; ?>';
-    }
-
-    // Create FormData
-    const formData = new FormData();
-
-    // ADD CSRF TOKEN
-    formData.append(csrfTokenName, csrfTokenValue);
-
-    // Add other data
-    Object.keys(data).forEach(key => {
-        if (data[key] !== null && data[key] !== undefined) {
-            formData.append(key, data[key]);
-        }
-    });
-
-    try {
-        const response = await fetch(fullUrl, {
-            method: 'POST',
-            body: formData,
-            headers: {
-                'X-RequestedWith': 'XMLHttpRequest'
-            },
-            credentials: 'same-origin'
-        });
-
-        // Check response status
-        if (!response.ok) {
-            console.error(`HTTP error ${response.status}`);
-            throw new Error(`HTTP error ${response.status}`);
-        }
-
-        // Parse response
-        const result = await response.json();
-
-        // Update CSRF token if server sent a new one
-        if (result && result.csrf_token) {
-            window.latestCsrfToken = result.csrf_token;
-            console.log('Agency: Updated CSRF token from server');
-        }
-
-        return result;
-
-    } catch (error) {
-        console.error('Agency AJAX request failed:', error);
-        return {
-            success: false,
-            message: error.message
-        };
-    }
 }
 
 // ===== MESSAGE DISPLAY FUNCTIONS =====
@@ -2038,87 +2061,13 @@ function addMessageToDisplay(message, isAgency = false) {
     scrollToBottom();
 }
 
-// ===== POLLING FUNCTIONS =====
-async function fetchNewMessages() {
-    if (chatState.isPolling || !chatState.currentConversationUuid || !chatState.activePolling) {
-        return;
-    }
-
-    chatState.isPolling = true;
-
-    try {
-        const response = await makeAjaxRequest('ajax_get_messages', {
-            conversation_uuid: chatState.currentConversationUuid,
-            last_message_id: chatState.lastMessageId
-        });
-
-        console.log("Agency poll response:", response);
-
-        if (response.success && response.messages) {
-            // Process new messages
-            response.messages.forEach(message => {
-                const isAgency = message.sender_type === 'agency';
-                addMessageToDisplay(message, isAgency);
-            });
-
-            // Update last message ID if we got new messages
-            if (response.messages.length > 0) {
-                const lastMsg = response.messages[response.messages.length - 1];
-                chatState.lastMessageId = parseInt(lastMsg.id);
-            }
-        } else if (response.success && response.html) {
-            // Backward compatibility: parse HTML if messages not in JSON format
-            const temp = document.createElement('div');
-            temp.innerHTML = response.html;
-            const newMessages = Array.from(temp.querySelectorAll('[data-message-id]'));
-
-            newMessages.forEach(msgElement => {
-                const msgId = msgElement.dataset.messageId;
-                if (!chatState.displayedMessageIds.has(parseInt(msgId))) {
-                    chatMessages.appendChild(msgElement);
-                    chatState.displayedMessageIds.add(parseInt(msgId));
-
-                    if (parseInt(msgId) > chatState.lastMessageId) {
-                        chatState.lastMessageId = parseInt(msgId);
-                    }
-                }
-            });
-
-            if (newMessages.length > 0) {
-                scrollToBottom();
-            }
-        }
-
-    } catch (error) {
-        console.error("Agency poll fetch error:", error);
-    } finally {
-        chatState.isPolling = false;
-    }
-}
-
-async function fetchUpdatedConversations() {
-    if (!chatState.activePolling) return;
-
-    try {
-        const response = await makeAjaxRequest('ajax_get_conversations', {});
-
-        if (response.success && response.conversations) {
-            updateSidebarConversationBadges(response.conversations);
-            if (response.total_unread_count !== undefined) {
-                updateAllNotificationBadges(response.total_unread_count);
-            }
-        }
-    } catch (error) {
-        console.error("Agency conversations fetch error:", error);
-    }
-}
-
 // ===== MESSAGE SENDING =====
 async function sendMessage() {
     const messageInput = document.getElementById('messageInput');
     const messageText = messageInput.value.trim();
+    const conversationUuid = document.getElementById('conversationUuid').value;
 
-    if (!messageText || chatState.isSending || !chatState.currentConversationUuid) {
+    if (!messageText || chatState.isSending || !conversationUuid) {
         return;
     }
 
@@ -2140,12 +2089,13 @@ async function sendMessage() {
     messageInput.focus();
 
     try {
+        // Send via GET (EXACTLY LIKE RECRUITER)
         const response = await makeAjaxRequest('ajax_send_message', {
-            conversation_uuid: chatState.currentConversationUuid,
+            conversation_uuid: conversationUuid,
             message: messageText
         });
 
-        console.log("Agency send response:", response);
+        console.log("Send response:", response);
 
         if (response.success) {
             // Remove temp message
@@ -2169,10 +2119,15 @@ async function sendMessage() {
                 }
             }
 
+            // Update CSRF token if provided
+            if (response.csrf_token) {
+                updateCsrfTokenOnPage(response.csrf_token);
+            }
+
             // Refresh conversations
             setTimeout(fetchUpdatedConversations, 500);
 
-            console.log("Agency: Message sent successfully");
+            console.log("Message sent successfully");
         } else {
             // Handle error - remove optimistic message
             const tempMsg = document.querySelector(`[data-message-id="temp_${tempId}"]`);
@@ -2181,12 +2136,12 @@ async function sendMessage() {
             // Restore message to input
             messageInput.value = messageText;
 
-            console.error("Agency send error:", response.message);
+            console.error("Send error:", response.message);
             alert(response.message || "Failed to send message");
         }
 
     } catch (error) {
-        console.error("Agency send fetch error:", error);
+        console.error("Send fetch error:", error);
 
         // Remove optimistic message
         const tempMsg = document.querySelector(`[data-message-id="temp_${tempId}"]`);
@@ -2195,9 +2150,70 @@ async function sendMessage() {
         // Restore message to input
         messageInput.value = messageText;
 
-        alert("Network error. Please try again.");
+        alert("Network error. Please check your connection and try again.");
     } finally {
         chatState.isSending = false;
+    }
+}
+
+// ===== POLLING FUNCTIONS =====
+async function fetchNewMessages() {
+    if (chatState.isPolling || !chatState.currentConversationUuid || !chatState.activePolling) {
+        return;
+    }
+
+    chatState.isPolling = true;
+
+    try {
+        const response = await makeAjaxRequest('ajax_get_messages', {
+            conversation_uuid: chatState.currentConversationUuid,
+            last_message_id: chatState.lastMessageId
+        });
+
+        console.log("Poll response:", response);
+
+        if (response.success && response.messages) {
+            // Process new messages
+            response.messages.forEach(message => {
+                const isAgency = message.sender_type === 'agency';
+                addMessageToDisplay(message, isAgency);
+            });
+
+            // Update last message ID if we got new messages
+            if (response.messages.length > 0) {
+                const lastMsg = response.messages[response.messages.length - 1];
+                chatState.lastMessageId = parseInt(lastMsg.id);
+            }
+        } else if (response.status === 404) {
+            console.log('Messages endpoint returned 404, stopping polling');
+            // Stop polling if endpoint doesn't exist
+            stopPolling();
+        }
+
+    } catch (error) {
+        console.error("Poll fetch error:", error);
+    } finally {
+        chatState.isPolling = false;
+    }
+}
+
+async function fetchUpdatedConversations() {
+    if (!chatState.activePolling) return;
+
+    try {
+        const response = await makeAjaxRequest('ajax_get_conversations', {});
+
+        if (response.success && response.conversations) {
+            updateSidebarConversationBadges(response.conversations);
+            if (response.total_unread_count !== undefined) {
+                updateAllNotificationBadges(response.total_unread_count);
+            }
+        } else if (response.status === 404) {
+            console.log('Conversations endpoint returned 404, stopping polling');
+            stopPolling();
+        }
+    } catch (error) {
+        console.error("Conversations fetch error:", error);
     }
 }
 
@@ -2284,6 +2300,52 @@ function updateSingleConversationBadge(conversationItem, convData) {
     }
 }
 
+// ===== HELPER FUNCTIONS =====
+function initializeDisplayedMessages() {
+    const existingMessages = document.querySelectorAll('#chatMessages [data-message-id]');
+    existingMessages.forEach(msg => {
+        const msgId = msg.dataset.messageId;
+        if (msgId && !msgId.startsWith('temp_')) {
+            chatState.displayedMessageIds.add(parseInt(msgId));
+        }
+    });
+    console.log(`Initialized ${chatState.displayedMessageIds.size} displayed messages`);
+}
+
+// ===== POLLING MANAGEMENT =====
+function startPolling() {
+    console.log("Starting polling...");
+
+    // Clear any existing intervals
+    if (chatState.pollInterval) clearInterval(chatState.pollInterval);
+    if (chatState.conversationInterval) clearInterval(chatState.conversationInterval);
+
+    // Message polling every 3 seconds
+    chatState.pollInterval = setInterval(fetchNewMessages, 3000);
+
+    // Conversation polling every 15 seconds
+    chatState.conversationInterval = setInterval(fetchUpdatedConversations, 15000);
+
+    // Initial fetches
+    setTimeout(fetchNewMessages, 500);
+    setTimeout(fetchUpdatedConversations, 1000);
+}
+
+function stopPolling() {
+    console.log("Stopping polling...");
+    chatState.activePolling = false;
+
+    if (chatState.pollInterval) {
+        clearInterval(chatState.pollInterval);
+        chatState.pollInterval = null;
+    }
+
+    if (chatState.conversationInterval) {
+        clearInterval(chatState.conversationInterval);
+        chatState.conversationInterval = null;
+    }
+}
+
 // ===== EVENT LISTENERS =====
 function setupEventListeners() {
     const messageForm = document.getElementById('messageForm');
@@ -2326,6 +2388,22 @@ function setupEventListeners() {
         tab.addEventListener('click', function() {
             const chatType = this.getAttribute('data-chat-type');
 
+            // Update active tab
+            chatTypeTabs.forEach(t => {
+                t.classList.remove('active');
+                t.style.background = '#2f3136';
+            });
+
+            // Set active tab styles
+            this.classList.add('active');
+            if (chatType === 'all') {
+                this.style.background = 'linear-gradient(135deg, #7289da, #5b6eae)';
+            } else if (chatType === 'candidate') {
+                this.style.background = 'linear-gradient(135deg, #8B5CF6, #7C3AED)';
+            } else if (chatType === 'general') {
+                this.style.background = 'linear-gradient(135deg, #10B981, #059669)';
+            }
+
             // Update URL with filter parameter
             const currentUrl = new URL(window.location.href);
             if (chatType === 'all') {
@@ -2360,51 +2438,27 @@ function setupEventListeners() {
     }
 }
 
-// ===== POLLING MANAGEMENT =====
-function startPolling() {
-    console.log("Agency: Starting polling...");
-
-    // Clear any existing intervals
-    if (chatState.pollInterval) clearInterval(chatState.pollInterval);
-    if (chatState.conversationInterval) clearInterval(chatState.conversationInterval);
-
-    // Message polling every 3 seconds
-    chatState.pollInterval = setInterval(fetchNewMessages, 3000);
-
-    // Conversation polling every 15 seconds
-    chatState.conversationInterval = setInterval(fetchUpdatedConversations, 15000);
-
-    // Initial fetches
-    setTimeout(fetchNewMessages, 500);
-    setTimeout(fetchUpdatedConversations, 1000);
-}
-
-function stopPolling() {
-    console.log("Agency: Stopping polling...");
-    chatState.activePolling = false;
-
-    if (chatState.pollInterval) {
-        clearInterval(chatState.pollInterval);
-        chatState.pollInterval = null;
-    }
-
-    if (chatState.conversationInterval) {
-        clearInterval(chatState.conversationInterval);
-        chatState.conversationInterval = null;
-    }
-}
-
 // ===== INITIALIZATION =====
 function initializeChatSystem() {
     console.log('=== AGENCY CHAT SYSTEM INITIALIZING ===');
+
+    // Verify CSRF token
+    const csrfToken = getFreshCsrfToken();
+    if (!csrfToken) {
+        console.error('Cannot initialize chat system: No CSRF token found!');
+        alert('Security token missing. Please refresh the page.');
+        return;
+    }
+
+    console.log('CSRF token verified, length:', csrfToken.length);
 
     // Get current conversation UUID
     const uuidField = document.getElementById('conversationUuid');
     if (uuidField && uuidField.value) {
         chatState.currentConversationUuid = uuidField.value;
-        console.log("Agency: Current conversation UUID:", chatState.currentConversationUuid);
+        console.log("Current conversation UUID:", chatState.currentConversationUuid);
     } else {
-        console.error("Agency: No conversation UUID found!");
+        console.error("No conversation UUID found!");
         return;
     }
 
@@ -2436,6 +2490,23 @@ document.addEventListener('visibilitychange', function() {
     }
 });
 
+// ===== MAIN INITIALIZATION =====
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('DOM Content Loaded - Initializing Chat System');
+
+    // Test CSRF token
+    setTimeout(() => {
+        const token = getFreshCsrfToken();
+        console.log('CSRF Token Status:', token ? 'Present' : 'Missing');
+        if (token) {
+            console.log('Token length:', token.length);
+        }
+    }, 500);
+
+    // Initialize chat system
+    setTimeout(initializeChatSystem, 1000);
+});
+
 // ===== TEST FUNCTION =====
 async function testAgencyAjax() {
     console.log('Testing Agency AJAX...');
@@ -2454,14 +2525,6 @@ async function testAgencyAjax() {
     }
 }
 
-// ===== MAIN INITIALIZATION =====
-document.addEventListener('DOMContentLoaded', function() {
-    console.log('Agency: DOM Content Loaded - Initializing Chat System');
-
-    // Run test after a delay
-    setTimeout(testAgencyAjax, 1000);
-
-    // Initialize chat system
-    setTimeout(initializeChatSystem, 500);
-});
+// Run test after a delay
+setTimeout(testAgencyAjax, 1500);
 </script>

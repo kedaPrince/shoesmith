@@ -1,4 +1,10 @@
-<?php defined('BASEPATH') || exit('No direct script access allowed'); ?>
+<?php 
+defined('BASEPATH') || exit('No direct script access allowed');
+
+// ===== CSRF FIX: Store token once to prevent multiple different tokens =====
+$csrf_token = $this->security->get_csrf_hash();
+$csrf_name = $this->security->get_csrf_token_name();
+?>
 <style>
 /* ===== DARK THEME COLOR SCHEME ===== */
 :root {
@@ -1347,9 +1353,220 @@
     text-overflow: ellipsis;
     white-space: nowrap;
 }
+
+/* ===== DOCUMENT UPLOAD STYLES ===== */
+.document-upload-wrapper {
+    position: relative;
+}
+
+.document-preview-item {
+    background: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    padding: 8px;
+    margin: 4px;
+    max-width: 200px;
+    position: relative;
+}
+
+.document-preview-item .document-icon {
+    font-size: 1.5rem;
+    color: #6c757d;
+    margin-right: 8px;
+}
+
+.document-preview-item .document-name {
+    font-size: 0.8rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 150px;
+}
+
+.document-preview-item .remove-document {
+    position: absolute;
+    top: -5px;
+    right: -5px;
+    background: #dc3545;
+    color: white;
+    border-radius: 50%;
+    width: 18px;
+    height: 18px;
+    font-size: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    border: 2px solid white;
+}
+
+.document-preview-item .remove-document:hover {
+    background: #c82333;
+}
+
+/* Document type colors */
+.document-pdf {
+    color: #e63946;
+}
+
+.document-doc {
+    color: #2a6f97;
+}
+
+.document-image {
+    color: #38b000;
+}
+
+.document-excel {
+    color: #2d6a4f;
+}
+
+.document-generic {
+    color: #6c757d;
+}
+
+/* Upload button animation */
+#documentUploadBtn.uploading {
+    animation: pulse 1.5s infinite;
+    color: #128C7E !important;
+}
+
+@keyframes pulse {
+    0% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0.7;
+    }
+
+    100% {
+        opacity: 1;
+    }
+}
+
+/* File size indicator */
+.file-size {
+    font-size: 0.7rem;
+    color: #6c757d;
+}
+
+/* Upload restrictions warning */
+.upload-warning {
+    font-size: 0.7rem;
+    color: #dc3545;
+    margin-top: 2px;
+}
+
+/* Document Upload Styles */
+.document-upload-wrapper {
+    position: relative;
+}
+
+.document-preview-item {
+    background: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    padding: 8px;
+    margin: 4px;
+    max-width: 200px;
+    position: relative;
+}
+
+.document-preview-item .document-icon {
+    font-size: 1.5rem;
+    color: #6c757d;
+    margin-right: 8px;
+}
+
+.document-preview-item .document-name {
+    font-size: 0.8rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 150px;
+}
+
+.document-preview-item .remove-document {
+    position: absolute;
+    top: -5px;
+    right: -5px;
+    background: #dc3545;
+    color: white;
+    border-radius: 50%;
+    width: 18px;
+    height: 18px;
+    font-size: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    border: 2px solid white;
+}
+
+.document-preview-item .remove-document:hover {
+    background: #c82333;
+}
+
+/* Document type colors */
+.document-pdf {
+    color: #e63946;
+}
+
+.document-doc {
+    color: #2a6f97;
+}
+
+.document-image {
+    color: #38b000;
+}
+
+.document-excel {
+    color: #2d6a4f;
+}
+
+.document-generic {
+    color: #6c757d;
+}
+
+/* Upload button animation */
+#documentUploadBtn.uploading {
+    animation: pulse 1.5s infinite;
+    color: #128C7E !important;
+}
+
+@keyframes pulse {
+    0% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0.7;
+    }
+
+    100% {
+        opacity: 1;
+    }
+}
+
+/* File size indicator */
+.file-size {
+    font-size: 0.7rem;
+    color: #6c757d;
+}
+
+/* Upload restrictions warning */
+.upload-warning {
+    font-size: 0.7rem;
+    color: #dc3545;
+    margin-top: 2px;
+}
 </style>
 <div id="main-content">
-
+    <div id="csrf-container" style="display: none;">
+        <input type="hidden" name="<?php echo $csrf_name; ?>" id="csrf_rfid_token" value="<?php echo $csrf_token; ?>">
+        <meta name="csrf-token" content="<?php echo $csrf_token; ?>">
+    </div>
     <!-- Cosmic Chat Header - Dark Theme -->
     <div class="cosmic-chat-header">
         <div class="cosmic-container">
@@ -1874,39 +2091,54 @@
                             <?php endif; ?>
                         </div>
 
-                        <!-- Message Input -->
+
+                        <!-- Message Input - Simplified -->
+                        <!-- Replace the entire message input section with this: -->
                         <div class="border-top p-2"
                             style="border-color: #e0e0e0; background-color: #f0f0f0; height: 60px; flex-shrink: 0; min-height: 60px;">
+                            <div class="d-flex h-100 align-items-center">
+                                <!-- Document Upload Button -->
+                                <button type="button" id="documentUploadBtn" class="btn btn-link"
+                                    style="color: #666; min-width: 40px;">
+                                    <i class="fa fa-paperclip fa-lg"></i>
+                                </button>
+                                <input type="file" id="fileInput" multiple style="display: none;">
 
-                            <form id="messageForm" class="h-100">
-
-                                <div class="input-group h-100"
-                                    style="background-color: #ffffff; border-radius: 20px; padding: 2px;">
-                                    <div class="input-group-prepend h-100">
-                                        <button type="button" class="btn btn-link h-100"
-                                            style="color: #54656f; padding: 0 12px; border: none;">
-                                            <i class="fa fa-smile"></i>
-                                        </button>
-                                    </div>
-                                    <input type="text" class="form-control h-100" id="messageInput"
-                                        placeholder="Type a message"
-                                        style="background-color: transparent; border: none; color: #3b4a54; font-size: 0.9rem; padding: 0 12px;"
-                                        autocomplete="off" required>
-                                    <div class="input-group-append h-100">
-                                        <button type="button" class="btn btn-link h-100"
-                                            style="color: #54656f; padding: 0 12px; border: none;">
-                                            <i class="fa fa-paperclip"></i>
-                                        </button>
-                                        <button type="submit" class="btn btn-link h-100"
-                                            style="color: #128C7E; padding: 0 12px; border: none;">
-                                            <i class="fa fa-paper-plane"></i>
-                                        </button>
-                                    </div>
+                                <!-- Message Input -->
+                                <div class="flex-grow-1 mx-2">
+                                    <textarea id="messageInput" class="form-control" rows="1"
+                                        placeholder="Type a message..."
+                                        style="border-radius: 20px; border: 1px solid #ddd; resize: none; min-height: 40px; max-height: 120px; padding: 10px 15px;"
+                                        onkeydown="if(event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); sendMessage(); }"></textarea>
                                 </div>
-                                <input type="hidden" id="conversationUuid"
-                                    value="<?php echo isset($conversation) ? $conversation->uuid : ''; ?>">
 
-                            </form>
+                                <!-- Send Button -->
+                                <button type="button" id="sendButton" class="btn btn-link"
+                                    style="color: #128C7E; min-width: 40px;" onclick="sendMessage()">
+                                    <i class="fa fa-paper-plane fa-lg"></i>
+                                </button>
+                            </div>
+
+                            <!-- Hidden CSRF fields -->
+                            <input type="hidden" name="<?php echo $csrf_name; ?>" value="<?php echo $csrf_token; ?>">
+                            <input type="hidden" id="conversationUuid"
+                                value="<?php echo isset($conversation) ? $conversation->uuid : ''; ?>">
+                            <input type="hidden" id="candidateId"
+                                value="<?php echo isset($candidate_details) ? $candidate_details->id : ''; ?>">
+
+                            <!-- Upload Progress -->
+                            <div id="uploadProgress" style="display: none; margin-top: 5px;">
+                                <div class="progress" style="height: 4px;">
+                                    <div class="progress-bar" role="progressbar" style="width: 0%;"></div>
+                                </div>
+                                <small class="text-muted" id="uploadStatus">Uploading...</small>
+                            </div>
+
+                            <!-- Document Preview -->
+                            <div id="documentPreview"
+                                style="display: none; margin-top: 5px; max-height: 100px; overflow-y: auto;">
+                                <div class="d-flex flex-wrap" id="previewFiles"></div>
+                            </div>
                         </div>
                     </div>
 
@@ -2251,16 +2483,11 @@
     </div>
 </div>
 
-
-
 <script>
-// Add this at the beginning of your JavaScript
-console.log('CSRF Token Name:', '<?php echo $csrf_token["name"] ?? "csrf_rfid_token"; ?>');
-console.log('CSRF Token Value:', '<?php echo $csrf_token["hash"] ?? ""; ?>');
-
 // ===== CSRF TOKEN MANAGEMENT =====
-let currentCsrfToken = '<?php echo isset($csrf_token["hash"]) ? $csrf_token["hash"] : ""; ?>';
-const csrfTokenName = '<?php echo isset($csrf_token["name"]) ? $csrf_token["name"] : "csrf_rfid_token"; ?>';
+// ===== CSRF TOKEN MANAGEMENT =====
+let currentCsrfToken = '<?php echo $csrf_token; ?>';
+const csrfTokenName = '<?php echo $csrf_name; ?>';
 
 // ===== GLOBAL STATE =====
 let chatState = {
@@ -2274,16 +2501,210 @@ let chatState = {
     activePolling: true
 };
 
-// Initialize displayed message IDs from existing messages
-function initializeDisplayedMessages() {
-    const existingMessages = document.querySelectorAll('#chatMessages [data-message-id]');
-    existingMessages.forEach(msg => {
-        const msgId = msg.dataset.messageId;
-        if (msgId && !msgId.startsWith('temp_')) {
-            chatState.displayedMessageIds.add(parseInt(msgId));
+let selectedFiles = [];
+let csrfRetryCount = 0;
+const MAX_CSRF_RETRIES = 2;
+
+// ===== CSRF HELPER FUNCTIONS =====
+
+// Get fresh CSRF token from page
+function getFreshCsrfToken() {
+    // Check hidden input
+    const csrfInput = document.querySelector('input[name="csrf_rfid_token"]');
+    if (csrfInput && csrfInput.value && csrfInput.value.length > 10) {
+        return csrfInput.value;
+    }
+
+    // Check meta tag
+    const metaToken = document.querySelector('meta[name="csrf-token"]');
+    if (metaToken && metaToken.content && metaToken.content.length > 10) {
+        return metaToken.content;
+    }
+
+    // Check JavaScript variable
+    if (typeof currentCsrfToken !== 'undefined' && currentCsrfToken && currentCsrfToken.length > 10) {
+        return currentCsrfToken;
+    }
+
+    console.error('No valid CSRF token found on page');
+    return null;
+}
+
+// Update CSRF token on page
+function updateCsrfTokenOnPage(newToken) {
+    if (!newToken || newToken.length < 10) {
+        console.error('Invalid CSRF token received for update');
+        return false;
+    }
+
+    console.log(`Updated CSRF token to: ${newToken.substring(0, 10)}...`);
+
+    // Update hidden input
+    const csrfInput = document.querySelector('input[name="csrf_rfid_token"]');
+    if (csrfInput) {
+        csrfInput.value = newToken;
+    }
+
+    // Update meta tag
+    const metaToken = document.querySelector('meta[name="csrf-token"]');
+    if (metaToken) {
+        metaToken.content = newToken;
+    }
+
+    // Update JavaScript variables
+    window.latestCsrfToken = newToken;
+    if (typeof currentCsrfToken !== 'undefined') {
+        currentCsrfToken = newToken;
+    }
+
+    return true;
+}
+
+async function makeRequestWithRetry(url, data, options, retryCount = 0) {
+    const MAX_RETRIES = 2; // Reduced for better UX
+
+    try {
+        // Get fresh CSRF token for each attempt
+        let csrfToken = getFreshCsrfToken();
+
+        // If no token or token looks expired, try to refresh
+        if (!csrfToken || csrfToken.length < 10) {
+            console.log('CSRF token missing or invalid, attempting to refresh...');
+            csrfToken = await refreshCsrfToken();
+
+            if (csrfToken) {
+                updateAllCsrfTokens(csrfToken);
+            } else {
+                console.error('Failed to refresh CSRF token');
+                return {
+                    success: false,
+                    message: 'Security token missing. Please refresh the page.',
+                    needs_refresh: true
+                };
+            }
         }
-    });
-    console.log(`Initialized ${chatState.displayedMessageIds.size} displayed messages`);
+
+        console.log(`Using CSRF token: ${csrfToken.substring(0, 10)}... (Attempt ${retryCount + 1})`);
+
+        // Create FormData
+        const formData = new FormData();
+        formData.append('csrf_rfid_token', csrfToken);
+
+        // Add other data
+        if (data && typeof data === 'object') {
+            Object.keys(data).forEach(key => {
+                if (data[key] !== null && data[key] !== undefined) {
+                    // Handle file uploads
+                    if (key === 'documents' && Array.isArray(data[key])) {
+                        data[key].forEach((file, index) => {
+                            if (file instanceof File) {
+                                formData.append('documents[]', file, file.name || `file_${index}`);
+                            }
+                        });
+                    } else {
+                        formData.append(key, data[key]);
+                    }
+                }
+            });
+        }
+
+        // Make the request
+        const response = await fetch(url, {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'Accept': 'application/json'
+            },
+            credentials: 'same-origin'
+        });
+
+        // Check response
+        const contentType = response.headers.get('content-type');
+        let result;
+
+        if (contentType && contentType.includes('application/json')) {
+            result = await response.json();
+        } else {
+            const text = await response.text();
+            console.error(`Server returned non-JSON (${response.status}):`, text.substring(0, 200));
+
+            // Handle different error statuses
+            if (response.status === 404) {
+                // Endpoint not found - try with different URL
+                result = {
+                    success: false,
+                    message: 'Endpoint not found. Please check the URL.',
+                    status: 404,
+                    needs_redirect: true
+                };
+            } else if (response.status === 403) {
+                // CSRF error
+                result = {
+                    success: false,
+                    message: 'CSRF token validation failed.',
+                    csrf_invalid: true,
+                    needs_retry: true,
+                    status: 403
+                };
+            } else {
+                // Other error
+                result = {
+                    success: false,
+                    message: `Server error (status: ${response.status})`,
+                    needs_refresh: true,
+                    status: response.status
+                };
+            }
+        }
+
+        // Always update CSRF token if provided in response
+        if (result && result.csrf_token) {
+            updateAllCsrfTokens(result.csrf_token);
+            console.log('Updated CSRF token from response');
+        }
+
+        // Check if we need to retry due to CSRF
+        if (!result.success && result.needs_retry && retryCount < MAX_RETRIES) {
+            console.log(`CSRF token expired, retrying... (${retryCount + 1}/${MAX_RETRIES})`);
+
+            // Wait before retry
+            await new Promise(resolve => setTimeout(resolve, 300));
+
+            // Try to get a fresh token before retry
+            const freshToken = await refreshCsrfToken();
+            if (freshToken) {
+                updateAllCsrfTokens(freshToken);
+                console.log('Got fresh CSRF token for retry');
+            }
+
+            // Update data with fresh token for retry
+            const newData = {
+                ...data
+            };
+            newData.csrf_rfid_token = getFreshCsrfToken();
+
+            // Retry with updated token
+            return await makeRequestWithRetry(url, newData, options, retryCount + 1);
+        }
+
+        return result;
+
+    } catch (error) {
+        console.error('Request failed:', error);
+
+        if (retryCount < MAX_RETRIES) {
+            console.log(`Network error, retrying... (${retryCount + 1}/${MAX_RETRIES})`);
+            await new Promise(resolve => setTimeout(resolve, 500));
+            return await makeRequestWithRetry(url, data, options, retryCount + 1);
+        }
+
+        return {
+            success: false,
+            message: `Network error: ${error.message}`,
+            error: error.toString()
+        };
+    }
 }
 
 // ===== UTILITY FUNCTIONS =====
@@ -2382,89 +2803,362 @@ function addMessageToDisplay(message, isRecruiter = false) {
     scrollToBottom();
 }
 
-async function makeAjaxRequest(url, data = {}, options = {}) {
-    // Get the current page's base URL
-    let fullUrl = url;
-    if (!url.startsWith('http')) {
-        const currentPath = window.location.pathname;
-        if (currentPath.includes('/conversation/')) {
-            // Extract base URL: remove everything after /conversation/
-            const basePath = currentPath.substring(0, currentPath.indexOf('/conversation/'));
-            fullUrl = basePath + '/' + url.replace(/^\//, '');
-        } else {
-            const basePath = window.location.pathname.replace(/\/[^\/]*$/, '');
-            fullUrl = basePath + '/' + url.replace(/^\//, '');
-        }
-        fullUrl = window.location.origin + fullUrl;
+// ===== DOCUMENT UPLOAD FUNCTIONS =====
+function initializeDocumentUpload() {
+    console.log('Initializing document upload...');
+
+    const uploadBtn = document.getElementById('documentUploadBtn');
+    const fileInput = document.getElementById('fileInput');
+
+    if (!uploadBtn || !fileInput) {
+        console.log('Missing required elements');
+        return;
     }
 
-    console.log(`Making AJAX request to: ${fullUrl}`);
+    console.log('Found upload button and file input');
 
-    // ALWAYS USE THE LATEST CSRF TOKEN
-    const csrfTokenName = 'csrf_rfid_token';
+    // Remove any existing listeners by cloning
+    const newUploadBtn = uploadBtn.cloneNode(true);
+    const newFileInput = fileInput.cloneNode(true);
 
-    // Check multiple sources for the latest token
-    let csrfTokenValue = window.latestCsrfToken ||
-        currentCsrfToken ||
-        '<?php echo isset($csrf_token["hash"]) ? $csrf_token["hash"] : ""; ?>';
+    uploadBtn.parentNode.replaceChild(newUploadBtn, uploadBtn);
+    fileInput.parentNode.replaceChild(newFileInput, fileInput);
 
-    console.log(
-        `Sending CSRF token: ${csrfTokenName} = ${csrfTokenValue ? csrfTokenValue.substring(0, 10) + '...' : 'EMPTY'}`
-    );
+    // Get fresh references
+    const freshUploadBtn = document.getElementById('documentUploadBtn');
+    const freshFileInput = document.getElementById('fileInput');
 
-    // Create FormData
-    const formData = new FormData();
+    // Add simple click handler
+    freshUploadBtn.addEventListener('click', function(e) {
+        console.log('Upload button clicked');
+        e.preventDefault();
+        e.stopPropagation();
 
-    // ADD CSRF TOKEN FIRST
-    formData.append(csrfTokenName, csrfTokenValue);
+        // Check if this is a candidate chat
+        const candidateId = document.getElementById('candidateId').value;
+        if (!candidateId) {
+            alert('Document upload is only available for candidate chats.');
+            return;
+        }
 
-    // Add other data
-    Object.keys(data).forEach(key => {
-        if (data[key] !== null && data[key] !== undefined) {
-            formData.append(key, data[key]);
+        // Open file dialog
+        freshFileInput.click();
+    });
+
+    // Handle file selection
+    freshFileInput.addEventListener('change', function(e) {
+        console.log('Files selected:', this.files.length);
+
+        if (this.files.length > 0) {
+            handleFileSelection(this.files);
         }
     });
 
-    // For debugging: log all form data
-    console.log('FormData contents:');
-    for (let pair of formData.entries()) {
-        console.log(pair[0] + ': ' + (pair[0] === csrfTokenName ? pair[1].substring(0, 10) + '...' : pair[1]));
+    console.log('Document upload initialized successfully');
+}
+
+function handleFileSelection(files) {
+    const maxSize = 10 * 1024 * 1024; // 10MB
+    const allowedTypes = ['application/pdf', 'application/msword',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'text/plain', 'image/jpeg', 'image/png', 'image/jpg',
+        'application/vnd.ms-excel',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    ];
+
+    for (let file of files) {
+        // Check file size
+        if (file.size > maxSize) {
+            alert(`File "${file.name}" is too large. Maximum size is 10MB.`);
+            continue;
+        }
+
+        // Check file type
+        if (!allowedTypes.includes(file.type) && !file.name.match(/\.(pdf|doc|docx|txt|jpg|jpeg|png|xls|xlsx)$/i)) {
+            alert(`File "${file.name}" is not an allowed type.`);
+            continue;
+        }
+
+        // Add to selected files if not already added
+        if (!selectedFiles.some(f => f.name === file.name && f.size === file.size)) {
+            selectedFiles.push(file);
+        }
     }
 
+    // Update preview
+    updateFilePreview();
+}
+
+function updateFilePreview() {
+    const previewArea = document.getElementById('documentPreview');
+    const previewFiles = document.getElementById('previewFiles');
+
+    if (!previewArea || !previewFiles) return;
+
+    if (selectedFiles.length === 0) {
+        previewArea.style.display = 'none';
+        return;
+    }
+
+    previewArea.style.display = 'block';
+    previewFiles.innerHTML = '';
+
+    selectedFiles.forEach((file, index) => {
+        const fileItem = createFilePreviewItem(file, index);
+        previewFiles.appendChild(fileItem);
+    });
+
+    // Add upload button
+    const uploadButton = document.createElement('button');
+    uploadButton.id = 'startUploadBtn';
+    uploadButton.className = 'btn btn-success btn-sm mt-2';
+    uploadButton.innerHTML = '<i class="fa fa-upload mr-1"></i> Upload Documents';
+    uploadButton.addEventListener('click', function() {
+        uploadDocuments();
+    });
+
+    previewFiles.appendChild(uploadButton);
+}
+
+function createFilePreviewItem(file, index) {
+    const div = document.createElement('div');
+    div.className = 'document-preview-item d-flex align-items-center';
+
+    // Get file icon based on type
+    const iconClass = getFileIconClass(file);
+
+    // Format file size
+    const fileSize = formatFileSize(file.size);
+
+    div.innerHTML = `
+        <div class="document-icon ${iconClass}">
+            <i class="fa ${getFileIcon(file)}"></i>
+        </div>
+        <div style="flex: 1; min-width: 0;">
+            <div class="document-name" title="${file.name}">${file.name}</div>
+            <div class="file-size">${fileSize}</div>
+        </div>
+        <div class="remove-document" data-index="${index}">
+            <i class="fa fa-times"></i>
+        </div>
+    `;
+
+    // Add remove event listener
+    div.querySelector('.remove-document').addEventListener('click', function() {
+        const idx = parseInt(this.getAttribute('data-index'));
+        selectedFiles.splice(idx, 1);
+        updateFilePreview();
+    });
+
+    return div;
+}
+
+function getFileIcon(file) {
+    if (file.type.includes('pdf')) return 'fa-file-pdf';
+    if (file.type.includes('word') || file.type.includes('document')) return 'fa-file-word';
+    if (file.type.includes('excel') || file.type.includes('spreadsheet')) return 'fa-file-excel';
+    if (file.type.includes('image')) return 'fa-file-image';
+    if (file.type.includes('text')) return 'fa-file-alt';
+    return 'fa-file';
+}
+
+function getFileIconClass(file) {
+    if (file.type.includes('pdf')) return 'document-pdf';
+    if (file.type.includes('word') || file.type.includes('document')) return 'document-doc';
+    if (file.type.includes('excel') || file.type.includes('spreadsheet')) return 'document-excel';
+    if (file.type.includes('image')) return 'document-image';
+    return 'document-generic';
+}
+
+function formatFileSize(bytes) {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+}
+
+async function uploadDocuments() {
+    if (selectedFiles.length === 0) return;
+
+    const conversationUuid = document.getElementById('conversationUuid').value;
+    const candidateId = document.getElementById('candidateId').value;
+
+    if (!conversationUuid) {
+        alert('No conversation selected');
+        return;
+    }
+
+    if (!candidateId) {
+        alert('This feature is only available for candidate chats');
+        return;
+    }
+
+    const uploadBtn = document.getElementById('documentUploadBtn');
+    const progressBar = document.querySelector('#uploadProgress .progress-bar');
+    const uploadStatus = document.getElementById('uploadStatus');
+    const uploadProgress = document.getElementById('uploadProgress');
+
     try {
-        const response = await fetch(fullUrl, {
-            method: 'POST',
-            body: formData,
-            headers: {
-                'X-RequestedWith': 'XMLHttpRequest'
-            },
-            credentials: 'same-origin'
+        // Show upload progress
+        uploadProgress.style.display = 'block';
+        uploadBtn.classList.add('uploading');
+        uploadBtn.disabled = true;
+        uploadStatus.textContent = 'Preparing upload...';
+
+        const response = await makeAjaxRequest('ajax_upload_documents', {
+            conversation_uuid: conversationUuid,
+            candidate_id: candidateId,
+            documents: selectedFiles
         });
 
-        // Check response status
-        if (!response.ok) {
-            console.error(`HTTP error ${response.status} for ${fullUrl}`);
-            throw new Error(`HTTP error ${response.status}`);
+        console.log('Upload response:', response);
+
+        if (response.success) {
+            // Success - send message about uploaded documents
+            const fileNames = selectedFiles.map(f => f.name).join(', ');
+            const message = `📎 Uploaded ${selectedFiles.length} document(s): ${fileNames}`;
+
+            // Send message about the upload
+            await sendDocumentMessage(message);
+
+            // Reset upload state
+            selectedFiles = [];
+            updateFilePreview();
+
+            // Show success message
+            uploadStatus.textContent = 'Upload complete!';
+            progressBar.style.width = '100%';
+            progressBar.classList.remove('progress-bar');
+            progressBar.classList.add('bg-success');
+
+            // Notify user in chat
+            addSystemMessage('✅ Documents uploaded successfully to candidate profile.');
+
+            // Update candidate documents in sidebar if available
+            if (response.documents && response.documents.length > 0) {
+                updateCandidateDocuments(response.documents);
+            }
+
+            console.log('✅ Upload successful!');
+
+        } else {
+            throw new Error(response.message || 'Upload failed');
         }
 
-        // Parse response
-        const result = await response.json();
-        console.log(`Response status: ${response.status} ${response.statusText}`);
-
-        // CRITICAL FIX: Always update the CSRF token from server response
-        if (result && result.csrf_token) {
-            window.latestCsrfToken = result.csrf_token;
-            currentCsrfToken = result.csrf_token;
-            console.log('Updated CSRF token from server:', result.csrf_token.substring(0, 10) + '...');
-        }
-
-        return result;
     } catch (error) {
-        console.error('AJAX request failed:', error);
-        return {
-            success: false,
-            message: error.message
-        };
+        console.error('❌ Upload error:', error);
+        uploadStatus.textContent = 'Upload failed: ' + error.message;
+        progressBar.style.width = '100%';
+        progressBar.classList.remove('progress-bar');
+        progressBar.classList.add('bg-danger');
+
+        // Show error to user
+        addSystemMessage(`❌ Upload failed: ${error.message}`);
+
+        // Reset after error
+        setTimeout(() => {
+            uploadProgress.style.display = 'none';
+            uploadBtn.classList.remove('uploading');
+            uploadBtn.disabled = false;
+            progressBar.classList.remove('bg-danger');
+            progressBar.classList.add('progress-bar');
+            progressBar.style.width = '0%';
+        }, 3000);
+    }
+}
+
+async function sendMessage() {
+    const messageInput = document.getElementById('messageInput');
+    const messageText = messageInput.value.trim();
+    const conversationUuid = document.getElementById('conversationUuid').value;
+
+    if (!messageText || chatState.isSending || !conversationUuid) {
+        return;
+    }
+
+    chatState.isSending = true;
+
+    // Show optimistic message
+    const tempId = Date.now();
+    const tempMessage = {
+        id: 'temp_' + tempId,
+        message: messageText,
+        created_at: new Date().toISOString(),
+        sender_type: 'recruiter',
+        is_read: false,
+        sender_name: 'You'
+    };
+
+    addMessageToDisplay(tempMessage, true);
+    messageInput.value = '';
+    messageInput.focus();
+
+    try {
+        // Send via GET (not POST)
+        const response = await makeAjaxRequest('ajax_send_message', {
+            conversation_uuid: conversationUuid,
+            message: messageText
+        });
+
+        console.log("Send response:", response);
+
+        if (response.success) {
+            // Remove temp message
+            const tempMsg = document.querySelector(`[data-message-id="temp_${tempId}"]`);
+            if (tempMsg) tempMsg.remove();
+
+            // Add real message if provided
+            if (response.message_id) {
+                const messageObj = {
+                    id: response.message_id,
+                    message: messageText,
+                    created_at: new Date().toISOString(),
+                    sender_type: 'recruiter',
+                    is_read: false,
+                    sender_name: 'You'
+                };
+                addMessageToDisplay(messageObj, true);
+
+                if (response.message_id > chatState.lastMessageId) {
+                    chatState.lastMessageId = parseInt(response.message_id);
+                }
+            }
+
+            // Update CSRF token if provided
+            if (response.csrf_token) {
+                updateAllCsrfTokens(response.csrf_token);
+            }
+
+            // Refresh conversations
+            setTimeout(fetchUpdatedConversations, 500);
+
+            console.log("Message sent successfully");
+        } else {
+            // Handle error - remove optimistic message
+            const tempMsg = document.querySelector(`[data-message-id="temp_${tempId}"]`);
+            if (tempMsg) tempMsg.remove();
+
+            // Restore message to input
+            messageInput.value = messageText;
+
+            console.error("Send error:", response.message);
+            alert(response.message || "Failed to send message");
+        }
+
+    } catch (error) {
+        console.error("Send fetch error:", error);
+
+        // Remove optimistic message
+        const tempMsg = document.querySelector(`[data-message-id="temp_${tempId}"]`);
+        if (tempMsg) tempMsg.remove();
+
+        // Restore message to input
+        messageInput.value = messageText;
+
+        alert("Network error. Please check your connection and try again.");
+    } finally {
+        chatState.isSending = false;
     }
 }
 
@@ -2496,6 +3190,10 @@ async function fetchNewMessages() {
                 const lastMsg = response.messages[response.messages.length - 1];
                 chatState.lastMessageId = parseInt(lastMsg.id);
             }
+        } else if (response.status === 404) {
+            console.log('Messages endpoint returned 404, stopping polling');
+            // Stop polling if endpoint doesn't exist
+            stopPolling();
         }
 
     } catch (error) {
@@ -2516,99 +3214,16 @@ async function fetchUpdatedConversations() {
             if (response.total_unread_count !== undefined) {
                 updateAllNotificationBadges(response.total_unread_count);
             }
+        } else if (response.status === 404) {
+            console.log('Conversations endpoint returned 404, stopping polling');
+            stopPolling();
         }
     } catch (error) {
         console.error("Conversations fetch error:", error);
     }
 }
 
-// ===== MESSAGE SENDING =====
-async function sendMessage() {
-    const messageInput = document.getElementById('messageInput');
-    const messageText = messageInput.value.trim();
 
-    if (!messageText || chatState.isSending || !chatState.currentConversationUuid) {
-        return;
-    }
-
-    chatState.isSending = true;
-
-    // Show optimistic message
-    const tempId = Date.now();
-    const tempMessage = {
-        id: 'temp_' + tempId,
-        message: messageText,
-        created_at: new Date().toISOString(),
-        sender_type: 'recruiter',
-        is_read: false,
-        sender_name: 'You'
-    };
-
-    addMessageToDisplay(tempMessage, true);
-    messageInput.value = '';
-    messageInput.focus();
-
-    try {
-        const response = await makeAjaxRequest('ajax_send_message', {
-            conversation_uuid: chatState.currentConversationUuid,
-            message: messageText
-        });
-
-        console.log("Send response:", response);
-
-        if (response.success) {
-            // Remove temp message
-            const tempMsg = document.querySelector(`[data-message-id="temp_${tempId}"]`);
-            if (tempMsg) tempMsg.remove();
-
-            // Add real message if provided
-            if (response.message_id) {
-                const messageObj = {
-                    id: response.message_id,
-                    message: messageText,
-                    created_at: new Date().toISOString(),
-                    sender_type: 'recruiter',
-                    is_read: false,
-                    sender_name: 'You'
-                };
-                addMessageToDisplay(messageObj, true);
-
-                if (response.message_id > chatState.lastMessageId) {
-                    chatState.lastMessageId = parseInt(response.message_id);
-                }
-            }
-
-            // Refresh conversations
-            setTimeout(fetchUpdatedConversations, 500);
-
-            console.log("Message sent successfully");
-        } else {
-            // Handle error - remove optimistic message
-            const tempMsg = document.querySelector(`[data-message-id="temp_${tempId}"]`);
-            if (tempMsg) tempMsg.remove();
-
-            // Restore message to input
-            messageInput.value = messageText;
-
-            console.error("Send error:", response.message);
-            alert(response.message || "Failed to send message");
-        }
-
-    } catch (error) {
-        console.error("Send fetch error:", error);
-
-        // Remove optimistic message
-        const tempMsg = document.querySelector(`[data-message-id="temp_${tempId}"]`);
-        if (tempMsg) tempMsg.remove();
-
-        // Restore message to input
-        messageInput.value = messageText;
-
-        alert("Network error. Please try again.");
-    } finally {
-        chatState.isSending = false;
-    }
-}
 
 // ===== SIDEBAR FUNCTIONS =====
 function updateAllNotificationBadges(totalUnreadCount) {
@@ -2690,6 +3305,114 @@ function updateSingleConversationBadge(conversationItem, convData) {
         }
 
         previewElement.innerHTML = previewText;
+    }
+}
+
+// ===== HELPER FUNCTIONS =====
+function initializeDisplayedMessages() {
+    const existingMessages = document.querySelectorAll('#chatMessages [data-message-id]');
+    existingMessages.forEach(msg => {
+        const msgId = msg.dataset.messageId;
+        if (msgId && !msgId.startsWith('temp_')) {
+            chatState.displayedMessageIds.add(parseInt(msgId));
+        }
+    });
+    console.log(`Initialized ${chatState.displayedMessageIds.size} displayed messages`);
+}
+
+async function sendDocumentMessage(message) {
+    const conversationUuid = document.getElementById('conversationUuid').value;
+
+    if (!message || !conversationUuid) return;
+
+    try {
+        const response = await makeAjaxRequest('ajax_send_message', {
+            conversation_uuid: conversationUuid,
+            message: message,
+            is_document_notification: true
+        });
+
+        if (response.success && response.message_id) {
+            // Add the message to display
+            const messageObj = {
+                id: response.message_id,
+                message: message,
+                created_at: new Date().toISOString(),
+                sender_type: 'recruiter',
+                is_read: false,
+                sender_name: 'You',
+                is_document: true
+            };
+
+            addMessageToDisplay(messageObj, true);
+
+            // Refresh conversations
+            setTimeout(fetchUpdatedConversations, 500);
+
+            console.log('✅ Document notification sent to chat');
+        } else {
+            console.error('Failed to send document message:', response.message);
+        }
+    } catch (error) {
+        console.error('Failed to send document message:', error);
+    }
+}
+
+function addSystemMessage(text) {
+    const chatMessages = document.getElementById('chatMessages');
+    if (!chatMessages) return;
+
+    const systemMsg = document.createElement('div');
+    systemMsg.className = 'text-center mb-2';
+    systemMsg.innerHTML = `
+        <span style="background: rgba(0, 0, 0, 0.1); color: #666; font-size: 0.8rem; 
+              padding: 4px 12px; border-radius: 12px; display: inline-block;">
+            <i class="fa fa-info-circle"></i> ${text}
+        </span>
+    `;
+
+    chatMessages.appendChild(systemMsg);
+    scrollToBottom();
+}
+
+function updateCandidateDocuments(documents) {
+    // Update the sidebar documents section if it exists
+    const documentsContainer = document.querySelector('.candidate-documents');
+    if (!documentsContainer) return;
+    console.log('New documents uploaded:', documents);
+}
+
+// ===== POLLING MANAGEMENT =====
+function startPolling() {
+    console.log("Starting polling...");
+
+    // Clear any existing intervals
+    if (chatState.pollInterval) clearInterval(chatState.pollInterval);
+    if (chatState.conversationInterval) clearInterval(chatState.conversationInterval);
+
+    // Message polling every 3 seconds
+    chatState.pollInterval = setInterval(fetchNewMessages, 3000);
+
+    // Conversation polling every 15 seconds
+    chatState.conversationInterval = setInterval(fetchUpdatedConversations, 15000);
+
+    // Initial fetches
+    setTimeout(fetchNewMessages, 500);
+    setTimeout(fetchUpdatedConversations, 1000);
+}
+
+function stopPolling() {
+    console.log("Stopping polling...");
+    chatState.activePolling = false;
+
+    if (chatState.pollInterval) {
+        clearInterval(chatState.pollInterval);
+        chatState.pollInterval = null;
+    }
+
+    if (chatState.conversationInterval) {
+        clearInterval(chatState.conversationInterval);
+        chatState.conversationInterval = null;
     }
 }
 
@@ -2785,43 +3508,19 @@ function setupEventListeners() {
     }
 }
 
-// ===== POLLING MANAGEMENT =====
-function startPolling() {
-    console.log("Starting polling...");
-
-    // Clear any existing intervals
-    if (chatState.pollInterval) clearInterval(chatState.pollInterval);
-    if (chatState.conversationInterval) clearInterval(chatState.conversationInterval);
-
-    // Message polling every 3 seconds
-    chatState.pollInterval = setInterval(fetchNewMessages, 3000);
-
-    // Conversation polling every 15 seconds
-    chatState.conversationInterval = setInterval(fetchUpdatedConversations, 15000);
-
-    // Initial fetches
-    setTimeout(fetchNewMessages, 500);
-    setTimeout(fetchUpdatedConversations, 1000);
-}
-
-function stopPolling() {
-    console.log("Stopping polling...");
-    chatState.activePolling = false;
-
-    if (chatState.pollInterval) {
-        clearInterval(chatState.pollInterval);
-        chatState.pollInterval = null;
-    }
-
-    if (chatState.conversationInterval) {
-        clearInterval(chatState.conversationInterval);
-        chatState.conversationInterval = null;
-    }
-}
-
 // ===== INITIALIZATION =====
 function initializeChatSystem() {
     console.log('=== RECRUITER CHAT SYSTEM INITIALIZING ===');
+
+    // Verify CSRF token
+    const csrfToken = getFreshCsrfToken();
+    if (!csrfToken) {
+        console.error('Cannot initialize chat system: No CSRF token found!');
+        alert('Security token missing. Please refresh the page.');
+        return;
+    }
+
+    console.log('CSRF token verified, length:', csrfToken.length);
 
     // Get current conversation UUID
     const uuidField = document.getElementById('conversationUuid');
@@ -2838,6 +3537,9 @@ function initializeChatSystem() {
 
     // Setup event listeners
     setupEventListeners();
+
+    // Initialize document upload
+    initializeDocumentUpload();
 
     // Wait for layout to settle, then scroll to bottom
     setTimeout(() => {
@@ -2864,6 +3566,561 @@ document.addEventListener('visibilitychange', function() {
 // ===== MAIN INITIALIZATION =====
 document.addEventListener('DOMContentLoaded', function() {
     console.log('DOM Content Loaded - Initializing Chat System');
-    setTimeout(initializeChatSystem, 500);
+
+    // Test CSRF token
+    setTimeout(() => {
+        const token = getFreshCsrfToken();
+        console.log('CSRF Token Status:', token ? 'Present' : 'Missing');
+        if (token) {
+            console.log('Token length:', token.length);
+        }
+    }, 500);
+
+    // Initialize chat system
+    setTimeout(initializeChatSystem, 1000);
+
 });
+
+// Add this function to update CSRF tokens globally
+function updateAllCsrfTokens(newToken) {
+    if (!newToken || newToken.length < 10) {
+        console.error('Invalid CSRF token received:', newToken);
+        return false;
+    }
+
+    console.log(`Updating CSRF token to: ${newToken.substring(0, 10)}...`);
+
+    // Update all forms on the page
+    document.querySelectorAll('input[name="csrf_rfid_token"]').forEach(input => {
+        input.value = newToken;
+    });
+
+    // Update meta tag
+    const metaToken = document.querySelector('meta[name="csrf-token"]');
+    if (metaToken) {
+        metaToken.content = newToken;
+    }
+
+    // Update JavaScript variable
+    if (typeof currentCsrfToken !== 'undefined') {
+        currentCsrfToken = newToken;
+    }
+
+    return true;
+}
+// Function to get truly fresh CSRF token from server
+async function refreshCsrfToken() {
+    try {
+        // Make a simple request to get fresh token
+        const response = await fetch(window.location.href, {
+            method: 'GET',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'Accept': 'application/json'
+            },
+            credentials: 'same-origin'
+        });
+
+        if (response.ok) {
+            // Parse the page to extract CSRF token
+            const html = await response.text();
+
+            // Extract from meta tag
+            const metaMatch = html.match(/<meta name="csrf-token" content="([^"]+)"/);
+            if (metaMatch && metaMatch[1]) {
+                return metaMatch[1];
+            }
+
+            // Extract from hidden input
+            const inputMatch = html.match(/<input[^>]*name="csrf_rfid_token"[^>]*value="([^"]+)"/);
+            if (inputMatch && inputMatch[1]) {
+                return inputMatch[1];
+            }
+        }
+
+        return null;
+    } catch (error) {
+        console.error('Error refreshing CSRF token:', error);
+        return null;
+    }
+}
+
+async function makeAjaxRequest(endpoint, data = {}) {
+    console.log(`Making AJAX request to: ${endpoint}`);
+
+    // Use the correct URL pattern
+    const baseUrl = window.location.origin + '/shoesmith/recruiter/chat/';
+    let fullUrl = baseUrl + endpoint;
+
+    console.log(`Full URL: ${fullUrl}`);
+
+    // Check if this is a file upload request
+    const hasFiles = data.documents && Array.isArray(data.documents) && data.documents.length > 0;
+
+    if (hasFiles) {
+        // Use FormData for file uploads
+        return makeFileUploadRequest(fullUrl, data);
+    } else {
+        // Use regular GET request for normal messages
+        return makeGetRequest(fullUrl, data);
+    }
+}
+
+async function makeFileUploadRequest(url, data) {
+    // Get CSRF token
+    const csrfToken = document.querySelector('input[name="csrf_rfid_token"]')?.value;
+
+    // Create FormData
+    const formData = new FormData();
+
+    // Add CSRF token
+    if (csrfToken) {
+        formData.append('csrf_rfid_token', csrfToken);
+    }
+
+    // Add other data
+    Object.keys(data).forEach(key => {
+        if (data[key] !== null && data[key] !== undefined) {
+            if (key === 'documents' && Array.isArray(data[key])) {
+                // Add each file
+                data[key].forEach((file, index) => {
+                    if (file instanceof File) {
+                        formData.append('documents[]', file, file.name || `file_${index}`);
+                    }
+                });
+            } else {
+                formData.append(key, data[key]);
+            }
+        }
+    });
+
+    try {
+        const response = await fetch(url, {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            credentials: 'same-origin'
+        });
+
+        const result = await response.json();
+
+        // Update CSRF token if provided
+        if (result.csrf_token) {
+            document.querySelectorAll('input[name="csrf_rfid_token"]').forEach(input => {
+                input.value = result.csrf_token;
+            });
+        }
+
+        return result;
+
+    } catch (error) {
+        console.error('File upload request failed:', error);
+        return {
+            success: false,
+            message: 'Network error: ' + error.message
+        };
+    }
+}
+
+async function makeGetRequest(url, data) {
+    // Get CSRF token
+    const csrfToken = document.querySelector('input[name="csrf_rfid_token"]')?.value;
+
+    // Build query string for GET request
+    const params = new URLSearchParams();
+
+    // Add CSRF token if available
+    if (csrfToken) {
+        params.append('csrf_rfid_token', csrfToken);
+    }
+
+    // Add other data
+    Object.keys(data).forEach(key => {
+        if (data[key] !== null && data[key] !== undefined && key !== 'documents') {
+            params.append(key, data[key]);
+        }
+    });
+
+    // Append query string to URL
+    const queryString = params.toString();
+    if (queryString) {
+        url += '?' + queryString;
+    }
+
+    try {
+        const response = await fetch(url, {
+            method: 'GET',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'Accept': 'application/json'
+            }
+        });
+
+        const result = await response.json();
+
+        // Update CSRF token if provided
+        if (result.csrf_token) {
+            document.querySelectorAll('input[name="csrf_rfid_token"]').forEach(input => {
+                input.value = result.csrf_token;
+            });
+        }
+
+        return result;
+
+    } catch (error) {
+        console.error('GET request failed:', error);
+        return {
+            success: false,
+            message: 'Network error: ' + error.message
+        };
+    }
+}
+
+// Debug function to test URLs
+function debugEndpoint(endpoint) {
+    const currentPath = window.location.pathname;
+    console.log('Current path:', currentPath);
+
+    // Different URL building strategies
+    const strategies = [
+        // Strategy 1: Direct from base
+        window.location.origin + '/shoesmith/recruiter/chat/' + endpoint,
+
+        // Strategy 2: From current conversation path
+        window.location.origin + currentPath.replace(/\/conversation\/[^\/]+$/, '') + '/' + endpoint,
+
+        // Strategy 3: Relative to current path
+        window.location.origin + currentPath + '/' + endpoint,
+
+        // Strategy 4: Full URL
+        window.location.origin + window.location.pathname.replace(/\/[^\/]*$/, '') + '/' + endpoint
+    ];
+
+    console.log('URL strategies:');
+    strategies.forEach((url, i) => {
+        console.log(`  ${i + 1}: ${url}`);
+    });
+
+    return strategies[0]; // Use first strategy as default
+}
+
+// ===== DOCUMENT UPLOAD FUNCTIONS =====
+
+
+function initializeDocumentUpload() {
+    console.log('Initializing document upload...');
+
+    const uploadBtn = document.getElementById('documentUploadBtn');
+    const fileInput = document.getElementById('fileInput');
+
+    if (!uploadBtn || !fileInput) {
+        console.log('Missing required elements');
+        return;
+    }
+
+    console.log('Found upload button and file input');
+
+    // Add click handler
+    uploadBtn.addEventListener('click', function(e) {
+        console.log('Upload button clicked');
+        e.preventDefault();
+        e.stopPropagation();
+
+        // Check if this is a candidate chat
+        const candidateId = document.getElementById('candidateId').value;
+        if (!candidateId) {
+            alert('Document upload is only available for candidate chats.');
+            return;
+        }
+
+        // Open file dialog
+        fileInput.click();
+    });
+
+    // Handle file selection
+    fileInput.addEventListener('change', function(e) {
+        console.log('Files selected:', this.files.length);
+
+        if (this.files.length > 0) {
+            handleFileSelection(this.files);
+        }
+    });
+
+    console.log('Document upload initialized successfully');
+}
+
+function handleFileSelection(files) {
+    const maxSize = 10 * 1024 * 1024; // 10MB
+    const allowedTypes = ['application/pdf', 'application/msword',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'text/plain', 'image/jpeg', 'image/png', 'image/jpg',
+        'application/vnd.ms-excel',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    ];
+
+    for (let file of files) {
+        // Check file size
+        if (file.size > maxSize) {
+            alert(`File "${file.name}" is too large. Maximum size is 10MB.`);
+            continue;
+        }
+
+        // Check file type
+        if (!allowedTypes.includes(file.type) && !file.name.match(/\.(pdf|doc|docx|txt|jpg|jpeg|png|xls|xlsx)$/i)) {
+            alert(`File "${file.name}" is not an allowed type.`);
+            continue;
+        }
+
+        // Add to selected files if not already added
+        if (!selectedFiles.some(f => f.name === file.name && f.size === file.size)) {
+            selectedFiles.push(file);
+        }
+    }
+
+    // Update preview
+    updateFilePreview();
+}
+
+function updateFilePreview() {
+    const previewArea = document.getElementById('documentPreview');
+    const previewFiles = document.getElementById('previewFiles');
+
+    if (!previewArea || !previewFiles) return;
+
+    if (selectedFiles.length === 0) {
+        previewArea.style.display = 'none';
+        return;
+    }
+
+    previewArea.style.display = 'block';
+    previewFiles.innerHTML = '';
+
+    selectedFiles.forEach((file, index) => {
+        const fileItem = createFilePreviewItem(file, index);
+        previewFiles.appendChild(fileItem);
+    });
+
+    // Add upload button
+    const uploadButton = document.createElement('button');
+    uploadButton.id = 'startUploadBtn';
+    uploadButton.className = 'btn btn-success btn-sm mt-2';
+    uploadButton.innerHTML = '<i class="fa fa-upload mr-1"></i> Upload Documents';
+    uploadButton.addEventListener('click', function() {
+        uploadDocuments();
+    });
+
+    previewFiles.appendChild(uploadButton);
+}
+
+function createFilePreviewItem(file, index) {
+    const div = document.createElement('div');
+    div.className = 'document-preview-item d-flex align-items-center';
+
+    // Get file icon based on type
+    const iconClass = getFileIconClass(file);
+
+    // Format file size
+    const fileSize = formatFileSize(file.size);
+
+    div.innerHTML = `
+        <div class="document-icon ${iconClass}">
+            <i class="fa ${getFileIcon(file)}"></i>
+        </div>
+        <div style="flex: 1; min-width: 0;">
+            <div class="document-name" title="${file.name}">${file.name}</div>
+            <div class="file-size">${fileSize}</div>
+        </div>
+        <div class="remove-document" data-index="${index}">
+            <i class="fa fa-times"></i>
+        </div>
+    `;
+
+    // Add remove event listener
+    div.querySelector('.remove-document').addEventListener('click', function() {
+        const idx = parseInt(this.getAttribute('data-index'));
+        selectedFiles.splice(idx, 1);
+        updateFilePreview();
+    });
+
+    return div;
+}
+
+function getFileIcon(file) {
+    if (file.type.includes('pdf')) return 'fa-file-pdf';
+    if (file.type.includes('word') || file.type.includes('document')) return 'fa-file-word';
+    if (file.type.includes('excel') || file.type.includes('spreadsheet')) return 'fa-file-excel';
+    if (file.type.includes('image')) return 'fa-file-image';
+    if (file.type.includes('text')) return 'fa-file-alt';
+    return 'fa-file';
+}
+
+function getFileIconClass(file) {
+    if (file.type.includes('pdf')) return 'document-pdf';
+    if (file.type.includes('word') || file.type.includes('document')) return 'document-doc';
+    if (file.type.includes('excel') || file.type.includes('spreadsheet')) return 'document-excel';
+    if (file.type.includes('image')) return 'document-image';
+    return 'document-generic';
+}
+
+function formatFileSize(bytes) {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+}
+
+async function uploadDocuments() {
+    if (selectedFiles.length === 0) return;
+
+    const conversationUuid = document.getElementById('conversationUuid').value;
+    const candidateId = document.getElementById('candidateId').value;
+
+    if (!conversationUuid) {
+        alert('No conversation selected');
+        return;
+    }
+
+    if (!candidateId) {
+        alert('This feature is only available for candidate chats');
+        return;
+    }
+
+    const uploadBtn = document.getElementById('documentUploadBtn');
+    const progressBar = document.querySelector('#uploadProgress .progress-bar');
+    const uploadStatus = document.getElementById('uploadStatus');
+    const uploadProgress = document.getElementById('uploadProgress');
+
+    try {
+        // Show upload progress
+        uploadProgress.style.display = 'block';
+        uploadBtn.classList.add('uploading');
+        uploadBtn.disabled = true;
+        uploadStatus.textContent = 'Preparing upload...';
+
+        const response = await makeAjaxRequest('ajax_upload_documents', {
+            conversation_uuid: conversationUuid,
+            candidate_id: candidateId,
+            documents: selectedFiles
+        });
+
+        console.log('Upload response:', response);
+
+        if (response.success) {
+            // Success - send message about uploaded documents
+            const fileNames = selectedFiles.map(f => f.name).join(', ');
+            const message = `📎 Uploaded ${selectedFiles.length} document(s): ${fileNames}`;
+
+            // Send message about the upload
+            await sendDocumentMessage(message);
+
+            // Reset upload state
+            selectedFiles = [];
+            updateFilePreview();
+
+            // Show success message
+            uploadStatus.textContent = 'Upload complete!';
+            progressBar.style.width = '100%';
+            progressBar.classList.remove('progress-bar');
+            progressBar.classList.add('bg-success');
+
+            // Notify user in chat
+            addSystemMessage('✅ Documents uploaded successfully to candidate profile.');
+
+            // Update candidate documents in sidebar if available
+            if (response.documents && response.documents.length > 0) {
+                updateCandidateDocuments(response.documents);
+            }
+
+            console.log('✅ Upload successful!');
+
+        } else {
+            throw new Error(response.message || 'Upload failed');
+        }
+
+    } catch (error) {
+        console.error('❌ Upload error:', error);
+        uploadStatus.textContent = 'Upload failed: ' + error.message;
+        progressBar.style.width = '100%';
+        progressBar.classList.remove('progress-bar');
+        progressBar.classList.add('bg-danger');
+
+        // Show error to user
+        addSystemMessage(`❌ Upload failed: ${error.message}`);
+
+        // Reset after error
+        setTimeout(() => {
+            uploadProgress.style.display = 'none';
+            uploadBtn.classList.remove('uploading');
+            uploadBtn.disabled = false;
+            progressBar.classList.remove('bg-danger');
+            progressBar.classList.add('progress-bar');
+            progressBar.style.width = '0%';
+        }, 3000);
+    }
+}
+
+async function sendDocumentMessage(message) {
+    const conversationUuid = document.getElementById('conversationUuid').value;
+
+    if (!message || !conversationUuid) return;
+
+    try {
+        const response = await makeAjaxRequest('ajax_send_message', {
+            conversation_uuid: conversationUuid,
+            message: message,
+            is_document_notification: true
+        });
+
+        if (response.success && response.message_id) {
+            // Add the message to display
+            const messageObj = {
+                id: response.message_id,
+                message: message,
+                created_at: new Date().toISOString(),
+                sender_type: 'recruiter',
+                is_read: false,
+                sender_name: 'You',
+                is_document: true
+            };
+
+            addMessageToDisplay(messageObj, true);
+
+            // Refresh conversations
+            setTimeout(fetchUpdatedConversations, 500);
+
+            console.log('✅ Document notification sent to chat');
+        } else {
+            console.error('Failed to send document message:', response.message);
+        }
+    } catch (error) {
+        console.error('Failed to send document message:', error);
+    }
+}
+
+function addSystemMessage(text) {
+    const chatMessages = document.getElementById('chatMessages');
+    if (!chatMessages) return;
+
+    const systemMsg = document.createElement('div');
+    systemMsg.className = 'text-center mb-2';
+    systemMsg.innerHTML = `
+        <span style="background: rgba(0, 0, 0, 0.1); color: #666; font-size: 0.8rem; 
+              padding: 4px 12px; border-radius: 12px; display: inline-block;">
+            <i class="fa fa-info-circle"></i> ${text}
+        </span>
+    `;
+
+    chatMessages.appendChild(systemMsg);
+    scrollToBottom();
+}
+
+function updateCandidateDocuments(documents) {
+    // Update the sidebar documents section if it exists
+    const documentsContainer = document.querySelector('.candidate-documents');
+    if (!documentsContainer) return;
+    console.log('New documents uploaded:', documents);
+}
 </script>

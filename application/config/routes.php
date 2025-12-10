@@ -44,7 +44,8 @@ $route['recruiter/chat/start_job_chat/(:any)'] = 'recruiter/chat/start_job_chat/
 
 // Also add this if you want the generic pattern
 $route['recruiter/chat/start_conversation/(:any)/(:any)'] = 'recruiter/chat/start_conversation/$1/$2';
-
+// In config/routes.php
+$route['recruiter/chat/ajax_upload_documents'] = 'recruiter/chat/ajax_upload_documents';
 
 // Add this too for any UUID format (more flexible)
 $route['agency/chat/conversation/([a-fA-F0-9\-]{36})'] = 'agency/chat/conversation/$1';

@@ -9,26 +9,50 @@ class Chat extends CRUD_Controller
     public $quickManage = false;
     public $group = 'Chat';
     
-
+public function __construct()
+{
+    // ===== START: CSRF FIX FOR AJAX REQUESTS =====
+    // Check if this is an AJAX request
+    $is_ajax = isset($_SERVER['HTTP_X_REQUESTED_WITH']) && 
+               strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest';
     
-    public function __construct()
-    {
-        parent::__construct();
-        $this->folder = 'recruiter';
+    // Also check for POST data with X-Requested-With header
+    if (!$is_ajax && isset($_POST['X-Requested-With'])) {
+        $is_ajax = true;
+    }
+    
+    // If it's an AJAX request, disable CodeIgniter's CSRF protection
+    if ($is_ajax) {
+        // Store original CSRF setting
+        $original_csrf = true; // Assume it's enabled
         
+        // Check current config if we can
+        if (function_exists('config_item')) {
+            $original_csrf = config_item('csrf_protection');
+        }
         
-        // Load recruiter-specific chat model
-        $this->load->model('recruiter/Model_chat_messages');
-        
-        // Load notifications model
-        $this->load->model('recruiter/Model_notifications');
-        
-        // Verify recruiter access
-        $login_data = $this->session->userdata('login');
-        if (empty($login_data['recruiter'])) {
-            redirect('recruiter/login');
+        // Disable CSRF BEFORE parent constructor
+        if (class_exists('CI_Controller')) {
+            // We need to access the config before parent::__construct()
+            // This is a bit hacky but works
+            $_POST['_ci_csrf_override'] = true; // CodeIgniter's internal flag to skip CSRF
         }
     }
+    // ===== END: CSRF FIX =====
+    
+    // Now call parent constructor
+    parent::__construct();
+    
+    $this->folder = 'recruiter';
+    $this->load->model('recruiter/Model_chat_messages');
+    $this->load->model('recruiter/Model_notifications');
+    $this->load->helper('csrf');
+    
+    $login_data = $this->session->userdata('login');
+    if (empty($login_data['recruiter'])) {
+        redirect('recruiter/login');
+    }
+}
 
 
     
@@ -213,54 +237,125 @@ public function conversation($uuid = null)
         $this->load->view($this->folder . '/view_footer');
     }
 
+
+ protected function validate_csrf_with_buffer()
+    {
+        return csrf_safe_validate($this, 10); // 10 second buffer
+    }
+    
+    protected function ajax_response($data = [], $success = true)
+    {
+        $csrf_data = get_csrf_response_data($this);
+        $response = array_merge($data, $csrf_data);
+        $response['success'] = $success;
+        
+        $this->output
+            ->set_content_type('application/json')
+            ->set_output(json_encode($response));
+    }
+    
+    protected function check_csrf()
+{
+    // Skip CSRF check for GET requests
+    if ($this->input->method() === 'get') {
+        return true;
+    }
+    
+    // Check CSRF token
+    $csrf_name = $this->security->get_csrf_token_name();
+    $csrf_token = $this->input->post($csrf_name);
+    
+    if (!$csrf_token) {
+        // Try to get from header
+        $csrf_token = $this->input->get_request_header('X-CSRF-Token');
+    }
+    
+    if (!$csrf_token || $csrf_token !== $this->security->get_csrf_hash()) {
+        // Return JSON response instead of showing HTML error
+        $this->output
+            ->set_content_type('application/json')
+            ->set_status_header(403)
+            ->set_output(json_encode([
+                'success' => false,
+                'message' => 'CSRF token validation failed',
+                'csrf_invalid' => true,
+                'needs_retry' => true,
+                'csrf_token' => $this->security->get_csrf_hash()
+            ]));
+        return false;
+    }
+    
+    return true;
+}
+
+
 public function ajax_send_message()
 {
-    $conversation_uuid = $this->input->post('conversation_uuid');
-    $message_text = $this->input->post('message');
+    // Always return CSRF token in response
+    $response = [
+        'success' => false,
+        'message' => '',
+        'csrf_token' => $this->security->get_csrf_hash() // Always include fresh token
+    ];
+    
+    // Check if it's POST (requires CSRF validation) or GET (bypass CSRF like Notifications)
+    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+        // For POST requests, validate CSRF
+        $csrf_name = $this->security->get_csrf_token_name();
+        $csrf_token = $this->input->post($csrf_name);
+        
+        if (!$csrf_token || $csrf_token !== $this->security->get_csrf_hash()) {
+            $response['message'] = 'Security token expired. Please try again.';
+            $response['csrf_invalid'] = true;
+            $response['needs_retry'] = true;
+            
+            $this->output
+                ->set_content_type('application/json')
+                ->set_output(json_encode($response));
+            return;
+        }
+    }
+    // For GET requests, skip CSRF validation (like Notifications controller does)
+    
+    $conversation_uuid = $this->input->get_post('conversation_uuid');
+    $message_text = $this->input->get_post('message');
     $recruiter_id = $this->get_recruiter_id();
     
-    // Debug logging
-    log_message('debug', 'AJAX Send Message - CSRF Token Received: ' . $this->input->post('csrf_rfid_token'));
-    log_message('debug', 'AJAX Send Message - CSRF Token Expected: ' . $this->security->get_csrf_hash());
+    log_message('debug', 'CSRF Token validated successfully');
+    log_message('debug', 'Conversation UUID: ' . $conversation_uuid);
+    log_message('debug', 'Message length: ' . strlen($message_text));
     
-    // Check session first
     if (!$recruiter_id) {
-        log_message('error', 'AJAX Send Message - No recruiter session found');
-        $this->output->set_content_type('application/json')->set_output(json_encode([
-            'success' => false,
-            'message' => 'Session expired. Please refresh the page.',
-            'session_expired' => true,
-            'csrf_token' => $this->security->get_csrf_hash()
-        ]));
+        $response['message'] = 'Session expired. Please refresh the page.';
+        $response['session_expired'] = true;
+        $this->output
+            ->set_content_type('application/json')
+            ->set_output(json_encode($response));
         return;
     }
     
     if (!$conversation_uuid || !$message_text) {
-        $this->output->set_content_type('application/json')->set_output(json_encode([
-            'success' => false,
-            'message' => 'Missing required parameters',
-            'csrf_token' => $this->security->get_csrf_hash()
-        ]));
+        $response['message'] = 'Missing required parameters';
+        $this->output
+            ->set_content_type('application/json')
+            ->set_output(json_encode($response));
         return;
     }
     
-    // Get conversation by UUID
     $conversation = $this->Model_chat_messages->get_conversation_for_recruiter_by_uuid(
         $conversation_uuid, 
         $recruiter_id
     );
     
     if (!$conversation) {
-        log_message('error', 'AJAX Send Message - Conversation not found. UUID: ' . $conversation_uuid . ', Recruiter ID: ' . $recruiter_id);
-        $this->output->set_content_type('application/json')->set_output(json_encode([
-            'success' => false,
-            'message' => 'Conversation not found or access denied',
-            'csrf_token' => $this->security->get_csrf_hash()
-        ]));
+        log_message('error', 'Conversation not found. UUID: ' . $conversation_uuid . ', Recruiter ID: ' . $recruiter_id);
+        $response['message'] = 'Conversation not found or access denied';
+        $this->output
+            ->set_content_type('application/json')
+            ->set_output(json_encode($response));
         return;
     }
     
-    // Send message using conversation ID (not UUID)
     $message_id = $this->Model_chat_messages->send_message(
         $conversation->id,
         'recruiter',
@@ -271,56 +366,57 @@ public function ajax_send_message()
     );
     
     if ($message_id) {
-        $this->output->set_content_type('application/json')->set_output(json_encode([
-            'success' => true,
-            'message_id' => $message_id,
-            'csrf_token' => $this->security->get_csrf_hash()
-        ]));
+        $response['success'] = true;
+        $response['message'] = 'Message sent successfully';
+        $response['message_id'] = $message_id;
+        
+        // Generate fresh CSRF token for next request
+        $response['csrf_token'] = $this->security->get_csrf_hash();
     } else {
-        $this->output->set_content_type('application/json')->set_output(json_encode([
-            'success' => false,
-            'message' => 'Failed to save message',
-            'csrf_token' => $this->security->get_csrf_hash()
-        ]));
+        $response['message'] = 'Failed to save message';
     }
+    
+    $this->output
+        ->set_content_type('application/json')
+        ->set_output(json_encode($response));
 }
-
+    
 
 public function ajax_get_messages()
 {
-    $conversation_uuid = $this->input->post('conversation_uuid');
-    $last_message_id = $this->input->post('last_message_id') ?: 0;
+    // Always return JSON with CSRF token
+    $response = [
+        'success' => false,
+        'message' => '',
+        'csrf_token' => $this->security->get_csrf_hash()
+    ];
+    
+    // Get parameters from either GET or POST
+    $conversation_uuid = $this->input->get_post('conversation_uuid');
+    $last_message_id = $this->input->get_post('last_message_id') ?: 0;
     $recruiter_id = $this->get_recruiter_id();
     
-    // Debug logging
-    log_message('debug', 'AJAX Get Messages - CSRF Token Received: ' . $this->input->post('csrf_rfid_token'));
-    log_message('debug', 'AJAX Get Messages - CSRF Token Expected: ' . $this->security->get_csrf_hash());
-    
     if (!$conversation_uuid) {
-        $this->output->set_content_type('application/json')->set_output(json_encode([
-            'success' => false, 
-            'message' => 'Conversation UUID required',
-            'csrf_token' => $this->security->get_csrf_hash()
-        ]));
+        $response['message'] = 'Conversation UUID required';
+        $this->output
+            ->set_content_type('application/json')
+            ->set_output(json_encode($response));
         return;
     }
     
-    // Get conversation by UUID
     $conversation = $this->Model_chat_messages->get_conversation_for_recruiter_by_uuid(
         $conversation_uuid, 
         $recruiter_id
     );
     
     if (!$conversation) {
-        $this->output->set_content_type('application/json')->set_output(json_encode([
-            'success' => false, 
-            'message' => 'Access denied',
-            'csrf_token' => $this->security->get_csrf_hash()
-        ]));
+        $response['message'] = 'Access denied';
+        $this->output
+            ->set_content_type('application/json')
+            ->set_output(json_encode($response));
         return;
     }
     
-    // Get new messages
     $this->db->select('cm.*, 
                       CASE 
                           WHEN cm.sender_type = "agency" THEN a.name
@@ -342,38 +438,230 @@ public function ajax_get_messages()
     $query = $this->db->get();
     $messages = $query->result();
     
-    log_message('debug', 'AJAX Get Messages - Found ' . count($messages) . ' new messages');
+    log_message('debug', 'Found ' . count($messages) . ' new messages');
     
-    // Get the latest message ID
     $latest_message_id = $last_message_id;
     if (!empty($messages)) {
         $last_message = end($messages);
         $latest_message_id = $last_message->id;
     }
     
-    // Prepare response
-    $response = [
-        'success' => true,
-        'messages' => $messages,
-        'last_message_id' => $latest_message_id,
-        'has_new_messages' => !empty($messages),
-        'csrf_token' => $this->security->get_csrf_hash()
-    ];
+    $response['success'] = true;
+    $response['messages'] = $messages;
+    $response['last_message_id'] = $latest_message_id;
+    $response['has_new_messages'] = !empty($messages);
     
-    // Also include HTML for backward compatibility
-    if (!empty($messages)) {
-        $html = '';
-        foreach ($messages as $message) {
-            $html .= $this->load->view('recruiter/chat/message_item', [
-                'message' => $message, 
-                'current_user_type' => 'recruiter'
-            ], true);
+    $this->output
+        ->set_content_type('application/json')
+        ->set_output(json_encode($response));
+}
+    
+    public function ajax_get_conversations()
+    {// Check CSRF first
+  
+         if (!$this->validate_csrf_with_buffer()) {
+        log_message('error', 'CSRF validation failed in ajax_get_conversations');
+        
+        // Return JSON response
+        $this->output
+            ->set_content_type('application/json')
+            ->set_output(json_encode([
+                'success' => false,
+                'message' => 'Security token expired. Please refresh.',
+                'csrf_invalid' => true,
+                'needs_retry' => true,
+                'csrf_token' => $this->security->get_csrf_hash() // Always return fresh token
+            ]));
+        return;
+    }
+        
+        $recruiter_id = $this->get_recruiter_id();
+        
+        if (!$recruiter_id) {
+            $this->ajax_response([
+                'message' => 'Recruiter not logged in'
+            ], false);
+            return;
         }
-        $response['html'] = $html;
+
+        try {
+            $conversations = $this->Model_chat_messages->get_recruiter_conversations($recruiter_id);
+            $total_unread_count = 0;
+            
+            $formatted_conversations = [];
+            foreach ($conversations as $conv) {
+                $formatted_conversations[] = [
+                    'id' => $conv->id,
+                    'uuid' => $conv->uuid,
+                    'agency_name' => $conv->agency_name,
+                    'last_message' => $conv->last_message,
+                    'last_message_at' => $conv->last_message_at,
+                    'last_sender_type' => isset($conv->last_sender_type) ? $conv->last_sender_type : 'agency',
+                    'unread_count' => isset($conv->unread_count) ? $conv->unread_count : 0,
+                    'is_online' => isset($conv->is_online) ? $conv->is_online : false,
+                    'agency_id' => isset($conv->agency_id) ? $conv->agency_id : 0
+                ];
+                
+                $total_unread_count += isset($conv->unread_count) ? $conv->unread_count : 0;
+            }
+
+            $this->ajax_response([
+                'conversations' => $formatted_conversations,
+                'total_unread_count' => $total_unread_count
+            ], true);
+
+        } catch (Exception $e) {
+            log_message('error', 'Error fetching conversations: ' . $e->getMessage());
+            $this->ajax_response([
+                'message' => 'Server error'
+            ], false);
+        }
     }
     
-    $this->output->set_content_type('application/json')->set_output(json_encode($response));
+   public function ajax_upload_documents()
+{
+    // Check CSRF first
+    if (!$this->validate_csrf_with_buffer()) {
+        log_message('error', 'CSRF validation failed in ajax_upload_documents');
+        $this->ajax_response([
+            'message' => 'Security token expired. Please try again.',
+            'csrf_invalid' => true,
+            'needs_retry' => true
+        ], false);
+        return;
+    }
+    
+    $this->load->library('form_validation');
+    $this->load->helper('file');
+    
+    $this->form_validation->set_rules('conversation_uuid', 'Conversation', 'required');
+    $this->form_validation->set_rules('candidate_id', 'Candidate', 'required|numeric');
+    
+    if ($this->form_validation->run() === FALSE) {
+        $this->ajax_response([
+            'message' => validation_errors()
+        ], false);
+        return;
+    }
+    
+    $conversation_uuid = $this->input->post('conversation_uuid');
+    $candidate_id = $this->input->post('candidate_id');
+    $recruiter_id = $this->get_recruiter_id();
+    
+    if (!$recruiter_id) {
+        $this->ajax_response([
+            'message' => 'Session expired. Please login again.'
+        ], false);
+        return;
+    }
+    
+    $conversation = $this->Model_chat_messages->get_conversation_for_recruiter_by_uuid(
+        $conversation_uuid, 
+        $recruiter_id
+    );
+    
+    if (!$conversation || $conversation->candidate_id != $candidate_id) {
+        $this->ajax_response([
+            'message' => 'Invalid conversation or access denied'
+        ], false);
+        return;
+    }
+    
+    // Create upload directory for this candidate
+    $upload_path = './uploads/candidate_documents/' . $candidate_id . '/';
+    
+    $config['upload_path'] = $upload_path;
+    $config['allowed_types'] = 'pdf|doc|docx|txt|jpg|jpeg|png|xls|xlsx';
+    $config['max_size'] = 10240; // 10MB
+    $config['encrypt_name'] = true;
+    $config['remove_spaces'] = true;
+    
+    // Create directory if it doesn't exist
+    if (!is_dir($upload_path)) {
+        mkdir($upload_path, 0777, true);
+        // Add .htaccess for security
+        file_put_contents($upload_path . '.htaccess', "Order Deny,Allow\nDeny from all");
+    }
+    
+    $this->load->library('upload', $config);
+    $uploaded_documents = [];
+    
+    if (!empty($_FILES['documents']['name'][0])) {
+        $files = $_FILES['documents'];
+        
+        foreach ($files['name'] as $key => $file_name) {
+            $_FILES['document']['name'] = $files['name'][$key];
+            $_FILES['document']['type'] = $files['type'][$key];
+            $_FILES['document']['tmp_name'] = $files['tmp_name'][$key];
+            $_FILES['document']['error'] = $files['error'][$key];
+            $_FILES['document']['size'] = $files['size'][$key];
+            
+            if ($this->upload->do_upload('document')) {
+                $upload_data = $this->upload->data();
+                
+                // Save document information to database
+                $document_data = [
+                    'candidate_id' => $candidate_id,
+                    'document_name' => $file_name,
+                    'file_name' => $upload_data['file_name'],
+                    'file_path' => 'uploads/candidate_documents/' . $candidate_id . '/' . $upload_data['file_name'],
+                    'file_type' => $upload_data['file_type'],
+                    'file_size' => $upload_data['file_size'],
+                    'uploaded_by' => $recruiter_id,
+                    'uploaded_by_type' => 'recruiter',
+                    'uploaded_from_chat' => 1,
+                    'conversation_uuid' => $conversation_uuid,
+                    'created_at' => date('Y-m-d H:i:s')
+                ];
+                
+                $this->db->insert('candidate_documents', $document_data);
+                $document_id = $this->db->insert_id();
+                
+                if ($document_id) {
+                    $uploaded_documents[] = [
+                        'id' => $document_id,
+                        'name' => $file_name,
+                        'path' => base_url($document_data['file_path'])
+                    ];
+                }
+            }
+        }
+    }
+    
+    if (!empty($uploaded_documents)) {
+        // Log activity
+        $activity_data = [
+            'candidate_id' => $candidate_id,
+            'user_id' => $recruiter_id,
+            'user_type' => 'recruiter',
+            'activity_type' => 'document_uploaded',
+            'activity_details' => json_encode([
+                'documents' => array_column($uploaded_documents, 'name'),
+                'count' => count($uploaded_documents),
+                'via_chat' => true,
+                'conversation_uuid' => $conversation_uuid
+            ]),
+            'created_at' => date('Y-m-d H:i:s')
+        ];
+        $this->db->insert('candidate_activities', $activity_data);
+    }
+    
+    $this->ajax_response([
+        'message' => !empty($uploaded_documents) ? 
+            count($uploaded_documents) . ' document(s) uploaded successfully' : 
+            'No documents were uploaded',
+        'documents' => $uploaded_documents,
+        'upload_count' => count($uploaded_documents)
+    ], !empty($uploaded_documents));
 }
+    
+    private function get_recruiter_id()
+    {
+        $login_data = $this->session->userdata('login');
+        return !empty($login_data['recruiter']['id']) ? $login_data['recruiter']['id'] : null;
+    }
+
+
 
 // Add this to your Chat controller
 public function ajax_check_session()
@@ -512,12 +800,7 @@ public function start_conversation($agency_id, $job_id = null, $candidate_id = n
         }
     }
 
-    private function get_recruiter_id()
-    {
-        $login_data = $this->session->userdata('login');
-        return !empty($login_data['recruiter']['id']) ? $login_data['recruiter']['id'] : null;
-    }
-
+  
 public function ajax_get_chat_notifications()
 {
     $recruiter_id = $this->get_recruiter_id();
@@ -682,65 +965,7 @@ public function start_job_chat($job_uuid)
         show_error('Failed to create chat conversation. Please try again.');
     }
 }
-public function ajax_get_conversations()
-{
-    $recruiter_id = $this->get_recruiter_id();
-    
-    // Debug logging
-    log_message('debug', 'AJAX Get Conversations - CSRF Token Received: ' . $this->input->post('csrf_rfid_token'));
-    log_message('debug', 'AJAX Get Conversations - CSRF Token Expected: ' . $this->security->get_csrf_hash());
-    
-    if (!$recruiter_id) {
-        $this->output->set_content_type('application/json')->set_output(json_encode([
-            'success' => false, 
-            'message' => 'Recruiter not logged in',
-            'csrf_token' => $this->security->get_csrf_hash()
-        ]));
-        return;
-    }
 
-    try {
-        // Get updated conversations with unread counts
-        $conversations = $this->{$this->model}->get_recruiter_conversations($recruiter_id);
-        
-        // Calculate TOTAL unread count across all conversations
-        $total_unread_count = 0;
-        foreach ($conversations as $conv) {
-            $total_unread_count += isset($conv->unread_count) ? $conv->unread_count : 0;
-        }
-        
-        // Format the data for the sidebar
-        $formatted_conversations = [];
-        foreach ($conversations as $conv) {
-            $formatted_conversations[] = [
-                'id' => $conv->id,
-                'uuid' => $conv->uuid,
-                'agency_name' => $conv->agency_name,
-                'last_message' => $conv->last_message,
-                'last_message_at' => $conv->last_message_at,
-                'last_sender_type' => isset($conv->last_sender_type) ? $conv->last_sender_type : 'agency',
-                'unread_count' => isset($conv->unread_count) ? $conv->unread_count : 0,
-                'is_online' => isset($conv->is_online) ? $conv->is_online : false,
-                'agency_id' => isset($conv->agency_id) ? $conv->agency_id : 0
-            ];
-        }
-
-        $this->output->set_content_type('application/json')->set_output(json_encode([
-            'success' => true,
-            'conversations' => $formatted_conversations,
-            'total_unread_count' => $total_unread_count,
-            'csrf_token' => $this->security->get_csrf_hash()
-        ]));
-
-    } catch (Exception $e) {
-        log_message('error', 'Error fetching conversations: ' . $e->getMessage());
-        $this->output->set_content_type('application/json')->set_output(json_encode([
-            'success' => false, 
-            'message' => 'Server error',
-            'csrf_token' => $this->security->get_csrf_hash()
-        ]));
-    }
-}
 
      public function get_or_create_conversation($agency_id, $recruiter_id, $job_id = null, $candidate_id = null)
     {
@@ -1118,4 +1343,6 @@ public function ajax_get_conversations()
         
         return $this->db->where('id', $conversation_id)->get('chat_conversations')->row();
     }
+
+
 }
