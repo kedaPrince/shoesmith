@@ -1591,7 +1591,7 @@ $csrf_name = $this->security->get_csrf_token_name();
                         <div class="list-group" style="background-color: transparent;">
                             <?php foreach ($filtered_conversations as $conv): ?>
                             <!-- Inside the conversation list in agency view -->
-                            <a href="<?php echo site_url('agency/chat/conversation/' .  $conv->uuid); ?>"
+                            <a href="<?php echo site_url('/agency/chat/conversation/' .  $conv->uuid); ?>"
                                 class="list-group-item list-group-item-action d-flex align-items-center conversation-item <?php echo (isset($conversation) && $conversation->uuid == $conv->uuid) ? 'active' : ''; ?>"
                                 style="border: none; border-radius: 8px; margin-bottom: 5px; padding: 10px 15px; transition: all 0.2s; <?= !empty($conv->candidate_id) ? 'border-left: 3px solid #8B5CF6 !important;' : 'border-left: 3px solid #10B981 !important;' ?>"
                                 data-conversation-id="<?php echo $conv->uuid; ?>">
@@ -1715,7 +1715,7 @@ $csrf_name = $this->security->get_csrf_token_name();
                                     </small>
                                 </div>
                                 <div class="d-flex flex-column ml-2" style="gap: 5px;">
-                                    <a href="<?php echo site_url('agency/chat/quick_start/' . $recruiter->id); ?>"
+                                    <a href="<?php echo site_url('/agency/chat/quick_start/' . $recruiter->id); ?>"
                                         class="btn btn-sm"
                                         style="background: linear-gradient(135deg, #10B981, #059669); color: white; border: none; padding: 4px 8px; border-radius: 6px; font-size: 0.7rem; width: 70px;">
                                         <i class="fa fa-comments"></i> General
@@ -1764,7 +1764,7 @@ $csrf_name = $this->security->get_csrf_token_name();
                             <div class="d-flex align-items-center gap-2">
                                 <?php if (!empty($conversation->candidate_id)): ?>
                                 <!-- Switch from Candidate to General -->
-                                <a href="<?php echo site_url('agency/chat/switch_to_general/' . $conversation->uuid . '/' . $conversation->recruiter_id); ?>"
+                                <a href="<?php echo site_url('/agency/chat/switch_to_general/' . $conversation->uuid . '/' . $conversation->recruiter_id); ?>"
                                     class="btn btn-sm"
                                     style="background: linear-gradient(135deg, #10B981, #059669); color: white; border: none; border-radius: 6px; padding: 5px 10px; font-size: 0.7rem; display: flex; align-items: center; gap: 5px; text-decoration: none;">
                                     <i class="fa fa-exchange-alt"></i> Switch to General
@@ -1957,7 +1957,7 @@ async function makeAjaxRequest(endpoint, data = {}) {
     console.log(`Making AJAX request to: ${endpoint}`);
 
     // Use the correct URL pattern - CHANGED TO AGENCY
-    const baseUrl = window.location.origin + '/agency/chat/';
+    const baseUrl = window.location.origin + '/shoesmith/agency/chat/';
     let fullUrl = baseUrl + endpoint;
 
     console.log(`Full URL: ${fullUrl}`);

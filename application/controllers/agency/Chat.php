@@ -87,7 +87,7 @@ class Chat extends CRUD_Controller
         $available_recruiters = $this->{$this->model}->get_available_recruiters($agency_id);
         
         if (!empty($conversations)) {
-            redirect('agency/chat/conversation/' . $conversations[0]->uuid);
+            redirect('/agency/chat/conversation/' . $conversations[0]->uuid);
             return;
         }
         
@@ -98,7 +98,7 @@ class Chat extends CRUD_Controller
             );
             
             if ($conversation) {
-                redirect('agency/chat/conversation/' . $conversation->uuid);
+                redirect('/agency/chat/conversation/' . $conversation->uuid);
                 return;
             }
         }

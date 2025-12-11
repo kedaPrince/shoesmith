@@ -3030,7 +3030,7 @@ function initializeDocumentUpload() {
                 formData.append('csrf_rfid_token', csrfToken);
 
                 const uploadResponse = await fetch(window.location.origin +
-                    '/recruiter/chat/ajax_upload_documents', {
+                    '/shoesmith/recruiter/chat/ajax_upload_documents', {
                         method: 'POST',
                         body: formData
                     });
@@ -3059,7 +3059,7 @@ function initializeDocumentUpload() {
                 // Use GET method (this works!)
                 const encodedMessage = encodeURIComponent(chatMessage);
                 const messageUrl =
-                    `${window.location.origin}/recruiter/chat/ajax_send_message?conversation_uuid=${encodeURIComponent(conversationUuid)}&message=${encodedMessage}&csrf_rfid_token=${encodeURIComponent(uploadResult.csrf_token || csrfToken)}&is_document_notification=true`;
+                    `${window.location.origin}/shoesmith/recruiter/chat/ajax_send_message?conversation_uuid=${encodeURIComponent(conversationUuid)}&message=${encodedMessage}&csrf_rfid_token=${encodeURIComponent(uploadResult.csrf_token || csrfToken)}&is_document_notification=true`;
 
                 console.log('Sending chat message via GET...');
                 const messageResponse = await fetch(messageUrl, {
@@ -3647,7 +3647,7 @@ async function makeAjaxRequest(endpoint, data = {}) {
     console.log(`Making AJAX request to: ${endpoint}`);
 
     // Use the correct URL pattern
-    const baseUrl = window.location.origin + '/recruiter/chat/';
+    const baseUrl = window.location.origin + '/shoesmith/recruiter/chat/';
     let fullUrl = baseUrl + endpoint;
 
     console.log(`Full URL: ${fullUrl}`);
@@ -3784,7 +3784,7 @@ function debugEndpoint(endpoint) {
     // Different URL building strategies
     const strategies = [
         // Strategy 1: Direct from base
-        window.location.origin + '/recruiter/chat/' + endpoint,
+        window.location.origin + '/shoesmith/recruiter/chat/' + endpoint,
 
         // Strategy 2: From current conversation path
         window.location.origin + currentPath.replace(/\/conversation\/[^\/]+$/, '') + '/' + endpoint,

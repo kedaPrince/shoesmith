@@ -1683,7 +1683,7 @@ public function ajax_get_candidate_chat_info($candidate_id)
             'candidate_name' => $candidate->first_name . ' ' . $candidate->last_name,
             'candidate_ref' => $candidate->reference_number
         ],
-        'chat_url' => site_url('agency/chat/conversation/' . $conversation->uuid)
+        'chat_url' => site_url('/agency/chat/conversation/' . $conversation->uuid)
     ]);
 }
 
@@ -1728,7 +1728,7 @@ public function start_candidate_chat($candidate_id)
     );
     
     if ($conversation) {
-        redirect('agency/chat/conversation/' . $conversation->uuid);
+        redirect('/agency/chat/conversation/' . $conversation->uuid);
     } else {
         show_error('Failed to create chat conversation');
     }
