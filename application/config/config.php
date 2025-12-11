@@ -483,11 +483,12 @@ $config['encryption_key'] = 'ac53(*&%Y(&6E374*f6*^(HR^@3^^secr(';
  */
 $config['sess_driver'] = 'files';
 $config['sess_cookie_name'] = 'ci_session';
-$config['sess_expiration'] = 86400;
-$config['sess_save_path'] = NULL;
-$config['sess_match_ip'] = TRUE;
+$config['sess_expiration'] = 86400; // 24 hours
+$config['sess_save_path'] = sys_get_temp_dir(); // Or a specific path like '/tmp'
+$config['sess_match_ip'] = FALSE; // Set to FALSE for local development
 $config['sess_time_to_update'] = 300;
 $config['sess_regenerate_destroy'] = FALSE;
+$config['sess_save_path'] = NULL; // Let CI use default
 
 /*
   |--------------------------------------------------------------------------

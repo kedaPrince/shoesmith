@@ -1957,7 +1957,7 @@ async function makeAjaxRequest(endpoint, data = {}) {
     console.log(`Making AJAX request to: ${endpoint}`);
 
     // Use the correct URL pattern - CHANGED TO AGENCY
-    const baseUrl = window.location.origin + '/shoesmith/agency/chat/';
+    const baseUrl = window.location.origin + '/agency/chat/';
     let fullUrl = baseUrl + endpoint;
 
     console.log(`Full URL: ${fullUrl}`);

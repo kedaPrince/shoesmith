@@ -16,51 +16,121 @@ class Agency_Staff extends CRUD_Controller
     public $hideSubNav = true;
     public $quickManageSize = 3;
 
-    public function __construct()
-    {
-        parent::__construct();
-
-        // Access check - allow both agency and admin access
-        if (!function_exists('getLoggedInUserTypeMenu')) {
-            $ci = &get_instance();
-            $ci->load->helper('profile_helper');
-        }
-        
+public function __construct()
+{
+    parent::__construct();
+    // After parent::__construct() but before any lang() calls
+log_message('debug', 'Testing lang() function...');
+try {
+    $test_lang = lang('label_first_name');
+    log_message('debug', 'lang() function works: ' . $test_lang);
+} catch (Exception $e) {
+    log_message('error', 'lang() function error: ' . $e->getMessage());
+}
+    
+    // ENABLE ERROR DISPLAY FOR DEBUGGING (remove in production)
+    error_reporting(E_ALL);
+    ini_set('display_errors', 1);
+    
+    // LOG ENTRY POINT
+    log_message('debug', '=== AGENCY_STAFF CONSTRUCTOR START ===');
+    log_message('debug', 'Request URI: ' . uri_string());
+    log_message('debug', 'Session ID: ' . session_id());
+    log_message('debug', 'Session status: ' . session_status());
+    
+    // Check session library
+    if (!isset($this->session)) {
+        log_message('error', 'Session library not loaded!');
+        $this->load->library('session');
+    }
+    
+    // Log session data
+    $session_data = $this->session->all_userdata();
+    log_message('debug', 'Session data: ' . print_r($session_data, true));
+    
+    // Log cookies
+    log_message('debug', 'Cookies: ' . print_r($_COOKIE, true));
+    
+    // Check access helper
+    log_message('debug', 'Loading profile_helper...');
+    if (!function_exists('getLoggedInUserTypeMenu')) {
+        $this->load->helper('profile_helper');
+        log_message('debug', 'profile_helper loaded');
+    }
+    
+    try {
         $userType = getLoggedInUserTypeMenu();
+        log_message('debug', 'User type: ' . $userType);
+        
         if (!in_array($userType, ['admin', 'agency'])) {
+            log_message('warning', 'User not authorized. Type: ' . $userType);
             redir('dashboard');
         }
-
-        $this->load->model($this->folder . '/' . $this->model);
-        
-        $this->setup_listing();
-        $this->setup_fields();
-        $this->zone = array(
-            'title' => lang($this->pageName . '_heading'),
-            'url' => redir($this->pageName, true),
-        );
+    } catch (Exception $e) {
+        log_message('error', 'Error in getLoggedInUserTypeMenu: ' . $e->getMessage());
     }
+    
+    // Load model with logging
+    $model_name = $this->folder . '/' . $this->model;
+    log_message('debug', 'Loading model: ' . $model_name);
+    
+    try {
+        $this->load->model($model_name);
+        log_message('debug', 'Model loaded successfully');
+    } catch (Exception $e) {
+        log_message('error', 'Failed to load model: ' . $e->getMessage());
+        show_error('Model loading failed: ' . $e->getMessage());
+    }
+    
+    log_message('debug', 'Setting up listing...');
+    $this->setup_listing();
+    
+    log_message('debug', 'Setting up fields...');
+    $this->setup_fields();
+    
+    $this->zone = array(
+        'title' => lang($this->pageName . '_heading'),
+        'url' => redir($this->pageName, true),
+    );
+    
+    log_message('debug', '=== AGENCY_STAFF CONSTRUCTOR END ===');
+}
 
 private function setup_listing(): void
 {
+    log_message('debug', '=== SETUP_LISTING START ===');
+    
     // Get user's agency ID to filter options
     $user_agency_id = $this->get_user_agency_id();
+    log_message('debug', 'User agency ID in setup_listing: ' . ($user_agency_id ?: 'NULL'));
     
     // Get agency options for the filter - filtered by user's agency
     $agency_options = [];
-    $agencies_query = $this->db->select('id, name')
-                              ->where('enabled', 1)
-                              ->where('removed', 0);
+    log_message('debug', 'Querying agencies...');
     
-    if (!empty($user_agency_id)) {
-        $agencies_query->where('id', $user_agency_id);
-    }
-    
-    $agencies_query->order_by('name');
-    $agencies_result = $agencies_query->get('agencies');
-    
-    if ($agencies_result->num_rows() > 0) {
-        $agency_options = $agencies_result->result_array();
+    try {
+        $agencies_query = $this->db->select('id, name')
+                                  ->where('enabled', 1)
+                                  ->where('removed', 0);
+        
+        if (!empty($user_agency_id)) {
+            $agencies_query->where('id', $user_agency_id);
+            log_message('debug', 'Filtering agencies by ID: ' . $user_agency_id);
+        }
+        
+        $agencies_query->order_by('name');
+        $agencies_result = $agencies_query->get('agencies');
+        log_message('debug', 'Agencies query executed. Rows: ' . $agencies_result->num_rows());
+        
+        if ($agencies_result->num_rows() > 0) {
+            $agency_options = $agencies_result->result_array();
+            log_message('debug', 'Agency options loaded: ' . count($agency_options));
+        } else {
+            log_message('warning', 'No agencies found for user agency ID: ' . $user_agency_id);
+        }
+    } catch (Exception $e) {
+        log_message('error', 'Error querying agencies: ' . $e->getMessage());
+        log_message('error', 'Query: ' . $this->db->last_query());
     }
 
     $this->listFields = array(
@@ -86,7 +156,7 @@ private function setup_listing(): void
             'sort' => true,
         ),
     );
-
+log_message('debug', 'List fields set');
         $this->listActions = array(
             'edit' => array(
                 'label'     => lang('label_edit'),
@@ -119,26 +189,28 @@ private function setup_listing(): void
                 'class'     => 'delete-row btn-delete',
             ),
         );
-
+ log_message('debug', 'List actions set');
         $this->filters = array(
             'general' => array(
                 'label'     => lang('label_search'),
                 'type'      => 'autocomplete',
                 'field'     => array(
-                    'CONCAT(agency_staff.first_name," ",agency_staff.last_name)',
-                    'agency_staff.email',
-                    'agency_staff.job_role',
+                    'CONCAT(first_name," ",last_name)',
+                    'email',
+                    'job_role',
                 ),
             ),
             'agency' => array(
                 'label'     => lang('label_agency'),
                 'type'      => 'dropdown',
-                'field'     => 'agency_staff.agency_id',
+                'field'     => 'agency_id',
                 'options'   => $agency_options,
                 'id_field'  => 'id',
                 'name_field'=> 'name',
             ),
         );
+        log_message('debug', 'Filters set. Agency options count: ' . count($agency_options));
+    log_message('debug', '=== SETUP_LISTING END ===');
     }
 
     public function setup_fields(): void
@@ -206,77 +278,60 @@ private function setup_listing(): void
     /**
      * Override the main data fetching method used by the listing
      */
-    public function _get_data($limit = null, $offset = null, $sort_by = null, $sort_order = null)
-    {
-        $user_agency_id = $this->get_user_agency_id();
-        
-        if (!empty($user_agency_id)) {
-            $this->db->where('agency_staff.agency_id', $user_agency_id);
-        } else {
-            
-        }
-        
-        return parent::_get_data($limit, $offset, $sort_by, $sort_order);
-    }
+ public function _get_data($limit = null, $offset = null, $sort_by = null, $sort_order = null)
+{
+    // AGENCY FILTERING REMOVED - Model handles it
+    
+    return parent::_get_data($limit, $offset, $sort_by, $sort_order);
+}
 
-    public function index(): void
-    {
-        $user_agency_id = $this->get_user_agency_id();
-        
-        // Apply agency filter directly before the listing loads
-        if (!empty($user_agency_id)) {
-            $this->db->where('agency_staff.agency_id', $user_agency_id);
-        }
-        
-        $this->breadcrumbs = array(
-            array(
-                'title' => lang($this->pageName . '_heading'),
-                'url'   => redir($this->pageName, true)
-            ),
-        );
-        $this->view = 'listing';
+public function index(): void
+{
+    // AGENCY FILTERING REMOVED - Model handles it
+    
+    $this->breadcrumbs = array(
+        array(
+            'title' => lang($this->pageName . '_heading'),
+            'url'   => redir($this->pageName, true)
+        ),
+    );
+    $this->view = 'listing';
 
-        $this->load->view($this->folder . '/' . 'view_header');
-        $this->load->view('cms/crud/view_list', array(
-            'heading'           => lang($this->pageName . '_heading'),
-            'noRows'            => lang($this->pageName . '_no_rows'),
-        ));
-        $this->load->view($this->folder . '/' . 'view_footer');
-    }
+    $this->load->view($this->folder . '/' . 'view_header');
+    $this->load->view('cms/crud/view_list', array(
+        'heading'           => lang($this->pageName . '_heading'),
+        'noRows'            => lang($this->pageName . '_no_rows'),
+    ));
+    $this->load->view($this->folder . '/' . 'view_footer');
+}
 
     /**
      * Override the pager fetch batch to ensure agency filtering
      */
  
-    public function ajax_pager_fetch_batch($batch = 1, $section = "", $template = "listing")
-    {
-        $this->page = $batch;
-        
-        $user_agency_id = $this->get_user_agency_id();
-        
-        try {
-            // Apply agency filter before calling get_all
-            if (!empty($user_agency_id)) {
-                $this->db->where('agency_staff.agency_id', $user_agency_id);
-            }
-            
-            $query = $this->{$this->model}->get_all($section);
-        }
-        catch(Exception $e) {
-            echo $e->getMessage();
-            exit();
-        }
-
-        $amount = $this->{$this->model}->get_count();
-        
-        $html = $this->load->view('cms/crud/ajax_' . $template . '_rows', array(
-            'query' => $query,
-            'batch' => $batch,
-            'amount' => $amount
-        ), TRUE);
-
-        $this->output->set_output($html);
+public function ajax_pager_fetch_batch($batch = 1, $section = "", $template = "listing")
+{
+    $this->page = $batch;
+    
+    try {
+        // NO AGENCY FILTER HERE - Model handles it
+        $query = $this->{$this->model}->get_all($section);
     }
+    catch(Exception $e) {
+        echo $e->getMessage();
+        exit();
+    }
+
+    $amount = $this->{$this->model}->get_count();
+    
+    $html = $this->load->view('cms/crud/ajax_' . $template . '_rows', array(
+        'query' => $query,
+        'batch' => $batch,
+        'amount' => $amount
+    ), TRUE);
+
+    $this->output->set_output($html);
+}
 
     public function quick_manage_extra($id, $row): array
     {
@@ -626,27 +681,7 @@ private function setup_listing(): void
 
     public function update($id): void
     {
-        // ============ ADDED CSRF PROTECTION ============
-        // Check if this is a POST request
-        if ($this->input->server('REQUEST_METHOD') === 'POST') {
-            $csrf_name = $this->security->get_csrf_token_name();
-            $csrf_token = $this->input->post($csrf_name);
-            
-            if (!$csrf_token || $csrf_token !== $this->security->get_csrf_hash()) {
-                if (is_ajax()) {
-                    ajax_return([
-                        'success' => false,
-                        'message' => 'Invalid security token',
-                        'csrf' => $this->security->get_csrf_hash()
-                    ]);
-                } else {
-                    $this->session->set_flashdata('error', 'Invalid security token');
-                    redirect(previous_url());
-                }
-                return;
-            }
-        }
-        // ============ END CSRF PROTECTION ============
+  
         
         parent::update($id);
     }
@@ -670,52 +705,6 @@ private function setup_listing(): void
         return $params;
     }
 
-    /**
-     * Debug method to verify agency filtering
-     */
-    public function debug_agency_staff_filter()
-    {
-        $user_agency_id = $this->get_user_agency_id();
-        echo "<h3>Debug Agency Staff Filter</h3>";
-        echo "<p>User Agency ID from session: " . ($user_agency_id ?? 'NULL') . "</p>";
-        
-        // Check session data
-        echo "<h4>Session Login Data:</h4>";
-        echo "<pre>";
-        print_r($this->session->userdata('login'));
-        echo "</pre>";
-        
-        // Test 1: Direct database query without filter
-        echo "<h4>Direct Database Query (No Filter):</h4>";
-        $this->db->select('id, first_name, last_name, agency_id');
-        $this->db->from('agency_staff');
-        $this->db->where('removed', 0);
-        $all_staff = $this->db->get()->result();
-        echo "<p>All staff in database: " . count($all_staff) . "</p>";
-        foreach ($all_staff as $staff) {
-            echo "Staff ID: {$staff->id}, Name: {$staff->first_name} {$staff->last_name}, Agency ID: {$staff->agency_id}<br>";
-        }
-        
-        // Test 2: Query with agency filter
-        echo "<h4>Query with Agency Filter:</h4>";
-        $this->db->select('id, first_name, last_name, agency_id');
-        $this->db->from('agency_staff');
-        $this->db->where('agency_id', $user_agency_id);
-        $this->db->where('removed', 0);
-        $filtered_staff = $this->db->get()->result();
-        echo "<p>Filtered staff for agency {$user_agency_id}: " . count($filtered_staff) . "</p>";
-        foreach ($filtered_staff as $staff) {
-            echo "Staff ID: {$staff->id}, Name: {$staff->first_name} {$staff->last_name}, Agency ID: {$staff->agency_id}<br>";
-        }
-        
-        // Test 3: What the model returns
-        echo "<h4>Model get_all() Result:</h4>";
-        $model_result = $this->{$this->model}->get_all();
-        echo "<p>Model returned: " . $model_result->num_rows() . " rows</p>";
-        foreach ($model_result->result() as $staff) {
-            echo "Staff ID: {$staff->id}, Name: {$staff->first_name} {$staff->last_name}, Agency ID: {$staff->agency_id}<br>";
-        }
-    }
 
 
     

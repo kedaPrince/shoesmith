@@ -1,3 +1,47 @@
+// Add this to your main layout or JavaScript file
+(function() {
+    // Define on_script_load early
+    if (typeof on_script_load === 'undefined') {
+        window.on_script_load = function() {
+            console.log('Global on_script_load called');
+            return true;
+        };
+    }
+    
+    // Call it immediately if needed
+    if (typeof window.on_script_load_called === 'undefined') {
+        window.on_script_load_called = false;
+    }
+})();
+
+// FIX for on_script_load - accepts parameters
+if (typeof on_script_load === 'undefined') {
+    var on_script_load = function(library, callback) {
+        console.log('on_script_load called with library:', library);
+        
+        // If jQuery is requested and jQuery is loaded
+        if (library === "jQuery" && typeof jQuery !== 'undefined') {
+            if (typeof callback === 'function') {
+                callback();
+            }
+            return true;
+        }
+        
+        // If no library specified or library already loaded
+        if (!library || typeof window[library] !== 'undefined') {
+            if (typeof callback === 'function') {
+                callback();
+            }
+            return true;
+        }
+        
+        console.log('Library', library, 'not yet loaded');
+        return false;
+    };
+    
+    // Make it available globally
+    window.on_script_load = on_script_load;
+}
 $(document).ready(function() {
 
     //Initialise Quick Manange

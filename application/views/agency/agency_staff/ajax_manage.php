@@ -1,6 +1,19 @@
 <?php
 defined('BASEPATH') || exit('No direct script access allowed');
+?>
+<script type="text/javascript">
+// MUST BE AT THE VERY TOP - Define on_script_load immediately
+if (typeof on_script_load !== 'function') {
+    var on_script_load = function() {
+        console.log('on_script_load function called');
+        return true;
+    };
+}
 
+// Make it available globally
+window.on_script_load = on_script_load;
+</script>
+<?php
 function getValue(object|null $more_details, string $name): string
 {
     if (is_null($more_details)) {
@@ -50,8 +63,15 @@ function getValue(object|null $more_details, string $name): string
         <li rel="4">Access Group</li>
     </ul>
     <div class="form-field-container">
-        <?= form_open(); ?>
+        <?php 
+    // Get the correct action URL for create/update
+    $action_url = !empty($row->id) ? 
+        site_url('agency/agency_staff/update/' . $row->id) : 
+        site_url('agency/agency_staff/create');
+    ?>
+        <?= form_open($action_url); ?>
         <?= form_hidden('id', !empty($row->id) ? $row->id : 0); ?>
+        <?= form_hidden($this->security->get_csrf_token_name(), $this->security->get_csrf_hash()); ?>
         <div rel="1" class="qm-tabs-tab active">
             <div class="row">
                 <div class="col-lg-6">
@@ -84,9 +104,7 @@ function getValue(object|null $more_details, string $name): string
                 </div>
             </div>
 
-            <?php
-            if (!empty($row)) {
-                ?>
+            <?php if (!empty($row)): ?>
             <div class="row">
                 <div class="info-text">
                     The password needs to be at least <strong>8 characters long</strong>.
@@ -98,7 +116,7 @@ function getValue(object|null $more_details, string $name): string
                     <?= field_password('confirm_password', '', array('autocomplete' => 'off'), 'Confirm your password'); ?>
                 </div>
             </div>
-            <?php } ?>
+            <?php endif; ?>
         </div>
         <div rel="2" class="qm-tabs-tab">
             <div class="row">
@@ -149,20 +167,20 @@ function getValue(object|null $more_details, string $name): string
         </div>
         <div rel="3" class="qm-tabs-tab">
             <?php
-            $allergies = !is_null($more_details) && isset($more_details->allergies) ? $more_details->allergies : null;
-            $doctor_phone_number = !is_null($more_details) && isset($more_details->doctor_phone_number) ? $more_details->doctor_phone_number : null;
-            $family_doctor = !is_null($more_details) && isset($more_details->family_doctor) ? $more_details->family_doctor : null;
-            $mandatory_medication_taken = !is_null($more_details) && isset($more_details->mandatory_medication_taken) ? $more_details->mandatory_medication_taken : null;
-            $medical_aid_member_number = !is_null($more_details) && isset($more_details->medical_aid_member_number) ? $more_details->medical_aid_member_number : null;
-            $medical_aid_name = !is_null($more_details) && isset($more_details->medical_aid_name) ? $more_details->medical_aid_name : null;
-            $medical_aid_plan = !is_null($more_details) && isset($more_details->medical_aid_plan) ? $more_details->medical_aid_plan : null;
-            $medical_history = !is_null($more_details) && isset($more_details->medical_history) ? $more_details->medical_history : null;
-            $medical_problems = !is_null($more_details) && isset($more_details->medical_problems) ? $more_details->medical_problems : null;
-            $next_of_kin_first_name = !is_null($more_details) && isset($more_details->next_of_kin_first_name) ? $more_details->next_of_kin_first_name : null;
-            $next_of_kin_last_name = !is_null($more_details) && isset($more_details->next_of_kin_last_name) ? $more_details->next_of_kin_last_name : null;
-            $next_of_kin_phone_number = !is_null($more_details) && isset($more_details->next_of_kin_phone_number) ? $more_details->next_of_kin_phone_number : null;
-            $next_of_kin_relation = !is_null($more_details) && isset($more_details->next_of_kin_relation) ? $more_details->next_of_kin_relation : null;
-            ?>
+        $allergies = !is_null($more_details) && isset($more_details->allergies) ? $more_details->allergies : null;
+        $doctor_phone_number = !is_null($more_details) && isset($more_details->doctor_phone_number) ? $more_details->doctor_phone_number : null;
+        $family_doctor = !is_null($more_details) && isset($more_details->family_doctor) ? $more_details->family_doctor : null;
+        $mandatory_medication_taken = !is_null($more_details) && isset($more_details->mandatory_medication_taken) ? $more_details->mandatory_medication_taken : null;
+        $medical_aid_member_number = !is_null($more_details) && isset($more_details->medical_aid_member_number) ? $more_details->medical_aid_member_number : null;
+        $medical_aid_name = !is_null($more_details) && isset($more_details->medical_aid_name) ? $more_details->medical_aid_name : null;
+        $medical_aid_plan = !is_null($more_details) && isset($more_details->medical_aid_plan) ? $more_details->medical_aid_plan : null;
+        $medical_history = !is_null($more_details) && isset($more_details->medical_history) ? $more_details->medical_history : null;
+        $medical_problems = !is_null($more_details) && isset($more_details->medical_problems) ? $more_details->medical_problems : null;
+        $next_of_kin_first_name = !is_null($more_details) && isset($more_details->next_of_kin_first_name) ? $more_details->next_of_kin_first_name : null;
+        $next_of_kin_last_name = !is_null($more_details) && isset($more_details->next_of_kin_last_name) ? $more_details->next_of_kin_last_name : null;
+        $next_of_kin_phone_number = !is_null($more_details) && isset($more_details->next_of_kin_phone_number) ? $more_details->next_of_kin_phone_number : null;
+        $next_of_kin_relation = !is_null($more_details) && isset($more_details->next_of_kin_relation) ? $more_details->next_of_kin_relation : null;
+        ?>
             <div class="row">
                 <div class="col-lg-6">
                     <?= field_input('next_of_kin_first_name|label_next_of_kin_first_name', $next_of_kin_first_name, '', ['placeholder' => lang('label_next_of_kin_first_name')], 'text', 'Enter the next of kin first name'); ?>
@@ -227,13 +245,13 @@ function getValue(object|null $more_details, string $name): string
 
         <div class="btn-container" style="clear: left;">
             <?php
-            // echo save_button('Save and Close');
-            echo qm_tab_buttons();
-            echo qm_close_button();
-            if (!empty($row) && $row->id != loginID()) {
-                echo $row->enabled ? disable_button($identifier, $row->id) : enable_button($identifier, $row->id);
-            }
-            ?>
+        // echo save_button('Save and Close');
+        echo qm_tab_buttons();
+        echo qm_close_button();
+        if (!empty($row) && $row->id != loginID()) {
+            echo $row->enabled ? disable_button($identifier, $row->id) : enable_button($identifier, $row->id);
+        }
+        ?>
         </div>
 
         <?= form_close(); ?>
@@ -275,4 +293,160 @@ $(document).ready(function() {
         }
         ?>
 });
+
+// Fix for Dropzone CSRF token
+$(document).ready(function() {
+    // Wait a bit for Dropzone to initialize
+    setTimeout(function() {
+        // Get CSRF token from form
+        var csrfName = '<?php echo $this->security->get_csrf_token_name(); ?>';
+        var csrfToken = $('input[name="' + csrfName + '"]').val();
+
+        if (!csrfToken) {
+            // Try to get from meta tag
+            csrfToken = $('meta[name="csrf-token"]').attr('content');
+            csrfName = $('meta[name="csrf-token-name"]').attr('content') || csrfName;
+        }
+
+        if (csrfToken && typeof Dropzone !== 'undefined') {
+            // Update all Dropzone instances in the quick manage form
+            $('.quick-manage-container .dropzone, .quick-manage-container .dz-uploader').each(
+                function() {
+                    if (this.dropzone) {
+                        // Update the Dropzone instance
+                        this.dropzone.options.headers = this.dropzone.options.headers || {};
+                        this.dropzone.options.headers['X-CSRF-TOKEN'] = csrfToken;
+
+                        // Also add to form data
+                        this.dropzone.on("sending", function(file, xhr, formData) {
+                            formData.append(csrfName, csrfToken);
+                        });
+
+                        console.log('CSRF token added to Dropzone');
+                    }
+                });
+        }
+    }, 500);
+});
+</script>
+<script type="text/javascript">
+function ajax_submit_form(el, view, id) {
+    // Get the form
+    var form = $(el).closest('form');
+
+    // Get CSRF token
+    var csrfInput = form.find('input[name*="csrf"]').first();
+    var csrfToken = csrfInput.val();
+    var csrfName = csrfInput.attr('name');
+
+    console.log('AJAX Request Debug:');
+    console.log('URL:', form.attr('action'));
+    console.log('Method: POST');
+    console.log('CSRF Token being sent:', csrfToken ? csrfToken.substring(0, 10) + '...' : 'NOT FOUND');
+
+    // Show loading state
+    $(el).prop('disabled', true).addClass('loading');
+
+    // Submit via AJAX
+    $.ajax({
+        url: form.attr('action'),
+        type: 'POST',
+        data: form.serialize(),
+        dataType: 'json',
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+        },
+        success: function(response) {
+            console.log('Success response:', response);
+
+            // Check if CSRF token needs to be updated
+            if (response.csrf) {
+                console.log('New CSRF token received:', response.csrf.substring(0, 10) + '...');
+
+                // Update CSRF token in the form
+                csrfInput.val(response.csrf);
+
+                // Also update any other CSRF inputs in the form
+                form.find('input[name*="csrf"]').each(function() {
+                    $(this).val(response.csrf);
+                });
+
+                // Update CSRF token in the page (meta tags or other forms)
+                $('meta[name="csrf-token"]').attr('content', response.csrf);
+                $('input[name="' + csrfName + '"]').not(form.find('input[name*="csrf"]')).val(response
+                    .csrf);
+
+                console.log('CSRF token updated in form');
+            }
+
+            // Handle success
+            if (response.success) {
+                console.log('✓ Form saved successfully!');
+
+                // Show success message
+                alert(view === 'update' ? 'Updated successfully!' : 'Created successfully!');
+
+                // Close quick manage modal
+                $('.close-quick-manage').click();
+
+                // Reload the page after a short delay
+                setTimeout(function() {
+                    window.location.reload();
+                }, 1500);
+            } else {
+                // Show error
+                alert(response.message || 'An error occurred');
+                $(el).prop('disabled', false).removeClass('loading');
+
+                // If CSRF error, try auto-resubmit with new token
+                if (response.message === 'Invalid security token' && response.csrf) {
+                    console.log('Auto-retrying with new CSRF token...');
+                    // Update form and resubmit
+                    csrfInput.val(response.csrf);
+                    setTimeout(function() {
+                        ajax_submit_form(el, view, id);
+                    }, 500);
+                }
+            }
+        },
+        error: function(xhr, status, error) {
+            console.error('AJAX Error Details:');
+            console.error('Status:', status);
+            console.error('Error:', error);
+            console.error('Response:', xhr.responseText);
+
+            // Try to parse as JSON anyway
+            try {
+                var response = JSON.parse(xhr.responseText);
+                alert(response.message || 'Server error: ' + error);
+
+                // Check for CSRF token in error response
+                if (response.csrf) {
+                    console.log('New CSRF token in error response:', response.csrf.substring(0, 10) +
+                        '...');
+                    csrfInput.val(response.csrf);
+                }
+            } catch (e) {
+                // If not JSON, show raw response
+                alert('Server returned: ' + xhr.responseText.substring(0, 100));
+                console.log('Raw response:', xhr.responseText.substring(0, 500));
+            }
+
+            $(el).prop('disabled', false).removeClass('loading');
+        }
+    });
+}
+
+// Make sure this function is available globally
+if (typeof window.ajax_submit_form !== 'function') {
+    window.ajax_submit_form = ajax_submit_form;
+}
+
+// Also define on_script_load if not defined
+if (typeof window.on_script_load !== 'function') {
+    window.on_script_load = function() {
+        console.log('Quick manage scripts loaded');
+        return true;
+    };
+}
 </script>
