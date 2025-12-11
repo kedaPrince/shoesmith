@@ -36,13 +36,45 @@ class Dashboard extends CRUD_Controller {
         // Get recruiter ID
         $recruiter_id = $this->get_recruiter_id();
         
+        // Get recruiter details
+        $recruiter_details = $this->get_recruiter_details($recruiter_id);
+        
         // Get notifications for the recruiter
         $data['notifications'] = $this->Model_notifications->get_unread_notifications($recruiter_id);
         $data['unread_count'] = $this->Model_notifications->count_unread_notifications($recruiter_id);
         $data['recruiter_id'] = $recruiter_id;
+        
+        // Get KPIs and analytics (only for advanced view)
+        $data['stats'] = $this->get_recruiter_statistics($recruiter_id);
+        $data['recent_submissions'] = $this->get_recent_submissions($recruiter_id);
+        $data['upcoming_tasks'] = $this->get_upcoming_tasks($recruiter_id);
+        $data['recruiter_details'] = $recruiter_details;
+        
+        // Get current dashboard view preference
+        $data['dashboard_view'] = $this->session->userdata('recruiter_dashboard_view') ?: 'advanced'; // Default to advanced
+        $data['toggle_url'] = site_url('recruiter/dashboard/toggle_view');
        
         $this->setup_dashboard_breadcrumbs();
-        load_custom_page($this->folder.'/'.$this->pageName.'/view_dashboard', $data);
+        
+        // Load appropriate view based on preference
+        if ($data['dashboard_view'] === 'simple') {
+            load_custom_page($this->folder.'/'.$this->pageName.'/view_dashboard', $data);
+        } else {
+            load_custom_page($this->folder.'/'.$this->pageName.'/view_dashboard_advanced', $data);
+        }
+    }
+
+    /**
+     * Toggle dashboard view between simple and advanced
+     */
+    public function toggle_view() {
+        $current_view = $this->session->userdata('recruiter_dashboard_view') ?: 'advanced';
+        $new_view = ($current_view === 'simple') ? 'advanced' : 'simple';
+        
+        $this->session->set_userdata('recruiter_dashboard_view', $new_view);
+        
+        // Redirect back to dashboard
+        redirect('recruiter/dashboard');
     }
 
     /**
@@ -57,6 +89,233 @@ class Dashboard extends CRUD_Controller {
         }
         
         return null;
+    }
+
+    /**
+     * Get recruiter details
+     */
+    private function get_recruiter_details($recruiter_id) {
+        $this->db->select('first_name, last_name, email,  phone, created_at');
+        $this->db->from('recruiters');
+        $this->db->where('id', $recruiter_id);
+        $this->db->where('enabled', 1);
+        $this->db->where('removed', 0);
+        
+        return $this->db->get()->row();
+    }
+
+    /**
+     * Get recruiter statistics for dashboard KPIs
+     */
+    private function get_recruiter_statistics($recruiter_id) {
+        if (empty($recruiter_id)) {
+            return null;
+        }
+
+        $stats = new stdClass();
+        
+        // 1. Total candidates submitted
+        $this->db->select('COUNT(*) as total_candidates');
+        $this->db->from('candidates');
+        $this->db->where('assigned_agent_id', $recruiter_id);
+        $this->db->or_where('recruiter_id', $recruiter_id);
+        $this->db->where('removed', 0);
+        $result = $this->db->get()->row();
+        $stats->total_candidates = $result ? $result->total_candidates : 0;
+        
+        // 2. Candidates by status
+        $status_counts = [
+            'new' => 0,
+            'reviewed' => 0,
+            'shortlisted' => 0,
+            'interviewed' => 0,
+            'hired' => 0,
+            'rejected' => 0,
+            'on_hold' => 0
+        ];
+        
+        $this->db->select('status, COUNT(*) as count');
+        $this->db->from('candidates');
+        $this->db->where('assigned_agent_id', $recruiter_id);
+        $this->db->or_where('recruiter_id', $recruiter_id);
+        $this->db->where('removed', 0);
+        $this->db->group_by('status');
+        $status_results = $this->db->get()->result();
+        
+        foreach ($status_results as $row) {
+            if (isset($status_counts[$row->status])) {
+                $status_counts[$row->status] = $row->count;
+            }
+        }
+        $stats->status_counts = $status_counts;
+        
+        // 3. Candidates submitted this month
+        $this->db->select('COUNT(*) as this_month');
+        $this->db->from('candidates');
+        $this->db->where('assigned_agent_id', $recruiter_id);
+        $this->db->or_where('recruiter_id', $recruiter_id);
+        $this->db->where('MONTH(application_date)', date('m'));
+        $this->db->where('YEAR(application_date)', date('Y'));
+        $this->db->where('removed', 0);
+        $result = $this->db->get()->row();
+        $stats->candidates_this_month = $result ? $result->this_month : 0;
+        
+        // 4. Onboarding progress
+        $this->db->select('
+            COUNT(*) as total,
+            SUM(CASE WHEN onboarding_stage = "completed" OR stage_position_offered = 1 THEN 1 ELSE 0 END) as completed,
+            SUM(CASE WHEN stage_hm_decision = 1 AND hm_decision = "accepted" THEN 1 ELSE 0 END) as hm_accepted,
+            SUM(CASE WHEN stage_hm_decision = 1 AND hm_decision = "rejected" THEN 1 ELSE 0 END) as hm_rejected
+        ');
+        $this->db->from('candidates');
+        $this->db->group_start();
+        $this->db->where('assigned_agent_id', $recruiter_id);
+        $this->db->or_where('recruiter_id', $recruiter_id);
+        $this->db->group_end();
+        $this->db->where('removed', 0);
+        $onboarding_result = $this->db->get()->row();
+        
+        $stats->onboarding_total = $onboarding_result ? $onboarding_result->total : 0;
+        $stats->onboarding_completed = $onboarding_result ? $onboarding_result->completed : 0;
+        $stats->hm_accepted = $onboarding_result ? $onboarding_result->hm_accepted : 0;
+        $stats->hm_rejected = $onboarding_result ? $onboarding_result->hm_rejected : 0;
+        
+        // 5. Jobs with submitted candidates
+        $this->db->select('COUNT(DISTINCT job_id) as active_jobs');
+        $this->db->from('candidates');
+        $this->db->group_start();
+        $this->db->where('assigned_agent_id', $recruiter_id);
+        $this->db->or_where('recruiter_id', $recruiter_id);
+        $this->db->group_end();
+        $this->db->where('removed', 0);
+        $this->db->where('job_id IS NOT NULL');
+        $result = $this->db->get()->row();
+        $stats->active_jobs = $result ? $result->active_jobs : 0;
+        
+        // 6. Recent activity (last 7 days)
+        $this->db->select('COUNT(*) as recent_activity');
+        $this->db->from('candidates');
+        $this->db->group_start();
+        $this->db->where('assigned_agent_id', $recruiter_id);
+        $this->db->or_where('recruiter_id', $recruiter_id);
+        $this->db->group_end();
+        $this->db->where('removed', 0);
+        $this->db->where('updated_at >=', date('Y-m-d H:i:s', strtotime('-7 days')));
+        $result = $this->db->get()->row();
+        $stats->recent_activity = $result ? $result->recent_activity : 0;
+        
+        // 7. Calculate success rate (hired vs total)
+        if ($stats->total_candidates > 0) {
+            $stats->success_rate = round(($status_counts['hired'] / $stats->total_candidates) * 100, 1);
+        } else {
+            $stats->success_rate = 0;
+        }
+        
+        // 8. Calculate onboarding completion rate
+        if ($stats->onboarding_total > 0) {
+            $stats->onboarding_rate = round(($stats->onboarding_completed / $stats->onboarding_total) * 100, 1);
+        } else {
+            $stats->onboarding_rate = 0;
+        }
+        
+        return $stats;
+    }
+
+    /**
+     * Get recent submissions (last 5 candidates)
+     */
+    private function get_recent_submissions($recruiter_id) {
+        if (empty($recruiter_id)) {
+            return [];
+        }
+        
+        $this->db->select('c.*, j.name as job_name');
+        $this->db->from('candidates c');
+        $this->db->join('mod_jobs j', 'j.id = c.job_id', 'left');
+        $this->db->group_start();
+        $this->db->where('c.assigned_agent_id', $recruiter_id);
+        $this->db->or_where('c.recruiter_id', $recruiter_id);
+        $this->db->group_end();
+        $this->db->where('c.removed', 0);
+        $this->db->order_by('c.created_at', 'DESC');
+        $this->db->limit(5);
+        
+        return $this->db->get()->result();
+    }
+
+    /**
+     * Get upcoming tasks (documents due, follow-ups, etc.)
+     */
+    private function get_upcoming_tasks($recruiter_id) {
+        if (empty($recruiter_id)) {
+            return [];
+        }
+        
+        $tasks = [];
+        
+        // 1. Candidates with pending documents request
+        $this->db->select('c.*, n.id as notification_id, n.metadata');
+        $this->db->from('candidates c');
+        $this->db->join('notifications n', 'n.related_entity_id = c.id AND n.type = "documents_request" AND n.is_read = 0', 'inner');
+        $this->db->where('c.assigned_agent_id', $recruiter_id);
+        $this->db->or_where('c.recruiter_id', $recruiter_id);
+        $this->db->where('c.removed', 0);
+        $this->db->where('n.receiver_type', 'recruiter');
+        $this->db->where('n.receiver_id', $recruiter_id);
+        $documents_pending = $this->db->get()->result();
+        
+        foreach ($documents_pending as $candidate) {
+            $metadata = !empty($candidate->metadata) ? json_decode($candidate->metadata, true) : [];
+            $tasks[] = [
+                'type' => 'documents_request',
+                'title' => 'Documents Required',
+                'description' => 'Submit required documents for ' . $candidate->first_name . ' ' . $candidate->last_name,
+                'candidate_id' => $candidate->id,
+                'candidate_name' => $candidate->first_name . ' ' . $candidate->last_name,
+                'notification_id' => $candidate->notification_id,
+                'notes' => $metadata['notes'] ?? '',
+                'priority' => 'high',
+                'due_date' => date('Y-m-d', strtotime('+2 days'))
+            ];
+        }
+        
+        // 2. Candidates with HM decision pending (if applicable)
+        $this->db->select('c.*, j.name as job_name');
+        $this->db->from('candidates c');
+        $this->db->join('mod_jobs j', 'j.id = c.job_id', 'left');
+        $this->db->group_start();
+        $this->db->where('c.assigned_agent_id', $recruiter_id);
+        $this->db->or_where('c.recruiter_id', $recruiter_id);
+        $this->db->group_end();
+        $this->db->where('c.stage_submitted_to_hm', 1);
+        $this->db->where('c.stage_hm_decision', 0);
+        $this->db->where('c.removed', 0);
+        $hm_pending = $this->db->get()->result();
+        
+        foreach ($hm_pending as $candidate) {
+            $submitted_date = !empty($candidate->stage_submitted_to_hm_at) ? $candidate->stage_submitted_to_hm_at : $candidate->updated_at;
+            $days_pending = floor((time() - strtotime($submitted_date)) / (60 * 60 * 24));
+            
+            $tasks[] = [
+                'type' => 'hm_decision_pending',
+                'title' => 'Awaiting HM Decision',
+                'description' => $candidate->first_name . ' ' . $candidate->last_name . ' for ' . ($candidate->job_name ?: 'Job'),
+                'candidate_id' => $candidate->id,
+                'candidate_name' => $candidate->first_name . ' ' . $candidate->last_name,
+                'job_name' => $candidate->job_name,
+                'days_pending' => $days_pending,
+                'priority' => $days_pending > 7 ? 'high' : 'medium',
+                'due_date' => date('Y-m-d', strtotime('+1 day'))
+            ];
+        }
+        
+        // Sort by priority and due date
+        usort($tasks, function($a, $b) {
+            $priority_order = ['high' => 1, 'medium' => 2, 'low' => 3];
+            return $priority_order[$a['priority']] <=> $priority_order[$b['priority']];
+        });
+        
+        return array_slice($tasks, 0, 5); // Return only top 5 tasks
     }
 
     /**
@@ -374,4 +633,8 @@ public function upload_document() {
         ajax_return(['success' => false, 'message' => 'Failed to save document information.']);
     }
 }
+
+
+
+
 }

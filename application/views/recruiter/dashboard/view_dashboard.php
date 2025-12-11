@@ -1,184 +1,372 @@
 <?php defined('BASEPATH') || exit('No direct script access allowed'); ?>
-<section class="dashboard-container">
-    <div>
-        <h1>Welcome recruiter</h1>
-        <h2>What would you like to see?</h2>
-        <ul>
-            <?php
-            foreach ($this->siteMap as $group) { 
-                if (!$group->show) {
-                    continue;
-                }
-                
-                // Check if the group has sub-items
-                if (isset($group->items) && is_array($group->items)) {
-                    foreach ($group->items as $subItem) {
-                        if (!$subItem->show || (isset($subItem->view) && $subItem->view == 'add')) {
-                            continue;
-                        }
-                        
-                        echo '
-                            <li>
-                                <a href="'.$subItem->url.'" title="'.$subItem->label.'">
-                                    <i class="fa '.$subItem->icon.'" ></i>
-                                    <span>'.$subItem->label.'</span>
-                                </a>
-                            </li>
-                        ';
-
-                        // Check for nested sub-items
-                        if (isset($subItem->items) && is_array($subItem->items)) {
-                            foreach ($subItem->items as $nestedSubItem) {
-                                if (!$nestedSubItem->show || (isset($nestedSubItem->view) && $nestedSubItem->view == 'add')) {
-                                    continue;
-                                }
-                                
-                                echo '
-                                    <li class="nested-sub-item">
-                                        <a href="'.$nestedSubItem->url.'" title="'.$nestedSubItem->label.'">
-                                            <i class="fa '.$nestedSubItem->icon.'" ></i>
-                                            <span>'.$nestedSubItem->label.'</span>
-                                        </a>
-                                    </li>
-                                ';
-                            }
-                        }
-                    }
-                } else {
-                    echo '
-                        <li>
-                            <a href="'.$group->url.'" title="'.$group->label.'">
-                                <i class="fa '.$group->icon.'" ></i>
-                                <span>'.$group->label.'</span>
-                            </a>
-                        </li>
-                    ';
-                }
-            }
-            ?>
-        </ul>
-    </div>
-</section>
 
 <style>
-.hm-decision-popup {
-    position: fixed;
-    top: 20px;
-    right: 20px;
-    z-index: 99999;
-    min-width: 400px;
-    max-width: 500px;
-    border-radius: 12px;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
-    animation: slideInRight 0.5s ease-out;
-    border: none;
-    font-family: Arial, sans-serif;
+:root {
+    --bg-main: #f8fafc;
+    --card-bg: #ffffff;
+    --primary: #2563eb;
+    --success: #16a34a;
+    --text-main: #0f172a;
+    --text-muted: #64748b;
+    --border: #e5e7eb;
 }
 
-.hm-decision-popup.accepted {
-    background: linear-gradient(135deg, #28a745, #20c997);
-    color: white;
+#main-content {
+    min-height: 100vh;
+    padding: 32px;
+    color: #ffffff;
 }
 
-.hm-decision-popup.rejected {
-    background: linear-gradient(135deg, #dc3545, #e83e8c);
-    color: white;
+.card {
+    border-radius: 14px;
+    border: 1px solid var(--border);
+    padding: 24px;
+    background: linear-gradient(49deg, #59c4bc5e -60%, #010e1a1a 55%) !important;
 }
 
-.hm-decision-popup .popup-header {
+.dashboard-header {
     display: flex;
-    align-items: center;
     justify-content: space-between;
-    padding: 15px 20px 10px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+    align-items: center;
+    margin-bottom: 30px;
 }
 
-.hm-decision-popup .popup-title {
-    font-size: 18px;
+.dashboard-header h1 {
+    font-size: 28px;
     font-weight: 700;
     margin: 0;
-    display: flex;
-    align-items: center;
-    gap: 10px;
 }
 
-.hm-decision-popup .popup-close {
-    background: none;
+.dashboard-header p {
+    margin: 6px 0 0;
+    color: var(--text-muted);
+}
+
+/* Stats */
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 20px;
+    margin-bottom: 35px;
+}
+
+.stat-title {
+    font-size: 14px;
+    color: var(--text-muted);
+    margin-bottom: 10px;
+}
+
+.stat-value {
+    font-size: 32px;
+    font-weight: 700;
+}
+
+.stat-footer {
+    margin-top: 10px;
+    font-size: 13px;
+    color: var(--success);
+}
+
+/* Chart */
+canvas {
+    width: 100% !important;
+    height: 70px !important;
+}
+
+/* Navigation Grid with Gradients */
+.nav-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 18px;
+}
+
+.nav-card {
+    border-radius: 14px;
+    padding: 22px;
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    font-weight: 600;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    text-decoration: none;
+    color: white;
+    position: relative;
+    overflow: hidden;
     border: none;
-    color: inherit;
-    font-size: 20px;
-    cursor: pointer;
-    opacity: 0.8;
-    padding: 0;
-    width: 30px;
-    height: 30px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+}
+
+.nav-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0) 100%);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.nav-card:hover {
+    transform: translateY(-5px) scale(1.02);
+    box-shadow: 0 12px 25px rgba(0, 0, 0, 0.15);
+    color: white;
+}
+
+.nav-card:hover::before {
+    opacity: 1;
+}
+
+.nav-card:hover .nav-icon {
+    transform: scale(1.1) rotate(5deg);
+}
+
+.nav-icon {
+    width: 56px;
+    height: 56px;
+    border-radius: 12px;
     display: flex;
     align-items: center;
     justify-content: center;
-}
-
-.hm-decision-popup .popup-close:hover {
-    opacity: 1;
+    font-size: 24px;
     background: rgba(255, 255, 255, 0.2);
-    border-radius: 50%;
+    backdrop-filter: blur(10px);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    z-index: 1;
 }
 
-.hm-decision-popup .popup-body {
-    padding: 15px 20px;
+.nav-text {
+    position: relative;
+    z-index: 1;
 }
 
-.hm-decision-popup .candidate-info {
-    background: rgba(255, 255, 255, 0.2);
-    border-radius: 8px;
-    padding: 12px;
-    margin: 10px 0;
+.nav-text strong {
+    font-size: 16px;
+    font-weight: 600;
+    display: block;
+    margin-bottom: 4px;
 }
 
-.hm-decision-popup .candidate-detail {
-    margin: 5px 0;
-    font-size: 14px;
-}
-
-.hm-decision-popup .hm-notes {
-    background: rgba(255, 255, 255, 0.3);
-    border-radius: 6px;
-    padding: 10px;
-    margin-top: 10px;
-    font-style: italic;
+.nav-text span {
     font-size: 13px;
+    opacity: 0.9;
+    font-weight: 400;
 }
 
-.hm-decision-popup .popup-footer {
-    padding: 10px 20px 15px;
-    display: flex;
-    gap: 10px;
-    justify-content: flex-end;
+/* Gradient backgrounds for navigation items */
+.nav-card:nth-child(1) {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
 }
 
-.hm-decision-popup .popup-footer .btn {
+.nav-card:nth-child(2) {
+    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+}
+
+.nav-card:nth-child(3) {
+    background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+}
+
+.nav-card:nth-child(4) {
+    background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+}
+
+.nav-card:nth-child(5) {
+    background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+}
+
+.nav-card:nth-child(6) {
+    background: linear-gradient(135deg, #30cfd0 0%, #330867 100%);
+}
+
+.nav-card:nth-child(7) {
+    background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%);
+}
+
+.nav-card:nth-child(8) {
+    background: linear-gradient(135deg, #5ee7df 0%, #b490ca 100%);
+}
+
+.nav-card:nth-child(9) {
+    background: linear-gradient(135deg, #d299c2 0%, #fef9d7 100%);
+}
+
+.nav-card:nth-child(10) {
+    background: linear-gradient(135deg, #89f7fe 0%, #66a6ff 100%);
+}
+
+.nav-card:nth-child(11) {
+    background: linear-gradient(135deg, #f6d365 0%, #fda085 100%);
+}
+
+.nav-card:nth-child(12) {
+    background: linear-gradient(135deg, #a3bded 0%, #6991c7 100%);
+}
+
+/* Additional gradient patterns for more items */
+.nav-card:nth-child(13) {
+    background: linear-gradient(135deg, #ff9a9e 0%, #fad0c4 100%);
+}
+
+.nav-card:nth-child(14) {
+    background: linear-gradient(135deg, #a18cd1 0%, #fbc2eb 100%);
+}
+
+.nav-card:nth-child(15) {
+    background: linear-gradient(135deg, #fad0c4 0%, #ffd1ff 100%);
+}
+
+.nav-card:nth-child(16) {
+    background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%);
+}
+
+/* Button */
+.btn-primary {
+    background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+    color: white;
     border: none;
-    padding: 6px 12px;
-    border-radius: 4px;
-    text-decoration: none;
-    font-size: 12px;
+    padding: 12px 24px;
+    border-radius: 10px;
+    font-weight: 600;
     cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
 }
 
-@keyframes slideInRight {
-    from {
-        transform: translateX(100%);
-        opacity: 0;
+.btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(37, 99, 235, 0.4);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    #main-content {
+        padding: 20px;
     }
 
-    to {
-        transform: translateX(0);
-        opacity: 1;
+    .dashboard-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 20px;
+    }
+
+    .nav-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .nav-card {
+        padding: 18px;
+    }
+
+    .nav-icon {
+        width: 50px;
+        height: 50px;
+        font-size: 22px;
     }
 }
 </style>
 
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<div id="main-content">
+    <div class="container-fluid">
+
+        <div class="dashboard-header">
+            <div>
+                <h1>Welcome back, <?= htmlspecialchars($recruiter_details->first_name ?? 'Recruiter') ?></h1>
+                <p>Here's what's happening with your recruitment pipeline</p>
+            </div>
+
+            <button class="btn btn-primary"
+                onclick="location.href='<?= site_url("recruiter/dashboard/toggle_view") ?>'">
+                Advanced View
+            </button>
+        </div>
+
+        <div class="stats-grid">
+
+            <div class="card">
+                <div class="stat-title">Total Candidates</div>
+                <div class="stat-value"><?= $stats->total_candidates ?? 0 ?></div>
+                <canvas id="candidatesChart"></canvas>
+                <div class="stat-footer">▲ Pipeline growth</div>
+            </div>
+
+            <div class="card">
+                <div class="stat-title">Hired Candidates</div>
+                <div class="stat-value"><?= $stats->status_counts['hired'] ?? 0 ?></div>
+                <canvas id="hiredChart"></canvas>
+                <div class="stat-footer">▲ Successful placements</div>
+            </div>
+
+            <div class="card">
+                <div class="stat-title">Active Jobs</div>
+                <div class="stat-value"><?= $stats->active_jobs ?? 0 ?></div>
+                <canvas id="jobsChart"></canvas>
+                <div class="stat-footer">● Currently hiring</div>
+            </div>
+
+        </div>
+
+        <!-- Navigation with Gradients -->
+        <div class="nav-grid">
+            <?php 
+            $navCounter = 0;
+            foreach ($this->siteMap as $group): 
+                if (!$group->show) continue;
+
+                if (isset($group->items)): 
+                    foreach ($group->items as $item): 
+                        if (!$item->show) continue;
+                        $navCounter++;
+            ?>
+            <a href="<?= $item->url ?>" class="nav-card">
+                <div class="nav-icon">
+                    <i class="fa <?= $item->icon ?>"></i>
+                </div>
+                <div class="nav-text">
+                    <strong><?= $item->label ?></strong>
+                    <span>Manage <?= strtolower($item->label) ?></span>
+                </div>
+            </a>
+            <?php 
+                    endforeach; 
+                else: 
+                    $navCounter++;
+            ?>
+            <a href="<?= $group->url ?>" class="nav-card">
+                <div class="nav-icon">
+                    <i class="fa <?= $group->icon ?>"></i>
+                </div>
+                <div class="nav-text">
+                    <strong><?= $group->label ?></strong>
+                    <span>Manage <?= strtolower($group->label) ?></span>
+                </div>
+            </a>
+            <?php 
+                endif; 
+            endforeach; 
+            ?>
+        </div>
+
+    </div>
+</div>
+
 <script>
-// HM Decision Notifications - Cleaned Version
+// Update toggle button active state
+document.addEventListener('DOMContentLoaded', function() {
+    const toggleButtons = document.querySelectorAll('.toggle-btn');
+    toggleButtons.forEach(btn => {
+        if (btn.textContent.includes('Simple View')) {
+            btn.classList.add('active');
+        } else {
+            btn.classList.remove('active');
+        }
+    });
+});
+
+// HM Decision Notifications - EXACTLY as they were
 console.log(' Dashboard JavaScript loaded - Cleaned Version');
 
 // Base URL for API endpoints
@@ -372,6 +560,7 @@ function markHmNotificationAsRead(notificationId) {
             console.error(' Error marking HM notification as read:', error);
         });
 }
+
 // Add to your existing HM decision notification system
 function checkForPositionOfferedNotifications() {
     const recruiterId = <?php echo $recruiter_id ?? 'null'; ?>;
@@ -457,6 +646,7 @@ function closePositionPopup(notificationId) {
 
 // Add to your existing interval checks
 setInterval(checkForPositionOfferedNotifications, 30000);
+
 // Debug function to test popup manually - REMOVE AUTO-CALL
 function testPopupManually() {
     console.log('Testing popup manually...');
@@ -481,8 +671,6 @@ function testPopupManually() {
 
 // Single DOMContentLoaded event listener
 document.addEventListener('DOMContentLoaded', function() {
-
-
     // Clear any existing test notifications from session storage on page load
     const displayedNotifications = getDisplayedNotifications();
     if (displayedNotifications.has(999)) {
@@ -506,4 +694,42 @@ console.log('Current Path:', window.location.pathname);
 window.addEventListener('error', function(e) {
     console.error('Global error:', e.error);
 });
+</script>
+
+<script>
+function sparkline(el, data, color) {
+    new Chart(document.getElementById(el), {
+        type: 'line',
+        data: {
+            labels: data.map((_, i) => i),
+            datasets: [{
+                data,
+                borderColor: color,
+                tension: .4,
+                fill: false
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: {
+                    display: false
+                }
+            },
+            scales: {
+                x: {
+                    display: false
+                },
+                y: {
+                    display: false
+                }
+            },
+        }
+    });
+}
+
+// Example data – replace later with real stats
+sparkline('candidatesChart', [2, 5, 8, 12, 15, 22], '#2563eb');
+sparkline('hiredChart', [1, 2, 3, 5, 8], '#16a34a');
+sparkline('jobsChart', [3, 4, 6, 6, 7], '#0ea5e9');
 </script>
