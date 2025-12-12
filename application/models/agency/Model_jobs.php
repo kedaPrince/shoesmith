@@ -154,21 +154,63 @@ class Model_jobs extends CRUD_Model{
     /**
      * Override main_selects to include candidate count as calculated field
      */
-    public function main_selects() {
-        // First call parent to get the basic fields
-        parent::main_selects();
-        
-        // Add candidate count as a calculated field
-        $this->db->select('(
-            SELECT COUNT(*) 
-            FROM candidate_jobs 
-            WHERE candidate_jobs.job_id = mod_jobs.id
-        ) as candidate_count', false);
-        
-        //  FIX: Ensure employment_type is selected
-        $this->db->select('mod_jobs.employment_type, mod_jobs.industry_id, mod_jobs.agency_id');
-    }
 
+public function main_selects() {
+    parent::main_selects();
+    
+    // Get the current agency ID for filtering
+    $agency_id = $this->get_current_agency_id();
+    
+    if ($agency_id) {
+        // Count candidates from candidate_job_assignments for this agency's jobs
+        $this->db->select('(
+            SELECT COUNT(DISTINCT cja.candidate_id) 
+            FROM candidate_job_assignments cja
+            INNER JOIN candidates c ON c.id = cja.candidate_id
+            INNER JOIN candidate_agencies ca ON ca.candidate_id = c.id
+            WHERE cja.job_id = mod_jobs.id 
+            AND cja.removed = 0
+            AND ca.agency_id = ' . $this->db->escape($agency_id) . '
+            AND c.removed = 0
+        ) as candidate_count', false);
+    } else {
+        // Count all candidates for this job
+        $this->db->select('(
+            SELECT COUNT(DISTINCT cja.candidate_id) 
+            FROM candidate_job_assignments cja
+            INNER JOIN candidates c ON c.id = cja.candidate_id
+            WHERE cja.job_id = mod_jobs.id 
+            AND cja.removed = 0
+            AND c.removed = 0
+        ) as candidate_count', false);
+    }
+    
+    // Ensure other fields are selected
+    $this->db->select('mod_jobs.*, agencies.name AS agency_name, mod_industries.name AS industry_name');
+}
+/**
+ * Get current agency ID from session
+ */
+/**
+ * Get current agency ID from session
+ */
+private function get_current_agency_id() {
+    $ci = &get_instance();
+    $login = $ci->session->userdata('login');
+    
+    if (!empty($login['agency'])) {
+        $agency_user = $login['agency'];
+        
+        // Check all possible agency ID locations
+        if (!empty($agency_user['agency_id'])) {
+            return $agency_user['agency_id'];
+        } elseif (!empty($agency_user['id'])) {
+            return $agency_user['id'];
+        }
+    }
+    
+    return null;
+}
     public function joins(){
         $this->db->join('agencies', 'agencies.id = mod_jobs.agency_id', 'left');
         $this->db->select('mod_jobs.agency_id, agencies.name AS agency_name');
@@ -226,7 +268,61 @@ class Model_jobs extends CRUD_Model{
         $this->db->order_by('name', 'ASC');
         return $this->db->get();
     }
+/**
+ * Get job by UUID or ID
+ */
+public function get_job($identifier)
+{
+    // Check if identifier is UUID (36 characters with hyphens)
+    if (is_string($identifier) && strlen($identifier) == 36 && strpos($identifier, '-') !== false) {
+        $this->db->where('uuid', $identifier);
+    } else {
+        // Assume it's an ID
+        $this->db->where('id', $identifier);
+    }
+    
+    $this->db->where('removed', 0);
+    return $this->db->get($this->table)->row();
+}
 
+/**
+ * Get job by UUID
+ */
+public function get_job_by_uuid($uuid)
+{
+    return $this->db->where('uuid', $uuid)
+                    ->where('removed', 0)
+                    ->get($this->table)
+                    ->row();
+}
+
+/**
+ * Get job ID from UUID
+ */
+public function get_job_id_from_uuid($uuid)
+{
+    $this->db->select('id');
+    $this->db->from($this->table);
+    $this->db->where('uuid', $uuid);
+    $this->db->where('removed', 0);
+    $result = $this->db->get()->row();
+    
+    return $result ? $result->id : null;
+}
+
+/**
+ * Get job UUID from ID
+ */
+public function get_job_uuid_from_id($id)
+{
+    $this->db->select('uuid');
+    $this->db->from($this->table);
+    $this->db->where('id', $id);
+    $this->db->where('removed', 0);
+    $result = $this->db->get()->row();
+    
+    return $result ? $result->uuid : null;
+}
     public function get_job_skills($job_id){
         if (empty($job_id)) return [];
         $this->db->select('skill_id');

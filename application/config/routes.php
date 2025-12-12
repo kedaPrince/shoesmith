@@ -16,7 +16,7 @@ $route['recruiter/candidates/view/([a-f0-9\-]{36})'] = 'recruiter/candidates/vie
 $route['recruiter/candidates/edit/([a-f0-9\-]{36})'] = 'recruiter/candidates/edit/$1';
 $route['recruiter/candidates/update/([a-f0-9\-]{36})'] = 'recruiter/candidates/update/$1';
 $route['recruiter/candidates/start_candidate_chat/([a-f0-9\-]{36})'] = 'recruiter/candidates/start_candidate_chat/$1';
-
+$route['agency/candidates_list/remove_candidate_from_job'] = 'agency/candidates_list/remove_candidate_from_job';
 // Keep backward compatibility with numeric IDs (optional, can remove later)
 $route['recruiter/candidates/view/(:num)'] = 'recruiter/candidates/view/$1';
 $route['recruiter/candidates/edit/(:num)'] = 'recruiter/candidates/edit/$1';

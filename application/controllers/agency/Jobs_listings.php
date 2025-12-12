@@ -47,89 +47,109 @@ class Jobs_listings extends CRUD_Controller{
         );
     }
 
-    private function setup_listing(){
-        $this->listFields = array(
-            'name' => array(
-                'label' => 'Job Title',
-                'sort' => true,
-            ),
-            'reference_number' => array(
-                'label' => lang('label_reference_number'),
-                'sort' => true,
-            ),
+  private function setup_listing(){
+    $this->listFields = array(
+        'name' => array(
+            'label' => 'Job Title',
+            'sort' => true,
+        ),
+        'reference_number' => array(
+            'label' => lang('label_reference_number'),
+            'sort' => true,
+        ),
         'candidate_count' => array(
-                'label' => 'Candidates',
-                'sort' => true,
-                'function' => function($str, $row) {
-                    $count = $row->candidate_count;
-                    
-                    // Return formatted count with link
-                    $url = site_url('agency/candidates_list/index/' . $row->id);
-                    if ($count > 0) {
-                        return '<a href="' . $url . '" class="btn btn-sm btn-info" title="View ' . $count . ' Candidates">' . $count . '</a>';
-                    } else {
-                        return '<span class="text-muted">0</span>';
-                    }
-                }
-            ),
-            'employment_type' => array(
-                'label' => lang('label_job_type'),
-                'sort' => true,
-            ),
-        );
-            $this->listActions = array(
-                'edit' => array(
-                    'label' => lang('label_edit'),
-                    'url' => url($this->pageName . '/edit/{id}'),
-                    'icon' => 'fa-edit',
-                    'class' => 'edit-row',
-                    'function' => function ($str, $row) {
-                        return (!$this->allowEdit) ? false : $str;
-                    },
-                ),
-            'view_candidates' => array(
-                'label' => 'View Candidates',
-                'url' => site_url('agency/candidates_list/index/{id}'), // Changed to use new controller
-                'icon' => 'fa-users',
-                'class' => 'btn-info',
-            ),
-                        'enable' => array(
-                    'label' => lang('label_enable'),
-                    'url' => url($this->pageName . '/enable/{id}'),
-                    'icon' => 'fa-eye',
-                    'class' => 'enable-row btn-enable',
-                    'function' => function ($str, $row) {
-                        return (!$this->allowEdit || $row->enabled) ? false : $str;
-                    },
-                ),
-                'disable' => array(
-                    'label' => lang('label_disable'),
-                    'url' => url($this->pageName . '/disable/{id}'),
-                    'icon' => 'fa-eye-slash',
-                    'class' => 'disable-row btn-disable',
-                    'function' => function ($str, $row) {
-                        return (!$this->allowEdit || !$row->enabled) ? false : $str;
-                    },
-                ),
-                'delete' => array(
-                    'label' => lang('label_delete'),
-                    'url' => url($this->pageName . '/remove/{id}'),
-                    'icon' => 'fa-trash-o',
-                    'class' => 'delete-row btn-delete',
-                    'function' => function ($str, $row) {
-                        return (!$this->allowEdit) ? false : $str;
-                    },
-                ),
-            );
-
-            $this->filters = array(
-                'general' => array(
-                    'label' => lang('label_search'),
-                    'type' => 'autocomplete',
-                    'field' => array('mod_jobs.name', 'mod_jobs.reference_number'),
-                ),
-            );
+    'label' => 'Candidates',
+    'sort' => true,
+    'function' => function($str, $row) {
+        // Get the controller instance inside the closure
+        $ci = &get_instance();
+        $agency_id = $ci->get_user_agency_id();
+        
+        if (!$agency_id) {
+            return '<span class="text-muted">0</span>';
         }
+        
+        // Count candidates for this job
+        $ci->db->select('COUNT(DISTINCT cja.candidate_id) as count');
+        $ci->db->from('candidate_job_assignments cja');
+        $ci->db->join('candidates c', 'c.id = cja.candidate_id');
+        $ci->db->join('candidate_agencies ca', 'ca.candidate_id = c.id');
+        $ci->db->where('cja.job_id', $row->id);
+        $ci->db->where('cja.removed', 0);
+        $ci->db->where('ca.agency_id', $agency_id);
+        $ci->db->where('c.removed', 0);
+        
+        $result = $ci->db->get()->row();
+        $actual_count = $result ? $result->count : 0;
+        
+        // Return formatted count with link - USE UUID
+        $url = site_url('agency/candidates_list/index/' . $row->uuid);
+        if ($actual_count > 0) {
+            return '<a href="' . $url . '" class="btn btn-sm btn-info" title="View ' . $actual_count . ' Candidates">' . $actual_count . '</a>';
+        } else {
+            return '<span class="text-muted">0</span>';
+        }
+    }
+),
+        'employment_type' => array(
+            'label' => lang('label_job_type'),
+            'sort' => true,
+        ),
+    );
+    
+    $this->listActions = array(
+        'edit' => array(
+            'label' => lang('label_edit'),
+            'url' => url($this->pageName . '/edit/{uuid}'), // Use UUID
+            'icon' => 'fa-edit',
+            'class' => 'edit-row',
+            'function' => function ($str, $row) {
+                return (!$this->allowEdit) ? false : $str;
+            },
+        ),
+        'view_candidates' => array(
+            'label' => 'View Candidates',
+            'url' => site_url('agency/candidates_list/index/{uuid}'), // Use UUID
+            'icon' => 'fa-users',
+            'class' => 'btn-info',
+        ),
+        'enable' => array(
+            'label' => lang('label_enable'),
+            'url' => url($this->pageName . '/enable/{uuid}'), // Use UUID
+            'icon' => 'fa-eye',
+            'class' => 'enable-row btn-enable',
+            'function' => function ($str, $row) {
+                return (!$this->allowEdit || $row->enabled) ? false : $str;
+            },
+        ),
+        'disable' => array(
+            'label' => lang('label_disable'),
+            'url' => url($this->pageName . '/disable/{uuid}'), // Use UUID
+            'icon' => 'fa-eye-slash',
+            'class' => 'disable-row btn-disable',
+            'function' => function ($str, $row) {
+                return (!$this->allowEdit || !$row->enabled) ? false : $str;
+            },
+        ),
+        'delete' => array(
+            'label' => lang('label_delete'),
+            'url' => url($this->pageName . '/remove/{uuid}'), // Use UUID
+            'icon' => 'fa-trash-o',
+            'class' => 'delete-row btn-delete',
+            'function' => function ($str, $row) {
+                return (!$this->allowEdit) ? false : $str;
+            },
+        ),
+    );
+
+    $this->filters = array(
+        'general' => array(
+            'label' => lang('label_search'),
+            'type' => 'autocomplete',
+            'field' => array('mod_jobs.name', 'mod_jobs.reference_number'),
+        ),
+    );
+}
 
     public function setup_fields(){
         $this->formFields = array(
@@ -248,7 +268,7 @@ class Jobs_listings extends CRUD_Controller{
      * Override the index method to ensure agency filtering
      */
     public function index(){
-       // dd('here');
+        //dd('here');
         $user_agency_id = $this->get_user_agency_id();
         
         // Apply agency filter directly to the model

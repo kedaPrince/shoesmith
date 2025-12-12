@@ -47,7 +47,7 @@ class Candidates extends CRUD_Controller{
                 'label' => lang('label_reference_number'),
                 'sort' => true,
             ),
- 'first_name' => array(
+            'first_name' => array(
                 'label' => lang('label_first_name'),
                 'sort' => true,
             ),
@@ -82,28 +82,28 @@ class Candidates extends CRUD_Controller{
 $this->listActions = array(
     'view' => array(
         'label'     => lang('label_view'),
-        'url'       => site_url('agency/candidates_list/view/{id}'),
+        'url'       => site_url('agency/candidates/view/{uuid}'), // Use UUID
         'icon'      => 'fa-eye',
         'class'     => 'view-row',
         'title'     => 'View detailed candidate profile',
     ),
     'edit' => array(
         'label'     => lang('label_edit'),
-        'url'       => redir($this->pageName . '/edit/{id}', true),
+        'url'       => redir($this->pageName . '/edit/{uuid}', true), // Use UUID
         'icon'      => 'fa-edit',
         'class'     => 'edit-row',
         'title'     => 'Edit candidate information',
     ),
     'onboarding' => array(
         'label'     => 'Onboarding',
-        'url'       => redir($this->pageName . '/onboarding/{id}', true),
+        'url'       => redir($this->pageName . '/onboarding/{uuid}', true), // Use UUID
         'icon'      => 'fa-eye',
         'class'     => 'onboarding-row',
         'title'     => 'Manage candidate onboarding process',
     ),
-    'chat' => array(  // ADD THIS NEW ACTION
+    'chat' => array(
         'label'     => 'Chat',
-        'url'       => site_url('agency/candidates/start_candidate_chat/{id}'),
+        'url'       => site_url('agency/candidates/start_candidate_chat/{uuid}'), // Use UUID
         'icon'      => 'fa-comments',
         'class'     => 'chat-row',
         'title'     => 'Chat with recruiter about this candidate',
@@ -172,35 +172,50 @@ $this->listActions = array(
         );
     }
 
-    public function onboarding($candidate_id) 
-    {
-         if (!$this->enforce_candidate_access($candidate_id)) {
+    public function onboarding($uuid_or_id = null) 
+{
+    if (!$uuid_or_id) {
+        show_error('Candidate identifier required', 400);
+    }
+    
+    // Get candidate by UUID or ID
+    $candidate = $this->{$this->model}->get_candidate($uuid_or_id);
+    
+    if (empty($candidate)) {
+        show_404();
+    }
+    
+    $candidate_id = $candidate->id;
+    $candidate_uuid = $candidate->uuid;
+    
+    if (!$this->enforce_candidate_access($candidate_id)) {
         return; // Already handled by enforce_candidate_access
     }
-        $agency_id = $this->get_user_agency_id();
-        
-        if (!$agency_id) {
-            show_error('Access denied', 403);
-        }
+    
+    $agency_id = $this->get_user_agency_id();
+    
+    if (!$agency_id) {
+        show_error('Access denied', 403);
+    }
 
-        $subquery = $this->db->select('candidate_id')
-            ->from('candidate_agencies')
-            ->where('candidate_id', $candidate_id)
-            ->where('agency_id', $agency_id)
-            ->get_compiled_select();
-        
-        $this->db->select('c.*, j.name as job_name, j.reference_number as job_ref');
-        $this->db->from('candidates c');
-        $this->db->join('mod_jobs j', 'j.id = c.job_id', 'left');
-        $this->db->where('c.id', $candidate_id);
-        $this->db->where("c.id IN ($subquery)", null, false);
-        $this->db->where('c.removed', 0);
-        
-        $candidate = $this->db->get()->row();
+    $subquery = $this->db->select('candidate_id')
+        ->from('candidate_agencies')
+        ->where('candidate_id', $candidate_id)
+        ->where('agency_id', $agency_id)
+        ->get_compiled_select();
+    
+    $this->db->select('c.*, j.name as job_name, j.reference_number as job_ref, j.uuid as job_uuid');
+    $this->db->from('candidates c');
+    $this->db->join('mod_jobs j', 'j.id = c.job_id', 'left');
+    $this->db->where('c.id', $candidate_id);
+    $this->db->where("c.id IN ($subquery)", null, false);
+    $this->db->where('c.removed', 0);
+    
+    $candidate = $this->db->get()->row();
 
-        if (empty($candidate)) {
-            show_404();
-        }
+    if (empty($candidate)) {
+        show_404();
+    }
 
         $this->db->where('candidate_id', $candidate_id);
         $this->db->where('removed', 0);
@@ -232,36 +247,37 @@ $this->listActions = array(
             $can_mark_reviewed = false;
         }
 
-        $this->breadcrumbs = array(
-            array(
-                'title' => lang($this->pageName . '_heading'),
-                'url'   => redir($this->pageName, true)
-            ),
-            array(
-                'title' => htmlspecialchars($candidate->first_name . ' ' . $candidate->last_name, ENT_QUOTES, 'UTF-8'),
-                'url'   => redir($this->pageName . '/view/' . $candidate_id, true)
-            ),
-            array(
-                'title' => 'Onboarding',
-                'url'   => redir($this->pageName . '/onboarding/' . $candidate_id, true)
-            ),
-        );
+           $this->breadcrumbs = array(
+        array(
+            'title' => lang($this->pageName . '_heading'),
+            'url'   => redir($this->pageName, true)
+        ),
+        array(
+            'title' => htmlspecialchars($candidate->first_name . ' ' . $candidate->last_name, ENT_QUOTES, 'UTF-8'),
+            'url'   => redir($this->pageName . '/view/' . $candidate_uuid, true) // Use UUID
+        ),
+        array(
+            'title' => 'Onboarding',
+            'url'   => redir($this->pageName . '/onboarding/' . $candidate_uuid, true) // Use UUID
+        ),
+    );
 
-        $this->load->view($this->folder . '/view_header');
-        $this->load->view('agency/candidates/onboarding', array(
-            'candidate' => $candidate,
-            'heading' => 'Candidate Onboarding - ' . $candidate->first_name . ' ' . $candidate->last_name,
-            'required_documents' => $required_documents,
-            'has_required_docs' => $has_required_docs,
-            'can_mark_reviewed' => $can_mark_reviewed
-        ));
-        $this->load->view($this->folder . '/view_footer');
-    }
+    $this->load->view($this->folder . '/view_header');
+    $this->load->view('agency/candidates/onboarding', array(
+        'candidate' => $candidate,
+        'heading' => 'Candidate Onboarding - ' . $candidate->first_name . ' ' . $candidate->last_name,
+        'required_documents' => $required_documents,
+        'has_required_docs' => $has_required_docs,
+        'can_mark_reviewed' => $can_mark_reviewed,
+        'candidate_uuid' => $candidate_uuid // Pass UUID to view
+    ));
+    $this->load->view($this->folder . '/view_footer');
+}
 
     public function get_all($limit = null, $offset = null, $sort_by = null, $sort_order = null)
     {
         $agency_id = $this->get_user_agency_id();
-        
+        $this->db->select('candidates.*, candidates.uuid as candidate_uuid');
         if (empty($agency_id)) {
             $this->db->where('candidates.id', 0);
             return parent::get_all($limit, $offset, $sort_by, $sort_order);
@@ -1311,60 +1327,118 @@ public function update_onboarding_stage() {
         return $result;
     }
 
-    public function edit($id) {
-        $agency_id = $this->get_user_agency_id();
-        if ($agency_id) {
-            $exists = $this->db->select('1')
-                ->from('candidate_agencies')
-                ->where('candidate_id', $id)
-                ->where('agency_id', $agency_id)
-                ->get()
-                ->row();
-            
-            if (!$exists) {
-                show_error('Candidate not found or access denied', 403);
-            }
-        }
-        parent::edit($id);
-    }
-
-    public function view($id)
-    {
-        if (!$this->enforce_candidate_access($id)) {
-        return;
+    public function edit($uuid_or_id = null)
+{
+    if (!$uuid_or_id) {
+        show_error('Candidate identifier required', 400);
     }
     
-        $agency_id = $this->get_user_agency_id();
-        if (!$agency_id) {
-            show_error('Access denied');
-        }
-
-        $this->db->select('c.*, j.name as job_name');
-        $this->db->from('candidates c');
-        $this->db->join('candidate_agencies ca', 'ca.candidate_id = c.id', 'inner');
-        $this->db->join('mod_jobs j', 'j.id = c.job_id', 'left');
-        $this->db->where('c.id', $id);
-        $this->db->where('ca.agency_id', $agency_id);
-        $this->db->where('c.removed', 0);
-        
-        $row = $this->db->get()->row();
-
-        if (empty($row)) {
-            show_404();
-        }
-
-        $this->breadcrumbs = [
-            ['title' => lang($this->pageName . '_heading'), 'url' => redir($this->pageName, true)],
-            ['title' => htmlspecialchars($row->first_name . ' ' . $row->last_name, ENT_QUOTES, 'UTF-8'), 'url' => ''],
-        ];
-
-        $this->load->view($this->folder . '/view_header');
-        $this->load->view('cms/crud/view_single', [
-            'row' => $row,
-            'heading' => lang('view_candidate_heading'),
-        ]);
-        $this->load->view($this->folder . '/view_footer');
+    // Get candidate by UUID or ID
+    $candidate = $this->{$this->model}->get_candidate($uuid_or_id);
+    
+    if (empty($candidate)) {
+        show_404();
     }
+    
+    $candidate_id = $candidate->id;
+    
+    $agency_id = $this->get_user_agency_id();
+    if ($agency_id) {
+        $exists = $this->db->select('1')
+            ->from('candidate_agencies')
+            ->where('candidate_id', $candidate_id)
+            ->where('agency_id', $agency_id)
+            ->get()
+            ->row();
+        
+        if (!$exists) {
+            show_error('Candidate not found or access denied', 403);
+        }
+    }
+    parent::edit($candidate_id);
+}
+
+public function view($uuid_or_id = null)
+{
+    if (!$uuid_or_id) {
+        show_error('Candidate identifier required', 400);
+    }
+
+    // Get candidate by UUID or ID using the model
+    $candidate = $this->{$this->model}->get_candidate($uuid_or_id);
+    
+    if (empty($candidate)) {
+        show_404();
+    }
+    
+    $candidate_id = $candidate->id;
+    $candidate_uuid = $candidate->uuid;
+    
+    $agency_id = $this->get_user_agency_id();
+    if (!$agency_id) {
+        show_error('Access denied');
+    }
+
+    // Check access using candidate_agencies table
+    $this->db->select('1');
+    $this->db->from('candidate_agencies ca');
+    $this->db->where('ca.candidate_id', $candidate_id);
+    $this->db->where('ca.agency_id', $agency_id);
+    
+    $has_access = $this->db->get()->row();
+    
+    if (empty($has_access)) {
+        show_error('Access denied to this candidate', 403);
+    }
+
+    // Get full candidate details with job information
+    $this->db->select('c.*, 
+                      j.name as job_name, 
+                      j.uuid as job_uuid,
+                      j.id as job_id,
+                      j.reference_number as job_ref,
+                      j.agency_id as job_agency_id,
+                      a.name as agency_name');
+    $this->db->from('candidates c');
+    $this->db->join('candidate_agencies ca', 'ca.candidate_id = c.id', 'inner');
+    $this->db->join('mod_jobs j', 'j.id = c.job_id', 'left');
+    $this->db->join('agencies a', 'a.id = j.agency_id', 'left');
+    $this->db->where('c.id', $candidate_id);
+    $this->db->where('ca.agency_id', $agency_id);
+    $this->db->where('c.removed', 0);
+    
+    $row = $this->db->get()->row();
+
+    if (empty($row)) {
+        show_404();
+    }
+
+    // Debug: Check job assignment
+    if (!$row->job_id) {
+        // Candidate is not assigned to any job
+        $this->session->set_flashdata('error', 'Candidate is not assigned to any job. Please assign the candidate to a job first.');
+        redirect('agency/candidates');
+    }
+
+    $this->breadcrumbs = [
+        ['title' => lang('jobs_listings_heading'), 'url' => site_url('agency/jobs_listings')],
+        ['title' => 'Candidates', 'url' => site_url('agency/candidates')],
+        ['title' => htmlspecialchars($row->first_name . ' ' . $row->last_name, ENT_QUOTES, 'UTF-8'), 'url' => ''],
+    ];
+
+    // Store the job ID in session for the "Back to Candidates" link
+    $this->session->set_userdata('current_job_id', $row->job_id);
+
+    $this->load->view($this->folder . '/view_header');
+    $this->load->view('agency/candidates_list/view', [  
+        'row' => $row,
+        'heading' => lang('view_candidate_heading'),
+        'candidate_uuid' => $candidate_uuid,
+        'job_uuid' => $row->job_uuid ?? null,
+        'candidate' => $row, // Add this for backward compatibility with your view
+    ]);
+    $this->load->view($this->folder . '/view_footer');
+}
 
     public function complete_onboarding() {
         $candidate_id = $this->input->post('candidate_id');
@@ -1690,12 +1764,31 @@ public function ajax_get_candidate_chat_info($candidate_id)
 /**
  * Start chat for candidate
  */
-public function start_candidate_chat($candidate_id)
+public function start_candidate_chat($uuid_or_id)
 {
+    if (!$uuid_or_id) {
+        show_error('Candidate identifier required', 400);
+    }
+    
+    // Get candidate by UUID or ID
+    $candidate = $this->{$this->model}->get_candidate($uuid_or_id);
+    
+    if (empty($candidate)) {
+        show_404();
+    }
+    
+    $candidate_id = $candidate->id;
+    $candidate_uuid = $candidate->uuid;
+    
     $agency_id = $this->get_user_agency_id();
     
     if (!$agency_id) {
         show_error('Access denied', 403);
+    }
+    
+    // Check access
+    if (!$this->enforce_candidate_access($candidate_id)) {
+        return;
     }
     
     // Get candidate details
@@ -1758,9 +1851,48 @@ private function check_candidate_access($candidate_id) {
 /**
  * Enforce candidate access - use in ALL candidate methods
  */
-private function enforce_candidate_access($candidate_id) {
-    if (!$this->check_candidate_access($candidate_id)) {
-        if ($this->input->is_ajax_request()) {
+private function enforce_candidate_access($uuid_or_id, $is_ajax = false) {
+    // Get candidate by UUID or ID
+    $candidate = $this->{$this->model}->get_candidate($uuid_or_id);
+    
+    if (empty($candidate)) {
+        if ($is_ajax) {
+            ajax_return([
+                'success' => false,
+                'message' => 'Candidate not found'
+            ]);
+        } else {
+            show_404();
+        }
+        return false;
+    }
+    
+    $candidate_id = $candidate->id;
+    
+    $agency_id = $this->get_user_agency_id();
+    
+    if (!$agency_id) {
+        if ($is_ajax) {
+            ajax_return([
+                'success' => false,
+                'message' => 'Agency not logged in'
+            ]);
+        } else {
+            show_error('Access denied', 403);
+        }
+        return false;
+    }
+    
+    // Check if candidate belongs to user's agency through candidate_agencies table
+    $this->db->select('1');
+    $this->db->from('candidate_agencies ca');
+    $this->db->where('ca.candidate_id', $candidate_id);
+    $this->db->where('ca.agency_id', $agency_id);
+    
+    $result = $this->db->get()->row();
+    
+    if ($result === null) {
+        if ($is_ajax) {
             ajax_return([
                 'success' => false,
                 'message' => 'Access denied to this candidate'
