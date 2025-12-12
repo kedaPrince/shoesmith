@@ -275,15 +275,7 @@ log_message('debug', 'List fields set');
         );
     }
 
-    /**
-     * Override the main data fetching method used by the listing
-     */
- public function _get_data($limit = null, $offset = null, $sort_by = null, $sort_order = null)
-{
-    // AGENCY FILTERING REMOVED - Model handles it
-    
-    return parent::_get_data($limit, $offset, $sort_by, $sort_order);
-}
+
 
 public function index(): void
 {
@@ -305,33 +297,7 @@ public function index(): void
     $this->load->view($this->folder . '/' . 'view_footer');
 }
 
-    /**
-     * Override the pager fetch batch to ensure agency filtering
-     */
- 
-public function ajax_pager_fetch_batch($batch = 1, $section = "", $template = "listing")
-{
-    $this->page = $batch;
-    
-    try {
-        // NO AGENCY FILTER HERE - Model handles it
-        $query = $this->{$this->model}->get_all($section);
-    }
-    catch(Exception $e) {
-        echo $e->getMessage();
-        exit();
-    }
 
-    $amount = $this->{$this->model}->get_count();
-    
-    $html = $this->load->view('cms/crud/ajax_' . $template . '_rows', array(
-        'query' => $query,
-        'batch' => $batch,
-        'amount' => $amount
-    ), TRUE);
-
-    $this->output->set_output($html);
-}
 
     public function quick_manage_extra($id, $row): array
     {
@@ -352,28 +318,7 @@ public function ajax_pager_fetch_batch($batch = 1, $section = "", $template = "l
         return $input_data;
     }
 
-    /**
-     * Get the logged-in user's agency ID - Works for both agency staff and recruiters
-     */
-
-    private function get_user_agency_id()
-    {
-        // Get the login data from session
-        $login_data = $this->session->userdata('login');
-        
-        // Check for agency login - when logged in as agency, the ID is the agency ID
-        if (!empty($login_data['agency'])) {
-            $agency_user = $login_data['agency'];
-            
-            if (!empty($agency_user['id'])) {
-                // When logged in as agency, the ID is the agency ID
-                $agency_id = $agency_user['id'];
-                return $agency_id;
-            }
-        }
-        
-        return null;
-    }
+   
 
     /**
      * Is Unique Email
@@ -679,12 +624,7 @@ public function ajax_pager_fetch_batch($batch = 1, $section = "", $template = "l
         redirect(site_url() . $defaultUrl);
     }
 
-    public function update($id): void
-    {
   
-        
-        parent::update($id);
-    }
 
     /**
      * Build parameters for create/update
@@ -706,6 +646,338 @@ public function ajax_pager_fetch_batch($batch = 1, $section = "", $template = "l
     }
 
 
+  // ============================================
+    // 🔒 ADD THESE SECURITY CHECKS TO ALL METHODS
+    // ============================================
 
+
+/**
+ * 🔒 SECURITY FIX: Override parent's _get_data to add agency filtering
+ * This is called by listing and AJAX methods
+ */
+public function _get_data($limit = null, $offset = null, $sort_by = null, $sort_order = null)
+{
+    // Let parent handle with our secured model
+    return parent::_get_data($limit, $offset, $sort_by, $sort_order);
+}
+
+/**
+ * 🔒 SECURITY FIX: Secure the AJAX pager method
+ */
+public function ajax_pager_fetch_batch($batch = 1, $section = "", $template = "listing")
+{
+    // Parent will use our secured get_all() method
+    parent::ajax_pager_fetch_batch($batch, $section, $template);
+}
+
+/**
+ * 🔒 SECURITY FIX: Override quick_manage method
+ */
+public function quick_manage($id = false)
+{
+    if ($id && !$this->check_staff_access($id)) {
+        $this->access_denied();
+        return;
+    }
     
+    parent::quick_manage($id);
+}
+
+/**
+ * 🔒 Check if current user can access this staff member - FIXED VERSION
+ */
+private function check_staff_access($staff_id)
+{
+    // Get user's agency ID
+    $user_agency_id = $this->get_user_agency_id();
+    
+    if (empty($user_agency_id)) {
+        // If no agency ID, check if admin
+        $user_type = getLoggedInUserTypeMenu();
+        if ($user_type === 'admin') {
+            return true; // Admins can access everything
+        }
+        return false; // No agency, not admin = no access
+    }
+    
+    // DIRECT DATABASE CHECK - Don't rely on model method
+    $this->db->select('1');
+    $this->db->from('agency_staff');
+    $this->db->where('id', $staff_id);
+    $this->db->where('agency_id', $user_agency_id);
+    $this->db->where('removed', 0);
+    
+    $result = $this->db->get()->row();
+    
+    if (!$result) {
+        // Log the violation
+        log_message('error', 'ACCESS VIOLATION: Agency ' . $user_agency_id . 
+                   ' tried to access staff ' . $staff_id);
+        return false;
+    }
+    
+    return true;
+}
+
+/**
+ * 🔒 Universal access denied handler
+ */
+private function access_denied()
+{
+    if (is_ajax()) {
+        ajax_return([
+            'success' => false,
+            'error' => 'Access denied to this staff member'
+        ]);
+    } else {
+        show_error('Access denied', 403);
+    }
+    exit; // Stop execution
+}
+
+/**
+ * 🔒 SECURITY FIX: Handle all CRUD operations with access control
+ * This is a universal pre-check for any staff operation
+ */
+private function check_crud_access($id = null)
+{
+    if ($id && !$this->check_staff_access($id)) {
+        $this->access_denied();
+        return false;
+    }
+    return true;
+}
+
+// Override any other parent methods that might exist
+public function ajax_get_staff($id)
+{
+    if (!$this->check_crud_access($id)) {
+        return;
+    }
+    
+    // If parent has this method, call it
+    if (method_exists(get_parent_class($this), 'ajax_get_staff')) {
+        parent::ajax_get_staff($id);
+    } else {
+        // Return minimal safe data or error
+        if (is_ajax()) {
+            ajax_return([
+                'success' => false,
+                'error' => 'Method not available'
+            ]);
+        }
+    }
+}
+public function edit($id): void
+{
+    // 🔒 Simple, direct check
+    if (!$this->check_staff_access($id)) {
+        $this->access_denied();
+    }
+    
+    parent::edit($id);
+}
+
+    /**
+     * 🔒 Override parent view method with agency check
+     */
+    public function view($id): void
+    {
+        // Check agency access
+        if (!$this->check_staff_access($id)) {
+            if (is_ajax()) {
+                ajax_return([
+                    'success' => false,
+                    'error' => 'Access denied to this staff member'
+                ]);
+            } else {
+                flash_notification('Access denied to this staff member', 'error');
+                redirect($this->pageName);
+            }
+            return;
+        }
+        
+        // If parent doesn't have view() method, handle it here
+        if (method_exists(get_parent_class($this), 'view')) {
+            parent::view($id);
+        } else {
+            show_404();
+        }
+    }
+
+    /**
+     * 🔒 Override parent enable method with agency check
+     */
+    public function enable($id): void
+    {
+        // Check agency access
+        if (!$this->check_staff_access($id)) {
+            if (is_ajax()) {
+                ajax_return([
+                    'success' => false,
+                    'error' => 'Access denied to this staff member'
+                ]);
+            } else {
+                show_error('Access denied', 403);
+            }
+            return;
+        }
+        
+        parent::enable($id);
+    }
+
+    /**
+     * 🔒 Override parent disable method with agency check
+     */
+    public function disable($id): void
+    {
+        // Check agency access
+        if (!$this->check_staff_access($id)) {
+            if (is_ajax()) {
+                ajax_return([
+                    'success' => false,
+                    'error' => 'Access denied to this staff member'
+                ]);
+            } else {
+                show_error('Access denied', 403);
+            }
+            return;
+        }
+        
+        parent::disable($id);
+    }
+
+    /**
+     * 🔒 Override parent remove method with agency check
+     */
+    public function remove($id): void
+    {
+        // Check agency access
+        if (!$this->check_staff_access($id)) {
+            if (is_ajax()) {
+                ajax_return([
+                    'success' => false,
+                    'error' => 'Access denied to this staff member'
+                ]);
+            } else {
+                show_error('Access denied', 403);
+            }
+            return;
+        }
+        
+        parent::remove($id);
+    }
+
+    /**
+     * 🔒 Override parent update method with agency check
+     */
+    public function update($id): void
+    {
+        // Check agency access
+        if (!$this->check_staff_access($id)) {
+            if (is_ajax()) {
+                ajax_return([
+                    'success' => false,
+                    'error' => 'Access denied to this staff member'
+                ]);
+            } else {
+                flash_notification('Access denied to this staff member', 'error');
+                redirect($this->pageName);
+            }
+            return;
+        }
+        
+        parent::update($id);
+    }
+
+    /**
+     * 🔒 Override parent create method (if needed)
+     */
+    public function create()
+    {
+        // You might want to check if user can create staff in their agency
+        $user_agency_id = $this->get_user_agency_id();
+        if (!$user_agency_id) {
+            if (is_ajax()) {
+                ajax_return([
+                    'success' => false,
+                    'error' => 'Agency not found'
+                ]);
+            } else {
+                flash_notification('Agency not found', 'error');
+                redirect($this->pageName);
+            }
+            return;
+        }
+        
+        parent::create();
+    }
+
+    /**
+     * 🔒 Get the logged-in user's agency ID
+     */
+    private function get_user_agency_id()
+    {
+        $login_data = $this->session->userdata('login');
+        
+        if (!empty($login_data['agency'])) {
+            $agency_user = $login_data['agency'];
+            
+            if (!empty($agency_user['id'])) {
+                return $agency_user['id'];
+            }
+        }
+        
+        return null;
+    }
+
+/**
+     * 🔒 Override ajax_quick_manage method with agency check
+     */
+    public function ajax_quick_manage($id = FALSE)
+    {
+        if ($id && !$this->check_staff_access($id)) {
+            ajax_return([
+                'success' => false,
+                'error' => 'Access denied to this staff member'
+            ]);
+            return;
+        }
+        
+        parent::ajax_quick_manage($id);
+    }
+
+    /**
+ * Debug method to test access
+ */
+public function test_access_control($staff_id)
+{
+    echo "<h2>Access Control Test</h2>";
+    
+    // Test 1: Get current agency
+    $user_agency_id = $this->get_user_agency_id();
+    echo "Current User Agency ID: <strong>" . ($user_agency_id ?: 'NULL') . "</strong><br>";
+    
+    // Test 2: Check access
+    $can_access = $this->check_staff_access($staff_id);
+    echo "Can access staff $staff_id: <strong>" . ($can_access ? 'YES' : 'NO') . "</strong><br>";
+    
+    // Test 3: Direct DB check
+    $this->db->select('id, agency_id, first_name, last_name');
+    $this->db->from('agency_staff');
+    $this->db->where('id', $staff_id);
+    $this->db->where('removed', 0);
+    $staff = $this->db->get()->row();
+    
+    if ($staff) {
+        echo "Staff exists: " . $staff->first_name . " " . $staff->last_name . "<br>";
+        echo "Staff Agency ID: " . $staff->agency_id . "<br>";
+        echo "Match user agency? " . ($staff->agency_id == $user_agency_id ? 'YES' : 'NO') . "<br>";
+    } else {
+        echo "Staff not found or removed<br>";
+    }
+    
+    echo "<hr>";
+    echo "<a href='/shoesmith/agency/agency_staff/edit/$staff_id'>Try to edit staff $staff_id</a>";
+}
 }

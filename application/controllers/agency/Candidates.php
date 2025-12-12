@@ -172,7 +172,7 @@ $this->listActions = array(
         );
     }
 
-    public function onboarding($uuid_or_id = null) 
+public function onboarding($uuid_or_id = null) 
 {
     if (!$uuid_or_id) {
         show_error('Candidate identifier required', 400);
@@ -188,8 +188,9 @@ $this->listActions = array(
     $candidate_id = $candidate->id;
     $candidate_uuid = $candidate->uuid;
     
+    // 🔒 FIX: Check access using the candidate ID
     if (!$this->enforce_candidate_access($candidate_id)) {
-        return; // Already handled by enforce_candidate_access
+        return; // Access denied handled by enforce_candidate_access
     }
     
     $agency_id = $this->get_user_agency_id();
@@ -198,17 +199,11 @@ $this->listActions = array(
         show_error('Access denied', 403);
     }
 
-    $subquery = $this->db->select('candidate_id')
-        ->from('candidate_agencies')
-        ->where('candidate_id', $candidate_id)
-        ->where('agency_id', $agency_id)
-        ->get_compiled_select();
-    
+    // Get candidate details with job information
     $this->db->select('c.*, j.name as job_name, j.reference_number as job_ref, j.uuid as job_uuid');
     $this->db->from('candidates c');
     $this->db->join('mod_jobs j', 'j.id = c.job_id', 'left');
     $this->db->where('c.id', $candidate_id);
-    $this->db->where("c.id IN ($subquery)", null, false);
     $this->db->where('c.removed', 0);
     
     $candidate = $this->db->get()->row();
@@ -217,48 +212,49 @@ $this->listActions = array(
         show_404();
     }
 
-        $this->db->where('candidate_id', $candidate_id);
-        $this->db->where('removed', 0);
-        $total_documents_count = $this->db->count_all_results('candidate_documents');
+    $this->db->where('candidate_id', $candidate_id);
+    $this->db->where('removed', 0);
+    $total_documents_count = $this->db->count_all_results('candidate_documents');
 
+    $required_documents = [];
+    $has_required_docs = false;
+    $can_mark_reviewed = false;
+    
+    try {
+        if (method_exists($this->{$this->model}, 'check_documents_submission_status')) {
+            $documents_status = $this->{$this->model}->check_documents_submission_status($candidate_id);
+            $required_documents = $documents_status['documents'] ?? [];
+            $has_required_docs = $documents_status['has_documents'] ?? false;
+            
+            $can_mark_reviewed = $has_required_docs && 
+                                !$candidate->stage_requested_docs && 
+                                isset($candidate->documents_required) && 
+                                $candidate->documents_required;
 
+            if ($total_documents_count > 0 && count($required_documents) === 0) {
+                // Log or handle
+            }
+        } else {
+            // Log or handle
+        }
+    } catch (Exception $e) {
         $required_documents = [];
         $has_required_docs = false;
         $can_mark_reviewed = false;
-        
-        try {
-            if (method_exists($this->{$this->model}, 'check_documents_submission_status')) {
-                $documents_status = $this->{$this->model}->check_documents_submission_status($candidate_id);
-                $required_documents = $documents_status['documents'] ?? [];
-                $has_required_docs = $documents_status['has_documents'] ?? false;
-                
-                $can_mark_reviewed = $has_required_docs && 
-                                    !$candidate->stage_requested_docs && 
-                                    isset($candidate->documents_required) && 
-                                    $candidate->documents_required;
+    }
 
-                if ($total_documents_count > 0 && count($required_documents) === 0) {
-                }
-            } else {
-            }
-        } catch (Exception $e) {
-            $required_documents = [];
-            $has_required_docs = false;
-            $can_mark_reviewed = false;
-        }
-
-           $this->breadcrumbs = array(
+    $this->breadcrumbs = array(
         array(
             'title' => lang($this->pageName . '_heading'),
             'url'   => redir($this->pageName, true)
         ),
         array(
             'title' => htmlspecialchars($candidate->first_name . ' ' . $candidate->last_name, ENT_QUOTES, 'UTF-8'),
-            'url'   => redir($this->pageName . '/view/' . $candidate_uuid, true) // Use UUID
+            'url'   => redir($this->pageName . '/view/' . $candidate_uuid, true)
         ),
         array(
             'title' => 'Onboarding',
-            'url'   => redir($this->pageName . '/onboarding/' . $candidate_uuid, true) // Use UUID
+            'url'   => redir($this->pageName . '/onboarding/' . $candidate_uuid, true)
         ),
     );
 
@@ -269,7 +265,7 @@ $this->listActions = array(
         'required_documents' => $required_documents,
         'has_required_docs' => $has_required_docs,
         'can_mark_reviewed' => $can_mark_reviewed,
-        'candidate_uuid' => $candidate_uuid // Pass UUID to view
+        'candidate_uuid' => $candidate_uuid
     ));
     $this->load->view($this->folder . '/view_footer');
 }
@@ -345,6 +341,10 @@ $this->listActions = array(
     }
 
     public function upload_document() {
+        $candidate_id = $this->input->post('candidate_id');
+        if (!$this->enforce_candidate_access($candidate_id)) {
+            return;
+        }
         $csrf_name = $this->security->get_csrf_token_name();
     $csrf_token = $this->input->post($csrf_name);
     
@@ -409,6 +409,10 @@ $this->listActions = array(
     }
 
     public function get_documents($candidate_id) {
+         $candidate_id = $this->input->post('candidate_id');
+        if (!$this->enforce_candidate_access($candidate_id)) {
+            return;
+        }
         $this->load->model('recruiter/Model_candidates');
         $documents = $this->Model_candidates->get_candidate_documents($candidate_id);
         
@@ -468,10 +472,7 @@ public function update_onboarding_stage() {
     header('Content-Type: application/json; charset=UTF-8');
     
     try {
-        // If CodeIgniter's global CSRF blocked this request, we wouldn't reach here
-        // So we can assume CSRF passed if we reach this point
-        
-        // Get POST data (CSRF token has been filtered out by CodeIgniter)
+        // Get POST data
         $candidate_id = $this->input->post('candidate_id');
         $stage = $this->input->post('stage');
         $value = $this->input->post('value');
@@ -486,7 +487,7 @@ public function update_onboarding_stage() {
             exit();
         }
         
-        // Check candidate access
+        // 🔒 FIX: Check access using the candidate ID
         if (!$this->enforce_candidate_access($candidate_id)) {
             echo json_encode([
                 'success' => false,
@@ -560,12 +561,10 @@ public function update_onboarding_stage() {
     exit();
 }
 
-    public function update_hm_decision() {
-    // Set JSON header
+  public function update_hm_decision() {
     header('Content-Type: application/json; charset=UTF-8');
     
     try {
-        // Get POST data (CSRF token is filtered out by CodeIgniter)
         $candidate_id = $this->input->post('candidate_id');
         $decision = $this->input->post('decision');
         $notes = $this->input->post('notes');
@@ -575,6 +574,16 @@ public function update_onboarding_stage() {
             echo json_encode([
                 'success' => false,
                 'message' => 'Missing required fields',
+                'csrf_token' => $this->security->get_csrf_hash()
+            ]);
+            exit();
+        }
+        
+        // 🔒 FIX: Check access using the candidate ID
+        if (!$this->enforce_candidate_access($candidate_id)) {
+            echo json_encode([
+                'success' => false,
+                'message' => 'Access denied to this candidate',
                 'csrf_token' => $this->security->get_csrf_hash()
             ]);
             exit();
@@ -651,26 +660,31 @@ public function update_onboarding_stage() {
     exit();
 }
 
-   public function update_documents_decision() {
-    // Set JSON header FIRST
+public function update_documents_decision() {
     header('Content-Type: application/json; charset=UTF-8');
     
     if (!$this->input->is_ajax_request()) {
-        echo json_encode([
-            'success' => false,
-            'message' => 'Invalid request method'
-        ]);
+        echo json_encode(['success' => false, 'message' => 'Invalid request method']);
         exit();
     }
     
     try {
-        // Get POST data (CSRF token will be validated by CodeIgniter automatically)
         $candidate_id = $this->input->post('candidate_id');
         $documents_required = $this->input->post('documents_required');
         $documents_notes = $this->input->post('documents_notes');
 
         if (empty($candidate_id)) {
             throw new Exception('Candidate ID is required');
+        }
+
+        // 🔒 FIX: Check access using the candidate ID
+        if (!$this->enforce_candidate_access($candidate_id)) {
+            echo json_encode([
+                'success' => false,
+                'message' => 'Access denied to this candidate',
+                'csrf_token' => $this->security->get_csrf_hash()
+            ]);
+            exit();
         }
 
         if ($documents_required === '') {
@@ -918,25 +932,7 @@ public function update_onboarding_stage() {
         ]);
     }
 
-    private function get_user_agency_id()
-    {
-        $login = $this->session->userdata('login');
-                
-        if (!empty($login['agency'])) {
-            $agency_user = $login['agency'];
-            
-            if (!empty($agency_user['agency_id'])) {
-                return $agency_user['agency_id'];
-            } elseif (!empty($agency_user['id'])) {
-                return $agency_user['id'];
-            } elseif (!empty($agency_user['agency']['id'])) {
-                return $agency_user['agency']['id'];
-            }
-        }
-        
-        show_error('Agency authentication failed. Please log in again.', 403);
-        return null;
-    }
+    
 
     public function index(): void{
         $this->debug_agency_filtering();
@@ -1194,46 +1190,49 @@ public function update_onboarding_stage() {
         }
     }
 
-    public function enable($id) {
-         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $csrf_name = $this->security->get_csrf_token_name();
-    $csrf_token = $this->input->post($csrf_name);
+public function enable($uuid_or_id) {
+    // Get candidate by UUID or ID
+    $candidate = $this->{$this->model}->get_candidate($uuid_or_id);
     
-    if (!$csrf_token || $csrf_token !== $this->security->get_csrf_hash()) {
-        if (is_ajax()) {
-            http_response_code(400);
-            echo json_encode(['success' => false, 'message' => 'Invalid CSRF token']);
-            return;
-        } else {
-            show_error('Invalid CSRF token', 400);
-            return;
-        }
+    if (empty($candidate)) {
+        ajax_return(['success' => false, 'message' => 'Candidate not found']);
+        return;
     }
-} elseif ($_SERVER['REQUEST_METHOD'] !== 'GET') {
-    show_error('Method not allowed', 405);
-    return;
-}
-        $agency_id = $this->get_user_agency_id();
-        if ($agency_id) {
-            $exists = $this->db->select('1')
-                ->from('candidate_agencies')
-                ->where('candidate_id', $id)
-                ->where('agency_id', $agency_id)
-                ->get()
-                ->row();
-            
-            if (!$exists) {
-                ajax_return([
-                    'success' => false,
-                    'error' => 'Candidate not found or access denied'
-                ]);
+    
+    $candidate_id = $candidate->id;
+    
+    // 🔒 Check access
+    if (!$this->enforce_candidate_access($candidate_id)) {
+        return;
+    }
+    
+    // CSRF check
+    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+        $csrf_name = $this->security->get_csrf_token_name();
+        $csrf_token = $this->input->post($csrf_name);
+        
+        if (!$csrf_token || $csrf_token !== $this->security->get_csrf_hash()) {
+            if (is_ajax()) {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'message' => 'Invalid CSRF token']);
+                return;
+            } else {
+                show_error('Invalid CSRF token', 400);
                 return;
             }
         }
-        parent::enable($id);
+    } elseif ($_SERVER['REQUEST_METHOD'] !== 'GET') {
+        show_error('Method not allowed', 405);
+        return;
     }
+    
+    parent::enable($candidate_id);
+}
 
     public function disable($id) {
+        if (!$this->enforce_candidate_access($uuid_or_id)) {
+            return;
+        }
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $csrf_name = $this->security->get_csrf_token_name();
     $csrf_token = $this->input->post($csrf_name);
@@ -1273,6 +1272,9 @@ public function update_onboarding_stage() {
     }
 
     public function remove($id) {
+         if (!$this->enforce_candidate_access($uuid_or_id)) {
+            return;
+        }
          if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $csrf_name = $this->security->get_csrf_token_name();
     $csrf_token = $this->input->post($csrf_name);
@@ -1327,7 +1329,7 @@ public function update_onboarding_stage() {
         return $result;
     }
 
-    public function edit($uuid_or_id = null)
+public function edit($uuid_or_id = null)
 {
     if (!$uuid_or_id) {
         show_error('Candidate identifier required', 400);
@@ -1342,6 +1344,12 @@ public function update_onboarding_stage() {
     
     $candidate_id = $candidate->id;
     
+    // 🔒 FIX: Check access using the candidate ID
+    if (!$this->enforce_candidate_access($candidate_id)) {
+        return;
+    }
+    
+    // Agency check (optional - enforce_candidate_access already did this)
     $agency_id = $this->get_user_agency_id();
     if ($agency_id) {
         $exists = $this->db->select('1')
@@ -1355,6 +1363,7 @@ public function update_onboarding_stage() {
             show_error('Candidate not found or access denied', 403);
         }
     }
+    
     parent::edit($candidate_id);
 }
 
@@ -1374,23 +1383,13 @@ public function view($uuid_or_id = null)
     $candidate_id = $candidate->id;
     $candidate_uuid = $candidate->uuid;
     
+    // 🔒 Check access once
+    if (!$this->enforce_candidate_access($candidate_id)) {
+        return; // Access denied handled by enforce_candidate_access
+    }
+    
     $agency_id = $this->get_user_agency_id();
-    if (!$agency_id) {
-        show_error('Access denied');
-    }
-
-    // Check access using candidate_agencies table
-    $this->db->select('1');
-    $this->db->from('candidate_agencies ca');
-    $this->db->where('ca.candidate_id', $candidate_id);
-    $this->db->where('ca.agency_id', $agency_id);
     
-    $has_access = $this->db->get()->row();
-    
-    if (empty($has_access)) {
-        show_error('Access denied to this candidate', 403);
-    }
-
     // Get full candidate details with job information
     $this->db->select('c.*, 
                       j.name as job_name, 
@@ -1404,7 +1403,6 @@ public function view($uuid_or_id = null)
     $this->db->join('mod_jobs j', 'j.id = c.job_id', 'left');
     $this->db->join('agencies a', 'a.id = j.agency_id', 'left');
     $this->db->where('c.id', $candidate_id);
-    $this->db->where('ca.agency_id', $agency_id);
     $this->db->where('c.removed', 0);
     
     $row = $this->db->get()->row();
@@ -1413,21 +1411,11 @@ public function view($uuid_or_id = null)
         show_404();
     }
 
-    // Debug: Check job assignment
-    if (!$row->job_id) {
-        // Candidate is not assigned to any job
-        $this->session->set_flashdata('error', 'Candidate is not assigned to any job. Please assign the candidate to a job first.');
-        redirect('agency/candidates');
-    }
-
     $this->breadcrumbs = [
         ['title' => lang('jobs_listings_heading'), 'url' => site_url('agency/jobs_listings')],
         ['title' => 'Candidates', 'url' => site_url('agency/candidates')],
         ['title' => htmlspecialchars($row->first_name . ' ' . $row->last_name, ENT_QUOTES, 'UTF-8'), 'url' => ''],
     ];
-
-    // Store the job ID in session for the "Back to Candidates" link
-    $this->session->set_userdata('current_job_id', $row->job_id);
 
     $this->load->view($this->folder . '/view_header');
     $this->load->view('agency/candidates_list/view', [  
@@ -1435,7 +1423,7 @@ public function view($uuid_or_id = null)
         'heading' => lang('view_candidate_heading'),
         'candidate_uuid' => $candidate_uuid,
         'job_uuid' => $row->job_uuid ?? null,
-        'candidate' => $row, // Add this for backward compatibility with your view
+        'candidate' => $row,
     ]);
     $this->load->view($this->folder . '/view_footer');
 }
@@ -1532,6 +1520,9 @@ public function view($uuid_or_id = null)
     }
 
     public function check_documents_submission($candidate_id) {
+        if (!$this->enforce_candidate_access($candidate_id)) {
+            return;
+        }
         $result = $this->{$this->model}->check_and_update_documents_stage($candidate_id);
         
         if ($result) {
@@ -1825,86 +1816,212 @@ public function start_candidate_chat($uuid_or_id)
     } else {
         show_error('Failed to create chat conversation');
     }
+
+    
 }
 
-/**
- * Check if current user has access to this candidate
- */
-private function check_candidate_access($candidate_id) {
-    $agency_id = $this->get_user_agency_id();
+// ============================================
+    // 🔒 CANDIDATES SECURITY METHODS
+    // ============================================
+
+    /**
+     * 🔒 Check if current agency can access this candidate
+     * Uses candidate_agencies pivot table
+     */
+    private function check_candidate_access($candidate_id)
+{
+    $user_agency_id = $this->get_user_agency_id();
     
-    if (!$agency_id) {
-        return false;
+    log_message('debug', 'check_candidate_access - Agency ID: ' . $user_agency_id . ', Candidate ID: ' . $candidate_id);
+    
+    if (empty($user_agency_id)) {
+        $user_type = getLoggedInUserTypeMenu();
+        log_message('debug', 'User type: ' . $user_type);
+        return ($user_type === 'admin');
     }
     
-    // Check if candidate belongs to user's agency
+    // Check pivot table
     $this->db->select('1');
     $this->db->from('candidate_agencies ca');
+    $this->db->join('candidates c', 'c.id = ca.candidate_id');
     $this->db->where('ca.candidate_id', $candidate_id);
-    $this->db->where('ca.agency_id', $agency_id);
+    $this->db->where('ca.agency_id', $user_agency_id);
+    $this->db->where('c.removed', 0);
     
     $result = $this->db->get()->row();
     
-    return $result !== null;
-}
-
-/**
- * Enforce candidate access - use in ALL candidate methods
- */
-private function enforce_candidate_access($uuid_or_id, $is_ajax = false) {
-    // Get candidate by UUID or ID
-    $candidate = $this->{$this->model}->get_candidate($uuid_or_id);
+    log_message('debug', 'Pivot table result: ' . print_r($result, true));
     
-    if (empty($candidate)) {
-        if ($is_ajax) {
-            ajax_return([
-                'success' => false,
-                'message' => 'Candidate not found'
-            ]);
-        } else {
-            show_404();
+    // Check if any rows exist in the pivot table for this agency
+    if (!$result) {
+        // Also check direct assignment
+        $this->db->select('1');
+        $this->db->from('candidates c');
+        $this->db->where('c.id', $candidate_id);
+        $this->db->where('c.agency_id', $user_agency_id);
+        $this->db->where('c.removed', 0);
+        
+        $direct_result = $this->db->get()->row();
+        
+        log_message('debug', 'Direct assignment result: ' . print_r($direct_result, true));
+        
+        if (!$direct_result) {
+            // Check if candidate exists at all
+            $this->db->select('1');
+            $this->db->from('candidates c');
+            $this->db->where('c.id', $candidate_id);
+            $candidate_exists = $this->db->get()->row();
+            
+            log_message('debug', 'Candidate exists: ' . print_r($candidate_exists, true));
+            
+            if ($candidate_exists) {
+                log_message('error', 'CANDIDATE ACCESS DENIED: Agency ' . $user_agency_id . 
+                           ' attempted to access candidate ID ' . $candidate_id);
+            }
+            return false;
         }
-        return false;
     }
     
-    $candidate_id = $candidate->id;
-    
-    $agency_id = $this->get_user_agency_id();
-    
-    if (!$agency_id) {
-        if ($is_ajax) {
-            ajax_return([
-                'success' => false,
-                'message' => 'Agency not logged in'
-            ]);
-        } else {
-            show_error('Access denied', 403);
-        }
-        return false;
-    }
-    
-    // Check if candidate belongs to user's agency through candidate_agencies table
-    $this->db->select('1');
-    $this->db->from('candidate_agencies ca');
-    $this->db->where('ca.candidate_id', $candidate_id);
-    $this->db->where('ca.agency_id', $agency_id);
-    
-    $result = $this->db->get()->row();
-    
-    if ($result === null) {
-        if ($is_ajax) {
-            ajax_return([
-                'success' => false,
-                'message' => 'Access denied to this candidate'
-            ]);
-        } else {
-            show_error('Access denied', 403);
-        }
-        return false;
-    }
     return true;
 }
+ /**
+     * 🔒 Universal access denied handler for candidates
+     */
+    private function candidate_access_denied()
+    {
+        if ($this->input->is_ajax_request()) {
+            ajax_return([
+                'success' => false,
+                'message' => 'Access denied to this candidate',
+                'csrf' => $this->security->get_csrf_hash()
+            ]);
+        } else {
+            show_error('Access denied to this candidate', 403);
+        }
+        exit;
+    }
 
+  /**
+     * 🔒 Enforce candidate access - use in ALL candidate methods
+     */
+    private function enforce_candidate_access($candidate_uuid)
+    {
+        if (!$this->check_candidate_access($candidate_uuid)) {
+            $this->candidate_access_denied();
+            return false;
+        }
+        return true;
+    }
+ // ============================================
+    // 🔒 ROLE-BASED SECURITY METHODS
+    // ============================================
+
+    /**
+     * 🔒 Check if user can VIEW candidate (agencies can view)
+     */
+    private function can_view_candidate($candidate_id)
+    {
+        $user_agency_id = $this->get_user_agency_id();
+        
+        if (empty($user_agency_id)) {
+            $user_type = getLoggedInUserTypeMenu();
+            return ($user_type === 'admin' || $user_type === 'recruiter');
+        }
+        
+        // Check candidate_agencies pivot table
+        $this->db->select('1');
+        $this->db->from('candidate_agencies ca');
+        $this->db->join('candidates c', 'c.id = ca.candidate_id');
+        $this->db->where('ca.candidate_id', $candidate_id);
+        $this->db->where('ca.agency_id', $user_agency_id);
+        $this->db->where('c.removed', 0);
+        
+        return $this->db->get()->row() !== null;
+    }
+
+    /**
+     * 🔒 Check if user can EDIT candidate (only recruiters/admins)
+     */
+    private function can_edit_candidate($candidate_id)
+    {
+        $user_type = getLoggedInUserTypeMenu();
+        
+        // Only recruiters and admins can edit
+        if ($user_type === 'recruiter' || $user_type === 'admin') {
+            // Recruiters/admins also need to check access
+            return $this->can_view_candidate($candidate_id);
+        }
+        
+        // Agencies cannot edit
+        return false;
+    }
+
+    /**
+     * 🔒 Enforce view access (agencies CAN view)
+     */
+    private function enforce_view_access($candidate_id)
+    {
+        if (!$this->can_view_candidate($candidate_id)) {
+            $this->access_denied('view');
+            return false;
+        }
+        return true;
+    }
+
+    /**
+     * 🔒 Enforce edit access (agencies CANNOT edit)
+     */
+    private function enforce_edit_access($candidate_id)
+    {
+        if (!$this->can_edit_candidate($candidate_id)) {
+            $this->access_denied('edit');
+            return false;
+        }
+        return true;
+    }
+
+    /**
+     * 🔒 Role-specific access denied handler
+     */
+    private function access_denied($action = 'access')
+    {
+        $user_type = getLoggedInUserTypeMenu();
+        
+        $message = ($action === 'edit' && $user_type === 'agency') 
+            ? 'Agencies cannot edit candidates. Please contact a recruiter.'
+            : 'Access denied to this candidate';
+        
+        if ($this->input->is_ajax_request()) {
+            ajax_return([
+                'success' => false,
+                'message' => $message,
+                'csrf' => $this->security->get_csrf_hash()
+            ]);
+        } else {
+            show_error($message, 403);
+        }
+        exit;
+    }
+
+    /**
+     * Get user's agency ID
+     */
+    private function get_user_agency_id()
+    {
+        $login_data = $this->session->userdata('login');
+        
+        if (!empty($login_data['agency'])) {
+            $agency_user = $login_data['agency'];
+            
+            if (!empty($agency_user['agency_id'])) {
+                return $agency_user['agency_id'];
+            } elseif (!empty($agency_user['id'])) {
+                return $agency_user['id'];
+            }
+        }
+        
+        return null;
+    }
 
 
 }

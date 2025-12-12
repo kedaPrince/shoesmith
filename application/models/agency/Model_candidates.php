@@ -320,27 +320,91 @@ class Model_candidates extends CRUD_Model
         }
     }
 
-  public function get_by_id($id, $table = false)
-{
-    $table = $table ? $table : $this->table;
-    $this->db->where($table . '.removed', 0);
+/**
+     * 🔒 SECURITY FIX: Get current agency ID
+     */
+    private function get_current_agency_id()
+    {
+        $ci =& get_instance();
+        $login = $ci->session->userdata('login');
+        
+        if (!empty($login['agency'])) {
+            $agency_user = $login['agency'];
+            
+            if (!empty($agency_user['agency_id'])) {
+                return $agency_user['agency_id'];
+            } elseif (!empty($agency_user['id'])) {
+                return $agency_user['id'];
+            } elseif (!empty($agency_user['agency']['id'])) {
+                return $agency_user['agency']['id'];
+            }
+        }
+        
+        return null;
+    }
     
-    // Check if it's a UUID
-    if (is_string($id) && strlen($id) == 36 && strpos($id, '-') !== false) {
-        $this->db->where($table . '.uuid', $id);
-    } else {
-        $this->db->where($table . '.id', $id);
+    /**
+     * 🔒 SECURITY FIX: Get all candidates with agency filtering
+     */
+    public function get_all($limit = 0, $offset = 0, $section = '')
+    {
+        $agency_id = $this->get_current_agency_id();
+        
+        if (empty($agency_id)) {
+            // If no agency ID and not admin, return empty
+            $user_type = getLoggedInUserTypeMenu();
+            if ($user_type !== 'admin') {
+                $this->db->where('candidates.id', 0);
+            }
+        } else {
+            // 🔒 CRITICAL: Filter by agency via pivot table
+            $this->db->join('candidate_agencies ca', 'ca.candidate_id = candidates.id', 'inner');
+            $this->db->where('ca.agency_id', $agency_id);
+        }
+        
+        $this->db->where('candidates.removed', 0);
+        
+        // Apply sorting if needed
+        if (!empty($this->sorting)) {
+            foreach ($this->sorting as $field => $direction) {
+                $this->db->order_by($field, $direction);
+            }
+        }
+        
+        if ($limit > 0) {
+            $this->db->limit($limit, $offset);
+        }
+        
+        return $this->db->get($this->table);
+    }
+    
+    /**
+     * 🔒 SECURITY FIX: Get candidate by ID with agency check
+     */
+    public function get_by_id($id, $table = false)
+    {
+        $table = $table ? $table : $this->table;
+        
+        $this->db->where('candidates.id', $id);
+        $this->db->where('candidates.removed', 0);
+        
+        // 🔒 Apply agency filtering
+        $agency_id = $this->get_current_agency_id();
+        
+        if (!empty($agency_id)) {
+            $this->db->join('candidate_agencies ca', 'ca.candidate_id = candidates.id', 'inner');
+            $this->db->where('ca.agency_id', $agency_id);
+        } else {
+            // If no agency ID and not admin, return empty
+            $user_type = getLoggedInUserTypeMenu();
+            if ($user_type !== 'admin') {
+                return null;
+            }
+        }
+        
+        return $this->db->get($table)->row();
     }
 
-    $query = $this->db->get($table);
-
-    if ($query->num_rows() > 0) {
-        $row = $query->row();
-        return $row;
-    } else {
-        return false;
-    }
-}
 
     public function get_autocomplete_results($fields, $value, $select = "id, name", $where = FALSE) {
         $this->db->select($select);
@@ -973,28 +1037,7 @@ class Model_candidates extends CRUD_Model
         return false;
     }
 
- /**
-     * Get current agency ID from session
-     */
-    private function get_current_agency_id() {
-        $ci = &get_instance();
-        $login = $ci->session->userdata('login');
-        
-        if (!empty($login['agency'])) {
-            $agency_user = $login['agency'];
-            
-            // Check all possible agency ID locations
-            if (!empty($agency_user['agency_id'])) {
-                return $agency_user['agency_id'];
-            } elseif (!empty($agency_user['id'])) {
-                return $agency_user['id'];
-            } elseif (!empty($agency_user['agency']['id'])) {
-                return $agency_user['agency']['id'];
-            }
-        }
-        
-        return null;
-    }
+ 
 
 
     /**
@@ -2011,24 +2054,7 @@ public function get_candidate_id_from_uuid($uuid)
     return $result ? $result->id : null;
 }
 
-/**
- * Get all candidates with UUID (for dropdowns, autocomplete, etc.)
- */
-public function get_all_candidates_with_uuid($agency_id = null)
-{
-    $this->db->select('c.id, c.uuid, c.first_name, c.last_name, c.email, c.reference_number, c.status');
-    $this->db->from('candidates c');
-    
-    if ($agency_id) {
-        $this->db->join('candidate_agencies ca', 'ca.candidate_id = c.id', 'inner');
-        $this->db->where('ca.agency_id', $agency_id);
-    }
-    
-    $this->db->where('c.removed', 0);
-    $this->db->order_by('c.first_name', 'ASC');
-    
-    return $this->db->get()->result();
-}
+
 
 /**
  * Check if UUID exists

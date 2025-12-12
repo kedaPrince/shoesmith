@@ -5,12 +5,66 @@ class Model_agency_staff extends CRUD_Model
 {
     protected $table = 'agency_staff';
 
+     /**
+     * 🔒 SECURITY FIX: Get user's agency ID from session
+     * This should be called in EVERY query method
+     */
+    private function get_current_agency_id()
+    {
+        $ci =& get_instance();
+        $login = $ci->session->userdata('login');
+        
+        if (!empty($login['agency'])) {
+            $agency_user = $login['agency'];
+            
+            // Check all possible agency ID locations
+            if (!empty($agency_user['agency_id'])) {
+                return $agency_user['agency_id'];
+            } elseif (!empty($agency_user['id'])) {
+                return $agency_user['id'];
+            } elseif (!empty($agency_user['agency']['id'])) {
+                return $agency_user['agency']['id'];
+            }
+        }
+        
+        return null;
+    }
+
+    /**
+     * 🔒 SECURITY FIX: Get staff by ID with STRICT agency check
+     * Must match parent class signature: get_by_id($id, $table = false)
+     */
+    public function get_by_id($id, $table = false)
+    {
+        $table = $table ? $table : $this->table;
+        
+        $this->db->where('id', $id);
+        $this->db->where('removed', 0);
+        
+        // 🔒 CRITICAL: Always apply agency filter for non-admin users
+        $agency_id = $this->get_current_agency_id();
+        
+        if (!empty($agency_id)) {
+            $this->db->where('agency_id', $agency_id);
+        } else {
+            // If no agency ID and not admin, return empty
+            $user_type = getLoggedInUserTypeMenu();
+            if ($user_type !== 'admin') {
+                return null;
+            }
+        }
+        
+        return $this->db->get($table)->row();
+    }
+
+    /**
+     * 🔒 SECURITY FIX: Get all staff with mandatory agency filtering
+     */
     public function get_all($limit = 0, $offset = 0, $section = '')
     {
         $this->db->distinct();
         $this->db->join('agencies', 'agencies.id = agency_staff.agency_id', 'left');
         
-        // Explicitly select all needed fields including agency_id
         $this->db->select('
             agency_staff.*,
             agencies.name as agency_name
@@ -18,23 +72,17 @@ class Model_agency_staff extends CRUD_Model
         
         $this->db->where('agency_staff.removed', 0);
         
-        // Apply agency filtering - get agency ID from session
-        $ci =& get_instance();
-        $agency_id = null;
+        // 🔒 CRITICAL: Apply agency filtering
+        $agency_id = $this->get_current_agency_id();
         
-        // Get agency ID from session
-        if (isset($ci->session) && $ci->session->has_userdata('login')) {
-            $login_data = $ci->session->userdata('login');
-            
-            if (!empty($login_data['agency']) && !empty($login_data['agency']['id'])) {
-                $agency_id = $login_data['agency']['id'];
-            }
-        }
-        
-        // Apply agency filter if we have an agency ID
         if (!empty($agency_id)) {
             $this->db->where('agency_staff.agency_id', $agency_id);
         } else {
+            // If no agency ID and not admin, return empty
+            $user_type = getLoggedInUserTypeMenu();
+            if ($user_type !== 'admin') {
+                $this->db->where('agency_staff.id', 0); // Force empty result
+            }
         }
         
         // Apply sorting
@@ -51,6 +99,71 @@ class Model_agency_staff extends CRUD_Model
         $query = $this->db->get($this->table);
         return $query;
     }
+
+    /**
+     * 🔒 SECURITY FIX: Get staff count with agency filtering
+     */
+    public function get_count()
+    {
+        $this->db->where('agency_staff.removed', 0);
+        
+        // Apply agency filtering
+        $agency_id = $this->get_current_agency_id();
+        
+        if (!empty($agency_id)) {
+            $this->db->where('agency_staff.agency_id', $agency_id);
+        } else {
+            // If no agency ID and not admin, return 0
+            $user_type = getLoggedInUserTypeMenu();
+            if ($user_type !== 'admin') {
+                return 0;
+            }
+        }
+        
+        return $this->db->count_all_results($this->table);
+    }
+
+    /**
+ * 🔒 SECURITY FIX: Universal access check for any staff ID - DEBUG VERSION
+ */
+public function can_access_staff($staff_id)
+{
+    log_message('debug', '=== MODEL CAN_ACCESS_STAFF ===');
+    log_message('debug', 'Checking access to staff ID: ' . $staff_id);
+    
+    $agency_id = $this->get_current_agency_id();
+    log_message('debug', 'Current Agency ID from session: ' . ($agency_id ?: 'NULL'));
+    
+    if (empty($agency_id)) {
+        // Check if user is admin
+        $ci =& get_instance();
+        $ci->load->helper('profile_helper');
+        $user_type = getLoggedInUserTypeMenu();
+        log_message('debug', 'User type: ' . $user_type);
+        return ($user_type === 'admin');
+    }
+    
+    // Check if staff belongs to user's agency
+    $this->db->select('id, agency_id, first_name, last_name');
+    $this->db->from($this->table);
+    $this->db->where('id', $staff_id);
+    $this->db->where('agency_id', $agency_id);
+    $this->db->where('removed', 0);
+    
+    $result = $this->db->get()->row();
+    
+    if ($result) {
+        log_message('debug', 'Staff found: ' . $result->first_name . ' ' . $result->last_name);
+        log_message('debug', 'Staff Agency ID: ' . $result->agency_id);
+        log_message('debug', 'Access: GRANTED');
+    } else {
+        log_message('debug', 'Staff not found or wrong agency');
+        log_message('debug', 'Query: ' . $this->db->last_query());
+        log_message('debug', 'Access: DENIED');
+    }
+    
+    return $result !== null;
+}
 
     // Remove the selects() method entirely or keep it empty
     public function selects()
