@@ -184,7 +184,8 @@
                                 </td>
                                 <td>
                                     <div class="btn-group btn-group-sm" role="group">
-                                        <a href="<?php echo site_url('agency/candidates/view/' . $candidate->uuid); ?>"
+                                        <!-- Update the view link to include job UUID -->
+                                        <a href="<?php echo site_url('agency/candidates/view/' . $candidate->uuid . '?job=' . $job->uuid); ?>"
                                             class="btn btn-info" title="View Candidate">
                                             <i class="fa fa-eye"></i>
                                         </a>

@@ -1290,27 +1290,27 @@ public function get_candidate_by_uuid($uuid)
  */
 public function get_candidate_details($identifier, $agency_id = null)
 {
-    // Determine if identifier is UUID or ID
-    if (is_string($identifier) && strlen($identifier) == 36 && strpos($identifier, '-') !== false) {
-        $this->db->where('c.uuid', $identifier);
-    } else {
-        $this->db->where('c.id', $identifier);
+    if (!$agency_id) {
+        $agency_id = $this->get_current_agency_id();
     }
     
-    $this->db->select('c.*, j.name as job_name, j.reference_number as job_ref, j.uuid as job_uuid');
-    $this->db->from('candidates c');
-    $this->db->join('mod_jobs j', 'j.id = c.job_id', 'left');
-    $this->db->where('c.removed', 0);
-    
-    // CRITICAL: Always filter by agency if provided
-    if ($agency_id) {
-        $this->db->join('candidate_agencies ca', 'ca.candidate_id = c.id', 'inner');
-        $this->db->where('ca.agency_id', $agency_id);
-    }
+    return $this->get_candidate_details_by_agency($identifier, $agency_id);
+}
+/**
+ * Get candidate's job assignment for specific agency
+ */
+public function get_candidate_job_for_agency($candidate_id, $agency_id)
+{
+    $this->db->select('cja.*, j.name as job_name, j.uuid as job_uuid, j.reference_number as job_ref');
+    $this->db->from('candidate_job_assignments cja');
+    $this->db->join('mod_jobs j', 'j.id = cja.job_id', 'inner');
+    $this->db->where('cja.candidate_id', $candidate_id);
+    $this->db->where('cja.removed', 0);
+    $this->db->where('j.agency_id', $agency_id); // Job belongs to agency
+    $this->db->limit(1);
     
     return $this->db->get()->row();
 }
-
     /**
      * Check if email is unique
      */
@@ -2115,5 +2115,131 @@ public function get_candidate_full($identifier)
     $this->db->where('c.removed', 0);
     
     return $this->db->get()->row();
+}
+
+/**
+ * Get candidate details filtered by agency
+ */
+public function get_candidate_details_by_agency($identifier, $agency_id = null)
+{
+    if (!$agency_id) {
+        $agency_id = $this->get_current_agency_id();
+    }
+    
+    // Get candidate basic info
+    $candidate = $this->get_candidate($identifier);
+    if (!$candidate) {
+        return null;
+    }
+    
+    // Get candidate's job for this specific agency
+    // Use candidate_job_assignments table since it has the active assignments
+    $this->db->select('cja.*, j.name as job_name, j.uuid as job_uuid, j.reference_number as job_ref, j.agency_id as job_agency_id');
+    $this->db->from('candidate_job_assignments cja');
+    $this->db->join('mod_jobs j', 'j.id = cja.job_id', 'inner');
+    $this->db->where('cja.candidate_id', $candidate->id);
+    $this->db->where('cja.removed', 0); // Only active assignments
+    $this->db->where('j.agency_id', $agency_id); // CRITICAL: Job must belong to current agency
+    $this->db->limit(1);
+    
+    $job_assignment = $this->db->get()->row();
+    
+    // Merge candidate info with job info
+    if ($job_assignment) {
+        $candidate->job_name = $job_assignment->job_name;
+        $candidate->job_uuid = $job_assignment->job_uuid;
+        $candidate->job_id = $job_assignment->job_id;
+        $candidate->job_ref = $job_assignment->job_ref;
+        $candidate->job_agency_id = $job_assignment->job_agency_id;
+    } else {
+        // No active job assignment found for this agency
+        $candidate->job_name = null;
+        $candidate->job_uuid = null;
+        $candidate->job_id = null;
+        $candidate->job_ref = null;
+        $candidate->job_agency_id = null;
+    }
+    
+    return $candidate;
+}
+
+// Add this method to Model_candidates.php
+public function debug_candidate_assignments($candidate_id)
+{
+    log_message('debug', '=== DEBUG CANDIDATE ASSIGNMENTS ===');
+    log_message('debug', 'Candidate ID: ' . $candidate_id);
+    
+    // Get all job assignments for this candidate
+    $this->db->select('cja.*, j.name as job_name, j.uuid as job_uuid, j.agency_id as job_agency_id');
+    $this->db->from('candidate_job_assignments cja');
+    $this->db->join('mod_jobs j', 'j.id = cja.job_id', 'left');
+    $this->db->where('cja.candidate_id', $candidate_id);
+    $this->db->where('cja.removed', 0);
+    $assignments = $this->db->get()->result();
+    
+    foreach ($assignments as $assignment) {
+        log_message('debug', 'Assignment - Job ID: ' . $assignment->job_id . 
+                   ', Job Name: ' . $assignment->job_name . 
+                   ', Agency ID: ' . $assignment->job_agency_id);
+    }
+    
+    return $assignments;
+}
+
+/**
+ * Get candidate details filtered by agency AND specific job
+ */
+public function get_candidate_details_by_agency_and_job($identifier, $agency_id = null, $job_uuid = null)
+{
+    if (!$agency_id) {
+        $agency_id = $this->get_current_agency_id();
+    }
+    
+    // Get candidate basic info
+    $candidate = $this->get_candidate($identifier);
+    if (!$candidate) {
+        return null;
+    }
+    
+    $query = $this->db->select('cja.*, j.name as job_name, j.uuid as job_uuid, j.reference_number as job_ref, j.agency_id as job_agency_id')
+        ->from('candidate_job_assignments cja')
+        ->join('mod_jobs j', 'j.id = cja.job_id', 'inner')
+        ->where('cja.candidate_id', $candidate->id)
+        ->where('cja.removed', 0)
+        ->where('j.agency_id', $agency_id);
+    
+    // If specific job UUID is provided, filter by that job
+    if ($job_uuid) {
+        $query->where('j.uuid', $job_uuid);
+    }
+    
+    $query->limit(1);
+    $job_assignment = $query->get()->row();
+    
+    // Debug: Log what we found
+    log_message('debug', 'Looking for candidate ' . $candidate->id . ' in agency ' . $agency_id . ' and job ' . $job_uuid);
+    if ($job_assignment) {
+        log_message('debug', 'Found job: ' . $job_assignment->job_name . ' (ID: ' . $job_assignment->job_id . ')');
+    } else {
+        log_message('debug', 'No job assignment found');
+    }
+    
+    // Merge candidate info with job info
+    if ($job_assignment) {
+        $candidate->job_name = $job_assignment->job_name;
+        $candidate->job_uuid = $job_assignment->job_uuid;
+        $candidate->job_id = $job_assignment->job_id;
+        $candidate->job_ref = $job_assignment->job_ref;
+        $candidate->job_agency_id = $job_assignment->job_agency_id;
+    } else {
+        // No active job assignment found for this agency/job
+        $candidate->job_name = null;
+        $candidate->job_uuid = null;
+        $candidate->job_id = null;
+        $candidate->job_ref = null;
+        $candidate->job_agency_id = null;
+    }
+    
+    return $candidate;
 }
 }

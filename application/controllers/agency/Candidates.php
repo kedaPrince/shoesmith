@@ -1390,22 +1390,40 @@ public function view($uuid_or_id = null)
     
     $agency_id = $this->get_user_agency_id();
     
-    // Get full candidate details with job information
-    $this->db->select('c.*, 
-                      j.name as job_name, 
-                      j.uuid as job_uuid,
-                      j.id as job_id,
-                      j.reference_number as job_ref,
-                      j.agency_id as job_agency_id,
-                      a.name as agency_name');
-    $this->db->from('candidates c');
-    $this->db->join('candidate_agencies ca', 'ca.candidate_id = c.id', 'inner');
-    $this->db->join('mod_jobs j', 'j.id = c.job_id', 'left');
-    $this->db->join('agencies a', 'a.id = j.agency_id', 'left');
-    $this->db->where('c.id', $candidate_id);
-    $this->db->where('c.removed', 0);
+    // 🔍 DEBUG: Log all assignments for this candidate
+    $this->{$this->model}->debug_candidate_assignments($candidate_id);
     
-    $row = $this->db->get()->row();
+    // Get job UUID from multiple sources (priority order)
+    $job_uuid = null;
+    
+    // 1. Check URL parameter
+    $job_uuid = $this->input->get('job');
+    if ($job_uuid) {
+        log_message('debug', 'Got job UUID from URL parameter: ' . $job_uuid);
+    }
+    
+    // 2. Try to get job UUID from referrer URL
+    if (!$job_uuid) {
+        $referrer = $this->input->server('HTTP_REFERER');
+        if ($referrer && strpos($referrer, 'candidates_list/index/') !== false) {
+            $parts = explode('candidates_list/index/', $referrer);
+            if (isset($parts[1])) {
+                $job_uuid = rtrim($parts[1], '/');
+                log_message('debug', 'Extracted job UUID from referrer: ' . $job_uuid);
+            }
+        }
+    }
+    
+    // 3. If not from referrer, try to get from session
+    if (!$job_uuid) {
+        $job_uuid = $this->session->userdata('current_job_uuid');
+        log_message('debug', 'Got job UUID from session: ' . ($job_uuid ? $job_uuid : 'NONE'));
+    }
+    
+    log_message('debug', 'Final job UUID to use: ' . ($job_uuid ? $job_uuid : 'NOT FOUND - will show first job'));
+    
+    // 🔒 Get candidate details WITH agency-specific AND job-specific info
+    $row = $this->{$this->model}->get_candidate_details_by_agency_and_job($uuid_or_id, $agency_id, $job_uuid);
 
     if (empty($row)) {
         show_404();
@@ -1633,16 +1651,40 @@ public function view($uuid_or_id = null)
      * Get candidate details
      */
 
-    public function get_candidate_details($candidate_id)
-    {
-        $this->db->select('c.*, j.name as job_name, j.reference_number as job_ref');
-        $this->db->from('candidates c');
-        $this->db->join('mod_jobs j', 'j.id = c.job_id', 'left');
-        $this->db->where('c.id', $candidate_id);
-        $this->db->where('c.removed', 0);
-        
-        return $this->db->get()->row();
+   public function get_candidate_details($identifier, $agency_id = null)
+{
+    if (!$agency_id) {
+        $agency_id = $this->get_current_agency_id();
     }
+    
+    // Determine if identifier is UUID or ID
+    if (is_string($identifier) && strlen($identifier) == 36 && strpos($identifier, '-') !== false) {
+        $this->db->where('c.uuid', $identifier);
+    } else {
+        $this->db->where('c.id', $identifier);
+    }
+    
+    $this->db->select('c.*, 
+                      j.name as job_name, 
+                      j.uuid as job_uuid,
+                      j.id as job_id,
+                      j.reference_number as job_ref');
+    $this->db->from('candidates c');
+    
+    // Join with candidate_agencies to ensure candidate belongs to this agency
+    $this->db->join('candidate_agencies ca', 'ca.candidate_id = c.id', 'inner');
+    
+    // Get job assignment for this specific agency
+    $this->db->join('candidate_job_assignments cja', 
+                   'cja.candidate_id = c.id AND cja.agency_id = ' . $this->db->escape($agency_id), 
+                   'left');
+    $this->db->join('mod_jobs j', 'j.id = cja.job_id', 'left');
+    
+    $this->db->where('c.removed', 0);
+    $this->db->where('ca.agency_id', $agency_id);
+    
+    return $this->db->get()->row();
+}
 
     /**
      * Log candidate activity
@@ -1828,7 +1870,7 @@ public function start_candidate_chat($uuid_or_id)
      * 🔒 Check if current agency can access this candidate
      * Uses candidate_agencies pivot table
      */
-    private function check_candidate_access($candidate_id)
+private function check_candidate_access($candidate_id)
 {
     $user_agency_id = $this->get_user_agency_id();
     
@@ -1854,7 +1896,7 @@ public function start_candidate_chat($uuid_or_id)
     
     // Check if any rows exist in the pivot table for this agency
     if (!$result) {
-        // Also check direct assignment
+        // Also check direct assignment (your existing fallback logic)
         $this->db->select('1');
         $this->db->from('candidates c');
         $this->db->where('c.id', $candidate_id);
@@ -1866,7 +1908,7 @@ public function start_candidate_chat($uuid_or_id)
         log_message('debug', 'Direct assignment result: ' . print_r($direct_result, true));
         
         if (!$direct_result) {
-            // Check if candidate exists at all
+            // Check if candidate exists at all (your existing logic)
             $this->db->select('1');
             $this->db->from('candidates c');
             $this->db->where('c.id', $candidate_id);
