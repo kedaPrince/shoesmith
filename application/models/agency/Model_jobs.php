@@ -222,6 +222,66 @@ private function get_current_agency_id() {
         $this->db->select('mod_jobs.employment_type');
     }
 
+     public function before_create(&$data) {
+        // Generate UUID if not already set
+        if (empty($data['uuid'])) {
+            $data['uuid'] = $this->generate_uuid();
+        }
+        
+        // Ensure other required fields have defaults
+        if (!isset($data['enabled'])) {
+            $data['enabled'] = 1;
+        }
+        if (!isset($data['removed'])) {
+            $data['removed'] = 0;
+        }
+        
+        return $data;
+    }
+    
+    // ✅ UUID generation function
+    private function generate_uuid() {
+        // Generate a v4 UUID (random)
+        $data = random_bytes(16);
+        
+        // Set version to 0100 (4)
+        $data[6] = chr(ord($data[6]) & 0x0f | 0x40);
+        // Set bits 6-7 to 10
+        $data[8] = chr(ord($data[8]) & 0x3f | 0x80);
+        
+        // Output the 36 character UUID
+        return vsprintf('%s%s-%s-%s-%s-%s%s%s', str_split(bin2hex($data), 4));
+    }
+
+    /**
+ * Get job ID from UUID
+ */
+public function get_job_id_from_uuid($uuid) {
+    $this->db->select('id');
+    $this->db->from($this->table);
+    $this->db->where('uuid', $uuid);
+    $this->db->where('removed', 0);
+    $result = $this->db->get()->row();
+    
+    return $result ? $result->id : null;
+}
+
+/**
+ * Get job by UUID or ID
+ */
+public function get_job($identifier) {
+    // Check if identifier is UUID
+    if (is_string($identifier) && strlen($identifier) == 36 && strpos($identifier, '-') !== false) {
+        $this->db->where('uuid', $identifier);
+    } else {
+        // Assume it's an ID
+        $this->db->where('id', $identifier);
+    }
+    
+    $this->db->where('removed', 0);
+    return $this->db->get($this->table)->row();
+}
+
     public function get_agency_options($user_agency_id = null){
         $this->db->select('id, name');
         $this->db->from('agencies');
@@ -268,22 +328,7 @@ private function get_current_agency_id() {
         $this->db->order_by('name', 'ASC');
         return $this->db->get();
     }
-/**
- * Get job by UUID or ID
- */
-public function get_job($identifier)
-{
-    // Check if identifier is UUID (36 characters with hyphens)
-    if (is_string($identifier) && strlen($identifier) == 36 && strpos($identifier, '-') !== false) {
-        $this->db->where('uuid', $identifier);
-    } else {
-        // Assume it's an ID
-        $this->db->where('id', $identifier);
-    }
-    
-    $this->db->where('removed', 0);
-    return $this->db->get($this->table)->row();
-}
+
 
 /**
  * Get job by UUID
@@ -296,19 +341,10 @@ public function get_job_by_uuid($uuid)
                     ->row();
 }
 
-/**
- * Get job ID from UUID
- */
-public function get_job_id_from_uuid($uuid)
-{
-    $this->db->select('id');
-    $this->db->from($this->table);
-    $this->db->where('uuid', $uuid);
-    $this->db->where('removed', 0);
-    $result = $this->db->get()->row();
-    
-    return $result ? $result->id : null;
-}
+
+
+
+
 
 /**
  * Get job UUID from ID

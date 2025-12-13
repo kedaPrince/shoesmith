@@ -98,49 +98,49 @@ class Jobs_listings extends CRUD_Controller{
     );
     
     $this->listActions = array(
-        'edit' => array(
-            'label' => lang('label_edit'),
-            'url' => url($this->pageName . '/edit/{uuid}'), // Use UUID
-            'icon' => 'fa-edit',
-            'class' => 'edit-row',
-            'function' => function ($str, $row) {
-                return (!$this->allowEdit) ? false : $str;
-            },
-        ),
-        'view_candidates' => array(
-            'label' => 'View Candidates',
-            'url' => site_url('agency/candidates_list/index/{uuid}'), // Use UUID
-            'icon' => 'fa-users',
-            'class' => 'btn-info',
-        ),
-        'enable' => array(
-            'label' => lang('label_enable'),
-            'url' => url($this->pageName . '/enable/{uuid}'), // Use UUID
-            'icon' => 'fa-eye',
-            'class' => 'enable-row btn-enable',
-            'function' => function ($str, $row) {
-                return (!$this->allowEdit || $row->enabled) ? false : $str;
-            },
-        ),
-        'disable' => array(
-            'label' => lang('label_disable'),
-            'url' => url($this->pageName . '/disable/{uuid}'), // Use UUID
-            'icon' => 'fa-eye-slash',
-            'class' => 'disable-row btn-disable',
-            'function' => function ($str, $row) {
-                return (!$this->allowEdit || !$row->enabled) ? false : $str;
-            },
-        ),
-        'delete' => array(
-            'label' => lang('label_delete'),
-            'url' => url($this->pageName . '/remove/{uuid}'), // Use UUID
-            'icon' => 'fa-trash-o',
-            'class' => 'delete-row btn-delete',
-            'function' => function ($str, $row) {
-                return (!$this->allowEdit) ? false : $str;
-            },
-        ),
-    );
+    'edit' => array(
+        'label' => lang('label_edit'),
+        'url' => url($this->pageName . '/edit/{id}'), // Change back to {id}
+        'icon' => 'fa-edit',
+        'class' => 'edit-row',
+        'function' => function ($str, $row) {
+            return (!$this->allowEdit) ? false : $str;
+        },
+    ),
+    'view_candidates' => array(
+        'label' => 'View Candidates',
+        'url' => site_url('agency/candidates_list/index/{uuid}'), // Keep UUID here if needed
+        'icon' => 'fa-users',
+        'class' => 'btn-info',
+    ),
+    'enable' => array(
+        'label' => lang('label_enable'),
+        'url' => url($this->pageName . '/enable/{id}'), // Change back to {id}
+        'icon' => 'fa-eye',
+        'class' => 'enable-row btn-enable',
+        'function' => function ($str, $row) {
+            return (!$this->allowEdit || $row->enabled) ? false : $str;
+        },
+    ),
+    'disable' => array(
+        'label' => lang('label_disable'),
+        'url' => url($this->pageName . '/disable/{id}'), // Change back to {id}
+        'icon' => 'fa-eye-slash',
+        'class' => 'disable-row btn-disable',
+        'function' => function ($str, $row) {
+            return (!$this->allowEdit || !$row->enabled) ? false : $str;
+        },
+    ),
+    'delete' => array(
+        'label' => lang('label_delete'),
+        'url' => url($this->pageName . '/remove/{id}'), // Change back to {id}
+        'icon' => 'fa-trash-o',
+        'class' => 'delete-row btn-delete',
+        'function' => function ($str, $row) {
+            return (!$this->allowEdit) ? false : $str;
+        },
+    ),
+);
 
     $this->filters = array(
         'general' => array(
@@ -218,51 +218,151 @@ class Jobs_listings extends CRUD_Controller{
         return $params;
     }
 
-    public function generate_reference() {
-        try {
-            $reference = $this->{$this->model}->generate_reference_number();
-            ajax_return(array(
-                'success' => true,
-                'reference' => $reference
-            ));
-        } catch (Exception $e) {
-            error_log('Error generating reference: ' . $e->getMessage());
-            ajax_return(array(
-                'success' => false,
-                'error' => 'Failed to generate reference number'
-            ));
+   public function generate_reference() {
+    // Allow GET requests without CSRF
+    if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+        // Skip CSRF for GET requests
+    }
+    
+    try {
+        $reference = $this->{$this->model}->generate_reference_number();
+        ajax_return(array(
+            'success' => true,
+            'reference' => $reference
+        ));
+    } catch (Exception $e) {
+        error_log('Error generating reference: ' . $e->getMessage());
+        ajax_return(array(
+            'success' => false,
+            'error' => 'Failed to generate reference number'
+        ));
+    }
+}
+
+   public function create(){
+    // PRE-PROCESS DATA TO REMOVE HTML TAGS
+    $this->pre_process_job_data();
+    
+    // ✅ FIX: Generate UUID before parent::create()
+    if (!$this->input->post('uuid')) {
+        $_POST['uuid'] = $this->generate_uuid();
+    }
+    
+    // SIMPLIFIED SOLUTION: Handle industry_id safely without extra DB connection
+    $industry_id = $this->input->post('industry_id');        
+    if (!empty($industry_id) && is_numeric($industry_id)) {
+        $industry_id = (int)$industry_id;
+        $_POST['industry_id'] = $industry_id;
+    } else {
+        $_POST['industry_id'] = null;
+    }
+    
+    // Auto-set agency_id if not provided
+    if (!$this->input->post('agency_id')) {
+        $user_agency_id = $this->get_user_agency_id();
+        if (!empty($user_agency_id)) {
+            $_POST['agency_id'] = $user_agency_id;
         }
     }
+    
+    parent::create();
+}
+// In Jobs_listings.php controller
 
-    public function create(){
-
+/**
+ * Override remove method to handle UUIDs
+ */
+public function remove($identifier = null, $whereField = 'id') {
+    log_message('debug', 'Remove called with: ' . $identifier . ', field: ' . $whereField);
+    
+    // If identifier is a UUID, convert it
+    if (is_string($identifier) && strlen($identifier) == 36 && strpos($identifier, '-') !== false) {
+        $id = $this->{$this->model}->get_job_id_from_uuid($identifier);
         
-        // PRE-PROCESS DATA TO REMOVE HTML TAGS
-        $this->pre_process_job_data();
-        
-        // SIMPLIFIED SOLUTION: Handle industry_id safely without extra DB connection
-        $industry_id = $this->input->post('industry_id');        
-        // Safe industry_id handling - just ensure it's valid numeric or null
-        if (!empty($industry_id) && is_numeric($industry_id)) {
-            $industry_id = (int)$industry_id;
-            // Let the database foreign key handle validation
-            $_POST['industry_id'] = $industry_id;
-        } else {
-            // No industry_id or invalid, set to null
-            $_POST['industry_id'] = null;
+        if (!$id) {
+            flash_notification('Job not found', 'error');
+            redir($this->pageName);
+            return;
         }
         
-        // Auto-set agency_id if not provided
-        if (!$this->input->post('agency_id')) {
-            $user_agency_id = $this->get_user_agency_id();
-            if (!empty($user_agency_id)) {
-                $_POST['agency_id'] = $user_agency_id;
-            }
-        }
-
-        
-        parent::create();
+        // Call parent with the converted ID
+        parent::remove($id, 'id');
+    } else {
+        // Call parent normally
+        parent::remove($identifier, $whereField);
     }
+}
+
+/**
+ * Override enable method to handle UUIDs
+ */
+public function enable($identifier = null, $whereField = 'id') {
+    // If identifier is a UUID, convert it
+    if (is_string($identifier) && strlen($identifier) == 36 && strpos($identifier, '-') !== false) {
+        $id = $this->{$this->model}->get_job_id_from_uuid($identifier);
+        
+        if (!$id) {
+            flash_notification('Job not found', 'error');
+            redir($this->pageName);
+            return;
+        }
+        
+        parent::enable($id, 'id');
+    } else {
+        parent::enable($identifier, $whereField);
+    }
+}
+
+/**
+ * Override disable method to handle UUIDs
+ */
+public function disable($identifier = null, $whereField = 'id') {
+    // If identifier is a UUID, convert it
+    if (is_string($identifier) && strlen($identifier) == 36 && strpos($identifier, '-') !== false) {
+        $id = $this->{$this->model}->get_job_id_from_uuid($identifier);
+        
+        if (!$id) {
+            flash_notification('Job not found', 'error');
+            redir($this->pageName);
+            return;
+        }
+        
+        parent::disable($id, 'id');
+    } else {
+        parent::disable($identifier, $whereField);
+    }
+}
+
+/**
+ * Override edit method (usually has different signature)
+ */
+public function edit($identifier = null) {
+     if (!$this->enforce_job_access($id)) {
+        return;
+    }
+    // Check if it's a UUID
+    if (is_string($identifier) && strlen($identifier) == 36 && strpos($identifier, '-') !== false) {
+        $id = $this->{$this->model}->get_job_id_from_uuid($identifier);
+        
+        if (!$id) {
+            flash_notification('Job not found', 'error');
+            redir($this->pageName);
+            return;
+        }
+        
+        // Call parent edit with ID
+        parent::edit($id);
+    } else {
+        parent::edit($identifier);
+    }
+}
+// ✅ Add UUID generation method
+private function generate_uuid() {
+    $data = random_bytes(16);
+    $data[6] = chr(ord($data[6]) & 0x0f | 0x40);
+    $data[8] = chr(ord($data[8]) & 0x3f | 0x80);
+    return vsprintf('%s%s-%s-%s-%s-%s%s%s', str_split(bin2hex($data), 4));
+}
 
     /**
      * Override the index method to ensure agency filtering
@@ -304,57 +404,61 @@ class Jobs_listings extends CRUD_Controller{
     }
 
    
-    public function quick_manage_extra($id, $row): array
-    {
-        $submodules = $this->session->submodules;
-        $agency_id = !empty($submodules['job_listings']) ? $submodules['job_listings']->id : null;
+   public function quick_manage_extra($id, $row): array
+{
+    $submodules = $this->session->submodules;
+    $agency_id = !empty($submodules['job_listings']) ? $submodules['job_listings']->id : null;
 
-        // Get the logged-in user's agency ID (works for both agency staff and recruiters)
-        $user_agency_id = $this->get_user_agency_id();
-        $agency_options = $this->{$this->model}->get_agency_options($user_agency_id);
-        
-        if ($agency_options->num_rows() > 0) {
-            foreach ($agency_options->result() as $agency) {
-            }
-        }
-        
-        //FIX: Better data extraction from row
-        $current_agency_id = $user_agency_id; // Default to user's agency
+    // Get the logged-in user's agency ID (works for both agency staff and recruiters)
+    $user_agency_id = $this->get_user_agency_id();
+    $agency_options = $this->{$this->model}->get_agency_options($user_agency_id);
+    
+    // FIX: Better data extraction from row
+    $current_agency_id = $user_agency_id; // Default to user's agency
 
-        if (!empty($row) && is_object($row)) {
-            // More robust check for agency_id
-            if (isset($row->agency_id) && !empty($row->agency_id)) {
-                $current_agency_id = $row->agency_id;
-            } else {
-                // Try to get agency_id from the database if we have an ID
-                if (!empty($id)) {
-                    $job_data = $this->{$this->model}->get_by_id($id);
-                    if ($job_data && isset($job_data->agency_id) && !empty($job_data->agency_id)) {
-                        $current_agency_id = $job_data->agency_id;
-                    } else {
-                    }
-                } else {
+    if (!empty($row) && is_object($row)) {
+        // More robust check for agency_id
+        if (isset($row->agency_id) && !empty($row->agency_id)) {
+            $current_agency_id = $row->agency_id;
+        } else {
+            // Try to get agency_id from the database if we have an ID
+            if (!empty($id)) {
+                $job_data = $this->{$this->model}->get_by_id($id);
+                if ($job_data && isset($job_data->agency_id) && !empty($job_data->agency_id)) {
+                    $current_agency_id = $job_data->agency_id;
                 }
             }
-
-        } else {
         }
-        
-        return [
-            'agency_id' => $agency_id,
-            'user_agency_id' => $user_agency_id,
-            'current_agency_id' => $current_agency_id,
-            'user_agencies' => $user_agency_id,
-            'agency_options' => $agency_options,
-            'industry_options' => $this->{$this->model}->get_industry_options(),
-            'skill_options' => $this->{$this->model}->get_skill_options(),
-            'qualification_options' => $this->{$this->model}->get_qualification_options(),
-            'skills' => $id ? $this->{$this->model}->get_job_skills((int)$id) : [],
-            'qualifications' => $id ? $this->{$this->model}->get_job_qualifications((int)$id) : [],
-            //FIX: Ensure row data is passed correctly
-            'row' => $row
-        ];
     }
+    
+    // ✅ FIX: Generate reference number for new jobs
+    $generated_reference = '';
+    if (empty($row) || empty($row->reference_number)) {
+        try {
+            $generated_reference = $this->{$this->model}->generate_reference_number();
+        } catch (Exception $e) {
+            // Fallback if generation fails
+            $generated_reference = 'JOB-' . date('Y') . '-' . rand(1000, 9999);
+            error_log('Error generating reference: ' . $e->getMessage());
+        }
+    }
+    
+    return [
+        'agency_id' => $agency_id,
+        'user_agency_id' => $user_agency_id,
+        'current_agency_id' => $current_agency_id,
+        'user_agencies' => $user_agency_id,
+        'agency_options' => $agency_options,
+        'industry_options' => $this->{$this->model}->get_industry_options(),
+        'skill_options' => $this->{$this->model}->get_skill_options(),
+        'qualification_options' => $this->{$this->model}->get_qualification_options(),
+        'skills' => $id ? $this->{$this->model}->get_job_skills((int)$id) : [],
+        'qualifications' => $id ? $this->{$this->model}->get_job_qualifications((int)$id) : [],
+        'row' => $row,
+        // ✅ ADD THIS: Pass the generated reference to the view
+        'generated_reference' => $generated_reference
+    ];
+}
 
     /**
      * Get the logged-in user's agency ID - Works for both agency staff and recruiters
@@ -408,6 +512,10 @@ class Jobs_listings extends CRUD_Controller{
      */
 
     public function update($id){
+
+         if (!$this->enforce_job_access($id)) {
+        return;
+    }
             if (!is_ajax()) {
         // Validate CSRF for non-AJAX requests
         $csrf_name = $this->security->get_csrf_token_name();
@@ -587,4 +695,53 @@ class Jobs_listings extends CRUD_Controller{
             $_POST['employment_type'] = 'full-time'; // default value
         }
     }
+
+ private function enforce_job_access($job_id) {
+    $user_agency_id = $this->get_user_agency_id();
+    
+    if (!$user_agency_id) {
+        log_message('error', 'enforce_job_access: No agency ID for user');
+        show_404();
+        return false;
+    }
+    
+    log_message('debug', 'enforce_job_access: Agency ' . $user_agency_id . ' accessing job ' . $job_id);
+    
+    // Check if job belongs to agency
+    $this->db->select('1')
+             ->from('mod_jobs')
+             ->where('id', $job_id)
+             ->where('agency_id', $user_agency_id)
+             ->where('removed', 0);
+    
+    $result = $this->db->get()->row();
+    
+    if (!$result) {
+        log_message('error', 'enforce_job_access: Agency ' . $user_agency_id . 
+                   ' DENIED access to job ' . $job_id);
+        show_404(); // Don't reveal job exists
+        return false;
+    }
+    
+    log_message('debug', 'enforce_job_access: Agency ' . $user_agency_id . 
+               ' GRANTED access to job ' . $job_id);
+    return true;
+}
+
+public function view($id) {
+    if (!$this->enforce_job_access($id)) {
+        return; 
+    }
+ 
+}
+
+
+
+
+public function delete($id) {
+    if (!$this->enforce_job_access($id)) {
+        return;
+    }
+}
+
 }

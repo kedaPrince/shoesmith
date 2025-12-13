@@ -439,6 +439,7 @@ public function index(): void
 
         return $params;
     }
+    
 
     public function create_success_extra($id): void
     {
@@ -893,25 +894,105 @@ public function edit($id): void
     /**
      * 🔒 Override parent create method (if needed)
      */
-    public function create()
-    {
-        // You might want to check if user can create staff in their agency
-        $user_agency_id = $this->get_user_agency_id();
-        if (!$user_agency_id) {
-            if (is_ajax()) {
-                ajax_return([
-                    'success' => false,
-                    'error' => 'Agency not found'
-                ]);
-            } else {
-                flash_notification('Agency not found', 'error');
-                redirect($this->pageName);
-            }
-            return;
+/**
+ * Handle additional profile data
+ */
+private function handle_additional_data($staff_id, $form_data = [])
+{
+    try {
+        // If form_data is empty, try to get from POST
+        if (empty($form_data) && !empty($_POST)) {
+            $form_data = $_POST;
         }
         
-        parent::create();
+        // Profile details
+        $profile_data = [
+            'job_role'          => isset($form_data['job_role']) ? trim($form_data['job_role']) : '',
+            'id_number'         => isset($form_data['id_number']) ? trim($form_data['id_number']) : '',
+            'contact_number'    => isset($form_data['contact_number']) ? trim($form_data['contact_number']) : '',
+            'gender'            => isset($form_data['gender']) ? trim($form_data['gender']) : '',
+            'linkedin_profile_url' => isset($form_data['linkedin_profile_url']) ? trim($form_data['linkedin_profile_url']) : '',
+            'date_of_birth'     => isset($form_data['date_of_birth']) ? trim($form_data['date_of_birth']) : NULL,
+            'date_of_employment' => isset($form_data['date_of_employment']) ? trim($form_data['date_of_employment']) : NULL,
+            'address_line_1'    => isset($form_data['address_line_1']) ? trim($form_data['address_line_1']) : '',
+            'address_line_2'    => isset($form_data['address_line_2']) ? trim($form_data['address_line_2']) : '',
+            'city'              => isset($form_data['city']) ? trim($form_data['city']) : '',
+            'country'           => isset($form_data['country']) ? trim($form_data['country']) : '',
+            'updated_at'        => date('Y-m-d H:i:s')
+        ];
+        
+        // Update agency_staff with profile data
+        $this->db->where('id', $staff_id);
+        $this->db->update('agency_staff', $profile_data);
+        
+        // Update name field
+        $first_name = isset($form_data['first_name']) ? trim($form_data['first_name']) : '';
+        $last_name = isset($form_data['last_name']) ? trim($form_data['last_name']) : '';
+        if ($first_name || $last_name) {
+            $this->db->where('id', $staff_id);
+            $this->db->update('agency_staff', [
+                'name' => $first_name . ' ' . $last_name
+            ]);
+        }
+        
+        // Handle access groups if provided
+        if (isset($form_data['access_groups'])) {
+            $access_groups = $form_data['access_groups'];
+            if (!is_array($access_groups)) {
+                $access_groups = [$access_groups];
+            }
+            
+            foreach ($access_groups as $group_id) {
+                if ($group_id) {
+                    $this->db->insert('pivot_agency_staff_access_groups', [
+                        'agency_staff_id' => $staff_id,
+                        'access_group_id' => $group_id
+                    ]);
+                }
+            }
+        }
+        
+        log_message('debug', 'Additional data saved for staff ID: ' . $staff_id);
+        
+    } catch (Exception $e) {
+        log_message('error', 'Additional data error: ' . $e->getMessage());
+        // Don't fail the whole create if additional data fails
     }
+}
+
+/**
+ * Handle profile picture upload
+ */
+private function handle_profile_pic_upload($staff_id)
+{
+    $config['upload_path'] = './uploads/agency_staff/';
+    $config['allowed_types'] = 'gif|jpg|png|jpeg|webp';
+    $config['max_size'] = 5120; // 5MB
+    $config['encrypt_name'] = true;
+    
+    // Create directory if it doesn't exist
+    if (!is_dir($config['upload_path'])) {
+        mkdir($config['upload_path'], 0755, true);
+    }
+    
+    $this->load->library('upload', $config);
+    
+    if (!$this->upload->do_upload('profile_pic')) {
+        $error = $this->upload->display_errors();
+        log_message('error', 'Profile pic upload failed: ' . $error);
+        throw new Exception('Profile picture upload failed: ' . $error);
+    }
+    
+    $upload_data = $this->upload->data();
+    log_message('debug', 'File uploaded: ' . $upload_data['file_name']);
+    
+    // Update staff record with image filename
+    $this->db->where('id', $staff_id);
+    $this->db->update('agency_staff', [
+        'profile_pic' => $upload_data['file_name']
+    ]);
+}
+
 
     /**
      * 🔒 Get the logged-in user's agency ID
@@ -980,4 +1061,6 @@ public function test_access_control($staff_id)
     echo "<hr>";
     echo "<a href='/shoesmith/agency/agency_staff/edit/$staff_id'>Try to edit staff $staff_id</a>";
 }
+
+
 }

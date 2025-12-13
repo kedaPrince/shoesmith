@@ -21,31 +21,36 @@
 <script type="text/javascript" src="<?= site_url(); ?>resources/cms/javascript/jquery-cropper.min.js"></script>
 <script type="text/javascript" src="<?= site_url(); ?>resources/cms/javascript/ImageTools.js"></script>
 
-<script type="text/javascript" src="<?= site_url(); ?>resources/cms/javascript/jquery-ui.min.js"></script>
+<script src="https://code.jquery.com/ui/1.13.2/jquery-ui.min.js"></script>
+
 
 <!-- Core JS -->
-<script src="<?= site_url(); ?>resources/cms/javascript/theme/common.js?v=<?= $this->config->item('version'); ?>"></script>
+<script src="<?= site_url(); ?>resources/cms/javascript/theme/common.js?v=<?= $this->config->item('version'); ?>">
+</script>
 
 <script type="text/javascript">
-    var crudLimit               = <?= $this->config->item('CRUD_row_limit'); ?>;
-    var previousBatchCount      = <?= $this->config->item('CRUD_row_limit'); ?>;
-    var csrf                    = '<?= $this->security->get_csrf_hash(); ?>';
-    var csrfName                = '<?= $this->security->get_csrf_token_name(); ?>';
-    var dynamicPath             = '<?= url($this->pageName); ?>';
-    var maxBatches              = '<?= $this->config->item('CRUD_batch_limit'); ?>';
-    var noResults               = '<?= lang('general_no_results'); ?>';
-    var siteURL                 = '<?= site_url(); ?>';
-    var section                 = '<?= ! is_numeric(uri_segment(2, 0)) ? uri_segment(2) : '' ?>';
-    var df                      = new Array();
-    var dffu                    = new Array();
-    var exportable              = <?= ! empty($this->export) ? 1 : 0; ?>;
-    var uploadedImages          = {};
-    var uploaderData            = {};
-    var ecmsFieldOptions        = {};
+var crudLimit = <?= $this->config->item('CRUD_row_limit'); ?>;
+var previousBatchCount = <?= $this->config->item('CRUD_row_limit'); ?>;
+var csrf = '<?= $this->security->get_csrf_hash(); ?>';
+var csrfName = '<?= $this->security->get_csrf_token_name(); ?>';
+var dynamicPath = '<?= url($this->pageName); ?>';
+var maxBatches = '<?= $this->config->item('CRUD_batch_limit'); ?>';
+var noResults = '<?= lang('general_no_results'); ?>';
+var siteURL = '<?= site_url(); ?>';
+var section = '<?= ! is_numeric(uri_segment(2, 0)) ? uri_segment(2) : '' ?>';
+var df = new Array();
+var dffu = new Array();
+var exportable = <?= ! empty($this->export) ? 1 : 0; ?>;
+var uploadedImages = {};
+var uploaderData = {};
+var ecmsFieldOptions = {};
 </script>
-<script type="text/javascript" src="<?= site_url(); ?>resources/cms/javascript/core.min.js?v=<?= $this->config->item('version'); ?>"></script>
-<script type="text/javascript" src="<?= site_url(); ?>resources/cms/javascript/custom.min.js?v=<?= $this->config->item('version'); ?>"></script>
+<script type="text/javascript"
+    src="<?= site_url(); ?>resources/cms/javascript/core.min.js?v=<?= $this->config->item('version'); ?>"></script>
+<script type="text/javascript"
+    src="<?= site_url(); ?>resources/cms/javascript/custom.min.js?v=<?= $this->config->item('version'); ?>"></script>
 
 <?php show_flash_notifications(); ?>
 </body>
+
 </html>

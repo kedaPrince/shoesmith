@@ -92,12 +92,8 @@
                     <div class="col-md-4">
                         <div class="d-flex flex-column align-items-end h-100">
                             <div class="btn-group-vertical w-100">
-                                <a href="<?php echo site_url('agency/jobs_listings/view/' . $job->uuid); ?>"
-                                    class="btn btn-info mb-2">
-                                    <i class="fa fa-eye me-2"></i> View Job Details
-                                </a>
-                                <a href="<?php echo site_url('agency/jobs_listings'); ?>"
-                                    class="btn btn-outline-secondary">
+
+                                <a href="<?php echo site_url('agency/jobs_listings'); ?>" class="btn btn-info mb-2">
                                     <i class="fa fa-arrow-left me-2"></i> Back to Jobs
                                 </a>
                                 <a href="<?php echo site_url('agency/candidates'); ?>"

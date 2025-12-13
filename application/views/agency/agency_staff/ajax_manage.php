@@ -258,6 +258,103 @@ function getValue(object|null $more_details, string $name): string
     </div>
 </div>
 <script type="text/javascript">
+// MUST BE AT THE VERY TOP - Define on_script_load immediately
+if (typeof on_script_load !== 'function') {
+    var on_script_load = function() {
+        console.log('on_script_load function called');
+        return true;
+    };
+}
+// Add this near the top of your JavaScript, after on_script_load
+function close_quick_manage() {
+    var $closeBtn = $('.close-quick-manage');
+    if ($closeBtn.length) {
+        $closeBtn.trigger('click');
+    } else {
+        // Try to find and trigger close
+        $('.modal-close, .close-modal, [data-dismiss="modal"]').trigger('click');
+    }
+}
+
+function refresh_listing() {
+    // Try different methods to refresh the listing
+    if (typeof $.fn.DataTable !== 'undefined' && $('.dataTable').length) {
+        // DataTables
+        $('.dataTable').DataTable().ajax.reload(null, false);
+    } else if (typeof window.ajax_pager_fetch_batch === 'function') {
+        // Custom pagination system
+        window.ajax_pager_fetch_batch(1);
+    } else if ($('.ajax-pager').length) {
+        // AJAX pager system
+        $('.ajax-pager').first().trigger('click');
+    } else {
+        // Fallback to page reload
+        window.location.reload();
+    }
+}
+
+// Make them globally available
+window.close_quick_manage = close_quick_manage;
+window.refresh_listing = refresh_listing;
+// Make it available globally
+window.on_script_load = on_script_load;
+</script>
+
+<script type="text/javascript">
+// ============================================
+// PERMANENT FIX FOR DROPZONE + FORM SUBMIT
+// ============================================
+
+// This runs when the page loads
+$(document).ready(function() {
+    console.log('🔧 Applying Dropzone fix on page load...');
+
+    // 1. Modify Dropzone to not auto-process
+    var dropzoneEl = $('.dropzone, .dz-uploader').first();
+    if (dropzoneEl.length && dropzoneEl[0].dropzone) {
+        var dz = dropzoneEl[0].dropzone;
+
+        // Change Dropzone to NOT auto-process
+        dz.options.autoProcessQueue = false;
+        console.log('✅ Set Dropzone autoProcessQueue: false');
+
+        // Update CSRF token for Dropzone
+        var csrfToken = $('input[name="csrf_rfid_token"]').val();
+        if (csrfToken) {
+            dz.options.headers = dz.options.headers || {};
+            dz.options.headers['X-CSRF-TOKEN'] = csrfToken;
+        }
+    }
+
+    // Hide tabs when creating the user
+    <?php if (empty($row)): ?>
+    $('.qm-tabs-header').hide();
+    <?php endif; ?>
+});
+
+// Fix for Dropzone CSRF token initialization
+$(document).ready(function() {
+    // Wait for Dropzone to initialize
+    setTimeout(function() {
+        var csrfToken = $('input[name="csrf_rfid_token"]').val();
+        if (csrfToken && typeof Dropzone !== 'undefined') {
+            $('.quick-manage-container .dropzone, .quick-manage-container .dz-uploader').each(
+                function() {
+                    if (this.dropzone) {
+                        this.dropzone.options.headers = this.dropzone.options.headers || {};
+                        this.dropzone.options.headers['X-CSRF-TOKEN'] = csrfToken;
+                        this.dropzone.options.autoProcessQueue = false;
+                        console.log('CSRF token added to Dropzone');
+                    }
+                });
+        }
+    }, 1000);
+});
+
+// ============================================
+// UPDATED save_form FUNCTION
+// ============================================
+
 function save_form(el) {
     // This removes the parsley validation for elements outside of the form.
     let elementsToRemove = document.querySelectorAll('[class*=parsley-class-container]');
@@ -274,172 +371,185 @@ function save_form(el) {
         let view = '<?= !empty($row->id) ? 'update' : 'create' ?>';
         let id = <?= !empty($row->id) ? $row->id : '0' ?>;
 
-        ajax_submit_form(el, view, id);
+        // Get the form and Dropzone instance
+        var form = $(el).closest('form');
+        var dropzoneEl = $('.dropzone, .dz-uploader').first();
+        var dz = dropzoneEl.length && dropzoneEl[0].dropzone ? dropzoneEl[0].dropzone : null;
+
+        // Check if CSRF token exists
+        var csrfInput = form.find('input[name*="csrf"]').first();
+        if (!csrfInput.length) {
+            alert('Security token missing. Please refresh the page.');
+            return;
+        }
+
+        console.log('CSRF Token to send:', csrfInput.val().substring(0, 10) + '...');
+
+        // Use the fixed submit function
+        fixed_ajax_submit_form(el, view, id, dz);
     });
 }
 
-$(document).ready(function() {
-    // Initialize all select values on page load
-    $('.quick-manage-container select').each(function() {
-        $(this).trigger('change');
+// ============================================
+// FIXED ajax_submit_form FUNCTION
+// ============================================
+
+function fixed_ajax_submit_form(el, view, id, dz) {
+    console.log('🔄 Fixed ajax_submit_form called');
+
+    var form = $(el).closest('form');
+    var csrfToken = $('input[name="csrf_rfid_token"]').val();
+
+    // Validate form first
+    form.parsley().whenValidate().done(function() {
+        console.log('✓ Form validation passed');
+
+        // Prepare FormData
+        var formData = new FormData(form[0]);
+
+        // Ensure profile_pic_validator is included
+        if (!formData.has('profile_pic_validator')) {
+            formData.append('profile_pic_validator', 'xxx');
+        }
+
+        // Handle Dropzone files
+        if (dz && dz.files.length > 0) {
+            console.log('Processing Dropzone files...');
+
+            // Process each file
+            var processNextFile = function(index) {
+                if (index >= dz.files.length) {
+                    // All files processed, submit form
+                    submitFormData(formData, el, csrfToken);
+                    return;
+                }
+
+                var file = dz.files[index];
+                console.log('Adding file to FormData:', file.name);
+
+                // Read the file and add to FormData
+                var reader = new FileReader();
+                reader.onload = function(e) {
+                    // Convert to blob
+                    var blob = new Blob([e.target.result], {
+                        type: file.type
+                    });
+
+                    // Add to FormData
+                    formData.append('profile_pic', blob, file.name);
+
+                    // Process next file
+                    processNextFile(index + 1);
+                };
+                reader.readAsArrayBuffer(file);
+            };
+
+            // Start processing files
+            processNextFile(0);
+        } else {
+            // No files, submit directly
+            submitFormData(formData, el, csrfToken);
+        }
+
+    }).fail(function() {
+        console.log('✗ Form validation failed');
+        alert('Please check all required fields');
     });
+}
 
-    <?php
-        // Hide tabs when creating the user
-        if (empty($row)) {
-        ?>
-    $('.qm-tabs-header').hide();
-    <?php
-        }
-        ?>
-});
+function submitFormData(formData, el, csrfToken) {
+    console.log('📤 Submitting form...');
 
-// Fix for Dropzone CSRF token
-$(document).ready(function() {
-    // Wait a bit for Dropzone to initialize
-    setTimeout(function() {
-        // Get CSRF token from form
-        var csrfName = '<?php echo $this->security->get_csrf_token_name(); ?>';
-        var csrfToken = $('input[name="' + csrfName + '"]').val();
-
-        if (!csrfToken) {
-            // Try to get from meta tag
-            csrfToken = $('meta[name="csrf-token"]').attr('content');
-            csrfName = $('meta[name="csrf-token-name"]').attr('content') || csrfName;
-        }
-
-        if (csrfToken && typeof Dropzone !== 'undefined') {
-            // Update all Dropzone instances in the quick manage form
-            $('.quick-manage-container .dropzone, .quick-manage-container .dz-uploader').each(
-                function() {
-                    if (this.dropzone) {
-                        // Update the Dropzone instance
-                        this.dropzone.options.headers = this.dropzone.options.headers || {};
-                        this.dropzone.options.headers['X-CSRF-TOKEN'] = csrfToken;
-
-                        // Also add to form data
-                        this.dropzone.on("sending", function(file, xhr, formData) {
-                            formData.append(csrfName, csrfToken);
-                        });
-
-                        console.log('CSRF token added to Dropzone');
-                    }
-                });
-        }
-    }, 500);
-});
-</script>
-<script type="text/javascript">
-function ajax_submit_form(el, view, id) {
-    // Get the form
     var form = $(el).closest('form');
 
-    // Get CSRF token
-    var csrfInput = form.find('input[name*="csrf"]').first();
-    var csrfToken = csrfInput.val();
-    var csrfName = csrfInput.attr('name');
+    // Show loading
+    var $button = $(el);
+    var originalText = $button.text();
+    $button.prop('disabled', true).text('Saving...');
 
-    console.log('AJAX Request Debug:');
-    console.log('URL:', form.attr('action'));
-    console.log('Method: POST');
-    console.log('CSRF Token being sent:', csrfToken ? csrfToken.substring(0, 10) + '...' : 'NOT FOUND');
+    // Also disable the close button to prevent accidental closure
+    var $closeBtn = $('.close-quick-manage');
+    if ($closeBtn.length) {
+        $closeBtn.prop('disabled', true).css('opacity', '0.5');
+    }
 
-    // Show loading state
-    $(el).prop('disabled', true).addClass('loading');
-
-    // Submit via AJAX
     $.ajax({
         url: form.attr('action'),
         type: 'POST',
-        data: form.serialize(),
+        data: formData,
+        processData: false,
+        contentType: false,
         dataType: 'json',
         headers: {
+            'X-CSRF-TOKEN': csrfToken,
             'X-Requested-With': 'XMLHttpRequest'
         },
         success: function(response) {
-            console.log('Success response:', response);
+            console.log('✅ Full Response:', response);
 
-            // Check if CSRF token needs to be updated
-            if (response.csrf) {
-                console.log('New CSRF token received:', response.csrf.substring(0, 10) + '...');
-
-                // Update CSRF token in the form
-                csrfInput.val(response.csrf);
-
-                // Also update any other CSRF inputs in the form
-                form.find('input[name*="csrf"]').each(function() {
-                    $(this).val(response.csrf);
-                });
-
-                // Update CSRF token in the page (meta tags or other forms)
-                $('meta[name="csrf-token"]').attr('content', response.csrf);
-                $('input[name="' + csrfName + '"]').not(form.find('input[name*="csrf"]')).val(response
-                    .csrf);
-
-                console.log('CSRF token updated in form');
-            }
-
-            // Handle success
             if (response.success) {
-                console.log('✓ Form saved successfully!');
+                // Update CSRF token
+                if (response.csrf) {
+                    $('input[name="csrf_rfid_token"]').val(response.csrf);
 
-                // Show success message
-                alert(view === 'update' ? 'Updated successfully!' : 'Created successfully!');
-
-                // Close quick manage modal
-                $('.close-quick-manage').click();
-
-                // Reload the page after a short delay
-                setTimeout(function() {
-                    window.location.reload();
-                }, 1500);
-            } else {
-                // Show error
-                alert(response.message || 'An error occurred');
-                $(el).prop('disabled', false).removeClass('loading');
-
-                // If CSRF error, try auto-resubmit with new token
-                if (response.message === 'Invalid security token' && response.csrf) {
-                    console.log('Auto-retrying with new CSRF token...');
-                    // Update form and resubmit
-                    csrfInput.val(response.csrf);
-                    setTimeout(function() {
-                        ajax_submit_form(el, view, id);
-                    }, 500);
+                    // Also update Dropzone headers if it exists
+                    var dropzoneEl = $('.dropzone, .dz-uploader').first();
+                    if (dropzoneEl.length && dropzoneEl[0].dropzone) {
+                        var dz = dropzoneEl[0].dropzone;
+                        dz.options.headers = dz.options.headers || {};
+                        dz.options.headers['X-CSRF-TOKEN'] = response.csrf;
+                    }
                 }
+
+                // Show success message - check different possible message fields
+                var message = response.message || response.flasherbody || 'Saved successfully!';
+                alert(message);
+
+                // ALWAYS reload after successful save
+                console.log('Reloading page after successful save...');
+
+                // First close any open modals
+                setTimeout(function() {
+                    // Try to close the quick manage modal
+                    var $closeBtn = $('.close-quick-manage');
+                    if ($closeBtn.length) {
+                        $closeBtn.trigger('click');
+                    }
+
+                    // Small delay then reload
+                    setTimeout(function() {
+                        window.location.reload();
+                    }, 500);
+                }, 1000);
+
+            } else {
+                // Show error message
+                var errorMsg = response.error || response.flasherbody || 'Save failed';
+                alert(errorMsg);
+                $button.prop('disabled', false).text(originalText);
+                $closeBtn.prop('disabled', false).css('opacity', '1');
             }
         },
         error: function(xhr, status, error) {
-            console.error('AJAX Error Details:');
-            console.error('Status:', status);
-            console.error('Error:', error);
-            console.error('Response:', xhr.responseText);
+            console.error('❌ Error:', status, error);
 
-            // Try to parse as JSON anyway
-            try {
-                var response = JSON.parse(xhr.responseText);
-                alert(response.message || 'Server error: ' + error);
-
-                // Check for CSRF token in error response
-                if (response.csrf) {
-                    console.log('New CSRF token in error response:', response.csrf.substring(0, 10) +
-                        '...');
-                    csrfInput.val(response.csrf);
-                }
-            } catch (e) {
-                // If not JSON, show raw response
-                alert('Server returned: ' + xhr.responseText.substring(0, 100));
-                console.log('Raw response:', xhr.responseText.substring(0, 500));
+            if (xhr.status === 403) {
+                alert('Security token expired. Please refresh page.');
+                setTimeout(function() {
+                    window.location.reload();
+                }, 2000);
+            } else {
+                alert('Error: ' + (xhr.responseText || error));
+                $button.prop('disabled', false).text(originalText);
+                $closeBtn.prop('disabled', false).css('opacity', '1');
             }
-
-            $(el).prop('disabled', false).removeClass('loading');
         }
     });
 }
 
-// Make sure this function is available globally
+// Make sure the original ajax_submit_form function points to our fixed version
 if (typeof window.ajax_submit_form !== 'function') {
-    window.ajax_submit_form = ajax_submit_form;
+    window.ajax_submit_form = fixed_ajax_submit_form;
 }
 
 // Also define on_script_load if not defined

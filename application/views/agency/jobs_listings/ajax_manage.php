@@ -1,4 +1,9 @@
 <?php defined('BASEPATH') || exit('No direct script access allowed'); ?>
+<?php
+// Get CSRF tokens for JavaScript
+$csrf_token_name = $this->security->get_csrf_token_name();
+$csrf_token_hash = $this->security->get_csrf_hash();
+?>
 <style>
 body .form-control {
     color: var(--font-color);
@@ -64,28 +69,19 @@ body .form-control {
                 </div>
                 <div class="col-lg-6">
                     <?php if (empty($row)): ?>
-                    <!-- For new jobs - show auto-generated reference -->
-                    <div class="form-group">
-                        <label for="reference_number">Reference Number</label>
-                        <div class="input-group">
-                            <input type="text" class="form-control" id="reference_number" name="reference_number"
-                                value="<?= !empty($row->reference_number) ? htmlspecialchars($row->reference_number, ENT_QUOTES, 'UTF-8') : '' ?>"
-                                placeholder="Auto-generated" readonly>
-                            <div class="input-group-append">
-                                <button type="button" class="btn btn-outline-secondary" id="generate-reference"
-                                    title="Generate new reference number">
-                                    <i class="fa fa-refresh"></i>
-                                </button>
-                            </div>
-                        </div>
-                        <small class="form-text text-muted">Reference number will be generated automatically</small>
-                    </div>
-                    <?php else: ?>
-                    <!-- For existing jobs - show current reference as read-only -->
                     <div class="form-group">
                         <label for="reference_number">Reference Number</label>
                         <input type="text" class="form-control" id="reference_number" name="reference_number"
-                            value="<?= htmlspecialchars($row->reference_number, ENT_QUOTES, 'UTF-8') ?>" readonly>
+                            value="<?= !empty($generated_reference) ? htmlspecialchars($generated_reference, ENT_QUOTES, 'UTF-8') : '' ?>"
+                            readonly>
+                        <small class="form-text text-muted">Reference number is automatically generated</small>
+                    </div>
+                    <?php else: ?>
+                    <div class="form-group">
+                        <label for="reference_number">Reference Number</label>
+                        <input type="text" class="form-control" id="reference_number" name="reference_number"
+                            value="<?= !empty($row->reference_number) ? htmlspecialchars($row->reference_number, ENT_QUOTES, 'UTF-8') : '' ?>"
+                            readonly>
                         <small class="form-text text-muted">Reference number cannot be changed</small>
                     </div>
                     <?php endif; ?>
@@ -260,19 +256,25 @@ function save_form(el) {
 }
 
 function generateReferenceNumber() {
+    // Create form data with CSRF token
+    var formData = new FormData();
+    formData.append('<?= $csrf_token_name ?>', '<?= $csrf_token_hash ?>');
+
     $.ajax({
         url: '<?= site_url("agency/jobs_listings/generate_reference") ?>',
         type: 'POST',
-        dataType: 'json',
+        data: formData,
+        processData: false,
+        contentType: false,
         success: function(response) {
             if (response.success) {
                 $('#reference_number').val(response.reference);
             } else {
-                alert('Failed to generate reference number: ' + response.error);
+                alert('Failed to generate new reference');
             }
         },
         error: function() {
-            alert('Error generating reference number');
+            alert('Error generating new reference');
         }
     });
 }
@@ -300,10 +302,7 @@ $(document).ready(function() {
         $(this).trigger('change');
     });
 
-    // Generate reference number on page load for new jobs
-    <?php if (empty($row)): ?>
-    generateReferenceNumber();
-    <?php endif; ?>
+
 
     // Generate reference number when button is clicked
     $('#generate-reference').on('click', function() {
@@ -451,58 +450,6 @@ $(document).ready(function() {
             console.log('Tab changed, verifying form fields...');
             setFormFieldValues();
         }, 300);
-    });
-});
-
-// Rest of your existing JavaScript...
-function save_form(el) {
-    $(el).closest('form').parsley().whenValidate().done(function() {
-        let view = '<?= !empty($row->id) ? 'update' : 'create' ?>';
-        let id = <?= !empty($row->id) ? $row->id : '0' ?>;
-        ajax_submit_form(el, view, id);
-    });
-}
-
-function generateReferenceNumber() {
-    $.ajax({
-        url: '<?= site_url("agency/jobs_listings/generate_reference") ?>',
-        type: 'POST',
-        dataType: 'json',
-        success: function(response) {
-            if (response.success) {
-                $('#reference_number').val(response.reference);
-            } else {
-                alert('Failed to generate reference number: '.response.error);
-            }
-        },
-        error: function() {
-            alert('Error generating reference number');
-        }
-    });
-}
-
-$(document).ready(function() {
-    // Handle tab clicks
-    $('.qm-tabs-header li').on('click', function() {
-        var tabId = $(this).attr('rel');
-
-        // Remove active class from all tabs and tab content
-        $('.qm-tabs-header li').removeClass('active');
-        $('.qm-tabs-tab').removeClass('active');
-
-        // Add active class to clicked tab and corresponding content
-        $(this).addClass('active');
-        $('.qm-tabs-tab[rel="' + tabId + '"]').addClass('active');
-    });
-
-    // Generate reference number on page load for new jobs
-    <?php if (empty($row)): ?>
-    generateReferenceNumber();
-    <?php endif; ?>
-
-    // Generate reference number when button is clicked
-    $('#generate-reference').on('click', function() {
-        generateReferenceNumber();
     });
 });
 </script>

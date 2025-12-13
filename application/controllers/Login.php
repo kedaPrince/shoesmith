@@ -650,27 +650,18 @@ public function ajax_attempt_login() {
         }
     }
 
-    if (count($accountData) > 1) {
-        $accounts = array();
-        foreach ($accountData as $group => $row) {
-            $name = ($group == 'agency') ? $row->name : (!empty($row->first_name) ? $row->first_name . ' ' . $row->last_name : $row->name);
-            $accounts[] = array(
-                'group'     => $group,
-                'enabled'   => $row->enabled,
-                'name'      => $name
-            );
-        }
+    // ================ FIX 1: Multiple accounts ================
+    // REMOVED: Do NOT reveal accounts for failed login
+    // if (count($accountData) > 1) {
+    //     $accounts = array();
+    //     foreach ($accountData as $group => $row) {
+    //         $accounts[] = array(...);  // ← VULNERABLE!
+    //     }
+    //     ajax_return(['success' => 0, 'accounts' => $accounts]); // ← REMOVE!
+    //     return;
+    // }
 
-        ajax_return(array(
-            'success'   => 0,
-            'accounts'  => $accounts,
-            'csrf'      => $csrf_hash  // Always return fresh CSRF token
-        ));
-        
-        return;
-    }
-
-    if (count($accountData) == 1) {
+    if (count($accountData) >= 1) {  // Changed from == 1 to >= 1
         foreach ($accountData as $group => $row);
 
         if(!empty($row->password)){
@@ -680,18 +671,20 @@ public function ajax_attempt_login() {
                 $this->session->unset_userdata('login');
                 $this->session->unset_userdata('is_logged_in');
 
+                // ================ FIX 2: Always generic error ================
                 ajax_return(array(
                     'success'   => 0,
-                    'message'   => 'Invalid Email/Password',
-                    'csrf'      => $csrf_hash  // Always return fresh CSRF token
+                    'message'   => 'Invalid Email/Password',  // ← ALWAYS SAME
+                    'csrf'      => $csrf_hash
                 ));
                 return;
             }
         } else {
+            // ================ FIX 3: Generic error for no password ================
             ajax_return(array(
                 'success'   => 0,
-                'message'   => 'The password for this account has not been set, please check your email.<br><br>Alternatively, click on forgot password below.',
-                'csrf'      => $csrf_hash  // Always return fresh CSRF token
+                'message'   => 'Invalid Email/Password',  // ← CHANGED FROM SPECIFIC
+                'csrf'      => $csrf_hash
             ));
             return;
         }
@@ -742,24 +735,26 @@ public function ajax_attempt_login() {
             ajax_return(array(
                 'success' => 1,
                 'redirect' => $redirectUrl,
-                'csrf'    => $csrf_hash  // Always return fresh CSRF token
+                'csrf'    => $csrf_hash
             ));
         }
         else {
+            // ================ FIX 4: Generic error for disabled account ================
             ajax_return(array(
                 'success'   => 0,
-                'message'   => 'Your account has been disabled.',
-                'csrf'      => $csrf_hash  // Always return fresh CSRF token
+                'message'   => 'Invalid Email/Password',  // ← CHANGED FROM SPECIFIC
+                'csrf'      => $csrf_hash
             ));
         }
 
         return;
     }
 
+    // ================ FIX 5: Generic error for no account found ================
     ajax_return(array(
         'success'   => 0,
-        'message'   => 'Invalid Email/Password',
-        'csrf'      => $csrf_hash  // Always return fresh CSRF token
+        'message'   => 'Invalid Email/Password',  // ← ALWAYS SAME
+        'csrf'      => $csrf_hash
     ));
 }
     private function do_login($email, $group) {

@@ -21,7 +21,7 @@
 <script type="text/javascript" src="<?= site_url(); ?>resources/cms/javascript/jquery-cropper.min.js"></script>
 <script type="text/javascript" src="<?= site_url(); ?>resources/cms/javascript/ImageTools.js"></script>
 
-<script type="text/javascript" src="<?= site_url(); ?>resources/cms/javascript/jquery-ui.min.js"></script>
+<script src="https://code.jquery.com/ui/1.13.2/jquery-ui.min.js"></script>
 
 <!-- Core JS -->
 <script src="<?= site_url(); ?>resources/cms/javascript/theme/common.js?v=<?= $this->config->item('version'); ?>">

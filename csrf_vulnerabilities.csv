@@ -1,5 +1,8 @@
 File Type,File Path,Vulnerable Methods/Issues,Status
-Controller,/recruiter/Candidates.php,"create, for_job, debug_file_upload",NEEDS_FIX
+Controller,/agency/Agency_staff.php,"enable, disable, remove, update",NEEDS_FIX
+Controller,/agency/Candidates_list.php,"remove_candidate_from_job",NEEDS_FIX
+Controller,/agency/Jobs_listings.php,"remove, enable, disable, delete",NEEDS_FIX
+Controller,/recruiter/Candidates.php,"create, for_job",NEEDS_FIX
 Controller,/recruiter/Chat.php,"start_job_chat, get_or_create_conversation, send_message, mark_messages_as_read, get_or_create_candidate_conversation",NEEDS_FIX
 Controller,/recruiter/Dashboard.php,"upload_document",NEEDS_FIX
 Controller,/recruiter/Jobs.php,"ajax_assign_candidate_to_job",NEEDS_FIX
@@ -15,10 +18,8 @@ Controller,/admin/Staff.php,All methods protected,OK
 Controller,/admin/Template_sections.php,All methods protected,OK
 Controller,/admin/Templates.php,All methods protected,OK
 Controller,/admin/Test_form_builder.php,All methods protected,OK
-Controller,/agency/Agency_staff.php,All methods protected,OK
 Controller,/agency/Agency_templates.php,All methods protected,OK
 Controller,/agency/Candidates.php,All methods protected,OK
-Controller,/agency/Jobs_listings.php,All methods protected,OK
 Controller,/agency/Notifications.php,All methods protected,OK
 Controller,/agency/Recruiters.php,All methods protected,OK
 Controller,/agency/Template_sections.php,All methods protected,OK
@@ -58,6 +59,5 @@ View,/cms/login/view_reset_password.php,Forms have CSRF,OK
 View,/front/contact/view_contact.php,Forms have CSRF,OK
 View,/recruiter/candidates/ajax_manage.php,Forms have CSRF,OK
 View,/recruiter/candidates/required_documents_form.php,Forms have CSRF,OK
-View,/recruiter/chat/conversation.php,Forms have CSRF,OK
 View,/recruiter/jobs/ajax_manage.php,Forms have CSRF,OK
 View,/staff/candidates/ajax_manage.php,Forms have CSRF,OK
