@@ -130,6 +130,12 @@
     margin-bottom: 40px;
 }
 
+@media (max-width: 1200px) {
+    .charts-container {
+        grid-template-columns: 1fr;
+    }
+}
+
 .chart-card {
     background: var(--card-bg);
     border-radius: 16px;
@@ -353,13 +359,36 @@
     box-shadow: 0 12px 24px rgba(59, 130, 246, 0.3);
 }
 
-/* Responsive */
-@media (max-width: 1200px) {
-    .charts-container {
-        grid-template-columns: 1fr;
-    }
+/* Stats Overview */
+.stats-overview {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 15px;
+    margin-bottom: 30px;
 }
 
+.stat-overview-item {
+    background: var(--card-bg);
+    border-radius: 12px;
+    padding: 20px;
+    text-align: center;
+    border: 1px solid var(--border);
+}
+
+.stat-overview-value {
+    font-size: 24px;
+    font-weight: 700;
+    margin-bottom: 5px;
+}
+
+.stat-overview-label {
+    font-size: 12px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* Responsive */
 @media (max-width: 768px) {
     #main-content {
         padding: 20px;
@@ -375,6 +404,10 @@
         grid-template-columns: 1fr;
     }
 
+    .stats-overview {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
     .nav-grid {
         grid-template-columns: 1fr;
     }
@@ -388,6 +421,25 @@
         height: 50px;
         font-size: 22px;
     }
+}
+
+@media (max-width: 480px) {
+    .stats-overview {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* Empty State */
+.empty-state {
+    text-align: center;
+    padding: 40px;
+    color: var(--text-muted);
+}
+
+.empty-state i {
+    font-size: 48px;
+    margin-bottom: 20px;
+    opacity: 0.5;
 }
 </style>
 
@@ -407,6 +459,26 @@
             </button>
         </div>
 
+        <!-- Quick Stats Overview -->
+        <div class="stats-overview">
+            <div class="stat-overview-item">
+                <div class="stat-overview-value"><?= $stats->awaiting_review ?? 0 ?></div>
+                <div class="stat-overview-label">Awaiting Review</div>
+            </div>
+            <div class="stat-overview-item">
+                <div class="stat-overview-value"><?= $stats->in_interview ?? 0 ?></div>
+                <div class="stat-overview-label">In Interview</div>
+            </div>
+            <div class="stat-overview-item">
+                <div class="stat-overview-value"><?= $stats->hm_accepted ?? 0 ?></div>
+                <div class="stat-overview-label">HM Accepted</div>
+            </div>
+            <div class="stat-overview-item">
+                <div class="stat-overview-value"><?= $stats->recent_candidates ?? 0 ?></div>
+                <div class="stat-overview-label">Last 7 Days</div>
+            </div>
+        </div>
+
         <!-- KPI Stats Grid -->
         <div class="stats-grid">
             <div class="stat-card">
@@ -414,7 +486,7 @@
                 <div class="stat-value"><?= $stats->total_candidates ?? 0 ?></div>
                 <div class="stat-trend up">
                     <i class="fa fa-arrow-up"></i>
-                    <span>+12% this month</span>
+                    <span>+<?= $stats->recent_candidates ?? 0 ?> this week</span>
                 </div>
             </div>
 
@@ -422,8 +494,8 @@
                 <div class="stat-title">Active Jobs</div>
                 <div class="stat-value"><?= $stats->active_jobs ?? 0 ?></div>
                 <div class="stat-trend up">
-                    <i class="fa fa-arrow-up"></i>
-                    <span>+8% from last month</span>
+                    <i class="fa fa-briefcase"></i>
+                    <span>Open positions</span>
                 </div>
             </div>
 
@@ -438,9 +510,8 @@
             <div class="stat-card danger">
                 <div class="stat-title">Time to Hire</div>
                 <div class="stat-value"><?= $stats->avg_time_to_hire ?? 0 ?> days</div>
-                <div class="stat-trend down">
-                    <i class="fa fa-arrow-down"></i>
-                    <span>-2 days improvement</span>
+                <div class="stat-trend">
+                    <span>Average duration</span>
                 </div>
             </div>
         </div>
@@ -448,53 +519,54 @@
         <!-- Charts Section -->
         <div class="charts-container">
             <div class="chart-card">
-                <h3>Candidate Status Distribution</h3>
+                <h3><i class="fa fa-chart-pie mr-2"></i> Candidate Status Distribution</h3>
                 <canvas id="statusChart"></canvas>
             </div>
 
             <div class="chart-card">
-                <h3>Onboarding Progress</h3>
+                <h3><i class="fa fa-chart-bar mr-2"></i> Onboarding Progress</h3>
                 <canvas id="onboardingChart"></canvas>
             </div>
         </div>
 
         <!-- Recent Activity -->
         <div class="recent-activity">
-            <h3>Recent Activity</h3>
+            <h3><i class="fa fa-history mr-2"></i> Recent Activity</h3>
             <?php if (!empty($recent_activity)): ?>
             <ul class="activity-list">
                 <?php foreach ($recent_activity as $activity): ?>
                 <li class="activity-item">
-                    <div class="activity-icon <?= $activity['type'] ?>">
-                        <?php if ($activity['type'] == 'candidate_added'): ?>
+                    <div class="activity-icon <?= $activity['type'] ?? 'primary' ?>">
+                        <?php if (($activity['type'] ?? '') == 'candidate_added'): ?>
                         <i class="fa fa-user-plus"></i>
-                        <?php elseif ($activity['type'] == 'job_posted'): ?>
+                        <?php elseif (($activity['type'] ?? '') == 'job_posted'): ?>
                         <i class="fa fa-briefcase"></i>
-                        <?php elseif ($activity['type'] == 'candidate_hired'): ?>
+                        <?php elseif (($activity['type'] ?? '') == 'candidate_hired'): ?>
                         <i class="fa fa-trophy"></i>
                         <?php else: ?>
                         <i class="fa fa-bell"></i>
                         <?php endif; ?>
                     </div>
                     <div class="activity-content">
-                        <div class="activity-title"><?= htmlspecialchars($activity['title'], ENT_QUOTES, 'UTF-8') ?>
-                        </div>
-                        <div class="activity-time"><?= date('M j, Y g:i A', strtotime($activity['created_at'])) ?></div>
+                        <div class="activity-title">
+                            <?= htmlspecialchars($activity['title'] ?? 'Activity', ENT_QUOTES, 'UTF-8') ?></div>
+                        <div class="activity-time">
+                            <?= date('M j, Y g:i A', strtotime($activity['created_at'] ?? 'now')) ?></div>
                     </div>
                 </li>
                 <?php endforeach; ?>
             </ul>
             <?php else: ?>
-            <div class="text-center text-muted py-4">
-                <i class="fa fa-history fa-2x mb-3"></i><br>
-                No recent activity
+            <div class="empty-state">
+                <i class="fa fa-history"></i>
+                <p>No recent activity</p>
             </div>
             <?php endif; ?>
         </div>
 
         <!-- Quick Navigation -->
         <div class="chart-card">
-            <h3>Quick Navigation</h3>
+            <h3><i class="fa fa-compass mr-2"></i> Quick Navigation</h3>
             <div class="nav-grid">
                 <?php 
                 $navCounter = 0;
@@ -666,5 +738,17 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     `;
     document.head.appendChild(style);
+
+    // Auto-refresh stats every 60 seconds
+    setInterval(function() {
+        fetch('<?= site_url("agency/dashboard/get_dashboard_stats") ?>')
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    console.log('Stats refreshed');
+                }
+            })
+            .catch(error => console.error('Error refreshing stats:', error));
+    }, 60000);
 });
 </script>

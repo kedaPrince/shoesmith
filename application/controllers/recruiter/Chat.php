@@ -513,7 +513,7 @@ public function ajax_upload_documents()
     }
     // Set header first
     header('Content-Type: application/json');
-    
+
     // Initialize response
     $response = [
         'success' => false,
@@ -558,7 +558,15 @@ public function ajax_upload_documents()
         if (!is_dir($upload_path)) {
             mkdir($upload_path, 0777, true);
             // Add .htaccess for security
-            file_put_contents($upload_path . '.htaccess', "Order Deny,Allow\nDeny from all");
+            // Create Apache 2.4 compatible .htaccess
+        $htaccess_content = "# Apache 2.4 security\n";
+        $htaccess_content .= "Require all granted\n";
+        $htaccess_content .= "Options -Indexes\n";
+        $htaccess_content .= "<FilesMatch \"\.(php|phtml|inc|exe|dll|bat|cmd)$\">\n";
+        $htaccess_content .= "    Require all denied\n";
+        $htaccess_content .= "</FilesMatch>\n";
+
+        file_put_contents($upload_path . '.htaccess', $htaccess_content);
         }
         
         // Load upload library
@@ -1344,5 +1352,41 @@ public function start_job_chat($job_uuid)
         return $this->db->where('id', $conversation_id)->get('chat_conversations')->row();
     }
 
-
+public function download_document($candidate_id, $filename)
+{
+    $file_path = FCPATH . 'uploads/candidate_documents/' . $candidate_id . '/' . $filename;
+    
+    // Security check
+    $recruiter_id = $this->get_recruiter_id();
+    if (!$recruiter_id) {
+        show_404();
+    }
+    
+    // Verify the recruiter has access to this candidate
+    $this->load->model('recruiter/Model_candidates');
+    $has_access = $this->Model_candidates->check_recruiter_access($candidate_id, $recruiter_id);
+    
+    if (!$has_access) {
+        show_404();
+    }
+    
+    // Check if file exists
+    if (!file_exists($file_path)) {
+        show_404();
+    }
+    
+    // Get the file's mime type
+    $mime = mime_content_type($file_path);
+    
+    // Set headers
+    header('Content-Type: ' . $mime);
+    header('Content-Disposition: attachment; filename="' . basename($file_path) . '"');
+    header('Content-Length: ' . filesize($file_path));
+    header('Cache-Control: private, max-age=0, must-revalidate');
+    header('Pragma: public');
+    
+    // Output the file
+    readfile($file_path);
+    exit;
+}
 }

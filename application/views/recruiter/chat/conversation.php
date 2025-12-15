@@ -2433,7 +2433,7 @@ input[type="file"]:not(#fileInput) {
                                                 </div>
                                             </div>
                                             <div class="document-actions">
-                                                <a href="<?php echo base_url($doc->file_path); ?>"
+                                                <a href="<?php echo site_url('recruiter/chat/download_document/' . $doc->candidate_id . '/' . $doc->file_name); ?>"
                                                     class="btn-document-action primary" target="_blank"
                                                     title="Download">
                                                     <i class="fa fa-download"></i>
@@ -2824,13 +2824,30 @@ function renderMessageContent(content) {
         // Get all links and make sure they're safe
         const links = tempDiv.querySelectorAll('a');
         links.forEach(link => {
-            // Ensure links are safe (only allow target="_blank" and basic attributes)
             const href = link.getAttribute('href');
-            if (href && href.startsWith('http')) {
-                // Make sure it opens in new tab
-                link.setAttribute('target', '_blank');
-                link.setAttribute('rel', 'noopener noreferrer');
+            if (href && href.includes('uploads/candidate_documents')) {
+                // Extract filename and candidate ID from the path
+                const pathParts = href.split('/');
+                const candidateIdIndex = pathParts.indexOf('candidate_documents') + 1;
+                const filenameIndex = candidateIdIndex + 1;
+
+                if (pathParts[candidateIdIndex] && pathParts[filenameIndex]) {
+                    const candidateId = pathParts[candidateIdIndex];
+                    const filename = pathParts[filenameIndex];
+
+                    // Create secure download URL
+                    const secureUrl = window.location.origin +
+                        '/shoesmith/recruiter/chat/download_document/' +
+                        candidateId + '/' +
+                        encodeURIComponent(filename);
+
+                    link.setAttribute('href', secureUrl);
+                }
             }
+
+            // Ensure links open in new tab
+            link.setAttribute('target', '_blank');
+            link.setAttribute('rel', 'noopener noreferrer');
         });
 
         return tempDiv.innerHTML;
