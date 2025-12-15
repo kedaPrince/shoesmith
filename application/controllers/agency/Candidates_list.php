@@ -6,7 +6,7 @@ class Candidates_list extends CRUD_Controller
     public $pageName = 'candidates_list';
     public $group = 'agency';
     public $folder = 'agency';
-    public $model = 'Model_candidates_list';
+    public $model = 'Model_candidates';
     public $singular = 'Candidate';
     public $plural = 'Candidates';
     public $identifierField = 'first_name';
@@ -23,6 +23,7 @@ class Candidates_list extends CRUD_Controller
 
         $this->load->model($this->folder . '/' . $this->model);
         $this->setup_listing();
+        $this->load->model('agency/Model_candidates');
     }
 
     private function setup_listing()
@@ -60,7 +61,69 @@ class Candidates_list extends CRUD_Controller
             ),
         );
     }
+private function enforce_candidate_access($candidate_id)
+{
+    $agency_id = $this->get_user_agency_id();
+    
+    if (!$agency_id) {
+        $this->candidate_access_denied();
+        return false;
+    }
+    
+    $has_access = $this->check_candidate_agency_access_direct($agency_id, $candidate_id);
+    
+    if (!$has_access) {
+        $this->candidate_access_denied();
+        return false;
+    }
+    
+    return true;
+}
 
+private function candidate_access_denied()
+{
+    if ($this->input->is_ajax_request()) {
+        ajax_return([
+            'success' => false,
+            'message' => 'Access denied to this candidate',
+            'csrf' => $this->security->get_csrf_hash()
+        ]);
+    } else {
+        show_error('Access denied to this candidate', 403);
+    }
+    exit;
+}
+
+private function check_candidate_agency_access_direct($agency_id, $candidate_id)
+{
+    $this->db->select('1');
+    $this->db->from('candidate_agencies ca');
+    $this->db->join('candidates c', 'c.id = ca.candidate_id');
+    $this->db->where('ca.candidate_id', $candidate_id);
+    $this->db->where('ca.agency_id', $agency_id);
+    $this->db->where('c.removed', 0);
+    $this->db->limit(1);
+    
+    $result = $this->db->get()->row();
+    return $result !== null;
+}
+
+private function get_user_agency_id()
+{
+    $login_data = $this->session->userdata('login');
+    
+    if (!empty($login_data['agency'])) {
+        $agency_user = $login_data['agency'];
+        
+        if (!empty($agency_user['agency_id'])) {
+            return $agency_user['agency_id'];
+        } elseif (!empty($agency_user['id'])) {
+            return $agency_user['id'];
+        }
+    }
+    
+    return null;
+}
 public function index($uuid_or_id = null)
 {
     // Always get identifier from URL (segment 4), never rely only on session
@@ -94,25 +157,17 @@ public function index($uuid_or_id = null)
     $this->db->join('mod_jobs j', 'j.id = cja.job_id', 'left');
     $this->db->join('agencies a', 'a.id = j.agency_id', 'left');
     
-    // Join with candidate_agencies to ensure candidate belongs to this agency
-    $this->db->join('candidate_agencies ca', 'ca.candidate_id = c.id', 'inner');
+    // 🔒 CRITICAL: Join with candidate_agencies to ensure candidate belongs to this agency
+    $this->db->join('candidate_agencies ca', 'ca.candidate_id = c.id AND ca.agency_id = ' . $this->db->escape($agency_id), 'inner');
     
     $this->db->where('cja.job_id', $job_id);
     $this->db->where('cja.removed', 0); // CRITICAL: Only active assignments
-    $this->db->where('ca.agency_id', $agency_id);
+    $this->db->where('j.agency_id', $agency_id); // 🔒 Ensure job belongs to agency
     $this->db->where('c.removed', 0);
     $this->db->order_by('c.first_name', 'ASC');
     
     $candidates = $this->db->get()->result();
     $total_candidates = count($candidates);
-
-    // DEBUG: Show what we found
-    echo "<!-- DEBUG: Found " . $total_candidates . " candidates for job ID " . $job_id . " -->\n";
-    echo "<!-- SQL: " . $this->db->last_query() . " -->\n";
-    
-    foreach ($candidates as $c) {
-        echo "<!-- Candidate: " . $c->first_name . " " . $c->last_name . " (ID: " . $c->id . ") -->\n";
-    }
 
     // Set session data for breadcrumbs
     $this->session->set_userdata('current_job_id', (int)$job_id);
@@ -134,77 +189,69 @@ public function index($uuid_or_id = null)
     $this->load->view($this->folder . '/view_footer');
 }
 
-    private function get_user_agency_id()
-    {
-        $login = $this->session->userdata('login');
-        if (!empty($login['agency'])) {
-            $a = $login['agency'];
-            return $a['agency_id'] ?? $a['id'] ?? null;
-        }
-        return null;
-    }
 
-public function view($candidate_id = null)
+public function view($uuid_or_id = null)
 {
-    if (!$candidate_id) {
-        show_error('Candidate ID required', 400);
+    if (!$uuid_or_id) {
+        show_error('Candidate identifier required', 400);
     }
 
-    // Get job_id from URL parameter (5th segment after candidate_id)
-    $job_id = $this->uri->segment(5);
+    $candidate = $this->{$this->model}->get_candidate($uuid_or_id);
     
-    if (!$job_id) {
-        show_error('Job ID is required in the URL', 400);
+    if (empty($candidate)) {
+        show_404();
     }
-
-    // Verify the job belongs to the agency
+    
+    $candidate_id = $candidate->id;
+    $candidate_uuid = $candidate->uuid;
+    
+    // Check access
+    if (!$this->enforce_candidate_access($candidate_id)) {
+        return;
+    }
+    
     $agency_id = $this->get_user_agency_id();
-    if ($agency_id) {
-        $this->db->select('1');
-        $this->db->from('mod_jobs');
-        $this->db->where('id', $job_id);
-        $this->db->where('agency_id', $agency_id);
-        $valid_job = $this->db->get()->row();
-        
-        if (!$valid_job) {
-            show_error('Job not found or access denied', 403);
+    
+    // Get job UUID from URL first, then session
+    $job_uuid = $this->input->get('job');
+    
+    // If not in URL, check if we're coming from a job candidates list
+    if (!$job_uuid) {
+        // Check the referrer URL
+        $referrer = $this->input->server('HTTP_REFERER');
+        if ($referrer && strpos($referrer, 'candidates_list/index/') !== false) {
+            // Extract job UUID from referrer URL
+            $pattern = '/candidates_list\/index\/([a-f0-9\-]{36})/';
+            if (preg_match($pattern, $referrer, $matches)) {
+                $job_uuid = $matches[1];
+            }
         }
     }
+    
+    // Still no job UUID? Check session
+    if (!$job_uuid) {
+        $job_uuid = $this->session->userdata('current_job_uuid');
+    }
+    
+    // Debug: Log what we found
+    log_message('debug', 'Candidate view - Job UUID found: ' . $job_uuid . ' from URL: ' . $this->input->get('job') . ' from referrer: ' . $referrer);
+    
+    // Now get candidate with specific job context
+    $row = $this->{$this->model}->get_candidate_details_by_agency_and_job($uuid_or_id, $agency_id, $job_uuid);
 
-    // FIXED: Query from candidate_job_assignments for this specific job
-    $this->db->select('c.*,
-                       j.name as job_name,
-                       j.reference_number as job_ref,
-                       a.name as agency_name,
-                       cja.status,
-                       cja.assigned_at as application_date');
-    $this->db->from('candidate_job_assignments cja');
-    $this->db->join('candidates c', 'c.id = cja.candidate_id', 'inner');
-    $this->db->join('mod_jobs j', 'j.id = cja.job_id', 'left');
-    $this->db->join('agencies a', 'a.id = j.agency_id', 'left');
-    $this->db->where('cja.candidate_id', $candidate_id);
-    $this->db->where('cja.job_id', $job_id);
-    $this->db->where('cja.removed', 0);
-    $this->db->where('c.removed', 0);
-
-    $candidate = $this->db->get()->row();
-
-    if (!$candidate) {
-        show_error('Candidate not found or not assigned to this job', 404);
+    if (empty($row)) {
+        show_404();
     }
 
-    $this->breadcrumbs = [
-        ['title' => lang('jobs_listings_heading'), 'url' => site_url('agency/jobs_listings')],
-        ['title' => 'Candidates', 'url' => site_url("agency/candidates_list/index/{$job_id}")],
-        ['title' => 'View Candidate', 'url' => '#'],
-    ];
-
+    // Pass job_uuid to view for breadcrumbs/back links
     $data = [
-        'candidate' => $candidate,
-        'job_id'    => $job_id,
-        'heading'   => 'Candidate: ' . $candidate->first_name . ' ' . $candidate->last_name
+        'candidate' => $row,
+        'candidate_id' => $row->id,
+        'job_uuid' => $job_uuid ?: ($row->job_uuid ?? null),
+        'heading' => 'Candidate Details - ' . $row->first_name . ' ' . $row->last_name,
     ];
 
+    // Load view
     $this->load->view($this->folder . '/view_header');
     $this->load->view('agency/candidates_list/view', $data);
     $this->load->view($this->folder . '/view_footer');
@@ -345,5 +392,39 @@ public function remove_candidate_from_job()
     ]);
 }
 
+/**
+ * Check if agency has access to candidate
+ */
+private function check_candidate_agency_access($agency_id, $candidate_id)
+{
+    // Check candidate_agencies pivot table
+    $this->db->select('1');
+    $this->db->from('candidate_agencies ca');
+    $this->db->join('candidates c', 'c.id = ca.candidate_id');
+    $this->db->where('ca.candidate_id', $candidate_id);
+    $this->db->where('ca.agency_id', $agency_id);
+    $this->db->where('c.removed', 0);
+    $this->db->limit(1);
+    
+    return $this->db->get()->row() !== null;
+}
 
+/**
+ * Check if agency has access to candidate-job assignment
+ */
+private function check_candidate_job_access($agency_id, $candidate_id, $job_id)
+{
+    $this->db->select('1');
+    $this->db->from('candidate_job_assignments cja');
+    $this->db->join('mod_jobs j', 'j.id = cja.job_id');
+    $this->db->join('candidate_agencies ca', 'ca.candidate_id = cja.candidate_id');
+    $this->db->where('cja.candidate_id', $candidate_id);
+    $this->db->where('cja.job_id', $job_id);
+    $this->db->where('cja.removed', 0);
+    $this->db->where('j.agency_id', $agency_id);
+    $this->db->where('ca.agency_id', $agency_id);
+    $this->db->limit(1);
+    
+    return $this->db->get()->row() !== null;
+}
 }

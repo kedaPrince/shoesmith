@@ -3553,12 +3553,6 @@ private function store_csrf_token_for_validation($csrf_token, $recruiter_id, $ca
 }
 
 
-
-
-/**
- * Onboarding Management Listing - Recruiter View Only (No Actions)
- * Shows only candidates belonging to the logged-in recruiter
- */
 public function onboarding_listing() 
 {
     $recruiter_id = $this->get_recruiter_id();
@@ -3567,32 +3561,83 @@ public function onboarding_listing()
         show_error('Access denied', 403);
     }
 
-    // Get ONLY recruiter's candidates for onboarding - Filter by recruiter_id
-    $this->db->select('c.*, j.name as job_name, 
-        c.stage_under_review, c.stage_submitted_to_hm, c.stage_hm_decision,
-        c.stage_documents_decision, c.stage_requested_docs, c.stage_position_offered,
-        c.onboarding_stage, c.onboarding_progress, c.hm_decision, c.status,
-        c.documents_required, c.updated_at, r.first_name as recruiter_first_name, 
-        r.last_name as recruiter_last_name');
-    $this->db->from('candidates c');
-    $this->db->join('mod_jobs j', 'j.id = c.job_id', 'left');
-    $this->db->join('recruiters r', 'r.id = c.assigned_agent_id', 'left');
+    echo "<!-- DEBUG: Recruiter ID = $recruiter_id -->\n";
     
-    // CRITICAL: Filter by recruiter's ID - multiple possible fields
+    // ============================================
+    // FIXED QUERY: Get ALL job assignments for this recruiter
+    // ============================================
+    $this->db->select('
+        c.id as candidate_id,
+        c.uuid as candidate_uuid,
+        c.first_name,
+        c.last_name,
+        c.reference_number,
+        
+        cja.job_id,
+        cja.id as assignment_id,
+        cja.created_at as assigned_date,
+        cja.updated_at as job_updated_at,
+        
+        j.name as job_name,
+        j.uuid as job_uuid,
+        j.reference_number as job_ref,
+        j.agency_id as job_agency_id,
+        
+        cop.id as onboarding_progress_id,
+        cop.onboarding_stage,
+        cop.onboarding_progress,
+        cop.stage_under_review,
+        cop.stage_submitted_to_hm,
+        cop.stage_hm_decision,
+        cop.hm_decision,
+        cop.hm_decision_notes,
+        cop.stage_requested_docs,
+        cop.stage_documents_decision,
+        cop.documents_notes as required_documents_notes,
+        cop.stage_position_offered,
+        cop.created_at as progress_created_at,
+        cop.updated_at as progress_updated_at
+    ');
+    
+    // CRITICAL: Start from candidate_job_assignments - ONE ROW PER JOB
+    $this->db->from('candidate_job_assignments cja');
+    
+    // Get candidate details
+    $this->db->join('candidates c', 'c.id = cja.candidate_id AND c.removed = 0', 'inner');
+    
+    // Get job details
+    $this->db->join('mod_jobs j', 'j.id = cja.job_id AND j.removed = 0', 'left');
+    
+    // Get onboarding progress for THIS job
+    $this->db->join('candidate_onboarding_progress cop', 
+        'cop.candidate_id = c.id AND cop.job_id = j.id', 
+        'left');
+    
+    // Filter: Only this recruiter's assignments
     $this->db->group_start();
-    $this->db->where('c.assigned_agent_id', $recruiter_id); // Most likely field
-    $this->db->or_where('c.recruiter_id', $recruiter_id); // Alternative field
+    $this->db->where('c.recruiter_id', $recruiter_id);
+    $this->db->or_where('c.assigned_agent_id', $recruiter_id);
+    
     $this->db->group_end();
     
-    $this->db->where('c.removed', 0);
-    $this->db->group_by('c.id');
-    $this->db->order_by('c.onboarding_progress', 'DESC');
+    // Only active assignments
+    $this->db->where('cja.removed', 0);
     
-    // Debug query
-    // echo $this->db->last_query(); die();
+    // ORDER - show all rows
+    $this->db->order_by('c.last_name', 'ASC');
+    $this->db->order_by('c.first_name', 'ASC');
+    $this->db->order_by('j.name', 'ASC');
     
-    $candidates = $this->db->get()->result();
-
+    $query = $this->db->get();
+    $candidates = $query->result();
+    
+    // DEBUG: Show what we found
+    echo "<!-- DEBUG: Found " . count($candidates) . " records -->\n";
+    foreach ($candidates as $index => $c) {
+        echo "<!-- Record $index: {$c->first_name} {$c->last_name} → Job: " . 
+             ($c->job_name ?: 'Unknown') . " (ID: {$c->job_id}) -->\n";
+    }
+    
     // Calculate statistics
     $stats = new stdClass();
     $stats->total_candidates = count($candidates);
@@ -3603,7 +3648,6 @@ public function onboarding_listing()
     $stats->not_started_count = 0;
     
     foreach ($candidates as $candidate) {
-        // Count by stage
         if ($candidate->onboarding_stage === 'completed' || $candidate->stage_position_offered) {
             $stats->completed_count++;
         } elseif ($candidate->stage_hm_decision && !empty($candidate->hm_decision)) {
@@ -3639,6 +3683,7 @@ public function onboarding_listing()
     $this->load->view($this->folder . '/view_footer');
 }
 
+
 /**
  * Get recruiter's name for display
  */
@@ -3660,4 +3705,54 @@ private function get_recruiter_name($recruiter_id)
 }
 
 
+
+/**
+ * Calculate onboarding statistics
+ */
+private function calculate_onboarding_stats($candidates) {
+    $stats = new stdClass();
+    $stats->total_candidates = count($candidates);
+    $stats->not_started_count = 0;
+    $stats->under_review_count = 0;
+    $stats->submitted_hm_count = 0;
+    $stats->hm_decision_count = 0;
+    $stats->completed_count = 0;
+    $stats->documents_requested_count = 0;
+
+    foreach ($candidates as $candidate) {
+        // Determine stage
+        if ($candidate->onboarding_stage === 'completed' || $candidate->stage_position_offered) {
+            $stats->completed_count++;
+        } elseif ($candidate->stage_hm_decision && !empty($candidate->hm_decision)) {
+            $stats->hm_decision_count++;
+        } elseif ($candidate->stage_submitted_to_hm) {
+            $stats->submitted_hm_count++;
+        } elseif ($candidate->stage_under_review) {
+            $stats->under_review_count++;
+        } elseif ($candidate->stage_requested_docs) {
+            $stats->documents_requested_count++;
+        } else {
+            $stats->not_started_count++;
+        }
+    }
+
+    return $stats;
+}
+
+/**
+ * Determine current stage for a candidate-job assignment
+ */
+private function determine_stage($candidate) {
+    if ($candidate->onboarding_stage === 'completed' || $candidate->stage_position_offered) {
+        return 'completed';
+    } elseif ($candidate->stage_hm_decision && !empty($candidate->hm_decision)) {
+        return 'hm_decision';
+    } elseif ($candidate->stage_submitted_to_hm) {
+        return 'submitted_hm';
+    } elseif ($candidate->stage_under_review) {
+        return 'under_review';
+    } else {
+        return 'not_started';
+    }
+}
 }

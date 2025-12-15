@@ -1,4 +1,41 @@
 <?php defined('BASEPATH') OR exit('No direct script access allowed'); ?>
+// In your view_notifications.php, add this debug section right after the opening of the PHP file:
+<?php 
+// Debug the first notification to see its structure
+if (!empty($notifications)) {
+    $first_notif = $notifications[0];
+    echo "<!-- DEBUG NOTIFICATION STRUCTURE -->\n";
+    echo "<!-- Notification ID: {$first_notif->id} -->\n";
+    echo "<!-- Notification Type: {$first_notif->type} -->\n";
+    echo "<!-- Notification Title: {$first_notif->title} -->\n";
+    echo "<!-- Notification Metadata: " . ($first_notif->metadata ?? 'NULL') . " -->\n";
+    
+    if ($first_notif->metadata) {
+        $metadata = json_decode($first_notif->metadata);
+        echo "<!-- Metadata Decision: " . ($metadata->decision ?? 'NULL') . " -->\n";
+        echo "<!-- Metadata Required Documents: " . ($metadata->required_documents ?? 'NULL') . " -->\n";
+        echo "<!-- Metadata Notes: " . ($metadata->notes ?? 'NULL') . " -->\n";
+    }
+    
+    // Check if it's a documents request
+    $is_documents_request = (
+        $first_notif->type === 'documents_request' ||
+        strpos($first_notif->title, 'Documents Required') !== false ||
+        strpos($first_notif->title, 'Additional Documents') !== false
+    );
+    echo "<!-- Is Documents Request: " . ($is_documents_request ? 'YES' : 'NO') . " -->\n";
+}
+?>
+<?php
+// SIMPLE DEBUG - check what we have
+echo "<!-- DEBUG START -->\n";
+echo "<!-- Notifications exists? " . (isset($notifications) ? 'YES' : 'NO') . " -->\n";
+echo "<!-- Notifications count? " . (isset($notifications) ? count($notifications) : '0') . " -->\n";
+
+// Force a test button to see if PHP is working
+echo "<!-- TEST BUTTON: <button class=\"btn btn-warning btn-open-documents-modal\" data-candidate-id=\"90\" data-notification-id=\"615\">TEST DOCUMENTS BUTTON</button> -->\n";
+echo "<!-- DEBUG END -->\n";
+?>
 <style>
 /* Your existing CSS styles remain the same */
 .notification-card.updated .notification-header {
@@ -420,64 +457,74 @@
                             <div class="notifications-list">
                                 <?php foreach ($notifications as $notification): ?>
                                 <?php 
-                                    // HM Decision specific handling
-                                    $is_hm_decision = $notification->type === 'hm_decision';
-                                    $metadata = !empty($notification->metadata) ? json_decode($notification->metadata) : null;
-                                    
-                                    // FIX: Safely get decision with fallback
-                                    $decision = '';
-                                    $is_documents_request = false;
-                                    if ($is_hm_decision && $metadata) {
-                                        // Try to get decision from multiple possible properties
-                                        $decision = $metadata->decision ?? '';
-                                        
-                                        // Determine if this is a documents request
-                                        // Check multiple indicators
-                                        $is_documents_request = (
-                                            strpos($notification->title, 'Additional Documents') !== false ||
-                                            strpos($notification->title, 'Documents Required') !== false ||
-                                            strpos($notification->message, 'additional documents') !== false ||
-                                            strpos($notification->message, 'Documents Required') !== false ||
-                                            (!empty($metadata->required_documents) && empty($metadata->decision)) ||
-                                            $decision === 'documents_required'
-                                        );
-                                        
-                                        // Set decision based on type
-                                        if ($is_documents_request) {
-                                            $decision = 'documents_required';
-                                        } elseif (strpos($notification->title, 'Accepted') !== false || $decision === 'accepted') {
-                                            $decision = 'accepted';
-                                        } elseif (strpos($notification->title, 'Rejected') !== false || $decision === 'rejected') {
-                                            $decision = 'rejected';
-                                        } else {
-                                            $decision = $decision ?: 'unknown';
-                                        }
-                                    }
-                                    
-                                    // Existing job notification handling
-                                    $job_id = $notification->related_entity_id;
-                                    $job_data = (object)[
-                                        'salary_min' => $notification->salary_min,
-                                        'salary_max' => $notification->salary_max,
-                                        'employment_type' => $notification->employment_type,
-                                        'department' => $notification->department,
-                                        'is_remote' => $notification->is_remote
-                                    ];
-                                    
-                                    $agency_name = !empty($notification->agency_name) ? $notification->agency_name : 'Your Agency';
-                                    
-                                    // Parse updated fields for job updates
-                                    $updated_fields = [];
-                                    $is_update_notification = $notification->type === 'job_updated';
-                                    if ($is_update_notification && !empty($notification->updated_fields)) {
-                                        $updated_fields = json_decode($notification->updated_fields, true);
-                                        if (!is_array($updated_fields)) {
-                                            $updated_fields = [];
-                                        }
-                                    }
-                                    
-                                    // Debug output for this notification
-                                    echo "<!-- Notification ID: {$notification->id}, Type: {$notification->type}, Decision: {$decision}, Is Documents Request: " . ($is_documents_request ? 'Yes' : 'No') . " -->";
+        // HM Decision specific handling
+        $is_hm_decision = $notification->type === 'hm_decision';
+        $metadata = !empty($notification->metadata) ? json_decode($notification->metadata) : null;
+        
+        // FIXED: Documents request detection - works for ALL notification types
+        $decision = '';
+        $is_documents_request = false;
+        
+        // Check ALL notifications, not just hm_decision
+        if ($metadata) {
+            // Try to get decision from multiple possible properties
+            $decision = $metadata->decision ?? $metadata->notification_type ?? '';
+            
+            // Determine if this is a documents request - CHECK ALL POSSIBILITIES
+            $is_documents_request = (
+                $notification->type === 'documents_request' ||
+                strpos($notification->title, 'Documents Required') !== false ||
+                strpos($notification->title, 'Additional Documents') !== false ||
+                strpos(strtolower($notification->message), 'documents required') !== false ||
+                strpos(strtolower($notification->message), 'additional documents') !== false ||
+                (!empty($metadata->required_documents)) ||
+                (!empty($metadata->documents_notes)) ||
+                $decision === 'documents_required' ||
+                (isset($metadata->notification_type) && $metadata->notification_type === 'documents_request')
+            );
+            
+            // Debug output
+            echo "<!-- DEBUG: Type={$notification->type}, Decision={$decision}, IsDocRequest=" . ($is_documents_request ? 'YES' : 'NO') . " -->";
+            
+            // Set decision based on type
+            if ($is_documents_request) {
+                $decision = 'documents_required';
+            } elseif (strpos($notification->title, 'Accepted') !== false || $decision === 'accepted') {
+                $decision = 'accepted';
+            } elseif (strpos($notification->title, 'Rejected') !== false || $decision === 'rejected') {
+                $decision = 'rejected';
+            } else {
+                $decision = $decision ?: 'unknown';
+            }
+        }
+    
+
+                                // Existing job notification handling
+                                $job_id = $notification->related_entity_id;
+                                $job_data = (object)[
+                                'salary_min' => $notification->salary_min,
+                                'salary_max' => $notification->salary_max,
+                                'employment_type' => $notification->employment_type,
+                                'department' => $notification->department,
+                                'is_remote' => $notification->is_remote
+                                ];
+
+                                $agency_name = !empty($notification->agency_name) ? $notification->agency_name : 'Your
+                                Agency';
+
+                                // Parse updated fields for job updates
+                                $updated_fields = [];
+                                $is_update_notification = $notification->type === 'job_updated';
+                                if ($is_update_notification && !empty($notification->updated_fields)) {
+                                $updated_fields = json_decode($notification->updated_fields, true);
+                                if (!is_array($updated_fields)) {
+                                $updated_fields = [];
+                                }
+                                }
+
+                                // Debug output for this notification
+                                echo "
+                                <!-- Notification ID: {$notification->id}, Type: {$notification->type}, Decision: {$decision}, Is Documents Request: " . ($is_documents_request ? 'Yes' : 'No') . " -->";
                                 ?>
 
                                 <!-- NOTIFICATION CARD - UPDATED WITH HM DECISION SUPPORT -->
@@ -719,33 +766,46 @@
 
                                         <!-- Action Buttons -->
 
+                                        <!-- Action Buttons -->
                                         <div class="notification-actions">
                                             <div class="action-buttons">
-                                                <?php if (!empty($job_id) && !$is_hm_decision): ?>
+                                                <?php if (!empty($job_id) && !$is_hm_decision && !$is_documents_request): ?>
                                                 <a href="<?php echo site_url('recruiter/jobs/view/' . $job_id); ?>"
                                                     class="btn btn-notification btn-view-job">
                                                     <i class="fa fa-eye"></i> View Full Job Details
                                                 </a>
-                                                <?php elseif ($is_hm_decision && $metadata): ?>
+                                                <?php elseif ($is_documents_request || ($is_hm_decision && $metadata)): ?>
                                                 <?php 
-                                            // Determine the correct URL based on notification type
-                                            $candidate_url = site_url('recruiter/candidates/view/' . $notification->related_entity_id);
-                                            if ($is_documents_request) {
-                                                $candidate_url .= '?tab=required';
-                                            }
-                                            ?>
-                                                <a href="<?php echo $candidate_url; ?>"
-                                                    class="btn btn-notification btn-view-job">
-                                                    <i class="fa fa-user"></i> View Candidate
-                                                </a>
-                                                <!-- ADD THIS: Button to open required documents modal -->
-                                                <?php if ($is_documents_request): ?>
+                                                        // For documents request, always show the documents button
+                                                        if ($is_documents_request): 
+                                                            $documents_notes = '';
+                                                            if (!empty($metadata->required_documents)) {
+                                                                $documents_notes = $metadata->required_documents;
+                                                            } elseif (!empty($metadata->documents_notes)) {
+                                                                $documents_notes = $metadata->documents_notes;
+                                                            } elseif (!empty($metadata->notes)) {
+                                                                $documents_notes = $metadata->notes;
+                                                            }
+                                                        ?>
+                                                <!-- DOCUMENTS REQUEST BUTTON - ALWAYS SHOW -->
                                                 <button class="btn btn-warning btn-open-documents-modal"
                                                     data-candidate-id="<?php echo $notification->related_entity_id; ?>"
                                                     data-notification-id="<?php echo $notification->id; ?>"
-                                                    data-documents-notes="<?php echo !empty($metadata->required_documents) ? htmlspecialchars($metadata->required_documents) : htmlspecialchars($metadata->notes ?? ''); ?>">
+                                                    data-documents-notes="<?php echo htmlspecialchars($documents_notes); ?>">
                                                     <i class="fa fa-upload"></i> Submit Required Documents
                                                 </button>
+
+                                                <!-- Optional: Also show view candidate button -->
+                                                <a href="<?php echo site_url('recruiter/candidates/view/' . $notification->related_entity_id . '?tab=required'); ?>"
+                                                    class="btn btn-outline-primary">
+                                                    <i class="fa fa-user"></i> View Candidate
+                                                </a>
+                                                <?php else: ?>
+                                                <!-- Other HM decisions (accepted/rejected) -->
+                                                <a href="<?php echo site_url('recruiter/candidates/view/' . $notification->related_entity_id); ?>"
+                                                    class="btn btn-notification btn-view-job">
+                                                    <i class="fa fa-user"></i> View Candidate
+                                                </a>
                                                 <?php endif; ?>
                                                 <?php else: ?>
                                                 <span class="text-muted small">No linked content</span>
@@ -769,13 +829,13 @@
                             </div>
                             <?php foreach ($notifications as $notification): ?>
                             <?php 
-        // HM Decision specific handling
-        $is_hm_decision = $notification->type === 'hm_decision';
-        $is_position_offered = $notification->type === 'position_offered'; // ADD THIS LINE
-        $metadata = !empty($notification->metadata) ? json_decode($notification->metadata) : null;
-        
-        // ... existing HM decision logic ...
-    ?>
+                                // HM Decision specific handling
+                                $is_hm_decision = $notification->type === 'hm_decision';
+                                $is_position_offered = $notification->type === 'position_offered'; // ADD THIS LINE
+                                $metadata = !empty($notification->metadata) ? json_decode($notification->metadata) : null;
+                                
+                                // ... existing HM decision logic ...
+                            ?>
 
                             <!-- POSITION OFFERED NOTIFICATION - ADD THIS NEW BLOCK -->
                             <?php if ($is_position_offered): ?>
@@ -845,18 +905,18 @@
                                             </a>
                                             <?php elseif ($is_hm_decision && $metadata): ?>
                                             <?php 
-        // Determine the correct action based on notification type
-        if ($is_documents_request): 
-        ?>
+                                                                                            // Determine the correct action based on notification type
+                                                                                            if ($is_documents_request): 
+                                                                                            ?>
                                             <!-- FOR DOCUMENTS REQUIRED: Use button to open modal -->
                                             <button class="btn btn-warning btn-open-documents-modal"
                                                 data-candidate-id="<?php echo $notification->related_entity_id; ?>"
                                                 data-notification-id="<?php echo $notification->id; ?>"
                                                 data-documents-notes="<?php 
-                echo !empty($metadata->required_documents) ? 
-                    htmlspecialchars($metadata->required_documents) : 
-                    htmlspecialchars($metadata->notes ?? ''); 
-            ?>">
+                                                    echo !empty($metadata->required_documents) ? 
+                                                        htmlspecialchars($metadata->required_documents) : 
+                                                        htmlspecialchars($metadata->notes ?? ''); 
+                                                ?>">
                                                 <i class="fa fa-upload"></i> Submit Required Documents
                                             </button>
 
@@ -952,7 +1012,54 @@
         </div>
     </div>
 </div>
+<!-- Required Documents Modal -->
+<div class="modal fade" id="requiredDocumentsModal" tabindex="-1" role="dialog"
+    aria-labelledby="requiredDocumentsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="requiredDocumentsModalLabel">Submit Required Documents</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body" id="required-documents-modal-content">
+                Loading form...
+            </div>
+        </div>
+    </div>
+</div>
 
+<?php 
+// Add this RIGHT AFTER the opening PHP tag at the top of the file
+echo "<!-- ===== DEBUG: NOTIFICATION DATA ===== -->\n";
+echo "<!-- Total notifications loaded: " . count($notifications) . " -->\n";
+
+foreach ($notifications as $index => $notification) {
+    echo "<!-- \n";
+    echo "Notification #$index: \n";
+    echo "ID: {$notification->id}\n";
+    echo "Type: {$notification->type}\n";
+    echo "Title: {$notification->title}\n";
+    echo "Is Read: {$notification->is_read}\n";
+    echo "Related Entity ID: {$notification->related_entity_id}\n";
+    
+    if ($notification->metadata) {
+        $metadata = json_decode($notification->metadata);
+        echo "Metadata: " . json_encode($metadata, JSON_PRETTY_PRINT) . "\n";
+        
+        // Check documents request detection
+        $is_doc_req = (
+            $notification->type === 'documents_request' ||
+            strpos($notification->title, 'Documents Required') !== false ||
+            strpos($notification->title, 'Additional Documents') !== false ||
+            (!empty($metadata->required_documents) || !empty($metadata->documents_notes))
+        );
+        echo "Is Documents Request? " . ($is_doc_req ? 'YES' : 'NO') . "\n";
+    }
+    echo "-->\n";
+}
+?>
 <script>
 // Fixed JavaScript - No syntax errors
 document.addEventListener('DOMContentLoaded', function() {
@@ -1285,4 +1392,70 @@ async function handleRequiredDocumentsSubmit(e) {
         submitBtn.innerHTML = originalText;
     }
 }
+</script>
+
+// In your view_notifications.php, add this debug JavaScript
+<script>
+console.log('=== DEBUG: Documents Button JavaScript ===');
+
+// Check if the button exists
+document.addEventListener('DOMContentLoaded', function() {
+    const buttons = document.querySelectorAll('.btn-open-documents-modal');
+    console.log('Found', buttons.length, 'documents buttons');
+
+    buttons.forEach((btn, index) => {
+        console.log('Button', index, ':', {
+            candidateId: btn.dataset.candidateId,
+            notificationId: btn.dataset.notificationId,
+            documentsNotes: btn.dataset.documentsNotes
+        });
+
+        // Check if click handler is attached
+        btn.addEventListener('click', function(e) {
+            console.log('Button clicked!', e.target);
+        });
+    });
+
+    // Also check if the modal exists
+    const modal = document.getElementById('requiredDocumentsModal');
+    console.log('Documents modal exists:', !!modal);
+});
+
+// In your view_notifications.php JavaScript section, add:
+$(document).ready(function() {
+    console.log("=== DEBUG: Button Status ===");
+
+    // Count buttons
+    var buttons = $('.btn-open-documents-modal');
+    console.log("Found " + buttons.length + " documents buttons");
+
+    // Add click handlers
+    buttons.each(function(index) {
+        var btn = $(this);
+        console.log("Button #" + index + ":", {
+            candidateId: btn.data('candidate-id'),
+            notificationId: btn.data('notification-id'),
+            notes: btn.data('documents-notes')
+        });
+
+        btn.off('click').on('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            console.log("Button clicked!");
+            console.log("Candidate ID:", btn.data('candidate-id'));
+
+            // Open the modal
+            openRequiredDocumentsModal(
+                btn.data('candidate-id'),
+                btn.data('notification-id'),
+                btn.data('documents-notes')
+            );
+        });
+    });
+
+    // Also check for any JavaScript errors
+    window.addEventListener('error', function(e) {
+        console.error("JavaScript Error:", e.message, "at", e.filename, "line", e.lineno);
+    });
+});
 </script>

@@ -317,15 +317,12 @@
                                             </td>
                                             <td>
                                                 <div class="action-buttons">
-                                                    <a href="<?= redir('candidates/onboarding/' . $candidate->id, true) ?>"
+
+                                                    <a href="<?= redir('candidates/onboarding/' . $candidate->candidate_uuid . '?job=' . $candidate->job_uuid, true) ?>"
                                                         class="btn btn-primary btn-sm" title="Manage Onboarding">
                                                         <i class="fa fa-tasks"></i> Manage
                                                     </a>
-                                                    <!-- FIXED: Changed from candidates/view to candidates_list/view -->
-                                                    <a href="<?= site_url('agency/candidates_list/view/' . $candidate->id) ?>"
-                                                        class="btn btn-info btn-sm" title="View Candidate">
-                                                        <i class="fa fa-eye"></i> View
-                                                    </a>
+
                                                 </div>
                                             </td>
                                         </tr>

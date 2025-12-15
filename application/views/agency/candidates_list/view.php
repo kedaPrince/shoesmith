@@ -1,5 +1,30 @@
 <?php defined('BASEPATH') || exit('No direct script access allowed'); ?>
+<?php 
+// Add at the top of the view file
+echo "<!-- DEBUG: Candidate ID: {$candidate->id} -->";
+echo "<!-- DEBUG: Current Agency ID: " . $this->session->userdata('login')['agency']['agency_id'] . " -->";
 
+// Check if candidate is assigned to current agency
+$current_agency_id = $this->session->userdata('login')['agency']['agency_id'] ?? null;
+$candidate_id = $candidate->id;
+
+if ($current_agency_id) {
+    $this->db->select('1');
+    $this->db->from('candidate_agencies');
+    $this->db->where('candidate_id', $candidate_id);
+    $this->db->where('agency_id', $current_agency_id);
+    $has_access = $this->db->get()->row() !== null;
+    
+    echo "<!-- DEBUG: Has Access: " . ($has_access ? 'YES' : 'NO') . " -->";
+    
+    if (!$has_access) {
+        // Show warning
+        echo '<div class="alert alert-danger">';
+        echo '<strong>SECURITY WARNING:</strong> You are viewing a candidate not assigned to your agency!';
+        echo '</div>';
+    }
+}
+?>
 <div id="main-content">
     <div class="container-fluid">
         <div class="block-header">
@@ -284,7 +309,7 @@
                         <?php endif; ?>
 
                         <?php if (!empty($candidate->cv_file)): ?>
-                        <div class="row clearfix">
+                        <!-- <div class="row clearfix">
                             <div class="col-lg-12">
                                 <div class="card">
                                     <div class="header">
@@ -298,7 +323,7 @@
                                     </div>
                                 </div>
                             </div>
-                        </div>
+                        </div> -->
                         <?php endif; ?>
                     </div>
                     <div class="footer">

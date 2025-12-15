@@ -169,6 +169,6 @@ class Model_candidates extends CRUD_Model
      * Get candidate by ID (alias for get_candidate_details)
      */
     public function get_candidate($id){
-        return $this->get_candidate_details($id);
+        return $this->Model_candidates->get_candidate_details_by_agency_and_job($id, $agency_id, $job_uuid);
     }
 }

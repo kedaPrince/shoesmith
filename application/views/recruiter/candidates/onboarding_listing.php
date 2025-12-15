@@ -143,6 +143,15 @@
 </style>
 
 <div id="main-content">
+    <!-- Add this at the top of your view file to debug -->
+    <?php 
+if (!empty($candidates)) {
+    $first_candidate = $candidates[0];
+    echo "<!-- First candidate fields: " . implode(', ', array_keys((array)$first_candidate)) . " -->";
+    echo "<!-- Has job_reference? " . (isset($first_candidate->job_reference) ? 'YES' : 'NO') . " -->";
+    echo "<!-- Has job_updated_at? " . (isset($first_candidate->job_updated_at) ? 'YES' : 'NO') . " -->";
+}
+?>
     <div class="container-fluid">
         <div class="block-header">
             <div class="row">
@@ -226,6 +235,7 @@
                                             <th>Last Updated</th>
                                         </tr>
                                     </thead>
+                                    <!-- In the table body section -->
                                     <tbody>
                                         <?php if (!empty($candidates)): ?>
                                         <?php foreach ($candidates as $candidate): ?>
@@ -235,77 +245,83 @@
                                                 <small class="text-muted">Ref:
                                                     <?= $candidate->reference_number ?></small>
                                             </td>
-                                            <td><?= $candidate->job_name ? htmlspecialchars($candidate->job_name, ENT_QUOTES, 'UTF-8') : 'Not assigned' ?>
+                                            <td>
+                                                <?= isset($candidate->job_name) && !empty($candidate->job_name) ? htmlspecialchars($candidate->job_name, ENT_QUOTES, 'UTF-8') : 'Not assigned' ?><br>
+                                                <small class="text-muted">Job Ref:
+                                                    <?= isset($candidate->job_reference) ? htmlspecialchars($candidate->job_reference, ENT_QUOTES, 'UTF-8') : 'N/A' ?></small>
                                             </td>
                                             <td>
                                                 <?php
-                                                    // Stage determination logic
-                                                    $stage_class = 'stage-not-started';
-                                                    $stage_label = 'Not Started';
-                                                    
-                                                    // Check if candidate is rejected
-                                                    $is_rejected = ($candidate->hm_decision === 'rejected' && $candidate->status === 'rejected');
-                                                    
-                                                    if ($is_rejected) {
-                                                        $stage_class = 'stage-hm-rejected';
-                                                        $stage_label = 'Rejected';
-                                                    }
-                                                    // Check if onboarding is completed
-                                                    elseif ($candidate->onboarding_stage === 'completed' || $candidate->stage_position_offered) {
-                                                        $stage_class = 'stage-completed';
-                                                        $stage_label = 'Completed';
-                                                    }
-                                                    // Check HM decision status
-                                                    elseif ($candidate->stage_hm_decision && !empty($candidate->hm_decision)) {
-                                                        if ($candidate->hm_decision === 'accepted') {
-                                                            $stage_class = 'stage-hm-accepted';
-                                                            $stage_label = 'HM Accepted';
-                                                        } elseif ($candidate->hm_decision === 'rejected') {
-                                                            $stage_class = 'stage-hm-rejected';
-                                                            $stage_label = 'HM Rejected';
-                                                        }
-                                                    }
-                                                    // Check individual stages in order
-                                                    else {
-                                                        $stages = [
-                                                            'stage_under_review' => ['label' => 'Under Review', 'class' => 'stage-under-review'],
-                                                            'stage_submitted_to_hm' => ['label' => 'Submitted to HM', 'class' => 'stage-submitted-to-hm'],
-                                                            'stage_hm_decision' => ['label' => 'HM Decision', 'class' => 'stage-hm-decision'],
-                                                            'stage_documents_decision' => ['label' => 'Docs Decision', 'class' => 'stage-requested-docs'],
-                                                            'stage_requested_docs' => ['label' => 'Requested Docs', 'class' => 'stage-requested-docs'],
-                                                            'stage_position_offered' => ['label' => 'Position Offered', 'class' => 'stage-position-offered']
-                                                        ];
-                                                        
-                                                        $current_stage_found = false;
-                                                        
-                                                        foreach ($stages as $stage_key => $stage_info) {
-                                                            $stage_completed = !empty($candidate->$stage_key) && $candidate->$stage_key == 1;
-                                                            
-                                                            if (!$stage_completed && !$current_stage_found) {
-                                                                $stage_class = $stage_info['class'];
-                                                                $stage_label = $stage_info['label'];
-                                                                $current_stage_found = true;
-                                                            }
-                                                        }
-                                                        
-                                                        if (!$current_stage_found) {
-                                                            $stage_class = 'stage-completed';
-                                                            $stage_label = 'Completed';
-                                                        }
-                                                    }
-                                                    ?>
+                // Stage determination logic - USE JOB-SPECIFIC FIELDS
+                $stage_class = 'stage-not-started';
+                $stage_label = 'Not Started';
+                
+                // Check if candidate is rejected (use job-specific hm_decision)
+                $is_rejected = isset($candidate->hm_decision) && ($candidate->hm_decision === 'rejected');
+                
+                if ($is_rejected) {
+                    $stage_class = 'stage-hm-rejected';
+                    $stage_label = 'Rejected';
+                }
+                // Check if onboarding is completed (use job-specific fields)
+                elseif (isset($candidate->onboarding_stage) && ($candidate->onboarding_stage === 'completed' || (isset($candidate->stage_position_offered) && $candidate->stage_position_offered))) {
+                    $stage_class = 'stage-completed';
+                    $stage_label = 'Completed';
+                }
+                // Check HM decision status (use job-specific fields)
+                elseif (isset($candidate->stage_hm_decision) && $candidate->stage_hm_decision && isset($candidate->hm_decision) && !empty($candidate->hm_decision)) {
+                    if ($candidate->hm_decision === 'accepted') {
+                        $stage_class = 'stage-hm-accepted';
+                        $stage_label = 'HM Accepted';
+                    } elseif ($candidate->hm_decision === 'rejected') {
+                        $stage_class = 'stage-hm-rejected';
+                        $stage_label = 'HM Rejected';
+                    }
+                }
+                // Check individual stages in order (use job-specific fields)
+                else {
+                    $stages = [
+                        'stage_under_review' => ['label' => 'Under Review', 'class' => 'stage-under-review'],
+                        'stage_submitted_to_hm' => ['label' => 'Submitted to HM', 'class' => 'stage-submitted-to-hm'],
+                        'stage_hm_decision' => ['label' => 'HM Decision', 'class' => 'stage-hm-decision'],
+                        'stage_documents_decision' => ['label' => 'Docs Decision', 'class' => 'stage-requested-docs'],
+                        'stage_requested_docs' => ['label' => 'Requested Docs', 'class' => 'stage-requested-docs'],
+                        'stage_position_offered' => ['label' => 'Position Offered', 'class' => 'stage-position-offered']
+                    ];
+                    
+                    $current_stage_found = false;
+                    
+                    foreach ($stages as $stage_key => $stage_info) {
+                        // Check if property exists and is set to 1
+                        $stage_completed = isset($candidate->$stage_key) && !empty($candidate->$stage_key) && $candidate->$stage_key == 1;
+                        
+                        if (!$stage_completed && !$current_stage_found) {
+                            $stage_class = $stage_info['class'];
+                            $stage_label = $stage_info['label'];
+                            $current_stage_found = true;
+                        }
+                    }
+                    
+                    if (!$current_stage_found) {
+                        $stage_class = 'stage-completed';
+                        $stage_label = 'Completed';
+                    }
+                }
+            ?>
                                                 <span class="stage-badge <?= $stage_class ?>"><?= $stage_label ?></span>
                                             </td>
                                             <td class="progress-cell">
                                                 <div class="progress-bar-small">
                                                     <div class="progress-fill-small"
-                                                        style="width: <?= $candidate->onboarding_progress ?>%"></div>
+                                                        style="width: <?= isset($candidate->onboarding_progress) ? $candidate->onboarding_progress : 0 ?>%">
+                                                    </div>
                                                 </div>
-                                                <small class="text-muted"><?= round($candidate->onboarding_progress) ?>%
+                                                <small
+                                                    class="text-muted"><?= isset($candidate->onboarding_progress) ? round($candidate->onboarding_progress) : 0 ?>%
                                                     complete</small>
                                             </td>
                                             <td>
-                                                <?= $candidate->updated_at ? date('M j, Y g:i A', strtotime($candidate->updated_at)) : 'Never' ?>
+                                                <?= isset($candidate->job_updated_at) && !empty($candidate->job_updated_at) ? date('M j, Y g:i A', strtotime($candidate->job_updated_at)) : 'Never' ?>
                                             </td>
                                         </tr>
                                         <?php endforeach; ?>

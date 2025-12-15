@@ -195,12 +195,10 @@
         <!-- Tab 1: Section Details -->
         <div class="qm-tabs-tab" rel="1">
             <div class="alert alert-info mb-4">
-                <h5><i class="fa fa-lightbulb-o"></i> Need a custom section?</h5>
-                <p>Can't find the form you need? Create a custom form first, then come back to add it as a section.</p>
-                <a href="<?= site_url('agency/template_sections/create_custom_section') ?>"
-                    class="btn btn-warning btn-sm">
-                    <i class="fa fa-plus"></i> Create Custom Form
-                </a>
+                <h5><i class="fa fa-lightbulb-o"></i> Start Creating</h5>
+                <p>these are the sections for your template start creating then come back to add it as a section in
+                    your template</p>
+
             </div>
 
             <div class="row">

@@ -189,10 +189,10 @@
                                             class="btn btn-info" title="View Candidate">
                                             <i class="fa fa-eye"></i>
                                         </a>
-                                        <a href="<?php echo site_url('agency/candidates/onboarding/' . $candidate->uuid); ?>"
+                                        <!-- <a href="<?php echo site_url('agency/candidates/onboarding/' . $candidate->uuid); ?>"
                                             class="btn btn-warning" title="Onboarding">
                                             <i class="fa fa-tasks"></i>
-                                        </a>
+                                        </a> -->
                                         <a href="javascript:void(0);" class="btn btn-danger" title="Remove from job"
                                             onclick="confirmRemoveCandidate('<?php echo $candidate->uuid; ?>', 
                                             '<?php echo htmlspecialchars($candidate->first_name . ' ' . $candidate->last_name, ENT_QUOTES, 'UTF-8'); ?>')">

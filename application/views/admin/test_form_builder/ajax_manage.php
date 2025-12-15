@@ -450,7 +450,6 @@ defined('BASEPATH') || exit('No direct script access allowed');  ?>
 <script>
 /** START Dynamic sub fields standard functions **/
 function make_df_sub_row(container, con, rowID) {
-    // Initialize counter
     if (container.attr('data-counter') === undefined) {
         container.attr('data-counter', 0);
     }
@@ -460,29 +459,22 @@ function make_df_sub_row(container, con, rowID) {
     let df_parent_rel = con;
     let df_row_rel = rowID;
 
-    // Clone template
     let new_row = $('.df-sub-field-template').clone();
     new_row.removeClass('df-sub-field-template')
         .addClass('df-sub-field-row')
         .attr('rel', df_parent_rel)
         .attr('pos', counter);
 
-    // Update input names
     new_row.find('input, select, textarea').each(function() {
         let input = $(this);
         let name = input.attr('name');
-
         if (!name) return;
-
-        // Generate correct name
         let new_name = `df[${df_parent_rel}][${df_row_rel}][df-sub][${counter}][${name}]`;
         input.attr('name', new_name);
     });
 
-    // Append to container
     container.append(new_row);
 
-    // Initialize the new field row
     setTimeout(() => {
         initializeFieldRow(new_row);
     }, 100);
@@ -523,7 +515,6 @@ function validateFormBeforeSubmit() {
     return true;
 }
 
-// Attach to form submission
 $('.quick-manage-form-container form').on('submit', function(e) {
     if (!validateFormBeforeSubmit()) {
         e.preventDefault();
@@ -555,7 +546,6 @@ $('.qmfc').on('click', '.df_sub_set_clone', function() {
 
     let new_row = make_df_sub_row(container, rel, rowID);
 
-    // Copy values from cloned row
     cloneRow.find('input, select, textarea').each(function() {
         let input = $(this);
         let name = input.attr('name').split('[').pop().replace(']', '');
@@ -566,7 +556,7 @@ $('.qmfc').on('click', '.df_sub_set_clone', function() {
             new_row.find('input[name*="[' + name + ']"]').prop('checked', isChecked);
             if (isChecked) {
                 new_row.find('input[name*="[' + name + ']"]').closest('.form-group').addClass(
-                    'checked');
+                'checked');
             }
         } else {
             new_row.find('input[name*="[' + name + ']"], select[name*="[' + name +
@@ -584,7 +574,6 @@ $(document).ready(function() {
     console.log('Field suggestions available:', <?= !empty($field_suggestions) ? 'true' : 'false' ?>);
     console.log('Field suggestions:', <?= json_encode($field_suggestions ?? []) ?>);
 
-    // Initialize all existing field rows
     initializeFieldRows();
 });
 
@@ -598,17 +587,14 @@ function initializeFieldRow(fieldRow) {
     const nameInput = fieldRow.find('.field_name_actual');
     const currentValue = nameInput.val();
 
-    // Populate the dropdown
     populateFieldDropdown(fieldRow);
 
     if (currentValue) {
         if (currentValue.includes('.')) {
-            // This is a database field
             fieldRow.find('.field_name_select').val(currentValue);
             fieldRow.find('.field_name_custom').hide();
             autoSelectFieldType(currentValue, fieldRow);
         } else {
-            // This is a custom field
             fieldRow.find('.field_name_custom').val(currentValue).show();
             fieldRow.find('.field_name_select').val('');
         }
@@ -621,7 +607,6 @@ function populateFieldDropdown(fieldRow) {
     const select = fieldRow.find('.field_name_select');
     const fieldSuggestions = <?= json_encode($field_suggestions ?? []) ?>;
 
-    // Store current selection
     const currentValue = select.val();
 
     select.empty().append('<option value="">-- Select Database Field --</option>');
@@ -638,7 +623,6 @@ function populateFieldDropdown(fieldRow) {
             optgroup.appendTo(select);
         });
 
-        // Restore selection if it exists
         if (currentValue) {
             select.val(currentValue);
         }
@@ -648,7 +632,6 @@ function populateFieldDropdown(fieldRow) {
     }
 }
 
-// Field selection event handlers
 $('.qmfc').on('change', '.field_name_select', function() {
     const select = $(this);
     const fieldRow = select.closest('.df-sub-field-row');
@@ -659,20 +642,16 @@ $('.qmfc').on('change', '.field_name_select', function() {
     console.log('Field selected:', selectedValue);
 
     if (selectedValue) {
-        // Database field selected
         customInput.hide().val('');
         hiddenInput.val(selectedValue);
 
-        // Auto-fill field label
         const fieldName = selectedValue.split('.').pop();
         const fieldLabel = fieldName.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
         fieldRow.find('input[name*="[field_label]"]').val(fieldLabel);
 
-        // Auto-select field type
         autoSelectFieldType(selectedValue, fieldRow);
 
     } else {
-        // No database field selected, show custom input
         customInput.show();
         hiddenInput.val('');
     }
@@ -690,10 +669,9 @@ $('.qmfc').on('input', '.field_name_custom', function() {
     const customValue = customInput.val().trim();
 
     if (customValue) {
-        select.val(''); // Clear database selection
+        select.val('');
         hiddenInput.val(customValue);
 
-        // Auto-fill field label for custom fields too
         const fieldLabel = customValue.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
         fieldRow.find('input[name*="[field_label]"]').val(fieldLabel);
     } else {
@@ -710,7 +688,6 @@ function autoSelectFieldType(fieldId, fieldRow) {
 
     console.log('Auto-selecting field type for:', fieldId);
 
-    // Find the field in our database fields array
     const fieldInfo = dbFields.find(field => field.id === fieldId);
 
     if (fieldInfo) {
@@ -719,7 +696,6 @@ function autoSelectFieldType(fieldId, fieldRow) {
 
         console.log('Database field info:', fieldInfo);
 
-        // Map database types to form input types
         for (const [dbPattern, formType] of Object.entries(typeMapping)) {
             if (dbType.includes(dbPattern)) {
                 suggestedType = formType;
@@ -727,7 +703,6 @@ function autoSelectFieldType(fieldId, fieldRow) {
             }
         }
 
-        // Special cases
         if (dbType.includes('text') && (dbType.includes('long') || dbType.includes('medium'))) {
             suggestedType = 'ckeditor';
         } else if (dbType.includes('text')) {
@@ -738,11 +713,8 @@ function autoSelectFieldType(fieldId, fieldRow) {
             suggestedType = 'dropdown';
         }
 
-        // Set the field type dropdown
         const typeSelect = fieldRow.find('select[name*="[field_type]"]');
         typeSelect.val(suggestedType);
-
-        // Trigger change to show/hide options if needed
         typeSelect.trigger('change');
 
         console.log(`Auto-selected field type: ${suggestedType} for DB type: ${dbType}`);
@@ -754,7 +726,6 @@ function autoSelectFieldType(fieldId, fieldRow) {
 function update_header(el) {
     let val = $(el).val();
 
-    // If it's a database field, extract just the field name
     if (val && val.includes('.')) {
         val = val.split('.').pop();
     }
@@ -788,27 +759,24 @@ function generate_from_table(table) {
         url: url,
         type: 'POST',
         data: {
-            table: table
+            table: table,
+            <?= $this->security->get_csrf_token_name() ?>: '<?= $this->security->get_csrf_hash() ?>'
         },
         dataType: 'json',
         success: function(response) {
             if (response.success) {
                 console.log('✅ Table fields loaded:', response);
 
-                // Show preview
                 $('.qm-tabs-tab[rel="5"] .form-display').html(response.form_view);
 
-                // Auto-fill name & ID
                 let id = response.form_schema?.form?.id || table;
                 let nameVal = id.replace(/_/g, ' ');
                 nameVal = nameVal.charAt(0).toUpperCase() + nameVal.slice(1);
                 $("input[name='name']").val(nameVal);
                 $("input[name='form_element_id']").val(id);
 
-                // Clear existing layout fields first
                 clearDynamicFieldRows();
 
-                // Wait for cleanup, then populate with new fields
                 setTimeout(() => {
                     if (response.form_schema && response.form_schema[0] && response.form_schema[0]
                         .fields) {
@@ -830,12 +798,10 @@ function generate_from_table(table) {
     });
 }
 
-// Function for loading fields from database tables
 function populateTableFields(fields) {
     console.log('🚀 Starting TABLE field population with:', fields);
     const container = $('.dynamic-field-container[rel="form-rows"]');
 
-    // Add a row
     container.find('.add_dynamic_field_set').trigger('click');
 
     setTimeout(() => {
@@ -861,12 +827,10 @@ function populateTableFields(fields) {
             setTimeout(() => {
                 const fieldRow = holder.find('.df-sub-field-row').last();
 
-                // Set field values using the new field selection system
                 const table = $('select[name="tables"]').val();
                 const fullFieldName = table + '.' + fieldName;
                 fieldRow.find('.field_name_select').val(fullFieldName).trigger('change');
 
-                // Set other field properties
                 fieldRow.find('input[name*="[field_label]"]').val(config.label || fieldName);
 
                 if (config.required) {
@@ -878,13 +842,11 @@ function populateTableFields(fields) {
                 fieldRow.find('input[name*="[field_col_md]"]').val(config.col?.md || '6');
                 fieldRow.find('input[name*="[field_col_lg]"]').val(config.col?.lg || '6');
 
-                // Handle attributes
                 if (config.attr && Object.keys(config.attr).length > 0) {
                     fieldRow.find('textarea[name*="[field_attr]"]').val(JSON.stringify(config.attr,
                         null, 2));
                 }
 
-                // Handle options for specific field types
                 if (['dropdown', 'multiselect', 'radio', 'checkbox'].includes(config.type)) {
                     fieldRow.find('.options').show();
                     if (config.options && Object.keys(config.options).length > 0) {
@@ -893,7 +855,6 @@ function populateTableFields(fields) {
                     }
                 }
 
-                // Update header
                 update_header(fieldRow.find('.field_name_actual'));
 
                 console.log(`✅ TABLE Field "${fieldName}" added successfully`);
@@ -907,7 +868,6 @@ function populateTableFields(fields) {
     }, 500);
 }
 
-// Function for populating existing form fields when EDITING
 var current_fields = <?= json_encode(isset($current_fields) ? $current_fields : []) ?>;
 var has_populated = false;
 
@@ -928,64 +888,52 @@ function populateCurrentFields() {
     const container = $('.dynamic-field-container[rel="form-rows"]');
     const holder = container.find('.df-sub-field-holder[rel="form-rows"]');
 
-    // Clear existing fields
     holder.html('');
     holder.attr('data-counter', 0);
 
-    // Add one row if we have fields
     const addBtn = container.find('.add_dynamic_field_set');
     addBtn.trigger('click');
 
-    // Wait for row to be created, then populate fields
     setTimeout(() => {
         const row = container.find('.dynamic-field-row').first();
         const subHolder = row.find('.df-sub-field-holder[rel="form-rows"]');
 
         current_fields.forEach((field, index) => {
             setTimeout(() => {
-                // Add sub-field
                 const subAddBtn = row.find('.add_df_sub_field');
                 subAddBtn.trigger('click');
 
-                // Wait for sub-field to be created, then populate
                 setTimeout(() => {
                     const subRow = subHolder.find('.df-sub-field-row').last();
 
-                    // Populate field data using the new field selection system
                     if (field.field_name && field.field_name.includes('.')) {
-                        // Database field
                         subRow.find('.field_name_select').val(field.field_name).trigger(
                             'change');
                     } else {
-                        // Custom field
                         subRow.find('.field_name_custom').val(field.field_name).show();
                         subRow.find('.field_name_select').val('');
                     }
 
-                    // Set other field properties
                     subRow.find('select[name*="[field_type]"]').val(field.field_type);
                     subRow.find('input[name*="[field_label]"]').val(field.field_label);
 
                     if (field.field_required === '1' || field.field_required === 1) {
                         subRow.find('input[name*="[field_required]"]').prop('checked',
-                                true)
-                            .closest('.form-group').addClass('checked');
+                            true).closest('.form-group').addClass('checked');
                     }
 
                     subRow.find('input[name*="[field_col_sm]"]').val(field
-                        .field_col_sm);
+                    .field_col_sm);
                     subRow.find('input[name*="[field_col_md]"]').val(field
-                        .field_col_md);
+                    .field_col_md);
                     subRow.find('input[name*="[field_col_lg]"]').val(field
-                        .field_col_lg);
+                    .field_col_lg);
                     subRow.find('textarea[name*="[field_attr]"]').val(field.field_attr);
                     subRow.find('textarea[name*="[field_input_options]"]').val(field
                         .field_input_options);
 
-                    // Update header
                     update_header(subRow.find('.field_name_actual'));
 
-                    // Show options if needed
                     if (['dropdown', 'multiselect', 'radio', 'checkbox'].includes(field
                             .field_type)) {
                         subRow.find('.options').show();
@@ -993,7 +941,6 @@ function populateCurrentFields() {
 
                     console.log('✅ EDIT Field: ' + field.field_name);
 
-                    // Update preview after last field
                     if (index === current_fields.length - 1) {
                         setTimeout(updateFormResultPreview, 300);
                     }
@@ -1003,7 +950,6 @@ function populateCurrentFields() {
     }, 300);
 }
 
-// Table change event
 $('.qmfc').on('change', 'select[name="tables"]', function() {
     let table = $(this).val();
     if (!table) return;
@@ -1015,7 +961,6 @@ $('.qmfc').on('change', 'select[name="tables"]', function() {
     $('input[name="name"]').val(nameLabel);
     $('input[name="form_element_id"]').val(table);
 
-    // Generate preview and populate TABLE fields
     generate_from_table(table);
 });
 
@@ -1068,7 +1013,6 @@ function updateFormResultPreview() {
         const customClass = row.find('input[name*="[row_custom_class]"]').val() || '';
         const fields = {};
 
-        // Collect sub-fields
         row.find('.df-sub-field-row').each(function() {
             const fieldRow = $(this);
 
@@ -1112,7 +1056,8 @@ function updateFormResultPreview() {
         url: '<?= site_url("admin/test_form_builder/render_schema"); ?>',
         type: 'POST',
         data: {
-            schema: JSON.stringify(schema)
+            schema: JSON.stringify(schema),
+            <?= $this->security->get_csrf_token_name() ?>: '<?= $this->security->get_csrf_hash() ?>'
         },
         dataType: 'json',
         success: function(response) {
@@ -1145,7 +1090,6 @@ function parseOptionsString(str) {
     }
 }
 
-// Update form preview when fields change
 $(document).on('change', '.field_name_actual, select[name*="[field_type]"], input[name*="[field_required]"]',
     function() {
         setTimeout(updateFormResultPreview, 500);
@@ -1154,13 +1098,11 @@ $(document).on('change', '.field_name_actual, select[name*="[field_type]"], inpu
 $(document).ready(function() {
     console.log('Document ready - current fields:', current_fields);
 
-    // Clear any automatic field creation
     $('.dynamic-field-container[rel="form-rows"] .df-sub-field-holder[rel="form-rows"]').each(function() {
         $(this).html('');
         $(this).attr('data-counter', 0);
     });
 
-    // If we have current_fields (editing existing form), populate them
     if (current_fields.length > 0) {
         console.log('🔄 EDIT MODE DETECTED: Populating existing form fields');
         $('.dynamic-field-container[rel="form-rows"]').each(function() {
@@ -1169,31 +1111,25 @@ $(document).ready(function() {
             }
         });
 
-        // Pre-populate from current_fields for EDITING
         setTimeout(populateCurrentFields, 500);
     } else {
         console.log('➕ CREATE MODE: No existing fields to populate');
-        // Don't auto-populate - user will either add fields manually or select a table
     }
 });
 
-// Add to your form builder JavaScript
 function autoPopulateMedicalField(fieldName) {
     const medicalRecommendations = <?= json_encode($medical_recommendations ?? []) ?>;
 
     if (medicalRecommendations[fieldName]) {
         const rec = medicalRecommendations[fieldName];
 
-        // Auto-populate field type
         $('select[name*="field_type"]').last().val(rec.type);
 
-        // Auto-populate label if empty
         const $labelField = $('input[name*="field_label"]').last();
         if (!$labelField.val()) {
             $labelField.val(rec.label);
         }
 
-        // Auto-populate placeholder in attributes
         const $attrField = $('textarea[name*="field_attr"]').last();
         let currentAttrs = {};
         try {
@@ -1207,7 +1143,6 @@ function autoPopulateMedicalField(fieldName) {
             $attrField.val(JSON.stringify(currentAttrs, null, 2));
         }
 
-        // Mark as required if recommended
         if (rec.required) {
             $('select[name*="field_required"]').last().val('1');
         }
@@ -1216,7 +1151,6 @@ function autoPopulateMedicalField(fieldName) {
     }
 }
 
-// Call this when field name changes
 $(document).on('change', 'input[name*="field_name"]', function() {
     const fieldName = $(this).val();
     if (fieldName.includes('usr_medical_emergency_details')) {

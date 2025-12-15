@@ -716,5 +716,45 @@ private function get_recruiter_id()
                        ->count_all_results($this->table) > 0;
     }
     
-
+/**
+ * Get onboarding candidates with their job assignments for recruiter
+ */
+public function get_onboarding_candidates_for_recruiter($recruiter_id)
+{
+    // Select all necessary fields
+    $this->db->select('c.*, 
+        cj.job_id, 
+        j.name as job_name, 
+        j.reference_number as job_reference,
+        cj.id as candidate_job_id,
+        cj.created_at as assigned_date,
+        cj.updated_at as job_updated_at,
+        cj.onboarding_progress,
+        cj.onboarding_stage,
+        cj.stage_under_review,
+        cj.stage_submitted_to_hm,
+        cj.stage_hm_decision,
+        cj.hm_decision,
+        cj.stage_requested_docs,
+        cj.stage_documents_decision,
+        cj.stage_position_offered');
+    
+    $this->db->from('candidates c');
+    $this->db->join('candidate_jobs cj', 'cj.candidate_id = c.id', 'inner'); // INNER JOIN to only get candidates with job assignments
+    $this->db->join('mod_jobs j', 'j.id = cj.job_id', 'left');
+    
+    // Get only candidates submitted by this recruiter
+    $this->db->group_start();
+    $this->db->where('c.recruiter_id', $recruiter_id);
+    $this->db->or_where('c.assigned_agent_id', $recruiter_id);
+    $this->db->group_end();
+    
+    $this->db->where('c.removed', 0);
+    $this->db->where('cj.removed', 0); // Only active job assignments
+    $this->db->where('j.removed', 0); // Only active jobs
+    $this->db->order_by('c.last_name, c.first_name, j.name');
+    
+    $query = $this->db->get();
+    return $query->result();
+}
 }

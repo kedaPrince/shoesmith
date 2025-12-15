@@ -18,6 +18,14 @@ function formatFileSize($bytes) {
         return '0 bytes';
     }
 }
+
+// FIX: Check if candidate is rejected based on HM decision AND stage completion
+$is_rejected = false;
+if (isset($candidate->stage_hm_decision) && $candidate->stage_hm_decision && 
+    isset($candidate->hm_decision) && $candidate->hm_decision === 'rejected') {
+    $is_rejected = true;
+}
+
 ?>
 <style>
 .onboarding-container {
@@ -628,7 +636,6 @@ function formatFileSize($bytes) {
                             <a href="<?= redir('candidates/edit/' . $candidate->id, true) ?>" class="btn btn-primary">
                                 <i class="fa fa-edit"></i> Edit Candidate
                             </a>
-
                         </div>
                     </div>
                 </div>
@@ -658,24 +665,18 @@ function formatFileSize($bytes) {
                             <p><strong>Reference:</strong> <?= $candidate->job_ref ?? 'N/A' ?></p>
                         </div>
 
-                        <!-- Check if candidate is rejected -->
-                        <?php 
-                        //  FIX: Only show rejection notice if BOTH hm_decision is 'rejected' AND status is 'rejected'
-                        // When HM decision is reopened, hm_decision becomes null but status might still be 'rejected'
-                        $is_rejected = ($candidate->hm_decision === 'rejected' && $candidate->status === 'rejected'); 
-                        ?>
-
                         <!-- Show rejection notice if candidate is rejected -->
                         <?php if ($is_rejected): ?>
                         <div class="rejection-notice">
                             <h4> Candidate Rejected</h4>
                             <p>This candidate has been rejected. The onboarding process has been stopped.<br>
-                                To continue with onboarding, please change the HM decision or candidate status.</p>
-                            <?php if ($candidate->hm_decision_at): ?>
+                                To continue with onboarding, please reopen the HM decision stage and change the
+                                decision.</p>
+                            <?php if (isset($candidate->hm_decision_at) && $candidate->hm_decision_at): ?>
                             <p><strong>Rejected on:</strong>
                                 <?= date('F j, Y \a\t g:i A', strtotime($candidate->hm_decision_at)) ?></p>
                             <?php endif; ?>
-                            <?php if ($candidate->hm_decision_notes): ?>
+                            <?php if (isset($candidate->hm_decision_notes) && $candidate->hm_decision_notes): ?>
                             <p><strong>Reason:</strong>
                                 <?= htmlspecialchars($candidate->hm_decision_notes, ENT_QUOTES, 'UTF-8') ?></p>
                             <?php endif; ?>
@@ -712,7 +713,7 @@ function formatFileSize($bytes) {
                                 <div class="stage-content">
                                     <h4 class="stage-title">Under Review</h4>
                                     <p class="stage-description">Initial candidate review and assessment</p>
-                                    <?php if ($candidate->stage_under_review_at): ?>
+                                    <?php if (isset($candidate->stage_under_review_at) && $candidate->stage_under_review_at): ?>
                                     <div class="stage-date">Completed:
                                         <?= date('M j, Y', strtotime($candidate->stage_under_review_at)) ?></div>
                                     <?php endif; ?>
@@ -744,7 +745,7 @@ function formatFileSize($bytes) {
                                 <div class="stage-content">
                                     <h4 class="stage-title">Submitted to Hiring Manager</h4>
                                     <p class="stage-description">Candidate profile submitted for HM review</p>
-                                    <?php if ($candidate->stage_submitted_to_hm_at): ?>
+                                    <?php if (isset($candidate->stage_submitted_to_hm_at) && $candidate->stage_submitted_to_hm_at): ?>
                                     <div class="stage-date">Completed:
                                         <?= date('M j, Y', strtotime($candidate->stage_submitted_to_hm_at)) ?></div>
                                     <?php endif; ?>
@@ -772,11 +773,11 @@ function formatFileSize($bytes) {
 
                             <!-- STAGE 3: HM DECISION -->
                             <div
-                                class="stage-card <?= $candidate->stage_hm_decision ? ($candidate->hm_decision === 'rejected' ? 'rejected' : 'completed') : ($candidate->onboarding_stage == 'stage_hm_decision' ? 'active' : '') ?> <?= !$candidate->stage_submitted_to_hm ? 'disabled-stage' : '' ?>">
+                                class="stage-card <?= $candidate->stage_hm_decision ? ($is_rejected ? 'rejected' : 'completed') : ($candidate->onboarding_stage == 'stage_hm_decision' ? 'active' : '') ?> <?= !$candidate->stage_submitted_to_hm ? 'disabled-stage' : '' ?>">
                                 <div class="stage-header">
                                     <div class="stage-number">3</div>
                                     <?php if ($candidate->stage_hm_decision): ?>
-                                    <?php if ($candidate->hm_decision === 'rejected'): ?>
+                                    <?php if ($is_rejected): ?>
                                     <div class="rejection-badge">Rejected</div>
                                     <?php else: ?>
                                     <div class="completion-badge">Completed</div>
@@ -790,14 +791,14 @@ function formatFileSize($bytes) {
                                     <?php if ($candidate->stage_hm_decision): ?>
                                     <div class="stage-date">
                                         Decision: <strong
-                                            class="<?= $candidate->hm_decision === 'accepted' ? 'text-success' : 'text-danger' ?>">
-                                            <?= ucfirst($candidate->hm_decision) ?>
+                                            class="<?= isset($candidate->hm_decision) && $candidate->hm_decision === 'accepted' ? 'text-success' : 'text-danger' ?>">
+                                            <?= isset($candidate->hm_decision) ? ucfirst($candidate->hm_decision) : 'Pending' ?>
                                         </strong>
-                                        <?php if ($candidate->hm_decision_at): ?>
+                                        <?php if (isset($candidate->hm_decision_at) && $candidate->hm_decision_at): ?>
                                         <br>Decided: <?= date('M j, Y', strtotime($candidate->hm_decision_at)) ?>
                                         <?php endif; ?>
                                     </div>
-                                    <?php if ($candidate->hm_decision_notes): ?>
+                                    <?php if (isset($candidate->hm_decision_notes) && $candidate->hm_decision_notes): ?>
                                     <div class="stage-notes mt-2">
                                         <small><strong>Notes:</strong>
                                             <?= htmlspecialchars($candidate->hm_decision_notes, ENT_QUOTES, 'UTF-8') ?></small>
@@ -811,10 +812,15 @@ function formatFileSize($bytes) {
                                         data-target="#hmDecisionModal">
                                         <i class="fa fa-clipboard-check"></i> Record Decision
                                     </button>
-                                    <?php elseif ($candidate->stage_hm_decision): ?>
+                                    <?php elseif ($candidate->stage_hm_decision && !$is_rejected): ?>
                                     <button class="btn btn-warning btn-toggle-stage" data-stage="stage_hm_decision"
                                         data-value="0" data-action="reopen" data-stage-name="Hiring Manager Decision">
                                         <i class="fa fa-undo"></i> Reopen Stage
+                                    </button>
+                                    <?php elseif ($candidate->stage_hm_decision && $is_rejected): ?>
+                                    <button class="btn btn-warning btn-toggle-stage" data-stage="stage_hm_decision"
+                                        data-value="0" data-action="reopen" data-stage-name="Hiring Manager Decision">
+                                        <i class="fa fa-undo"></i> Reopen & Change Decision
                                     </button>
                                     <?php else: ?>
                                     <button class="btn btn-secondary" disabled title="Complete previous stage first">
@@ -826,7 +832,7 @@ function formatFileSize($bytes) {
 
                             <!-- STAGE 4: DOCUMENTS DECISION - NEW STAGE -->
                             <div
-                                class="stage-card <?= (isset($candidate->stage_documents_decision) && $candidate->stage_documents_decision) ? 'completed' : ($candidate->onboarding_stage == 'stage_documents_decision' ? 'active' : '') ?> <?= (!$candidate->stage_hm_decision || $candidate->hm_decision !== 'accepted' || $is_rejected) ? 'disabled-stage' : '' ?> <?= $is_rejected ? 'rejected-stage' : '' ?>">
+                                class="stage-card <?= (isset($candidate->stage_documents_decision) && $candidate->stage_documents_decision) ? 'completed' : ($candidate->onboarding_stage == 'stage_documents_decision' ? 'active' : '') ?> <?= (!$candidate->stage_hm_decision || $is_rejected) ? 'disabled-stage' : '' ?> <?= $is_rejected ? 'rejected-stage' : '' ?>">
                                 <div class="stage-header">
                                     <div class="stage-number">4</div>
                                     <?php if (isset($candidate->stage_documents_decision) && $candidate->stage_documents_decision): ?>
@@ -864,7 +870,7 @@ function formatFileSize($bytes) {
                                     <?php endif; ?>
                                 </div>
                                 <div class="stage-actions">
-                                    <?php if ((!isset($candidate->stage_documents_decision) || !$candidate->stage_documents_decision) && $candidate->stage_hm_decision && $candidate->hm_decision === 'accepted' && !$is_rejected): ?>
+                                    <?php if ((!isset($candidate->stage_documents_decision) || !$candidate->stage_documents_decision) && $candidate->stage_hm_decision && !$is_rejected): ?>
                                     <button type="button" class="btn btn-info btn-sm" data-toggle="modal"
                                         data-target="#documentsDecisionModal">
                                         <i class="fa fa-file-alt"></i> Make Decision
@@ -890,6 +896,7 @@ function formatFileSize($bytes) {
                                 </div>
                             </div>
 
+                            <!-- STAGE 5: REQUESTED FURTHER DOCUMENTS -->
                             <div
                                 class="stage-card <?= (isset($candidate->stage_requested_docs) && $candidate->stage_requested_docs) ? 'completed' : ($candidate->onboarding_stage == 'stage_requested_docs' ? 'active' : '') ?> <?= ((!isset($candidate->stage_documents_decision) || !$candidate->stage_documents_decision || (isset($candidate->documents_required) && !$candidate->documents_required) || $is_rejected) ? 'disabled-stage' : '' )?> <?= $is_rejected ? 'rejected-stage' : '' ?>">
                                 <div class="stage-header">
@@ -960,7 +967,7 @@ function formatFileSize($bytes) {
                             $position_offered_disabled = false;
                             if (!$candidate->stage_documents_decision) {
                                 $position_offered_disabled = true;
-                            } elseif ($candidate->documents_required && !$candidate->stage_requested_docs) {
+                            } elseif (isset($candidate->documents_required) && $candidate->documents_required && !$candidate->stage_requested_docs) {
                                 $position_offered_disabled = true;
                             } elseif ($is_rejected) {
                                 $position_offered_disabled = true;
@@ -1015,7 +1022,7 @@ function formatFileSize($bytes) {
                         <div class="completion-celebration">
                             <h4>🎉 Onboarding Completed!</h4>
                             <p>All stages have been successfully completed. Candidate is ready for the next steps.</p>
-                            <?php if ($candidate->onboarding_completed_at): ?>
+                            <?php if (isset($candidate->onboarding_completed_at) && $candidate->onboarding_completed_at): ?>
                             <p><strong>Completed on:</strong>
                                 <?= date('F j, Y \a\t g:i A', strtotime($candidate->onboarding_completed_at)) ?></p>
                             <?php endif; ?>
@@ -1063,7 +1070,7 @@ function formatFileSize($bytes) {
                 </div>
                 <div class="modal-body">
                     <form id="hmDecisionForm">
-                        <input type="hidden" name="candidate_id" value="<?= $candidate->id ?>">
+                        <input type="hidden" name="candidate_uuid" value="<?= $candidate->uuid ?>">
                         <!-- IMPORTANT: Always get fresh CSRF token -->
                         <input type="hidden" id="hm_modal_csrf" name="<?= $this->security->get_csrf_token_name() ?>"
                             value="<?= $this->security->get_csrf_hash() ?>">
@@ -1105,7 +1112,7 @@ function formatFileSize($bytes) {
                 </div>
                 <div class="modal-body">
                     <form id="documentsDecisionForm">
-                        <input type="hidden" name="candidate_id" value="<?= $candidate->id ?>">
+                        <input type="hidden" name="candidate_uuid" value="<?= $candidate->uuid ?>">
                         <!-- IMPORTANT: Always get fresh CSRF token -->
                         <input type="hidden" id="docs_modal_csrf" name="<?= $this->security->get_csrf_token_name() ?>"
                             value="<?= $this->security->get_csrf_hash() ?>">
@@ -1236,138 +1243,331 @@ function formatFileSize($bytes) {
 
 <script>
 // ============================================
-// CSRF TOKEN MANAGEMENT
+// FIXED ONBOARDING SCRIPT - JOB SPECIFIC
 // ============================================
 
-// Function to get CSRF token from page
-function getCSRFTokenFromPage() {
-    // Look for CSRF token in this order
-    const selectors = [
-        'input[name="csrf_rfid_token"]',
-        'input[name="csrf_test_name"]',
-        '#csrf_token_input',
-        '#csrf_token',
-        'input[name^="csrf"]'
+// ============================================
+// CACHE BUSTING INITIALIZATION
+// ============================================
+const CACHE_BUSTER = 'nocache=' + new Date().getTime() + Math.random().toString(36).substring(7);
+
+// Get job UUID from PHP - CRITICAL FIX
+const JOB_UUID = '<?= $job_uuid ?>'; // From your PHP controller
+const CANDIDATE_UUID = '<?= $candidate_uuid ?>'; // From your PHP controller
+
+console.log('⚡ Job-Specific Onboarding Script');
+console.log('Candidate:', CANDIDATE_UUID);
+console.log('Job:', JOB_UUID);
+console.log('Job Name:', '<?= htmlspecialchars($candidate->job_name ?? "Unknown", ENT_QUOTES, "UTF-8") ?>');
+
+// Clear all possible caches on page load
+(function() {
+    console.log('Initializing cache-busting script');
+
+    // Add cache control meta tags
+    const metaTags = [{
+            'http-equiv': 'Cache-Control',
+            content: 'no-cache, no-store, must-revalidate'
+        },
+        {
+            'http-equiv': 'Pragma',
+            content: 'no-cache'
+        },
+        {
+            'http-equiv': 'Expires',
+            content: '0'
+        }
     ];
 
-    for (const selector of selectors) {
-        const element = document.querySelector(selector);
-        if (element && element.value) {
-            return {
-                name: element.name,
-                value: element.value
-            };
+    metaTags.forEach(tag => {
+        const meta = document.createElement('meta');
+        meta.httpEquiv = tag['http-equiv'];
+        meta.content = tag.content;
+        document.head.appendChild(meta);
+    });
+
+    // Clear session storage
+    sessionStorage.removeItem('onboarding_data');
+    sessionStorage.removeItem('candidate_cache');
+
+    // Intercept fetch to add job_uuid and cache busting
+    const originalFetch = window.fetch;
+    window.fetch = function(url, options = {}) {
+        // Add cache busting to URLs
+        if (typeof url === 'string') {
+            const separator = url.includes('?') ? '&' : '?';
+            url = url + separator + CACHE_BUSTER;
         }
+
+        // Add job_uuid to onboarding API calls
+        if (typeof url === 'string' && url.includes('update_onboarding_stage')) {
+            if (options.method === 'POST' && options.body instanceof FormData) {
+                // Ensure job_uuid is included
+                if (!options.body.has('job_uuid') && JOB_UUID) {
+                    options.body.append('job_uuid', JOB_UUID);
+                    console.log('🔧 Added job_uuid to request:', JOB_UUID);
+                }
+            }
+        }
+
+        // Ensure no-cache headers
+        if (!options.headers) {
+            options.headers = {};
+        }
+        options.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate';
+        options.headers['Pragma'] = 'no-cache';
+        options.headers['Expires'] = '0';
+
+        // Ensure no caching
+        options.cache = 'no-store';
+
+        return originalFetch.call(this, url, options);
+    };
+
+    // Prevent back/forward cache
+    window.addEventListener('pageshow', function(event) {
+        if (event.persisted) {
+            console.log('Page loaded from back/forward cache, forcing refresh');
+            window.location.reload();
+        }
+    });
+
+    console.log('✅ Cache busting initialized');
+})();
+
+// ============================================
+// GLOBAL CACHE CLEARING FUNCTIONS
+// ============================================
+
+// Function to clear ALL browser cache
+window.clearAllCache = function() {
+    console.log('Starting complete cache clear...');
+
+    // Clear localStorage
+    try {
+        localStorage.clear();
+        console.log('✅ localStorage cleared');
+    } catch (e) {
+        console.warn('⚠️ Could not clear localStorage:', e);
     }
 
-    // Fallback to PHP-generated value
-    console.warn('CSRF token not found on page, using fallback');
+    // Clear sessionStorage
+    try {
+        sessionStorage.clear();
+        console.log('✅ sessionStorage cleared');
+    } catch (e) {
+        console.warn('⚠️ Could not clear sessionStorage:', e);
+    }
+
+    // Force reload with cache clearing
+    const timestamp = new Date().getTime();
+    const random = Math.random().toString(36).substring(7);
+    const baseUrl = window.location.href.split('?')[0];
+    const newUrl = baseUrl + `?clearcache=1&_=${timestamp}&rand=${random}&job=${JOB_UUID}`;
+
+    console.log('Redirecting to:', newUrl);
+    window.location.href = newUrl;
+
+    return true;
+};
+
+// Quick cache clear for AJAX requests
+function clearRequestCache() {
+    const timestamp = new Date().getTime();
+    const random = Math.random().toString(36).substring(7);
+    return `_=${timestamp}&rand=${random}`;
+}
+
+// ============================================
+// HELPER FUNCTIONS
+// ============================================
+
+// Store the latest CSRF token globally
+let latestCsrfToken = null;
+
+// Get candidate UUID from page
+function getCandidateUuid() {
+    const hiddenInput = document.querySelector('input[name="candidate_uuid"]');
+    if (hiddenInput && hiddenInput.value) {
+        return hiddenInput.value;
+    }
+    return CANDIDATE_UUID;
+}
+
+function getCSRFToken() {
+    const csrfInput = document.querySelector('#csrf_token_input');
+    if (csrfInput && csrfInput.value) {
+        latestCsrfToken = csrfInput.value;
+        return {
+            name: csrfInput.name,
+            value: csrfInput.value
+        };
+    }
+
+    if (latestCsrfToken) {
+        return {
+            name: 'csrf_rfid_token',
+            value: latestCsrfToken
+        };
+    }
+
     return {
-        name: '<?= $this->security->get_csrf_token_name() ?>',
+        name: 'csrf_rfid_token',
         value: '<?= $this->security->get_csrf_hash() ?>'
     };
 }
 
-// Initialize CSRF token
-const csrfToken = getCSRFTokenFromPage();
-console.log('Initial CSRF Token loaded:', csrfToken.name, '=', csrfToken.value.substring(0, 10) + '...');
+function updateCSRFToken(newToken) {
+    if (!newToken) return false;
+    latestCsrfToken = newToken;
 
-// Function to update all CSRF tokens on the page
-function updateAllCSRFTokens(newToken) {
-    if (!newToken) return;
-
-    // Update all CSRF input fields
-    document.querySelectorAll(
-        'input[name="csrf_rfid_token"], input[name="csrf_test_name"], #csrf_token_input, #csrf_token, input[name^="csrf"]'
-    ).forEach(input => {
+    document.querySelectorAll('input[name="csrf_rfid_token"]').forEach(input => {
         input.value = newToken;
     });
 
-    // Update our global token
-    csrfToken.value = newToken;
-    console.log('Updated CSRF token globally:', newToken.substring(0, 10) + '...');
+    return true;
 }
 
 // ============================================
-// AJAX REQUEST FUNCTION
+// ENHANCED AJAX REQUEST FUNCTION WITH JOB UUID
 // ============================================
 
-async function makeAjaxRequest(url, data = {}) {
-    // ALWAYS get fresh token from page
-    const csrfTokenInfo = getCSRFTokenFromPage();
+async function makeAjaxRequest(url, data = {}, options = {}) {
+    const csrf = getCSRFToken();
+    if (!csrf.value) {
+        throw new Error('CSRF token not found');
+    }
 
-    // Create URLSearchParams
-    const params = new URLSearchParams();
-    params.append(csrfTokenInfo.name, csrfTokenInfo.value);
+    const formData = new FormData();
+    formData.append(csrf.name, csrf.value);
 
-    // Add other data
+    // Always add job_uuid for onboarding requests
+    if (url.includes('update_onboarding_stage') || url.includes('update_hm_decision') || url.includes(
+            'update_documents_decision')) {
+        if (!data.job_uuid && JOB_UUID) {
+            data.job_uuid = JOB_UUID;
+            console.log('🔧 Auto-added job_uuid:', JOB_UUID);
+        }
+    }
+
     Object.keys(data).forEach(key => {
         if (data[key] !== null && data[key] !== undefined) {
-            params.append(key, data[key]);
+            formData.append(key, data[key]);
         }
     });
 
-    console.log('AJAX Request - CSRF Token:', csrfTokenInfo.value.substring(0, 10) + '...');
-
     try {
-        const response = await fetch(url, {
+        let fullUrl = url;
+        if (!url.startsWith('http') && !url.startsWith('/shoesmith/')) {
+            fullUrl = '/shoesmith/' + url.replace(/^\//, '');
+        }
+
+        // ADD CACHE BUSTING
+        const separator = fullUrl.includes('?') ? '&' : '?';
+        fullUrl = fullUrl + separator + clearRequestCache();
+
+        console.log('AJAX Request for job:', JOB_UUID, 'Data:', Object.fromEntries(formData));
+
+        const response = await fetch(fullUrl, {
             method: 'POST',
-            body: params,
+            body: formData,
             headers: {
                 'X-Requested-With': 'XMLHttpRequest',
-                'Accept': 'application/json'
-            }
+                'Cache-Control': 'no-cache, no-store, must-revalidate',
+                'Pragma': 'no-cache',
+                'Expires': '0',
+                'X-No-Cache': '1'
+            },
+            cache: 'no-store',
+            ...options
         });
 
         const responseText = await response.text();
-        console.log('Raw response:', responseText);
 
         if (response.status === 403) {
-            // CSRF failed at global level - get new token from page
-            const newToken = getCSRFTokenFromPage().value;
-            updateAllCSRFTokens(newToken);
-            throw new Error('CSRF token expired. Try again.');
+            try {
+                const errorData = JSON.parse(responseText);
+                if (errorData.csrf_token) {
+                    updateCSRFToken(errorData.csrf_token);
+                }
+            } catch (e) {
+                // Not JSON
+            }
+            throw new Error('CSRF validation failed. Please try again.');
         }
 
         if (!response.ok) {
-            throw new Error(`HTTP error ${response.status}: ${responseText}`);
+            throw new Error(`HTTP error ${response.status}: ${response.statusText}`);
         }
 
-        const result = JSON.parse(responseText);
-        console.log('Server response:', result);
+        let result;
+        try {
+            result = JSON.parse(responseText);
+        } catch (parseError) {
+            console.error('Failed to parse JSON:', responseText.substring(0, 200));
+            throw new Error('Server returned invalid response');
+        }
 
-        // ALWAYS update CSRF token from response (regeneration is TRUE)
         if (result.csrf_token) {
-            updateAllCSRFTokens(result.csrf_token);
+            updateCSRFToken(result.csrf_token);
+        }
+
+        // Verify the response includes our job
+        if (result.debug && result.debug.job_uuid) {
+            console.log('✅ Response confirms job:', result.debug.job_uuid);
         }
 
         return result;
 
     } catch (error) {
         console.error('AJAX Error:', error);
-
-        // Show user-friendly error
-        if (error.message.includes('CSRF') || error.message.includes('403') || error.message.includes('expired')) {
-            if (typeof toastr !== 'undefined') {
-                toastr.error('Security token expired. Please try again.');
-            } else {
-                alert('Security token expired. Please try again.');
-            }
-        } else if (typeof toastr !== 'undefined') {
-            toastr.error('An error occurred. Please try again.');
-        }
-
         throw error;
     }
 }
+
 // ============================================
-// MAIN ONBOARDING SCRIPT
+// FORCE REFRESH FUNCTION WITH JOB PARAMETER
+// ============================================
+
+function forceHardRefresh(message = 'Refreshing page...') {
+    console.log('🔄 ' + message);
+    toastr.info(message);
+
+    setTimeout(() => {
+        const timestamp = new Date().getTime();
+        const random = Math.floor(Math.random() * 10000);
+        const baseUrl = window.location.href.split('?')[0];
+        const refreshUrl = baseUrl + `?force_refresh=1&_=${timestamp}&rand=${random}&job=${JOB_UUID}`;
+
+        console.log('Force reloading with job parameter:', JOB_UUID);
+
+        // Force reload with cache clearing
+        window.location.href = refreshUrl;
+    }, 1000);
+}
+
+// ============================================
+// MAIN INITIALIZATION
 // ============================================
 
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('Onboarding script initialized - Clean Version');
+    console.log('Onboarding script loaded for job:', JOB_UUID);
 
-    // Initialize progress bar animation
+    // Clear any existing timeouts that might refresh
+    if (window.refreshTimeout) {
+        clearTimeout(window.refreshTimeout);
+    }
+
+    // Initialize CSRF token
+    const csrfInput = document.querySelector('#csrf_token_input');
+    if (csrfInput) {
+        latestCsrfToken = csrfInput.value;
+        console.log('CSRF token loaded');
+    }
+
+    // ============================================
+    // PROGRESS BAR ANIMATION
+    // ============================================
     setTimeout(function() {
         const progressBar = document.getElementById('animated-progress');
         if (progressBar) {
@@ -1375,7 +1575,9 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }, 500);
 
-    // Documents notes field toggle
+    // ============================================
+    // DOCUMENTS DECISION TOGGLE
+    // ============================================
     const documentsRequired = document.getElementById('documents_required');
     const notesGroup = document.getElementById('documentsNotesGroup');
 
@@ -1386,60 +1588,46 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // ============================================
-    // STAGE TOGGLE FUNCTIONALITY - FIXED VERSION
+    // STAGE TOGGLE FUNCTIONALITY - FIXED WITH JOB UUID
     // ============================================
-
-    // Use event delegation instead of adding listeners to each button
     document.addEventListener('click', function(e) {
-        // Check if clicked element is a stage button
         const button = e.target.closest('.btn-toggle-stage:not(:disabled)');
         if (!button) return;
 
         e.preventDefault();
-        console.log('Stage button clicked');
 
         const stage = button.dataset.stage;
         const value = button.dataset.value;
         const stageName = button.dataset.stageName;
-        const action = button.dataset.action;
-        const candidateId = <?= $candidate->id ?>;
 
-        let message = '';
-        if (action === 'complete') {
-            message = `Are you sure you want to mark the "${stageName}" stage as complete?`;
-        } else {
-            message =
-                `Are you sure you want to reopen the "${stageName}" stage? This will reset progress for subsequent stages.`;
-        }
+        let message = value == 1 ?
+            `Are you sure you want to mark the "${stageName}" stage as complete for job "<?= htmlspecialchars($candidate->job_name ?? "this job", ENT_QUOTES, "UTF-8") ?>"?` :
+            `Are you sure you want to reopen the "${stageName}" stage for job "<?= htmlspecialchars($candidate->job_name ?? "this job", ENT_QUOTES, "UTF-8") ?>"?`;
 
-        const confirmationMessage = document.getElementById('confirmationMessage');
-        if (confirmationMessage) {
-            confirmationMessage.textContent = message;
-        }
+        document.getElementById('confirmationMessage').textContent = message;
 
-        // Store the button reference for use in the modal
         window.currentStageButton = button;
         window.currentStageData = {
-            stage,
-            value,
-            candidateId
+            stage: stage,
+            value: value,
+            candidate_uuid: CANDIDATE_UUID,
+            job_uuid: JOB_UUID // CRITICAL: Add job_uuid
         };
 
-        // Show confirmation modal
+        console.log('Stage update data:', window.currentStageData);
         $('#confirmationModal').modal('show');
     });
 
-    // Handle confirmation modal button click
+    // ============================================
+    // CONFIRMATION MODAL HANDLER
+    // ============================================
     document.getElementById('confirmAction').addEventListener('click', async function() {
         $('#confirmationModal').modal('hide');
 
         const button = window.currentStageButton;
         const data = window.currentStageData;
 
-        if (!button || !data) {
-            console.error('No stage data found');
-            return;
-        }
+        if (!button || !data) return;
 
         const originalText = button.innerHTML;
         button.disabled = true;
@@ -1447,197 +1635,200 @@ document.addEventListener('DOMContentLoaded', function() {
         button.closest('.stage-card')?.classList.add('loading');
 
         try {
+            // Update the stage with job_uuid
             const response = await makeAjaxRequest(
-                '<?= site_url("agency/candidates/update_onboarding_stage") ?>', {
-                    candidate_id: data.candidateId,
-                    stage: data.stage,
-                    value: data.value
-                });
+                'agency/candidates/update_onboarding_stage',
+                data, {
+                    timeout: 30000
+                }
+            );
 
             if (response.success) {
-                if (typeof toastr !== 'undefined') {
-                    toastr.success('Stage updated successfully!');
+                toastr.success('Stage updated successfully for this job!');
+
+                // SPECIAL HANDLING FOR POSITION OFFERED STAGE
+
+                if (data.stage === 'stage_position_offered' && data.value === '1') {
+                    console.log('Sending position offered notification...');
+
+                    try {
+                        const notificationResponse = await makeAjaxRequest(
+                            'agency/candidates/send_position_offered_notification', {
+                                candidate_uuid: data.candidate_uuid,
+                                job_uuid: JOB_UUID // CRITICAL: Add job_uuid
+                            }
+                        );
+
+                        if (notificationResponse.success) {
+                            console.log('✅ Position offered notification sent');
+                        }
+                    } catch (notificationError) {
+                        console.error('Error sending notification:', notificationError);
+                    }
                 }
-                setTimeout(function() {
-                    location.reload();
-                }, 1500);
+
+                // Force refresh with job parameter
+                forceHardRefresh('Stage updated. Refreshing page...');
             } else {
                 throw new Error(response.message || 'Failed to update stage');
             }
         } catch (error) {
             console.error('AJAX Error:', error);
-
-            let errorMessage = 'An error occurred while updating the stage. Please try again.';
-
-            if (error.message.includes('CSRF')) {
-                errorMessage = 'Security token expired. Please refresh the page and try again.';
-            } else if (error.message.includes('non-JSON')) {
-                errorMessage = 'Server error. Please check your internet connection and try again.';
-            }
-
-            if (typeof toastr !== 'undefined') {
-                toastr.error(errorMessage);
-            }
-
+            toastr.error('Error: ' + error.message);
             button.disabled = false;
             button.innerHTML = originalText;
             button.closest('.stage-card')?.classList.remove('loading');
         }
 
-        // Clean up
         window.currentStageButton = null;
         window.currentStageData = null;
     });
 
     // ============================================
-    // HM DECISION FUNCTIONALITY
+    // HM DECISION MODAL
     // ============================================
+    $('#hmDecisionModal').on('show.bs.modal', function() {
+        const formCsrf = document.querySelector('#hmDecisionForm input[name="csrf_rfid_token"]');
+        if (formCsrf && latestCsrfToken) {
+            formCsrf.value = latestCsrfToken;
+        }
 
-    // HM Decision functionality
-    const saveHmDecision = document.getElementById('saveHmDecision');
-    if (saveHmDecision) {
-        saveHmDecision.addEventListener('click', async function() {
-            // Get fresh CSRF token from the MAIN PAGE (not the modal)
-            const csrfTokenInfo = getCSRFTokenFromPage();
-
-            const decision = document.getElementById('decision').value;
-            const notes = document.getElementById('notes').value;
-
-            if (!decision) {
-                toastr.warning('Please select a decision');
-                return;
-            }
-
-            const button = this;
-            const originalText = button.innerHTML;
-            button.disabled = true;
-            button.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Saving...';
-
-            try {
-                const data = await makeAjaxRequest(
-                    '<?= site_url("agency/candidates/update_hm_decision") ?>', {
-                        candidate_id: <?= $candidate->id ?>,
-                        decision: decision,
-                        notes: notes
-                    });
-
-                if (data.success) {
-                    toastr.success('Decision recorded successfully!');
-                    $('#hmDecisionModal').modal('hide');
-                    document.getElementById('hmDecisionForm').reset();
-                    setTimeout(function() {
-                        location.reload();
-                    }, 1500);
-                } else {
-                    throw new Error(data.message || 'Failed to save decision');
-                }
-            } catch (error) {
-                console.error('AJAX Error:', error);
-                toastr.error('An error occurred while saving the decision. Please try again.');
-                button.disabled = false;
-                button.innerHTML = originalText;
-            }
-        });
-    }
-
-    // ============================================
-    // DOCUMENTS DECISION FUNCTIONALITY
-    // ============================================
-    // Function to sync all modal CSRF tokens with main page
-    function syncAllModalCSRFTokens() {
-        const mainToken = getCSRFTokenFromPage().value;
-
-        // Update all modal CSRF inputs
-        const modalCSRFInputs = [
-            '#hm_modal_csrf',
-            '#docs_modal_csrf',
-            'input[name="csrf_rfid_token"]', // Any other forms
-            'input[name="csrf_test_name"]'
-        ];
-
-        modalCSRFInputs.forEach(selector => {
-            const inputs = document.querySelectorAll(selector);
-            inputs.forEach(input => {
-                if (input.value !== mainToken) {
-                    input.value = mainToken;
-                    console.log('Updated CSRF token for:', selector);
-                }
-            });
-        });
-    }
-
-    // Run sync when any modal opens
-    $('.modal').on('show.bs.modal', function() {
-        console.log('Modal opening - syncing CSRF tokens...');
-        syncAllModalCSRFTokens();
+        // Clear form values
+        document.getElementById('decision').value = '';
+        document.getElementById('notes').value = '';
     });
 
-    // Also sync on page load
-    document.addEventListener('DOMContentLoaded', function() {
-        setTimeout(syncAllModalCSRFTokens, 1000); // Sync after 1 second
-    });
-    // Documents Decision functionality
-    const saveDocumentsDecision = document.getElementById('saveDocumentsDecision');
-    if (saveDocumentsDecision) {
-        saveDocumentsDecision.addEventListener('click', async function() {
-            // Get fresh CSRF token from the MAIN PAGE
-            const csrfTokenInfo = getCSRFTokenFromPage();
+    // HM Decision save handler - FIXED WITH JOB UUID
+    document.getElementById('saveHmDecision').addEventListener('click', async function() {
+        const decision = document.getElementById('decision').value;
+        const notes = document.getElementById('notes').value;
 
-            const documentsRequired = document.getElementById('documents_required').value;
-            const documentsNotes = document.getElementById('documents_notes').value;
+        if (!decision) {
+            toastr.warning('Please select a decision');
+            return;
+        }
 
-            if (!documentsRequired) {
-                toastr.warning('Please select whether documents are required');
-                return;
-            }
+        const button = this;
+        const originalText = button.innerHTML;
+        button.disabled = true;
+        button.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Saving...';
 
-            if (documentsRequired === '1' && !documentsNotes.trim()) {
-                toastr.warning('Please specify which documents are required');
-                return;
-            }
-
-            const button = this;
-            const originalText = button.innerHTML;
-            button.disabled = true;
-            button.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Saving...';
-
-            try {
-                const data = await makeAjaxRequest(
-                    '<?= site_url("agency/candidates/update_documents_decision") ?>', {
-                        candidate_id: <?= $candidate->id ?>,
-                        documents_required: documentsRequired,
-                        documents_notes: documentsNotes
-                    });
-
-                if (data.success) {
-                    toastr.success(data.message || 'Documents decision saved successfully!');
-                    $('#documentsDecisionModal').modal('hide');
-                    document.getElementById('documentsDecisionForm').reset();
-
-                    // Hide notes group
-                    const notesGroup = document.getElementById('documentsNotesGroup');
-                    if (notesGroup) notesGroup.style.display = 'none';
-
-                    setTimeout(function() {
-                        location.reload();
-                    }, 1500);
-                } else {
-                    throw new Error(data.message || 'Failed to save documents decision');
+        try {
+            // Save HM decision with job_uuid
+            const decisionResponse = await makeAjaxRequest(
+                'agency/candidates/update_hm_decision', {
+                    candidate_uuid: CANDIDATE_UUID,
+                    job_uuid: JOB_UUID, // CRITICAL: Add job_uuid
+                    decision: decision,
+                    notes: notes
+                }, {
+                    timeout: 30000
                 }
-            } catch (error) {
-                console.error('AJAX Error:', error);
-                toastr.error(
-                    'An error occurred while saving the documents decision. Please try again.');
-                button.disabled = false;
-                button.innerHTML = originalText;
+            );
+
+            if (!decisionResponse.success) {
+                throw new Error(decisionResponse.message || 'Failed to save decision');
             }
-        });
-    }
+
+            // Mark stage as complete with job_uuid
+            const stageResponse = await makeAjaxRequest(
+                'agency/candidates/update_onboarding_stage', {
+                    candidate_uuid: CANDIDATE_UUID,
+                    job_uuid: JOB_UUID, // CRITICAL: Add job_uuid
+                    stage: 'stage_hm_decision',
+                    value: '1'
+                }, {
+                    timeout: 30000
+                }
+            );
+
+            if (!stageResponse.success) {
+                throw new Error(stageResponse.message || 'Failed to update stage');
+            }
+
+            toastr.success('Decision saved successfully for this job!');
+            $('#hmDecisionModal').modal('hide');
+
+            // Clear the form
+            document.getElementById('decision').value = '';
+            document.getElementById('notes').value = '';
+
+            // Force hard refresh with job parameter
+            forceHardRefresh('Decision saved. Refreshing page...');
+
+        } catch (error) {
+            console.error('HM Decision Error:', error);
+            toastr.error('Error: ' + error.message);
+            button.disabled = false;
+            button.innerHTML = originalText;
+        }
+    });
 
     // ============================================
-    // MARK DOCUMENTS AS REVIEWED
+    // DOCUMENTS DECISION MODAL
     // ============================================
+    $('#documentsDecisionModal').on('show.bs.modal', function() {
+        const formCsrf = document.querySelector('#documentsDecisionForm input[name="csrf_rfid_token"]');
+        if (formCsrf && latestCsrfToken) {
+            formCsrf.value = latestCsrfToken;
+        }
+    });
 
+    // Documents Decision save handler - FIXED WITH JOB UUID
+    document.getElementById('saveDocumentsDecision').addEventListener('click', async function() {
+        const documentsRequired = document.getElementById('documents_required').value;
+        const documentsNotes = document.getElementById('documents_notes').value;
+
+        if (!documentsRequired) {
+            toastr.warning('Please select whether documents are required');
+            return;
+        }
+
+        if (documentsRequired === '1' && !documentsNotes.trim()) {
+            toastr.warning('Please specify which documents are required');
+            return;
+        }
+
+        const button = this;
+        const originalText = button.innerHTML;
+        button.disabled = true;
+        button.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Saving...';
+
+        try {
+            const response = await makeAjaxRequest(
+                'agency/candidates/update_documents_decision', {
+                    candidate_uuid: CANDIDATE_UUID,
+                    job_uuid: JOB_UUID, // CRITICAL: Add job_uuid
+                    documents_required: documentsRequired,
+                    documents_notes: documentsNotes
+                }, {
+                    timeout: 30000
+                }
+            );
+
+            if (response.success) {
+                toastr.success('Documents decision saved successfully for this job!');
+                $('#documentsDecisionModal').modal('hide');
+                document.getElementById('documentsDecisionForm').reset();
+
+                const notesGroup = document.getElementById('documentsNotesGroup');
+                if (notesGroup) notesGroup.style.display = 'none';
+
+                forceHardRefresh('Documents decision saved. Refreshing page...');
+            } else {
+                throw new Error(response.message || 'Failed to save documents decision');
+            }
+        } catch (error) {
+            console.error('Documents Decision Error:', error);
+            toastr.error('Error: ' + error.message);
+            button.disabled = false;
+            button.innerHTML = originalText;
+        }
+    });
+
+    // ============================================
+    // MARK DOCUMENTS AS REVIEWED - FIXED WITH JOB UUID
+    // ============================================
     const markDocumentsReviewed = document.getElementById('markDocumentsReviewed');
     if (markDocumentsReviewed) {
         markDocumentsReviewed.addEventListener('click', async function() {
@@ -1647,24 +1838,26 @@ document.addEventListener('DOMContentLoaded', function() {
             button.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Processing...';
 
             try {
-                const data = await makeAjaxRequest(
-                    '<?= site_url("agency/candidates/update_onboarding_stage") ?>', {
-                        candidate_id: <?= $candidate->id ?>,
+                const response = await makeAjaxRequest(
+                    'agency/candidates/update_onboarding_stage', {
+                        candidate_uuid: CANDIDATE_UUID,
+                        job_uuid: JOB_UUID, // CRITICAL: Add job_uuid
                         stage: 'stage_requested_docs',
                         value: '1'
-                    });
+                    }, {
+                        timeout: 30000
+                    }
+                );
 
-                if (data.success) {
-                    toastr.success('Documents marked as reviewed! Stage completed.');
-                    setTimeout(function() {
-                        location.reload();
-                    }, 2000);
+                if (response.success) {
+                    toastr.success('Documents marked as reviewed for this job!');
+                    forceHardRefresh('Documents reviewed. Refreshing page...');
                 } else {
-                    throw new Error(data.message || 'Failed to mark documents as reviewed');
+                    throw new Error(response.message || 'Failed to mark documents as reviewed');
                 }
             } catch (error) {
                 console.error('AJAX Error:', error);
-                toastr.error('An error occurred. Please try again.');
+                toastr.error('Error: ' + error.message);
                 button.disabled = false;
                 button.innerHTML = originalText;
             }
@@ -1674,7 +1867,6 @@ document.addEventListener('DOMContentLoaded', function() {
     // ============================================
     // MODAL RESET HANDLERS
     // ============================================
-
     $('#hmDecisionModal').on('hidden.bs.modal', function() {
         document.getElementById('hmDecisionForm').reset();
     });
@@ -1686,73 +1878,89 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     $('#confirmationModal').on('hidden.bs.modal', function() {
-        // Clean up stored data
         window.currentStageButton = null;
         window.currentStageData = null;
     });
 
     // ============================================
-    // HOVER EFFECTS FOR STAGE CARDS
+    // MANUAL REFRESH BUTTON
     // ============================================
+    const refreshButton = document.createElement('button');
+    refreshButton.innerHTML = '<i class="fa fa-refresh"></i> Clear Cache & Refresh';
+    refreshButton.className = 'btn btn-warning btn-sm';
+    refreshButton.style.position = 'fixed';
+    refreshButton.style.bottom = '20px';
+    refreshButton.style.right = '20px';
+    refreshButton.style.zIndex = '9999';
+    refreshButton.onclick = function() {
+        clearAllCache();
+    };
+    document.body.appendChild(refreshButton);
 
-    const stageCards = document.querySelectorAll('.stage-card:not(.disabled-stage)');
-    stageCards.forEach(function(card) {
-        card.addEventListener('mouseenter', function() {
-            if (!this.classList.contains('completed') && !this.classList.contains('active')) {
-                this.style.transform = 'translateY(-2px)';
-            }
-        });
-
-        card.addEventListener('mouseleave', function() {
-            if (!this.classList.contains('completed') && !this.classList.contains('active')) {
-                this.style.transform = 'translateY(0)';
-            }
-        });
-    });
-
-    // ============================================
-    // CSRF TEST FUNCTION (optional)
-    // ============================================
-
-    // Test CSRF on page load (optional)
-    async function testCSRFOnLoad() {
-        try {
-            const testData = await makeAjaxRequest('<?= site_url("agency/candidates/test_csrf") ?>', {});
-            console.log('CSRF test on load:', testData);
-        } catch (error) {
-            console.warn('CSRF test failed on load:', error);
-        }
-    }
-
-    // Uncomment to test CSRF on page load
-    // testCSRFOnLoad();
+    console.log('All event handlers initialized for job:', JOB_UUID);
 });
 
 // ============================================
-// GLOBAL HELPER FUNCTIONS
+// URL FIX FOR FETCH REQUESTS
 // ============================================
+(function() {
+    const originalFetch = window.fetch;
+    window.fetch = function(url, options) {
+        // Add job parameter to URLs if missing
+        if (typeof url === 'string' && url.includes('agency/candidates/')) {
+            const separator = url.includes('?') ? '&' : '?';
+            url = url + separator + 'nocache=' + new Date().getTime();
+        }
 
-// Test function to verify CSRF is working
-async function testCSRF() {
-    console.log('Testing CSRF token...');
+        return originalFetch.call(this, url, options);
+    };
+})();
+
+// ============================================
+// DEBUG FUNCTIONS FOR CONSOLE
+// ============================================
+window.debugCache = function() {
+    console.log('Cache Debug Info:');
+    console.log('- Current URL:', window.location.href);
+    console.log('- Job UUID:', JOB_UUID);
+    console.log('- Candidate UUID:', CANDIDATE_UUID);
+    console.log('- CSRF token:', latestCsrfToken ? latestCsrfToken.substring(0, 20) + '...' : 'null');
+};
+
+window.testJobSpecificUpdate = async function() {
+    console.log('Testing job-specific update for job:', JOB_UUID);
+
+    const testData = {
+        candidate_uuid: CANDIDATE_UUID,
+        job_uuid: JOB_UUID,
+        test: 'job_specific_test',
+        timestamp: new Date().getTime()
+    };
+
     try {
-        const testData = await makeAjaxRequest('<?= site_url("agency/candidates/test_csrf") ?>', {});
-        console.log('CSRF test result:', testData);
-        return testData.success === true;
-    } catch (error) {
-        console.error('CSRF test failed:', error);
-        return false;
-    }
-}
+        const response = await makeAjaxRequest(
+            'agency/candidates/update_onboarding_stage?test=1',
+            testData
+        );
+        console.log('Test AJAX successful:', response);
 
-// Function to refresh CSRF token from the page (fallback)
-function refreshCSRFTokenFromPage() {
-    const token = getCSRFTokenFromPage();
-    if (token.value !== csrfToken.value) {
-        csrfToken.value = token.value;
-        console.log('Refreshed CSRF token from page');
-        return true;
+        if (response.debug && response.debug.job_uuid === JOB_UUID) {
+            console.log('✅ SUCCESS: Update was job-specific!');
+        } else {
+            console.log('❌ WARNING: Update may not be job-specific');
+        }
+
+        return response;
+    } catch (error) {
+        console.error('Test AJAX failed:', error);
+        return null;
     }
-    return false;
-}
+};
+
+console.log('Job-specific onboarding script loaded');
+console.log('Available commands:');
+console.log('- clearAllCache() - Clear all browser cache');
+console.log('- debugCache() - Show debug info');
+console.log('- testJobSpecificUpdate() - Test job-specific update');
+console.log('- forceHardRefresh() - Force page refresh');
 </script>

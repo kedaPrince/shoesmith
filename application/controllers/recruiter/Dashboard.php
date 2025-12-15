@@ -637,4 +637,49 @@ public function upload_document() {
 
 
 
+    
+    public function check_documents_button() {
+        echo "<h1>Documents Request Button Test</h1>";
+        
+        // Get a specific documents request notification
+        $this->db->where('id', 615); // Use one of your notification IDs
+        $notification = $this->db->get('notifications')->row();
+        
+        if (!$notification) {
+            echo "No notification found";
+            return;
+        }
+        
+        echo "<h3>Notification Details:</h3>";
+        echo "<pre>";
+        print_r($notification);
+        echo "</pre>";
+        
+        echo "<h3>Metadata:</h3>";
+        $metadata = json_decode($notification->metadata);
+        echo "<pre>";
+        print_r($metadata);
+        echo "</pre>";
+        
+        // Test the detection logic
+        $is_documents_request = (
+            $notification->type === 'documents_request' ||
+            strpos($notification->title, 'Documents Required') !== false ||
+            strpos($notification->title, 'Additional Documents') !== false ||
+            (!empty($metadata->required_documents) || !empty($metadata->documents_notes))
+        );
+        
+        echo "<h3>Detection Result:</h3>";
+        echo "Is Documents Request? " . ($is_documents_request ? 'YES' : 'NO');
+        
+        if ($is_documents_request) {
+            echo "<h3 style='color:green;'>✅ Button should appear!</h3>";
+            echo "<button class='btn btn-warning' style='margin: 20px; padding: 10px;'>
+                    <i class='fa fa-upload'></i> Submit Required Documents
+                  </button>";
+        } else {
+            echo "<h3 style='color:red;'>❌ Button would NOT appear</h3>";
+        }
+    }
+
 }
