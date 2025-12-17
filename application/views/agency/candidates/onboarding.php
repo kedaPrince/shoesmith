@@ -1255,9 +1255,16 @@ const CACHE_BUSTER = 'nocache=' + new Date().getTime() + Math.random().toString(
 const JOB_UUID = '<?= $job_uuid ?>'; // From your PHP controller
 const CANDIDATE_UUID = '<?= $candidate_uuid ?>'; // From your PHP controller
 
+// Get dynamic base URLs from PHP
+const DYNAMIC_BASE_URL = '<?php echo base_url(); ?>';
+const DYNAMIC_SITE_URL = '<?php echo site_url(); ?>';
+const CURRENT_PATH = '<?php echo current_url(); ?>';
+
 console.log('⚡ Job-Specific Onboarding Script');
 console.log('Candidate:', CANDIDATE_UUID);
 console.log('Job:', JOB_UUID);
+console.log('Base URL:', DYNAMIC_BASE_URL);
+console.log('Site URL:', DYNAMIC_SITE_URL);
 console.log('Job Name:', '<?= htmlspecialchars($candidate->job_name ?? "Unknown", ENT_QUOTES, "UTF-8") ?>');
 
 // Clear all possible caches on page load
@@ -1428,6 +1435,39 @@ function updateCSRFToken(newToken) {
     return true;
 }
 
+// Helper function to get the base application path
+function getBasePath() {
+    const currentPath = window.location.pathname;
+
+    // Remove file name if present
+    const pathParts = currentPath.split('/');
+    const lastPart = pathParts[pathParts.length - 1];
+
+    // If the last part looks like a UUID (has dashes and numbers)
+    if (lastPart.includes('-') && lastPart.length > 20) {
+        // Remove the last part (UUID or filename)
+        pathParts.pop();
+    }
+
+    // Remove any query parameters from the last part
+    if (pathParts.length > 0) {
+        const lastSegment = pathParts[pathParts.length - 1];
+        if (lastSegment.includes('?')) {
+            pathParts[pathParts.length - 1] = lastSegment.split('?')[0];
+        }
+    }
+
+    // Reconstruct path
+    let basePath = pathParts.join('/');
+
+    // Ensure it ends with /
+    if (!basePath.endsWith('/') && basePath !== '') {
+        basePath += '/';
+    }
+
+    return basePath || '/';
+}
+
 // ============================================
 // ENHANCED AJAX REQUEST FUNCTION WITH JOB UUID
 // ============================================
@@ -1458,15 +1498,32 @@ async function makeAjaxRequest(url, data = {}, options = {}) {
 
     try {
         let fullUrl = url;
-        if (!url.startsWith('http') && !url.startsWith('/shoesmith/')) {
-            fullUrl = '/shoesmith/' + url.replace(/^\//, '');
+
+        // Build correct URL dynamically
+        if (!url.startsWith('http') && !url.startsWith('//')) {
+            // Use the dynamic site URL from PHP
+            if (DYNAMIC_SITE_URL) {
+                // Remove any leading slash from url and combine
+                const cleanUrl = url.replace(/^\//, '');
+                // Check if DYNAMIC_SITE_URL already ends with /
+                const siteUrl = DYNAMIC_SITE_URL.endsWith('/') ? DYNAMIC_SITE_URL : DYNAMIC_SITE_URL + '/';
+                fullUrl = siteUrl + cleanUrl;
+            } else {
+                // Fallback to relative path
+                const basePath = getBasePath();
+                fullUrl = basePath + url.replace(/^\//, '');
+            }
         }
 
         // ADD CACHE BUSTING
         const separator = fullUrl.includes('?') ? '&' : '?';
         fullUrl = fullUrl + separator + clearRequestCache();
 
-        console.log('AJAX Request for job:', JOB_UUID, 'Data:', Object.fromEntries(formData));
+        console.log('AJAX Request:', {
+            url: fullUrl,
+            job: JOB_UUID,
+            data: Object.fromEntries(formData)
+        });
 
         const response = await fetch(fullUrl, {
             method: 'POST',
@@ -1536,10 +1593,25 @@ function forceHardRefresh(message = 'Refreshing page...') {
     setTimeout(() => {
         const timestamp = new Date().getTime();
         const random = Math.floor(Math.random() * 10000);
-        const baseUrl = window.location.href.split('?')[0];
-        const refreshUrl = baseUrl + `?force_refresh=1&_=${timestamp}&rand=${random}&job=${JOB_UUID}`;
 
-        console.log('Force reloading with job parameter:', JOB_UUID);
+        // Get current page without query parameters
+        const currentPath = window.location.pathname;
+        const basePath = getBasePath();
+
+        // Construct refresh URL
+        let refreshUrl;
+        if (currentPath.includes('/onboarding/')) {
+            // We're on an onboarding page
+            const pathParts = currentPath.split('/onboarding/');
+            refreshUrl = pathParts[0] + '/onboarding/' + CANDIDATE_UUID +
+                '?force_refresh=1&_=' + timestamp + '&rand=' + random + '&job=' + JOB_UUID;
+        } else {
+            // Generic refresh
+            refreshUrl = currentPath + '?force_refresh=1&_=' + timestamp + '&rand=' + random + '&job=' +
+                JOB_UUID;
+        }
+
+        console.log('Force reloading with URL:', refreshUrl);
 
         // Force reload with cache clearing
         window.location.href = refreshUrl;
@@ -1552,6 +1624,8 @@ function forceHardRefresh(message = 'Refreshing page...') {
 
 document.addEventListener('DOMContentLoaded', function() {
     console.log('Onboarding script loaded for job:', JOB_UUID);
+    console.log('Dynamic Site URL:', DYNAMIC_SITE_URL);
+    console.log('Dynamic Base URL:', DYNAMIC_BASE_URL);
 
     // Clear any existing timeouts that might refresh
     if (window.refreshTimeout) {
@@ -1906,6 +1980,16 @@ document.addEventListener('DOMContentLoaded', function() {
 (function() {
     const originalFetch = window.fetch;
     window.fetch = function(url, options) {
+        // Convert relative URLs to absolute using dynamic base
+        if (typeof url === 'string' && !url.startsWith('http') && !url.startsWith('//')) {
+            if (url.includes('agency/candidates/')) {
+                const baseUrl = DYNAMIC_SITE_URL || getBasePath();
+                const siteUrl = baseUrl.endsWith('/') ? baseUrl : baseUrl + '/';
+                const cleanUrl = url.replace(/^\//, '');
+                url = siteUrl + cleanUrl;
+            }
+        }
+
         // Add job parameter to URLs if missing
         if (typeof url === 'string' && url.includes('agency/candidates/')) {
             const separator = url.includes('?') ? '&' : '?';
@@ -1925,6 +2009,10 @@ window.debugCache = function() {
     console.log('- Job UUID:', JOB_UUID);
     console.log('- Candidate UUID:', CANDIDATE_UUID);
     console.log('- CSRF token:', latestCsrfToken ? latestCsrfToken.substring(0, 20) + '...' : 'null');
+    console.log('- Dynamic Site URL:', DYNAMIC_SITE_URL);
+    console.log('- Dynamic Base URL:', DYNAMIC_BASE_URL);
+    console.log('- Current Path:', window.location.pathname);
+    console.log('- Base Path:', getBasePath());
 };
 
 window.testJobSpecificUpdate = async function() {
