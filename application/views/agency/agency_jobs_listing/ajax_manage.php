@@ -203,5 +203,28 @@ $(document).ready(function() {
     $('.quick-manage-container select').each(function() {
         $(this).trigger('change');
     });
+
+    // FIX: Override the onclick for close button
+    $('.qm-btn-close').on('click', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+
+        // Try to call smartCloseForm if it exists
+        if (typeof smartCloseForm === 'function') {
+            smartCloseForm();
+        } else {
+            // Fallback if function doesn't exist
+            $('.close-quick-manage').trigger('click');
+        }
+        return false;
+    });
 });
+
+// Define smartCloseForm if it doesn't exist
+if (typeof smartCloseForm === 'undefined') {
+    window.smartCloseForm = function() {
+        $('.close-quick-manage').trigger('click');
+        return false;
+    }
+}
 </script>

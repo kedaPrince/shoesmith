@@ -142,3 +142,22 @@
         $this->load->view('agency/view_right_sidebar');
     }
 ?>
+
+<!-- Add to view_header.php before closing </head> tag -->
+<script>
+function smartCloseForm() {
+    // Try to close quick manage modal
+    if (typeof jQuery !== 'undefined' && jQuery('.close-quick-manage').length) {
+        jQuery('.close-quick-manage').trigger('click');
+    }
+    // Try to close modal if exists
+    else if (typeof jQuery !== 'undefined' && jQuery('.modal').length) {
+        jQuery('.modal').modal('hide');
+    }
+    // Fallback - redirect to jobs listing
+    else {
+        window.location.href = '<?= site_url("agency/jobs_listings") ?>';
+    }
+    return false;
+}
+</script>
