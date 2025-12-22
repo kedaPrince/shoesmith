@@ -159,6 +159,7 @@ class Jobs_listings extends CRUD_Controller{
                 'description' => 'trim|strip_tags', // Add strip_tags here
                 'project_overview' => 'trim|strip_tags', // Add strip_tags here
                 'department' => 'trim|strip_tags',
+                 'location' => 'trim|strip_tags',
                 'agency_id' => 'trim|required|numeric',
                 'industry_id' => 'trim|numeric',
                 'employment_type' => 'trim|required',
@@ -675,26 +676,26 @@ private function generate_uuid() {
      * Pre-process job data to remove HTML tags and clean input
      */
     private function pre_process_job_data() {
-        $text_fields = [
-            'name', 'reference_number', 'description', 'project_overview', 
-            'department', 'pay_rate', 'roster', 'accommodation', 'transport',
-            'application_email', 'application_url', 'skills', 'qualifications'
-        ];
-        
-        foreach ($text_fields as $field) {
-            if ($this->input->post($field)) {
-                $clean_value = strip_tags($this->input->post($field));
-                $_POST[$field] = $clean_value;
-            }
-        }
-        
-        // Also handle employment_type to ensure it's valid
-        $employment_types = ['full-time', 'part-time', 'contract', 'internship', 'temporary'];
-        $current_type = $this->input->post('employment_type');
-        if (!in_array($current_type, $employment_types)) {
-            $_POST['employment_type'] = 'full-time'; // default value
+    $text_fields = [
+        'name', 'reference_number', 'description', 'project_overview', 
+        'department', 'location', 'pay_rate', 'roster', 'accommodation', 'transport', // ADD 'location' here
+        'application_email', 'application_url', 'skills', 'qualifications'
+    ];
+    
+    foreach ($text_fields as $field) {
+        if ($this->input->post($field)) {
+            $clean_value = strip_tags($this->input->post($field));
+            $_POST[$field] = $clean_value;
         }
     }
+    
+    // Also handle employment_type to ensure it's valid
+    $employment_types = ['full-time', 'part-time', 'contract', 'internship', 'temporary'];
+    $current_type = $this->input->post('employment_type');
+    if (!in_array($current_type, $employment_types)) {
+        $_POST['employment_type'] = 'full-time'; // default value
+    }
+}
 
  private function enforce_job_access($job_id) {
     $user_agency_id = $this->get_user_agency_id();

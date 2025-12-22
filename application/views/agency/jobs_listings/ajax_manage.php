@@ -163,6 +163,7 @@ body .form-control {
         </div>
 
         <!-- Tab 2: Project & Pay -->
+        <!-- Tab 2: Project & Pay -->
         <div rel="2" class="qm-tabs-tab">
             <div class="row">
                 <div class="col-lg-12">
@@ -189,9 +190,15 @@ body .form-control {
                 </div>
             </div>
             <div class="row">
+                <!-- ADD LOCATION FIELD HERE -->
+                <div class="col-lg-6">
+                    <?= field_input('location', $row, '', [], 'text', 'Enter job location (e.g., New York, NY)'); ?>
+                </div>
                 <div class="col-lg-6">
                     <?= field_input('transport', $row, '', [], 'text', 'Transport details'); ?>
                 </div>
+            </div>
+            <div class="row">
                 <div class="col-lg-6">
                     <?= field_checkbox('is_remote|label_remote', $row, '', 'Remote allowed', '1'); ?>
                 </div>

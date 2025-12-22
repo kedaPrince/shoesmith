@@ -169,6 +169,50 @@
     background: #343a40;
     color: white;
 }
+
+/* Preview Form Styling */
+.qm-tabs-tab[rel="3"] .form-display form {
+    pointer-events: none;
+    opacity: 0.8;
+}
+
+.qm-tabs-tab[rel="3"] .form-display input,
+.qm-tabs-tab[rel="3"] .form-display select,
+.qm-tabs-tab[rel="3"] .form-display textarea,
+.qm-tabs-tab[rel="3"] .form-display button {
+    background-color: #0000002a !important;
+    border-color: #dee2e6 !important;
+    color: #6c757d !important;
+    cursor: not-allowed !important;
+}
+
+/* Hide submit buttons in preview */
+.qm-tabs-tab[rel="3"] .form-display .form-actions,
+.qm-tabs-tab[rel="3"] .form-display .submit-btn,
+.qm-tabs-tab[rel="3"] .form-display button[type="submit"],
+.qm-tabs-tab[rel="3"] .form-display input[type="submit"] {
+    display: none !important;
+}
+
+/* Preview label styling */
+.qm-tabs-tab[rel="3"] .form-display .form-label {
+    color: #495057;
+    font-weight: 500;
+}
+
+/* Preview container styling */
+.qm-tabs-tab[rel="3"] .form-display {
+    border: 2px dashed #dee2e6;
+    border-radius: 8px;
+    padding: 20px;
+    background-color: #f8f9fa;
+    margin-top: 10px;
+}
+
+.qm-tabs-tab[rel="3"] .form-display .alert-info {
+    background-color: #e7f3ff;
+    border-color: #b8daff;
+}
 </style>
 
 <a class="close-quick-manage"><i class="fa fa-times"></i></a>
@@ -321,14 +365,45 @@
 </div>
 
 <script>
+// Override the global save_form function to prevent saving from preview tab
+if (typeof window.save_form === 'function') {
+    var originalSaveForm = window.save_form;
+    window.save_form = function(element) {
+        // Check if we're on the preview tab (tab 3)
+        if ($('.qm-tabs-header li.active').attr('rel') === '3') {
+            // Show message and switch to tab 1 automatically
+            toastr.warning('Switch to "Section Details" tab to save', 'Preview Mode Active');
+
+            // Auto-switch to tab 1 (Section Details)
+            $('.qm-tabs-header li[rel="1"]').click();
+
+            return false;
+        }
+
+        // If not on preview tab, call the original function
+        return originalSaveForm(element);
+    };
+}
 // Auto-generate code from name
 $('input[name="name"]').on('blur', function() {
     if ($('input[name="code"]').val() === '') {
-        let code = $(this).val()
+        let nameValue = $(this).val().trim();
+        if (!nameValue) return;
+
+        // Generate base code
+        let baseCode = nameValue
             .toLowerCase()
             .replace(/[^a-z0-9]+/g, '_')
             .replace(/^-|-$/g, '');
-        $('input[name="code"]').val(code);
+
+        // Add random suffix (4-digit random number)
+        const randomSuffix = Math.floor(1000 + Math.random() * 9000);
+        const finalCode = baseCode + '_' + randomSuffix;
+
+        $('input[name="code"]').val(finalCode);
+
+        // Optional: Show note to user
+        console.log('Generated unique code:', finalCode);
     }
 });
 
@@ -350,7 +425,7 @@ function loadFormPreview(schemaId) {
         type: 'POST',
         data: {
             schema_id: schemaId,
-            [csrfName]: csrfToken // Add CSRF token dynamically
+            [csrfName]: csrfToken
         },
         dataType: 'json',
         success: function(response) {
@@ -393,10 +468,8 @@ function refreshFormSchemas() {
     });
 }
 
-// Check if we have a newly created form to auto-select
+// Initialize everything when document is ready
 $(document).ready(function() {
-
-
     <?php if ($this->session->flashdata('form_created')): ?>
     const newFormId = <?= $this->session->flashdata('new_form_id') ?: 0 ?>;
     const newFormName = "<?= $this->session->flashdata('new_form_name') ?: '' ?>";
@@ -440,12 +513,38 @@ $(document).ready(function() {
         loadFormPreview(<?= $row->schema_id ?>);
     }, 1000);
     <?php endif; ?>
+
+    // PREVENT SAVING FROM PREVIEW TAB - THIS IS THE FIX
+    // Override the click event for save buttons
+    $(document).on('click', '.save-btn, button[type="submit"]', function(e) {
+        // Check if we're on the preview tab (tab 3)
+        if ($('.qm-tabs-header li.active').attr('rel') === '3') {
+            e.preventDefault();
+            e.stopImmediatePropagation();
+
+            // Show message and switch to tab 1 automatically
+            toastr.warning('Switch to "Section Details" tab to save', 'Preview Mode Active');
+
+            // Auto-switch to tab 1 (Section Details)
+            $('.qm-tabs-header li[rel="1"]').click();
+
+            return false;
+        }
+    });
 });
 
 // Form submission handling
 $('#main-form').on('submit', function(e) {
-    e.preventDefault();
+    // Double-check we're not on preview tab
+    if ($('.qm-tabs-header li.active').attr('rel') === '3') {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        toastr.warning('Cannot save from preview tab. Switch to "Section Details" tab.');
+        $('.qm-tabs-header li[rel="1"]').click();
+        return false;
+    }
 
+    e.preventDefault();
     const formData = $(this).serialize();
 
     $.ajax({
