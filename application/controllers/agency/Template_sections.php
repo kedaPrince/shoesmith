@@ -26,118 +26,130 @@ class Template_sections extends CRUD_Controller
     }
 
     public function setup_listing() 
-    {
-        $section_types = [
-            'about' => 'About Section',
-            'skills' => 'Skills & Competencies',
-            'experience' => 'Work Experience',
-            'education' => 'Education & Qualifications',
-            'contact' => 'Contact Information',
-            'services' => 'Services Offered',
-            'portfolio' => 'Portfolio & Projects',
-            'testimonials' => 'Testimonials & Reviews',
-            'pricing' => 'Pricing & Packages',
-            'content' => 'General Content',
-            'custom' => 'Custom Section'
-        ];
+{
+    $section_types = [
+        'about' => 'About Section',
+        'skills' => 'Skills & Competencies',
+        'experience' => 'Work Experience',
+        'education' => 'Education & Qualifications',
+        'contact' => 'Contact Information',
+        'services' => 'Services Offered',
+        'portfolio' => 'Portfolio & Projects',
+        'testimonials' => 'Testimonials & Reviews',
+        'pricing' => 'Pricing & Packages',
+        'content' => 'General Content',
+        'custom' => 'Custom Section'
+    ];
 
-        $this->listFields = array(
-            'id' => array('label' => 'ID', 'sort' => true),
-            'name' => array('label' => 'Name', 'sort' => true),
-            'code' => array('label' => 'Code', 'sort' => true),
-            'section_type' => array(
-                'label' => 'Section Type', 
-                'sort' => true,
-                'function' => function($value, $row) use ($section_types) {
-                    return isset($section_types[$value]) ? 
-                        '<span class="badge badge-info section-type-badge section-type-' . $value . '">' . $section_types[$value] . '</span>' : 
-                        '<span class="badge badge-secondary">' . $value . '</span>';
+    $this->listFields = array(
+        'id' => array('label' => 'ID', 'sort' => true),
+        'name' => array('label' => 'Name', 'sort' => true),
+        'code' => array('label' => 'Code', 'sort' => true),
+        'section_type' => array(
+            'label' => 'Section Type', 
+            'sort' => true,
+            'function' => function($value, $row) use ($section_types) {
+                return isset($section_types[$value]) ? 
+                    '<span class="badge badge-info section-type-badge section-type-' . $value . '">' . $section_types[$value] . '</span>' : 
+                    '<span class="badge badge-secondary">' . $value . '</span>';
+            }
+        ),
+        'schema_name' => array('label' => 'Form Schema', 'sort' => true),
+        'agency_name' => array( // ADD THIS NEW COLUMN
+            'label' => 'Agency',
+            'sort' => true,
+            'function' => function($value, $row) {
+                if (empty($value)) {
+                    return '<span class="badge badge-secondary">Unknown</span>';
                 }
-            ),
-            'schema_name' => array('label' => 'Form Schema', 'sort' => true),
-            'agency_id' => array(
-                'label' => 'Agency ID',
-                'sort' => true,
-                'function' => function($value, $row) {
-                    $agency_id = isset($row->agency_id) ? $row->agency_id : '-';
-                    $current_agency_id = $this->session->userdata('agency_id');
-                    $badge_class = ($agency_id == $current_agency_id) ? 'badge-success' : 'badge-secondary';
-                    return '<span class="badge ' . $badge_class . '">' . $agency_id . '</span>';
-                }
-            ),
-            'enabled' => array(
-                'label' => 'Status',
-                'sort' => true,
-                'function' => function($value, $row) {
-                    return $value ? 
-                        '<span class="badge badge-success">Enabled</span>' : 
-                        '<span class="badge badge-secondary">Disabled</span>';
-                }
-            )
-        );
+                
+                $current_agency_id = $this->session->userdata('agency_id');
+                $badge_class = ($row->agency_id == $current_agency_id) ? 'badge-success' : 'badge-info';
+                
+                return '<span class="badge ' . $badge_class . '" title="Agency ID: ' . $row->agency_id . '">' 
+                       . htmlspecialchars($value) . '</span>';
+            }
+        ),
+        'enabled' => array(
+            'label' => 'Status',
+            'sort' => true,
+            'function' => function($value, $row) {
+                return $value ? 
+                    '<span class="badge badge-success">Enabled</span>' : 
+                    '<span class="badge badge-secondary">Disabled</span>';
+            }
+        )
+    );
 
-        $this->filters = array(
-            'search' => array(
-                'label' => lang('label_search'),
-                'type' => 'autocomplete',
-                'field' => array('name', 'code')
-            ),
-            'section_type' => array(
-                'label' => 'Section Type',
-                'type' => 'dropdown',
-                'field' => 'section_type',
-                'options' => $section_types
-            )
-        );
-         $this->listActions = array(
-            'edit' => array(
-                'label'     => lang('label_edit'),
-                'url'       => '',
-                'icon'      => 'fa-edit',
-                'class'     => 'edit-row',
-                'function'  => function($str, $row) {
-                    $template_type = isset($row->template_type) ? $row->template_type : 'single';
-                    if ($template_type === 'composite') {
-                        $agency_id = isset($row->agency_id) ? $row->agency_id : 1;
-                        return url('agency_templates/build/' . $agency_id . '?template_id=' . $row->id);
-                    } else {
-                        return url('templates/edit/' . $row->id);
-                    }
+     $this->filters = array(
+        'search' => array(
+            'label' => lang('label_search'),
+            'type' => 'autocomplete',
+            'field' => array('name', 'code', 'agency_name')
+        ),
+        'section_type' => array(
+            'label' => 'Section Type',
+            'type' => 'dropdown',
+            'field' => 'section_type',
+            'options' => $section_types
+        ),
+        'agency_id' => array( // Optional: Add agency filter for admin views
+            'label' => 'Agency',
+            'type' => 'dropdown',
+            'field' => 'mod_template_sections.agency_id',
+            'options' => $this->get_agency_options()
+        )
+    );
+    
+    $this->listActions = array(
+        'edit' => array(
+            'label'     => lang('label_edit'),
+            'url'       => '',
+            'icon'      => 'fa-edit',
+            'class'     => 'edit-row',
+            'function'  => function($str, $row) {
+                $template_type = isset($row->template_type) ? $row->template_type : 'single';
+                if ($template_type === 'composite') {
+                    $agency_id = isset($row->agency_id) ? $row->agency_id : 1;
+                    return url('agency_templates/build/' . $agency_id . '?template_id=' . $row->id);
+                } else {
+                    return url('templates/edit/' . $row->id);
                 }
-            ),
-            'enable' => array(
-                'label'     => lang('label_enable'),
-                'url'       => url($this->pageName . '/enable/{id}'),
-                'icon'      => 'fa-eye',
-                'class'     => 'enable-row btn-enable',
-                'function'  => (function ($str, $row) {
-                    return (isset($row->enabled) && $row->enabled) ? false : $str;
-                })
-            ),
-            'disable' => array(
-                'label'     => lang('label_disable'),
-                'url'       => url($this->pageName . '/disable/{id}'),
-                'icon'      => 'fa-eye-slash',
-                'class'     => 'disable-row btn-disable',
-                'function'  => (function ($str, $row) {
-                    return (!isset($row->enabled) || !$row->enabled) ? false : $str;
-                })
-            ),
-            'delete' => array(
-                'label'     => lang('label_delete'),
-                'url'       => url($this->pageName . '/remove/{id}'),
-                'icon'      => 'fa-trash-o',
-                'class'     => 'delete-row btn-delete',
-                'function'  => function($str, $row) {
-                    $template_type = isset($row->template_type) ? $row->template_type : 'single';
-                    if ($template_type === 'composite') {
-                        return url('agency_templates/delete/' . $row->id);
-                    }
-                    return $str;
+            }
+        ),
+        'enable' => array(
+            'label'     => lang('label_enable'),
+            'url'       => url($this->pageName . '/enable/{id}'),
+            'icon'      => 'fa-eye',
+            'class'     => 'enable-row btn-enable',
+            'function'  => (function ($str, $row) {
+                return (isset($row->enabled) && $row->enabled) ? false : $str;
+            })
+        ),
+        'disable' => array(
+            'label'     => lang('label_disable'),
+            'url'       => url($this->pageName . '/disable/{id}'),
+            'icon'      => 'fa-eye-slash',
+            'class'     => 'disable-row btn-disable',
+            'function'  => (function ($str, $row) {
+                return (!isset($row->enabled) || !$row->enabled) ? false : $str;
+            })
+        ),
+        'delete' => array(
+            'label'     => lang('label_delete'),
+            'url'       => url($this->pageName . '/remove/{id}'),
+            'icon'      => 'fa-trash-o',
+            'class'     => 'delete-row btn-delete',
+            'function'  => function($str, $row) {
+                $template_type = isset($row->template_type) ? $row->template_type : 'single';
+                if ($template_type === 'composite') {
+                    return url('agency_templates/delete/' . $row->id);
                 }
-            )
-        );
-    }
+                return $str;
+            }
+        )
+    );
+}
 
     public function setup_fields() 
     {
@@ -154,118 +166,151 @@ class Template_sections extends CRUD_Controller
             )
         );
     }
-
-    public function index() 
-    {
-        $this->breadcrumbs = [
-            ['title' => lang($this->pageName . '_heading') ?: 'Template Sections', 'url' => redir($this->pageName, true)]
-        ];
-
-        $this->view = 'listing';
-        $this->load->view($this->folder . '/view_header');
-        $this->load->view('cms/crud/view_list', [
-            'heading' => lang($this->pageName . '_heading') ?: 'Template Sections',
-            'noRows' => lang($this->pageName . '_no_rows') ?: 'No template sections found'
-        ]);
-        $this->load->view($this->folder . '/view_footer');
+private function get_agency_options()
+{
+    $agencies = $this->db->select('id, name')
+                        ->from('agencies')
+                        ->where('enabled', 1)
+                        ->where('removed', 0)
+                        ->order_by('name', 'ASC')
+                        ->get()
+                        ->result_array();
+    
+    $options = ['' => 'All Agencies'];
+    foreach ($agencies as $agency) {
+        $options[$agency['id']] = $agency['name'];
     }
+    
+    return $options;
+}
+    public function index() 
+{
+    // Set breadcrumbs
+    $this->breadcrumbs = [
+        ['title' => lang($this->pageName . '_heading') ?: 'Template Sections', 'url' => redir($this->pageName, true)]
+    ];
+
+    // Get data for debugging
+    $agency_id = $this->session->userdata('agency_id');
+    
+    // Debug: Get data directly
+    $debug_data = $this->db->select('id, name, agency_id')
+                          ->from('mod_template_sections')
+                          ->where('agency_id', $agency_id)
+                          ->where('removed', 0)
+                          ->where('enabled', 1)
+                          ->order_by('id', 'DESC')
+                          ->limit(10)
+                          ->get()
+                          ->result();
+    
+    // Pass data to view for debugging
+    $this->data['debug_sections'] = $debug_data;
+    $this->data['debug_agency_id'] = $agency_id;
+    $this->data['debug_total'] = count($debug_data);
+
+    $this->view = 'listing';
+    $this->load->view($this->folder . '/view_header');
+    $this->load->view('cms/crud/view_list', [
+        'heading' => lang($this->pageName . '_heading') ?: 'Template Sections',
+        'noRows' => lang($this->pageName . '_no_rows') ?: 'No template sections found'
+    ]);
+    $this->load->view($this->folder . '/view_footer');
+}
 
    public function ajax_results() 
-    {
-        $page   = max(1, (int) $this->input->get('page'));
-        $limit  = min(100, max(1, (int) $this->input->get('limit')));
-        $offset = ($page - 1) * $limit;
+{
+    $page   = max(1, (int) $this->input->get('page'));
+    $limit  = min(100, max(1, (int) $this->input->get('limit')));
+    $offset = ($page - 1) * $limit;
 
-        $search = $this->input->get('search');
-        $section_type = $this->input->get('section_type');
-        $show_disabled = $this->input->get('show_disabled');
+    $search = $this->input->get('search');
+    $section_type = $this->input->get('section_type');
+    
+    $sort_field = $this->input->get('sort_field') ?: 'id';
+    $sort_order = strtoupper($this->input->get('sort_order') ?: 'ASC');
 
-        $sort_field = $this->input->get('sort_field') ?: 'id';
-        $sort_order = strtoupper($this->input->get('sort_order') ?: 'ASC');
-
-        // Get current agency ID
-        $agency_id = $this->session->userdata('agency_id');
-        
-        if (!$agency_id) {
-            // Return empty results if no agency ID
-            $response = [
-                'success' => true,
-                'data' => [],
-                'pagination' => [
-                    'current_page' => $page,
-                    'per_page' => $limit,
-                    'total' => 0,
-                    'last_page' => 0
-                ]
-            ];
-            $this->output_json($response);
-            return;
-        }
-        // SIMPLE QUERY WITH AGENCY FILTER
-        $this->db->select('mod_template_sections.*, sys_form_schemas.name as schema_name')
-                ->from('mod_template_sections')
-                ->join('sys_form_schemas', 'sys_form_schemas.id = mod_template_sections.schema_id', 'left')
-                ->where('mod_template_sections.removed', 0)
-                ->where('mod_template_sections.enabled', 1)
-                ->where('sys_form_schemas.agency_id', $agency_id); // ✅ AGENCY FILTER
-
-        // Section type filter
-        if ($section_type && $section_type !== 'all') {
-            $this->db->where('mod_template_sections.section_type', $section_type);
-        }
-
-        // Search filter
-        if ($search) {
-            $this->db->group_start();
-            $this->db->like('mod_template_sections.name', $search);
-            $this->db->or_like('mod_template_sections.code', $search);
-            $this->db->or_like('sys_form_schemas.name', $search);
-            $this->db->group_end();
-        }
-
-        $this->db->order_by($sort_field, $sort_order);
-        $this->db->limit($limit, $offset);
-
-        $query = $this->db->get();
-        $rows = $query->result();
-
-        // Total count WITH AGENCY FILTER
-        $this->db->select('COUNT(*) as total')
-                ->from('mod_template_sections')
-                ->join('sys_form_schemas', 'sys_form_schemas.id = mod_template_sections.schema_id', 'left')
-                ->where('mod_template_sections.removed', 0)
-                ->where('mod_template_sections.enabled', 1)
-                ->where('sys_form_schemas.agency_id', $agency_id); // ✅ AGENCY FILTER
-
-        if ($section_type && $section_type !== 'all') {
-            $this->db->where('mod_template_sections.section_type', $section_type);
-        }
-
-        if ($search) {
-            $this->db->group_start();
-            $this->db->like('mod_template_sections.name', $search);
-            $this->db->or_like('mod_template_sections.code', $search);
-            $this->db->or_like('sys_form_schemas.name', $search);
-            $this->db->group_end();
-        }
-
-        $total_result = $this->db->get()->row();
-        $total = $total_result->total;
-
-
+    // Get current agency ID
+    $agency_id = $this->session->userdata('agency_id');
+    
+    if (!$agency_id) {
+        // Return empty results if no agency ID
         $response = [
             'success' => true,
-            'data' => $rows,
+            'data' => [],
             'pagination' => [
                 'current_page' => $page,
                 'per_page' => $limit,
-                'total' => $total,
-                'last_page' => ceil($total / $limit)
+                'total' => 0,
+                'last_page' => 0
             ]
         ];
-
         $this->output_json($response);
+        return;
     }
+    
+    // FIXED: Show sections created by current agency
+    $this->db->select('mod_template_sections.*, sys_form_schemas.name as schema_name')
+            ->from('mod_template_sections')
+            ->join('sys_form_schemas', 'sys_form_schemas.id = mod_template_sections.schema_id', 'left')
+            ->where('mod_template_sections.removed', 0)
+            ->where('mod_template_sections.enabled', 1)
+            ->where('mod_template_sections.agency_id', $agency_id); // ✅ Show sections owned by this agency
+    
+    // Section type filter
+    if ($section_type && $section_type !== 'all') {
+        $this->db->where('mod_template_sections.section_type', $section_type);
+    }
+
+    // Search filter
+    if ($search) {
+        $this->db->group_start();
+        $this->db->like('mod_template_sections.name', $search);
+        $this->db->or_like('mod_template_sections.code', $search);
+        $this->db->or_like('sys_form_schemas.name', $search);
+        $this->db->group_end();
+    }
+
+    $this->db->order_by($sort_field, $sort_order);
+    $this->db->limit($limit, $offset);
+
+    $query = $this->db->get();
+    $rows = $query->result();
+
+    // Total count
+    $this->db->select('COUNT(*) as total')
+            ->from('mod_template_sections')
+            ->where('removed', 0)
+            ->where('enabled', 1)
+            ->where('agency_id', $agency_id); // ✅ Count sections owned by this agency
+
+    if ($section_type && $section_type !== 'all') {
+        $this->db->where('section_type', $section_type);
+    }
+
+    if ($search) {
+        $this->db->group_start();
+        $this->db->like('name', $search);
+        $this->db->or_like('code', $search);
+        $this->db->group_end();
+    }
+
+    $total_result = $this->db->get()->row();
+    $total = $total_result->total;
+
+    $response = [
+        'success' => true,
+        'data' => $rows,
+        'pagination' => [
+            'current_page' => $page,
+            'per_page' => $limit,
+            'total' => $total,
+            'last_page' => ceil($total / $limit)
+        ]
+    ];
+
+    $this->output_json($response);
+}
 
     private function output_json($data) 
     {
@@ -438,7 +483,8 @@ class Template_sections extends CRUD_Controller
             'row' => $row,
             'form_schemas' => $schema_options,
             'section_types' => $section_types,
-            'preview_form' => $preview_form
+            'preview_form' => $preview_form,
+             'agency_id' => $agency_id
         );
 
         // Load the quick manage view
@@ -542,25 +588,114 @@ class Template_sections extends CRUD_Controller
         ];
     }
 
-    public function create_modify_params($params)
-    {
-        if (empty($params['sort_order'])) {
-            $params['sort_order'] = 0;
-        }
-        if (!isset($params['enabled'])) {
-            $params['enabled'] = 1;
-        }
-        
-        $params['created_at'] = date('Y-m-d H:i:s');
-        
-        return $params;
+public function create_modify_params($params)
+{
+    if (empty($params['sort_order'])) {
+        $params['sort_order'] = 0;
     }
+    if (!isset($params['enabled'])) {
+        $params['enabled'] = 1;
+    }
+    
+    // DEBUG: Log what we're receiving
+    log_message('debug', 'CREATE_MODIFY_PARAMS called with: ' . json_encode($params));
+    
+    // GET AGENCY_ID FROM SESSION - FORCE IT
+    $agency_id = $this->session->userdata('agency_id');
+    
+    // If no agency_id in session, try to get it
+    if (!$agency_id) {
+        log_message('debug', 'No agency_id in session, trying to get it...');
+        
+        // Method 1: Check if user is logged in and get from user table
+        $user_id = $this->session->userdata('user_id');
+        if ($user_id) {
+            $user = $this->db->select('agency_id')
+                            ->from('mod_users')
+                            ->where('id', $user_id)
+                            ->get()
+                            ->row();
+            if ($user && !empty($user->agency_id)) {
+                $agency_id = $user->agency_id;
+                $this->session->set_userdata('agency_id', $agency_id);
+                log_message('debug', 'Got agency_id from user table: ' . $agency_id);
+            }
+        }
+        
+        // Method 2: Check URL or other sources
+        if (!$agency_id && isset($_GET['agency_id'])) {
+            $agency_id = (int)$_GET['agency_id'];
+            $this->session->set_userdata('agency_id', $agency_id);
+            log_message('debug', 'Got agency_id from URL: ' . $agency_id);
+        }
+        
+        // Method 3: Default for development
+        if (!$agency_id && ENVIRONMENT === 'development') {
+            $agency_id = 1;
+            $this->session->set_userdata('agency_id', $agency_id);
+            log_message('debug', 'Using default agency_id for development: ' . $agency_id);
+        }
+    }
+    
+    // FORCE agency_id into params - CRITICAL
+    if ($agency_id) {
+        $params['agency_id'] = (int)$agency_id;
+        log_message('debug', 'Added agency_id to params: ' . $agency_id);
+    } else {
+        log_message('error', 'NO AGENCY_ID FOUND! Params will not have agency_id.');
+    }
+    
+    $params['created_at'] = date('Y-m-d H:i:s');
+    
+    log_message('debug', 'Final params: ' . json_encode($params));
+    return $params;
+}
 
-    public function update_modify_params($params)
-    {
-        $params['updated_at'] = date('Y-m-d H:i:s');
-        return $params;
+public function update_modify_params($params)
+{
+    // Force agency_id on update too
+    $agency_id = $this->session->userdata('agency_id');
+    
+    if ($agency_id) {
+        // Always set agency_id on update
+        $params['agency_id'] = (int)$agency_id;
     }
+    
+    $params['updated_at'] = date('Y-m-d H:i:s');
+    return $params;
+}
+
+// Add this helper method
+private function get_current_agency_id()
+{
+    // Try multiple ways to get agency_id
+    $agency_id = $this->session->userdata('agency_id');
+    
+    if (!$agency_id) {
+        // Try from user data
+        $user_id = $this->session->userdata('user_id');
+        if ($user_id) {
+            $user = $this->db->select('agency_id')
+                            ->from('mod_users')
+                            ->where('id', $user_id)
+                            ->get()
+                            ->row();
+            if ($user && $user->agency_id) {
+                $agency_id = $user->agency_id;
+                // Save to session for future
+                $this->session->set_userdata('agency_id', $agency_id);
+            }
+        }
+    }
+    
+    // Last resort - default to 1 if in development
+    if (!$agency_id && ENVIRONMENT === 'development') {
+        $agency_id = 1;
+        $this->session->set_userdata('agency_id', $agency_id);
+    }
+    
+    return $agency_id;
+}
 
     public function create_custom_section() 
     {
@@ -1017,6 +1152,279 @@ class Template_sections extends CRUD_Controller
         
         return $debug_data;
     }
+public function debug_save_process()
+{
+    // Test method to see what's happening
+    $post_data = [
+        'name' => 'Test Section ' . time(),
+        'code' => 'test_section_' . time(),
+        'schema_id' => 1,
+        'section_type' => 'content',
+        'category' => 'test',
+        'description' => 'Test description',
+        'sort_order' => 0,
+        'enabled' => 1
+    ];
+    
+    // Simulate the save process
+    $modified_params = $this->create_modify_params($post_data);
+    
+    $this->output_json([
+        'success' => true,
+        'session_agency_id' => $this->session->userdata('agency_id'),
+        'original_post' => $post_data,
+        'modified_params' => $modified_params,
+        'table_structure' => $this->db->list_fields('mod_template_sections')
+    ]);
+}
+public function check_last_save()
+{
+    // Check the last saved record
+    $last_record = $this->db->select('*')
+                           ->from('mod_template_sections')
+                           ->order_by('id', 'DESC')
+                           ->limit(1)
+                           ->get()
+                           ->row();
+    
+    $this->output_json([
+        'success' => true,
+        'last_record' => $last_record,
+        'has_agency_id' => isset($last_record->agency_id),
+        'agency_id_value' => $last_record->agency_id ?? 'NULL',
+        'total_records' => $this->db->count_all('mod_template_sections')
+    ]);
+}
+
+public function check_dual_table_status()
+{
+    // Check data in both tables
+    $agency_id = $this->session->userdata('agency_id');
+    
+    // Get data from main table
+    $main_table_data = $this->db->select('id, name, agency_id, created_at')
+                               ->from('mod_template_sections')
+                               ->where('removed', 0)
+                               ->order_by('id', 'DESC')
+                               ->limit(10)
+                               ->get()
+                               ->result();
+    
+    // Get data from agency table for current agency
+    $agency_table_data = [];
+    if ($agency_id) {
+        $agency_table_data = $this->db->select('id, template_section_id, name, agency_id, created_at')
+                                     ->from('agency_template_sections')
+                                     ->where('agency_id', $agency_id)
+                                     ->order_by('id', 'DESC')
+                                     ->limit(10)
+                                     ->get()
+                                     ->result();
+    }
+    
+    // Check for mismatches
+    $main_ids = array_column($main_table_data, 'id');
+    $agency_section_ids = array_column($agency_table_data, 'template_section_id');
+    
+    $missing_in_agency = array_diff($main_ids, $agency_section_ids);
+    
+    $this->output_json([
+        'success' => true,
+        'current_agency_id' => $agency_id,
+        'main_table_count' => count($main_table_data),
+        'agency_table_count' => count($agency_table_data),
+        'main_table_data' => $main_table_data,
+        'agency_table_data' => $agency_table_data,
+        'missing_in_agency' => array_values($missing_in_agency),
+        'table_exists' => $this->db->table_exists('agency_template_sections')
+    ]);
+}
+
+public function fix_missing_agency_records()
+{
+    // This will create agency records for any missing ones
+    $agency_id = $this->session->userdata('agency_id');
+    
+    if (!$agency_id) {
+        $this->output_json(['success' => false, 'error' => 'No agency_id in session']);
+        return;
+    }
+    
+    // Find records in mod_template_sections that don't have corresponding agency records
+    $sql = "SELECT m.* 
+            FROM mod_template_sections m
+            LEFT JOIN agency_template_sections a ON a.template_section_id = m.id AND a.agency_id = ?
+            WHERE m.removed = 0 
+            AND m.agency_id = ?
+            AND a.id IS NULL";
+    
+    $missing_records = $this->db->query($sql, [$agency_id, $agency_id])->result();
+    
+    $fixed = 0;
+    $errors = [];
+    
+    foreach ($missing_records as $record) {
+        $agency_data = [
+            'agency_id' => $agency_id,
+            'template_section_id' => $record->id,
+            'name' => $record->name,
+            'code' => $record->code,
+            'schema_id' => $record->schema_id,
+            'section_type' => $record->section_type,
+            'category' => $record->category,
+            'description' => $record->description,
+            'sort_order' => $record->sort_order,
+            'enabled' => $record->enabled,
+            'created_at' => $record->created_at,
+            'updated_at' => date('Y-m-d H:i:s')
+        ];
+        
+        $result = $this->db->insert('agency_template_sections', $agency_data);
+        
+        if ($result) {
+            $fixed++;
+        } else {
+            $errors[] = "Failed to insert record {$record->id}: " . $this->db->error()['message'];
+        }
+    }
+    
+    $this->output_json([
+        'success' => true,
+        'message' => "Fixed {$fixed} missing agency records",
+        'total_missing' => count($missing_records),
+        'fixed_count' => $fixed,
+        'errors' => $errors
+    ]);
+}
+
+public function check_table_structure()
+{
+    // Check mod_template_sections structure
+    $main_fields = $this->db->list_fields('mod_template_sections');
+    
+    // Check agency_template_sections structure
+    $agency_fields = [];
+    if ($this->db->table_exists('agency_template_sections')) {
+        $agency_fields = $this->db->list_fields('agency_template_sections');
+    }
+    
+    // Get sample from agency table
+    $agency_sample = [];
+    if ($this->db->table_exists('agency_template_sections')) {
+        $agency_sample = $this->db->select('*')
+                                 ->from('agency_template_sections')
+                                 ->limit(3)
+                                 ->get()
+                                 ->result();
+    }
+    
+    $this->output_json([
+        'success' => true,
+        'mod_template_sections_columns' => $main_fields,
+        'agency_template_sections_columns' => $agency_fields,
+        'agency_sample_data' => $agency_sample,
+        'agency_table_exists' => $this->db->table_exists('agency_template_sections')
+    ]);
+}
+
+public function create_correct_agency_table()
+{
+    // First, check what table we actually have
+    if (!$this->db->table_exists('agency_template_sections')) {
+        // Create the table
+        $sql = "CREATE TABLE agency_template_sections (
+            id INT PRIMARY KEY AUTO_INCREMENT,
+            agency_id INT NOT NULL,
+            template_section_id INT NOT NULL,
+            name VARCHAR(255) NOT NULL,
+            code VARCHAR(100) NOT NULL,
+            schema_id INT NULL,
+            section_type VARCHAR(50) NOT NULL DEFAULT 'content',
+            category VARCHAR(100) NULL,
+            description TEXT NULL,
+            sort_order INT DEFAULT 0,
+            enabled TINYINT(1) DEFAULT 1,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            UNIQUE KEY unique_agency_section (agency_id, template_section_id),
+            INDEX idx_agency_id (agency_id),
+            INDEX idx_section_type (section_type),
+            INDEX idx_template_section_id (template_section_id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4";
+        
+        $result = $this->db->query($sql);
+        
+        $this->output_json([
+            'success' => $result,
+            'message' => $result ? 'Table created successfully' : 'Failed to create table',
+            'sql' => $sql
+        ]);
+    } else {
+        // Table exists, check structure
+        $fields = $this->db->list_fields('agency_template_sections');
+        
+        // Check if we have the right columns
+        $required_columns = ['agency_id', 'template_section_id', 'name', 'code', 'schema_id', 'section_type'];
+        $missing_columns = array_diff($required_columns, $fields);
+        
+        if (empty($missing_columns)) {
+            $this->output_json([
+                'success' => true,
+                'message' => 'Table already exists with correct structure',
+                'columns' => $fields
+            ]);
+        } else {
+            $this->output_json([
+                'success' => false,
+                'message' => 'Table exists but has wrong structure',
+                'missing_columns' => array_values($missing_columns),
+                'current_columns' => $fields
+            ]);
+        }
+    }
+}
+
+public function debug_data_issue()
+{
+    $agency_id = $this->session->userdata('agency_id');
+    
+    // Method 1: Direct query (should work)
+    $direct_query = $this->db->select('id, name, agency_id, schema_id')
+                            ->from('mod_template_sections')
+                            ->where('agency_id', $agency_id)
+                            ->where('removed', 0)
+                            ->where('enabled', 1)
+                            ->get();
+    
+    $direct_results = $direct_query->result();
+    
+    // Method 2: Current get_all() method
+    $model_results = $this->get_all()->result();
+    
+    // Method 3: Check schema relationships
+    $schema_check = $this->db->select('mts.id, mts.name, mts.schema_id, sfs.id as schema_exists, sfs.agency_id as schema_agency_id')
+                            ->from('mod_template_sections mts')
+                            ->join('sys_form_schemas sfs', 'sfs.id = mts.schema_id', 'left')
+                            ->where('mts.agency_id', $agency_id)
+                            ->where('mts.removed', 0)
+                            ->where('mts.enabled', 1)
+                            ->get()
+                            ->result();
+    
+    $this->output_json([
+        'success' => true,
+        'agency_id' => $agency_id,
+        'direct_query_count' => count($direct_results),
+        'direct_results' => $direct_results,
+        'model_get_all_count' => count($model_results),
+        'model_results' => $model_results,
+        'schema_check' => $schema_check,
+        'analysis' => [
+            'issue' => 'If direct_query_count > 0 but model_get_all_count = 0, then the join with sys_form_schemas is filtering out records',
+            'solution' => 'Use LEFT JOIN and check for NULL schema relationships'
+        ]
+    ]);
+}
 
 
 }

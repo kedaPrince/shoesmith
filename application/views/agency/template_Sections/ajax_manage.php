@@ -191,6 +191,8 @@
     <div class="form-field-container">
         <?= form_open('', ['id' => 'main-form']); ?>
         <?= form_hidden('id', !empty($row->id) ? $row->id : 0); ?>
+        <?= form_hidden($this->security->get_csrf_token_name(), $this->security->get_csrf_hash()); ?>
+        <?= form_hidden('agency_id', $this->session->userdata('agency_id') ?: 0); ?>
 
         <!-- Tab 1: Section Details -->
         <div class="qm-tabs-tab" rel="1">
@@ -339,11 +341,16 @@ $('select[name="schema_id"]').on('change', function() {
 });
 
 function loadFormPreview(schemaId) {
+    // Get the CSRF token from the page
+    var csrfToken = $('input[name="<?php echo $this->security->get_csrf_token_name(); ?>"]').val();
+    var csrfName = '<?php echo $this->security->get_csrf_token_name(); ?>';
+
     $.ajax({
         url: '<?= site_url("agency/template_sections/get_form_preview") ?>',
         type: 'POST',
         data: {
-            schema_id: schemaId
+            schema_id: schemaId,
+            [csrfName]: csrfToken // Add CSRF token dynamically
         },
         dataType: 'json',
         success: function(response) {
@@ -355,9 +362,10 @@ function loadFormPreview(schemaId) {
                 );
             }
         },
-        error: function() {
+        error: function(xhr, status, error) {
+            console.error('Error loading form preview:', error);
             $('.qm-tabs-tab[rel="3"] .form-display').html(
-                '<div class="alert alert-danger">Error loading form preview</div>'
+                '<div class="alert alert-danger">Error loading form preview. Check console for details.</div>'
             );
         }
     });

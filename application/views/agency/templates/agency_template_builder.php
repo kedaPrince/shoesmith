@@ -287,167 +287,176 @@
         </div>
 
         <!-- Template Builder Form -->
-        <?= form_open('agency/agency_templates/save_custom_template', ['id' => 'template-builder-form']); ?>
-        <?= form_hidden('agency_id', $agency_id); ?>
-        <?= form_hidden('template_id', $current_template->id ?? ''); ?>
-        <?= form_hidden('sections', ''); ?>
+        <!-- Template Builder Form -->
+        <form action="<?= site_url('agency/agency_templates/save_custom_template') ?>" method="post"
+            id="template-builder-form" accept-charset="utf-8" enctype="application/x-www-form-urlencoded">
+            <!-- CSRF Token - Use dynamic name -->
+            <input type="hidden" name="<?= $this->security->get_csrf_token_name() ?>"
+                value="<?= $this->security->get_csrf_hash() ?>" />
 
-        <div class="template-builder">
-            <!-- Available Sections Panel -->
-            <div class="available-sections">
-                <h4>Available Sections</h4>
+            <!-- Other hidden fields -->
+            <input type="hidden" name="agency_id" value="<?= $agency_id ?>" />
+            <input type="hidden" name="template_id" value="<?= $current_template->id ?? '' ?>" />
+            <input type="hidden" name="sections" id="sections_input" value="" />
 
-                <!-- Section Filtering Controls -->
-                <div class="filter-controls">
-                    <div class="row">
-                        <div class="col-md-12">
-                            <input type="text" id="sectionSearch" class="form-control"
-                                placeholder="Search sections by name...">
+            <div class="template-builder">
+                <!-- Available Sections Panel -->
+                <div class="available-sections">
+                    <h4>Available Sections</h4>
+
+                    <!-- Section Filtering Controls -->
+                    <div class="filter-controls">
+                        <div class="row">
+                            <div class="col-md-12">
+                                <input type="text" id="sectionSearch" class="form-control"
+                                    placeholder="Search sections by name...">
+                            </div>
+                        </div>
+                        <div class="row mt-2">
+                            <div class="col-md-12">
+                                <select id="sectionTypeFilter" class="form-control">
+                                    <option value="">All Section Types</option>
+                                    <?php foreach ($section_types as $key => $label): ?>
+                                    <option value="<?= $key ?>"><?= $label ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
                         </div>
                     </div>
-                    <div class="row mt-2">
-                        <div class="col-md-12">
-                            <select id="sectionTypeFilter" class="form-control">
-                                <option value="">All Section Types</option>
-                                <?php foreach ($section_types as $key => $label): ?>
-                                <option value="<?= $key ?>"><?= $label ?></option>
-                                <?php endforeach; ?>
-                            </select>
+
+                    <!-- Quick Filter Buttons -->
+                    <div class="quick-filter-buttons mb-3">
+                        <small class="text-muted d-block mb-2">Quick filters:</small>
+                        <div class="btn-group btn-group-sm" role="group">
+                            <button type="button" class="btn btn-outline-secondary" data-type="about">About</button>
+                            <button type="button" class="btn btn-outline-secondary"
+                                data-type="experience">Experience</button>
+                            <button type="button" class="btn btn-outline-secondary"
+                                data-type="education">Education</button>
+                            <button type="button" class="btn btn-outline-secondary" data-type="contact">Contact</button>
+                            <button type="button" class="btn btn-outline-secondary"
+                                data-type="portfolio">Portfolio</button>
+                            <button type="button" class="btn btn-outline-secondary" data-type="all">Show All</button>
                         </div>
                     </div>
-                </div>
 
-                <!-- Quick Filter Buttons -->
-                <div class="quick-filter-buttons mb-3">
-                    <small class="text-muted d-block mb-2">Quick filters:</small>
-                    <div class="btn-group btn-group-sm" role="group">
-                        <button type="button" class="btn btn-outline-secondary" data-type="about">About</button>
-                        <button type="button" class="btn btn-outline-secondary"
-                            data-type="experience">Experience</button>
-                        <button type="button" class="btn btn-outline-secondary" data-type="education">Education</button>
-                        <button type="button" class="btn btn-outline-secondary" data-type="contact">Contact</button>
-                        <button type="button" class="btn btn-outline-secondary" data-type="portfolio">Portfolio</button>
-                        <button type="button" class="btn btn-outline-secondary" data-type="all">Show All</button>
+                    <!-- Section Statistics -->
+                    <div class="section-stats" id="sectionStats">
+                        Loading sections...
                     </div>
-                </div>
 
-                <!-- Section Statistics -->
-                <div class="section-stats" id="sectionStats">
-                    Loading sections...
-                </div>
-
-                <!-- Available Sections List -->
-                <div id="availableSectionsList">
-                    <?php foreach ($sections as $section): ?>
-                    <div class="section-item" data-section-id="<?= $section->id ?>"
-                        data-section-type="<?= $section->section_type ?>" draggable="true">
-                        <h5><?= htmlspecialchars($section->name) ?></h5>
-                        <div class="section-type">
-                            <?= $section_types[$section->section_type] ?? $section->section_type ?>
-                        </div>
-                        <p class="small text-muted mb-2"><?= htmlspecialchars($section->description) ?></p>
-                        <button type="button" class="btn btn-sm btn-primary add-section"
-                            onclick="addSectionToTemplate(<?= $section->id ?>)">
-                            <i class="fa fa-plus"></i> Add to Template
-                        </button>
-                    </div>
-                    <?php endforeach; ?>
-                </div>
-            </div>
-
-            <!-- Template Preview Panel -->
-            <div class="template-preview">
-                <h4>
-                    <?php if ($is_new): ?>
-                    Create New Template
-                    <?php else: ?>
-                    <?= $current_template ? 'Edit Template: ' . htmlspecialchars($current_template->template_name) : 'Create Template' ?>
-                    <?php endif; ?>
-                </h4>
-
-                <div class="form-group">
-                    <label>Template Name *</label>
-                    <input type="text" name="template_name" class="form-control" required
-                        value="<?= htmlspecialchars($current_template->template_name ?? 'My Custom Template') ?>"
-                        placeholder="Enter template name">
-                </div>
-
-                <div class="form-group">
-                    <label>Description</label>
-                    <textarea name="description" class="form-control" rows="2"
-                        placeholder="Template description"><?= htmlspecialchars($current_template->description ?? '') ?></textarea>
-                </div>
-
-                <div id="template-sections" class="sortable-sections">
-                    <?php if (!empty($current_sections) && !$is_new): ?>
-                    <?php 
-                        $current_section_data = [];
-                        foreach ($current_sections as $section_id) {
-                            foreach ($sections as $section) {
-                                if ($section->id == $section_id) {
-                                    $current_section_data[] = $section;
-                                    break;
-                                }
-                            }
-                        }
-                        ?>
-                    <?php foreach ($current_section_data as $section): ?>
-                    <div class="template-section" data-section-id="<?= $section->id ?>" draggable="true">
-                        <h5 class="section-title"><?= htmlspecialchars($section->name) ?></h5>
-                        <div class="section-type small text-muted">
-                            <?= $section_types[$section->section_type] ?? $section->section_type ?>
-                        </div>
-                        <div class="section-controls">
-                            <button type="button" class="btn btn-sm btn-danger" onclick="removeSection(this)">
-                                <i class="fa fa-times"></i> Remove
+                    <!-- Available Sections List -->
+                    <div id="availableSectionsList">
+                        <?php foreach ($sections as $section): ?>
+                        <div class="section-item" data-section-id="<?= $section->id ?>"
+                            data-section-type="<?= $section->section_type ?>" draggable="true">
+                            <h5><?= htmlspecialchars($section->name) ?></h5>
+                            <div class="section-type">
+                                <?= $section_types[$section->section_type] ?? $section->section_type ?>
+                            </div>
+                            <p class="small text-muted mb-2"><?= htmlspecialchars($section->description) ?></p>
+                            <button type="button" class="btn btn-sm btn-primary add-section"
+                                onclick="addSectionToTemplate(<?= $section->id ?>)">
+                                <i class="fa fa-plus"></i> Add to Template
                             </button>
                         </div>
+                        <?php endforeach; ?>
                     </div>
-                    <?php endforeach; ?>
-                    <?php else: ?>
-                    <div class="template-section placeholder" id="placeholder">
-                        <div class="text-center">
-                            <i class="fa fa-arrows-alt fa-2x mb-2"></i><br>
-                            Drag sections here to build your template
-                        </div>
-                    </div>
-                    <?php endif; ?>
                 </div>
 
-                <div class="mt-3">
-                    <button type="submit" class="btn btn-success">
-                        <i class="fa fa-save"></i>
-                        <?= $current_template && !$is_new ? 'Update Template' : 'Save Template' ?>
-                    </button>
+                <!-- Template Preview Panel -->
+                <div class="template-preview">
+                    <h4>
+                        <?php if ($is_new): ?>
+                        Create New Template
+                        <?php else: ?>
+                        <?= $current_template ? 'Edit Template: ' . htmlspecialchars($current_template->template_name) : 'Create Template' ?>
+                        <?php endif; ?>
+                    </h4>
 
-                    <?php if ($current_template && !$is_new): ?>
-                    <button type="button" id="previewTemplate" class="btn btn-info">
-                        <i class="fa fa-eye"></i> Preview Template
-                    </button>
-                    <a href="<?= site_url('agency/agency_templates/manage_instance/' . $agency_id) ?>"
-                        class="btn btn-primary">
-                        <i class="fa fa-edit"></i> Fill Template Content
-                    </a>
-                    <?php endif; ?>
+                    <div class="form-group">
+                        <label>Template Name *</label>
+                        <input type="text" name="template_name" class="form-control" required
+                            value="<?= htmlspecialchars($current_template->template_name ?? 'My Custom Template') ?>"
+                            placeholder="Enter template name">
+                    </div>
 
-                    <button type="button" id="resetTemplate" class="btn btn-warning">
-                        <i class="fa fa-refresh"></i> Reset Template
-                    </button>
+                    <div class="form-group">
+                        <label>Description</label>
+                        <textarea name="description" class="form-control" rows="2"
+                            placeholder="Template description"><?= htmlspecialchars($current_template->description ?? '') ?></textarea>
+                    </div>
 
-                    <?php if ($is_new): ?>
-                    <a href="<?= site_url('agency/agency_templates/build/' . $agency_id) ?>" class="btn btn-secondary">
-                        <i class="fa fa-arrow-left"></i> Cancel
-                    </a>
-                    <?php else: ?>
-                    <a href="<?= site_url('agency/templates') ?>" class="btn btn-secondary">
-                        <i class="fa fa-list"></i> View All Templates
-                    </a>
-                    <?php endif; ?>
+                    <div id="template-sections" class="sortable-sections">
+                        <?php if (!empty($current_sections) && !$is_new): ?>
+                        <?php 
+                            $current_section_data = [];
+                            foreach ($current_sections as $section_id) {
+                                foreach ($sections as $section) {
+                                    if ($section->id == $section_id) {
+                                        $current_section_data[] = $section;
+                                        break;
+                                    }
+                                }
+                            }
+                            ?>
+                        <?php foreach ($current_section_data as $section): ?>
+                        <div class="template-section" data-section-id="<?= $section->id ?>" draggable="true">
+                            <h5 class="section-title"><?= htmlspecialchars($section->name) ?></h5>
+                            <div class="section-type small text-muted">
+                                <?= $section_types[$section->section_type] ?? $section->section_type ?>
+                            </div>
+                            <div class="section-controls">
+                                <button type="button" class="btn btn-sm btn-danger" onclick="removeSection(this)">
+                                    <i class="fa fa-times"></i> Remove
+                                </button>
+                            </div>
+                        </div>
+                        <?php endforeach; ?>
+                        <?php else: ?>
+                        <div class="template-section placeholder" id="placeholder">
+                            <div class="text-center">
+                                <i class="fa fa-arrows-alt fa-2x mb-2"></i><br>
+                                Drag sections here to build your template
+                            </div>
+                        </div>
+                        <?php endif; ?>
+                    </div>
+
+                    <div class="mt-3">
+                        <button type="submit" class="btn btn-success" id="submit-btn">
+                            <i class="fa fa-save"></i>
+                            <?= $current_template && !$is_new ? 'Update Template' : 'Save Template' ?>
+                        </button>
+
+                        <?php if ($current_template && !$is_new): ?>
+                        <button type="button" id="previewTemplate" class="btn btn-info">
+                            <i class="fa fa-eye"></i> Preview Template
+                        </button>
+                        <a href="<?= site_url('agency/agency_templates/manage_instance/' . $agency_id) ?>"
+                            class="btn btn-primary">
+                            <i class="fa fa-edit"></i> Fill Template Content
+                        </a>
+                        <?php endif; ?>
+
+                        <button type="button" id="resetTemplate" class="btn btn-warning">
+                            <i class="fa fa-refresh"></i> Reset Template
+                        </button>
+
+                        <?php if ($is_new): ?>
+                        <a href="<?= site_url('agency/agency_templates/build/' . $agency_id) ?>"
+                            class="btn btn-secondary">
+                            <i class="fa fa-arrow-left"></i> Cancel
+                        </a>
+                        <?php else: ?>
+                        <a href="<?= site_url('agency/templates') ?>" class="btn btn-secondary">
+                            <i class="fa fa-list"></i> View All Templates
+                        </a>
+                        <?php endif; ?>
+                    </div>
                 </div>
             </div>
-        </div>
-
-        <?= form_close(); ?>
+        </form>
     </div>
 </div>
 
@@ -464,12 +473,16 @@ const templateSections = document.getElementById('template-sections');
 const sectionTypeFilter = document.getElementById('sectionTypeFilter');
 const sectionSearch = document.getElementById('sectionSearch');
 const templateForm = document.getElementById('template-builder-form');
-const sectionsInput = document.querySelector('input[name="sections"]');
+const sectionsInput = document.getElementById('sections_input');
 const sectionStats = document.getElementById('sectionStats');
+const submitBtn = document.getElementById('submit-btn');
 
 // Initialize when DOM is loaded
 document.addEventListener('DOMContentLoaded', function() {
     console.log('Template builder initialized - Mode:', isCreatingNew ? 'Creating New' : 'Editing Existing');
+    console.log('CSRF token name: <?= $this->security->get_csrf_token_name() ?>');
+    console.log('CSRF token value: <?= $this->security->get_csrf_hash() ?>');
+
     initializeDragAndDrop();
     initializeEventListeners();
     initializeSectionFilters();
@@ -570,39 +583,42 @@ function updateSectionStats() {
     sectionStats.textContent = statsText;
 }
 
-
 function initializeEventListeners() {
-    // Section type filter and search are handled in initializeSectionFilters()
-
-    // Form submission
+    templateForm.enctype = 'application/x-www-form-urlencoded';
+    // Form submission - SIMPLIFIED
     templateForm.addEventListener('submit', function(e) {
-        e.preventDefault();
+        console.log('Form submit event triggered');
 
         // Validate form
-        const templateName = document.querySelector('input[name="template_name"]').value;
-        if (!templateName.trim()) {
+        const templateName = document.querySelector('input[name="template_name"]').value.trim();
+        if (!templateName) {
             alert('Please enter a template name');
-            return;
+            e.preventDefault();
+            return false;
         }
 
         if (selectedSections.length === 0) {
             alert('Please add at least one section to your template');
-            return;
+            e.preventDefault();
+            return false;
         }
 
         // Update sections input before submission
         updateSectionsInput();
 
-        console.log('Submitting form with sections:', selectedSections);
+        console.log('Form is valid, submitting...');
+        console.log('Selected sections:', selectedSections);
+        console.log('Sections input value:', sectionsInput.value);
 
         // Show loading state
-        const submitBtn = templateForm.querySelector('button[type="submit"]');
-        submitBtn.disabled = true;
-        submitBtn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> ' +
-            (isCreatingNew ? 'Creating...' : 'Updating...');
+        if (submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> ' +
+                (isCreatingNew ? 'Creating...' : 'Updating...');
+        }
 
-        // Submit the form
-        this.submit();
+        // Allow form to submit naturally
+        return true;
     });
 
     // Preview button
@@ -646,8 +662,6 @@ function handleDragStart(e) {
 
 function handleDragEnd(e) {
     this.classList.remove('dragging');
-
-    // Remove drop zone styling from all elements
     document.querySelectorAll('.drop-zone').forEach(el => {
         el.classList.remove('drop-zone');
     });
@@ -671,41 +685,31 @@ function handleDragLeave(e) {
 function handleDrop(e) {
     e.preventDefault();
     e.stopPropagation();
-
     this.classList.remove('drop-zone');
 
     const draggedElement = document.querySelector('.dragging');
     if (draggedElement && draggedElement.classList.contains('section-item')) {
-        // Adding new section from available sections
         const sectionId = parseInt(draggedElement.dataset.sectionId);
         if (!selectedSections.includes(sectionId)) {
             addSectionToTemplate(sectionId);
         }
     } else if (draggedElement && draggedElement.classList.contains('template-section')) {
-        // Reordering existing sections
         const afterElement = getDragAfterElement(templateSections, e.clientY);
-        const draggedSectionId = parseInt(draggedElement.dataset.sectionId);
-
         if (afterElement) {
             templateSections.insertBefore(draggedElement, afterElement);
         } else {
             templateSections.appendChild(draggedElement);
         }
-
-        // Update order
         updateSectionsFromDOM();
     }
-
     return false;
 }
 
 function getDragAfterElement(container, y) {
     const draggableElements = [...container.querySelectorAll('.template-section:not(.dragging)')];
-
     return draggableElements.reduce((closest, child) => {
         const box = child.getBoundingClientRect();
         const offset = y - box.top - box.height / 2;
-
         if (offset < 0 && offset > closest.offset) {
             return {
                 offset: offset,
@@ -720,13 +724,11 @@ function getDragAfterElement(container, y) {
 }
 
 function updateSectionsInput() {
-    // Update the hidden input with current sections
     sectionsInput.value = JSON.stringify(selectedSections);
     console.log('Updated sections input:', sectionsInput.value);
 }
 
 function updateSectionsFromDOM() {
-    // Update selectedSections array based on current DOM order
     const sectionElements = templateSections.querySelectorAll('.template-section[data-section-id]');
     selectedSections = Array.from(sectionElements).map(section => parseInt(section.dataset.sectionId));
     updateSectionsInput();
@@ -749,32 +751,27 @@ function addSectionToTemplate(sectionId) {
     const sectionName = sectionItem.querySelector('h5').textContent;
     const sectionType = sectionItem.querySelector('.section-type').textContent;
 
-    // Create new section in template
     const newSection = document.createElement('div');
     newSection.className = 'template-section';
     newSection.dataset.sectionId = sectionId;
     newSection.draggable = true;
     newSection.innerHTML = `
-            <h5 class="section-title">${sectionName}</h5>
-            <div class="section-type small text-muted">${sectionType}</div>
-            <div class="section-controls">
-                <button type="button" class="btn btn-sm btn-danger" onclick="removeSection(this)">
-                    <i class="fa fa-times"></i> Remove
-                </button>
-            </div>
-        `;
+        <h5 class="section-title">${sectionName}</h5>
+        <div class="section-type small text-muted">${sectionType}</div>
+        <div class="section-controls">
+            <button type="button" class="btn btn-sm btn-danger" onclick="removeSection(this)">
+                <i class="fa fa-times"></i> Remove
+            </button>
+        </div>
+    `;
 
-    // Remove placeholder if it exists
     const placeholder = document.getElementById('placeholder');
     if (placeholder) placeholder.remove();
 
     templateSections.appendChild(newSection);
     selectedSections.push(sectionId);
-
-    // Update the form input
     updateSectionsInput();
 
-    // Add drag events
     newSection.addEventListener('dragstart', handleDragStart);
     newSection.addEventListener('dragend', handleDragEnd);
 
@@ -787,21 +784,18 @@ function removeSection(button) {
 
     sectionElement.remove();
     selectedSections = selectedSections.filter(id => id !== sectionId);
-
-    // Update the form input
     updateSectionsInput();
 
-    // Add placeholder if no sections left
     if (templateSections.querySelectorAll('.template-section').length === 0) {
         const placeholder = document.createElement('div');
         placeholder.className = 'template-section placeholder';
         placeholder.id = 'placeholder';
         placeholder.innerHTML = `
-                <div class="text-center">
-                    <i class="fa fa-arrows-alt fa-2x mb-2"></i><br>
-                    Drag sections here to build your template
-                </div>
-            `;
+            <div class="text-center">
+                <i class="fa fa-arrows-alt fa-2x mb-2"></i><br>
+                Drag sections here to build your template
+            </div>
+        `;
         templateSections.appendChild(placeholder);
     }
 
@@ -809,41 +803,34 @@ function removeSection(button) {
 }
 
 function resetTemplate() {
-    // Clear all sections
     selectedSections = [];
     templateSections.innerHTML = '';
-
-    // Update the form input
     updateSectionsInput();
 
-    // Reset template name and description if creating new
     if (isCreatingNew) {
         document.querySelector('input[name="template_name"]').value = 'My Custom Template';
         document.querySelector('textarea[name="description"]').value = '';
     }
 
-    // Reset filters
     sectionTypeFilter.value = '';
     sectionSearch.value = '';
     filterSections();
 
-    // Remove active state from quick filter buttons
     document.querySelectorAll('.quick-filter-buttons button').forEach(btn => {
         btn.classList.remove('active');
     });
 
-    // Add placeholder
     const placeholder = document.createElement('div');
     placeholder.className = 'template-section placeholder';
     placeholder.id = 'placeholder';
     placeholder.innerHTML = `
-            <div class="text-center">
-                <i class="fa fa-arrows-alt fa-2x mb-2"></i><br>
-                Drag sections here to build your template
-            </div>
-        `;
+        <div class="text-center">
+            <i class="fa fa-arrows-alt fa-2x mb-2"></i><br>
+            Drag sections here to build your template
+        </div>
+    `;
     templateSections.appendChild(placeholder);
 
-    console.log('Template reset - ready for new template creation');
+    console.log('Template reset');
 }
 </script>

@@ -15,7 +15,7 @@
     </div>
 
     <div class="form-field-container">
-        <form id="main-form" method="post" accept-charset="utf-8"
+        <form id="main-form" method="post" accept-charset="utf-8" enctype="application/x-www-form-urlencoded"
             data-saved-data='<?= json_encode($debug_form_data ?? []) ?>'>
             <!-- ✅ ADD CSRF TOKEN HERE -->
             <input type="hidden" name="<?= $this->security->get_csrf_token_name() ?>"
@@ -66,8 +66,8 @@
                         <div class="modal-content">
                             <div class="modal-header">
                                 <h5 class="modal-title" id="addSectionModalLabel">Add New Section</h5>
-                                <button type="button" class="btn-close" data-bs-dismiss="modal"
-                                    aria-label="Close"></button>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"><i
+                                        class="fa fa-times" aria-hidden="true"></i></button>
                             </div>
                             <div class="modal-body">
                                 <div class="mb-3">
@@ -123,7 +123,8 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title" id="deleteSectionModalLabel">Confirm Delete</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"><i
+                        class="fa fa-times" aria-hidden="true"></i></button>
             </div>
             <div class="modal-body">
                 <p id="delete-section-message">Are you sure you want to delete this section? This action cannot be
@@ -227,20 +228,16 @@ body .form-control {
 
 .quick-manage-overlay {
     z-index: 1040 !important;
-    /* Ensure overlay is below modal */
 }
 
 body.qm-full-page .quick-manage-overlay {
     pointer-events: none;
-    /* Allow clicks through to modal */
 }
 
 #dynamic-form-content {
     pointer-events: auto !important;
-    /* Ensure form remains clickable */
 }
 
-/* Add to your <style> block in the view for better delete button styling */
 .delete-section {
     white-space: nowrap;
 }
@@ -253,7 +250,6 @@ body.qm-full-page .quick-manage-overlay {
     background-color: #c82333 !important;
 }
 
-/* Add to your <style> block in the view - ensures delete buttons are always clickable and visible */
 .composite-section .section-header {
     position: relative;
     z-index: 10;
@@ -268,12 +264,10 @@ body.qm-full-page .quick-manage-overlay {
 
 .delete-section:disabled {
     opacity: 0.65 !important;
-    /* Only gray if actually disabled */
 }
 
 .quick-manage-overlay {
     pointer-events: none !important;
-    /* Allow clicks through overlay to buttons */
 }
 
 #dynamic-form-content {
@@ -283,12 +277,113 @@ body.qm-full-page .quick-manage-overlay {
 .composite-section:hover .section-header .delete-section {
     opacity: 1 !important;
     transform: none;
-    /* Prevent any hover transforms blocking */
 }
 
 #deleteSectionModal .modal-footer button {
     pointer-events: auto !important;
     z-index: 1070 !important;
+}
+
+/* CKEditor Styles */
+.ck-editor {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+}
+
+.ck-editor__editable {
+    min-height: 200px;
+    border: 1px solid #ddd;
+    padding: 10px;
+}
+
+/* Hide original textareas that have CKEditor */
+.ck-editor+textarea,
+.ck-editor~textarea {
+    display: none !important;
+}
+
+/* Show fallback only if no CKEditor */
+.fallback-editor-container {
+    display: none;
+}
+
+.no-ckeditor .fallback-editor-container {
+    display: block;
+}
+
+/* Loading indicator */
+.editor-loading {
+    min-height: 200px;
+    border: 1px solid #ddd;
+    padding: 10px;
+    background: #f8f9fa;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #666;
+    font-style: italic;
+}
+
+/* FIX FOR MODAL BUTTON VISIBILITY */
+#addSectionModal .modal-footer {
+    display: flex !important;
+    justify-content: flex-end !important;
+    align-items: center !important;
+    gap: 10px !important;
+    padding: 1rem !important;
+    border-top: 1px solid #dee2e6 !important;
+    background-color: white !important;
+    position: relative !important;
+    z-index: 100 !important;
+}
+
+#addSectionModal .modal-footer .btn {
+    display: inline-block !important;
+    width: auto !important;
+    min-width: 100px !important;
+    padding: 0.375rem 0.75rem !important;
+    font-size: 1rem !important;
+    line-height: 1.5 !important;
+    position: relative !important;
+    z-index: 101 !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+}
+
+/* Ensure modal content doesn't hide footer */
+#addSectionModal .modal-content {
+    display: flex !important;
+    flex-direction: column !important;
+    min-height: 200px !important;
+    position: relative !important;
+    z-index: 99 !important;
+}
+
+#addSectionModal .modal-body {
+    flex: 1 !important;
+    padding: 1rem !important;
+    position: relative !important;
+    z-index: 98 !important;
+}
+
+/* Override any hiding styles */
+#confirm-add-section {
+    display: inline-block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    pointer-events: auto !important;
+    cursor: pointer !important;
+}
+
+/* Fix Bootstrap modal stacking context */
+.modal.show {
+    display: block !important;
+    padding-right: 17px !important;
+}
+
+.modal-backdrop.show {
+    opacity: 0.5 !important;
 }
 </style>
 
@@ -321,18 +416,17 @@ $(document).ready(function() {
         if (!templateId || isNaN(templateId)) {
             let href = $(this).attr('href') || '';
             console.log('Fallback to href:', href);
-            // Better href parse for composite ?template_id= param
             const urlParams = new URLSearchParams(href.split('?')[1] || '');
             templateId = urlParams.get('template_id') ||
-                href.split('/').filter(part => /^\d+$/.test(part)).pop(); // Last numeric part
+                href.split('/').filter(part => /^\d+$/.test(part)).pop();
         }
 
         if (!templateId || isNaN(templateId)) {
             let $row = $(this).closest('tr');
-            templateId = $row.attr('data-id') || $row.data('template-id'); // Try attr too
+            templateId = $row.attr('data-id') || $row.data('template-id');
         }
 
-        console.log('Extracted template ID steps:', { // ADD LOG FOR ALL
+        console.log('Extracted template ID steps:', {
             buttonData: $(this).data('id'),
             buttonAttr: $(this).attr('data-id'),
             rowData: $(this).closest('tr').data('id'),
@@ -345,7 +439,6 @@ $(document).ready(function() {
 
         if (!templateId || isNaN(templateId)) {
             console.error('No valid template ID found');
-            console.log('Button:', $(this)[0]); // ADD: Inspect button HTML
             return;
         }
 
@@ -353,8 +446,7 @@ $(document).ready(function() {
 
         // Use aggressive cache buster
         var cacheBuster = 't=' + new Date().getTime();
-        var url = 'agency/templates/ajax_quick_manage/' + templateId + '?' +
-            cacheBuster;
+        var url = 'agency/templates/ajax_quick_manage/' + templateId + '?' + cacheBuster;
 
         console.log('Fetching from URL:', url);
 
@@ -362,7 +454,6 @@ $(document).ready(function() {
         if (typeof show_loading === 'function') {
             show_loading();
         } else {
-            // Fallback loading indicator
             $('body').append('<div class="loading-overlay">Loading...</div>');
         }
 
@@ -386,15 +477,11 @@ $(document).ready(function() {
             },
             error: function(xhr, status, error) {
                 console.error('Error loading template:', error);
-                console.log('Status:', status);
-                console.log('XHR:', xhr);
-
                 if (typeof hide_loading === 'function') {
                     hide_loading();
                 } else {
                     $('.loading-overlay').remove();
                 }
-
                 alert('Error loading template data. Please try again.');
             }
         });
@@ -404,1305 +491,1278 @@ $(document).ready(function() {
 });
 
 // Quick Manage Form Class
-window.quickManageInitialized = false;
+window.QuickManageForm = class QuickManageForm {
+    constructor() {
+        this.editors = [];
+        this.templateId = <?= !empty($row->id) ? $row->id : 'null' ?>;
+        this.isInitialized = false;
+        this.ckeditorReady = false;
+        this.fallbackEditors = new Map();
+        this.currentTemplateData = <?= json_encode($debug_form_data ?? []) ?>;
+        this.isComposite = <?= json_encode($is_composite ?? false) ?>;
+        this.sectionManagerInitialized = false;
+        this.init();
+    }
 
-if (typeof window.QuickManageForm === 'undefined') {
-    window.QuickManageForm = class QuickManageForm {
-        constructor() {
-            this.editors = [];
-            this.templateId = <?= !empty($row->id) ? $row->id : 'null' ?>;
-            this.isInitialized = false;
-            this.ckeditorReady = false;
-            this.fallbackEditors = new Map();
-            this.editorPromises = [];
-            this.currentTemplateData = <?= json_encode($debug_form_data ?? []) ?>;
-            this.isComposite = <?= json_encode($is_composite ?? false) ?>;
-            this.init();
+    init() {
+        console.log('=== QUICK MANAGE FORM LOADED FOR TEMPLATE:', this.templateId, '===');
+        console.log('Template data count:', Object.keys(this.currentTemplateData).length);
+        console.log('Is Composite:', this.isComposite);
+
+        window.quickManageInitialized = true;
+
+        if (window.quickManageApp) {
+            console.log('Clearing previous QuickManageForm instance');
+            window.quickManageApp.destroy();
         }
+        window.quickManageApp = this;
 
-        init() {
-            console.log('Raw currentTemplateData from embed:', JSON.stringify(this.currentTemplateData, null,
-                2)); // CONFIRM EMBEDDED JSON
+        this.initializeForm();
+    }
 
-            console.log('=== QUICK MANAGE FORM LOADED FOR TEMPLATE:', this.templateId, '===');
-            console.log('Template data count:', Object.keys(this.currentTemplateData).length);
-            console.log('Is Composite:', this.isComposite);
+    async initializeForm() {
+        try {
+            // SYNC CSRF TOKEN FIRST - THIS IS CRITICAL!
+            await this.syncCSRFToken();
 
-            window.quickManageInitialized = true;
+            this.cleanupForm();
+            this.styleSectionHeaders();
+            this.setupEventHandlers();
 
-            if (window.quickManageApp) {
-                console.log('Clearing previous QuickManageForm instance');
-                window.quickManageApp.destroy();
-            }
-            window.quickManageApp = this;
-
-            this.initializeForm();
-        }
-
-        async initializeForm() {
-            try {
-                this.cleanupForm();
-                this.styleSectionHeaders();
-                this.setupEventHandlers();
-                if (this.isComposite) {
-                    this.setupSectionManager();
-                }
-                await this.initializeWithCKEditor();
-            } catch (error) {
-                console.error('CKEditor v5 initialization failed:', error);
-                await this.initializeWithFallback();
+            if (this.isComposite) {
+                this.setupSectionManager();
             }
 
+            // Set form values
             this.setFormValues();
-            $('#editor-status').text('Ready - Template: ' + this.templateId);
+
+            // Initialize editors
+            await this.initializeEditors();
+
+            $('#editor-status').text('Ready');
             this.isInitialized = true;
-            this.debugFormState('FINAL INIT COMPLETE');
+
+        } catch (error) {
+            console.error('Form initialization error:', error);
+        }
+    }
+
+    async initializeEditors() {
+        console.log('Initializing editors...');
+
+        // Try to load CKEditor if not available
+        if (typeof ClassicEditor === 'undefined') {
+            console.log('CKEditor not available, trying to load...');
+            await this.loadCKEditor();
         }
 
-        setupSectionManager() {
-            console.log('Setting up section manager for composite template:', this.templateId);
-
-            // Handle Add Section button
-            $('#add-section-btn').off('click.sectionmgr').on('click.sectionmgr', () => {
-                console.log('Add section button clicked');
-                $('#addSectionModal').appendTo('body').css('z-index', '1060').modal('show');
-                this.loadAvailableSections();
-            });
-
-            // Handle confirm add
-            $('#confirm-add-section').off('click.sectionmgr').on('click.sectionmgr', () => {
-                const sectionId = $('#section-select').val();
-                if (!sectionId) {
-                    this.showMessage('Please select a section', 'error');
-                    return;
-                }
-                this.addSection(sectionId);
-            });
-
-            // Enable/disable confirm button based on selection
-            $('#section-select').off('change.sectionmgr').on('change.sectionmgr', (e) => {
-                const val = $(e.target).val();
-                $('#confirm-add-section').prop('disabled', !val);
-            });
-
-            // In setupSectionManager(), update the delete button click handler:
-            $(document).off('click', '.delete-section').on('click', '.delete-section', (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                e.stopImmediatePropagation(); // Prevent any other handlers
-
-                const $btn = $(e.currentTarget);
-                if ($btn.prop('disabled')) {
-                    console.log('Delete button disabled - skipping');
-                    return;
-                }
-
-                const sectionId = $btn.data('section-id');
-                const sectionName = $btn.closest('.composite-section').find('h5').text().trim();
-
-                // Populate modal message with section name
-                $('#delete-section-message').html(
-                    `Are you sure you want to delete the section "<strong>${sectionName}</strong>"? This action cannot be
-            undone and will remove all associated form data for this section.`
-                );
-                $('#confirm-delete-section').data('section-id', sectionId).prop('disabled',
-                    false); // ENABLE THE BUTTON HERE
-
-                // Show modal (append to body for z-index, similar to CRUD_Controller AJAX handling)
-                $('#deleteSectionModal').appendTo('body').css({
-                    'z-index': '1060',
-                    'pointer-events': 'auto'
-                }).modal('show');
-
-                // Force focus to modal for accessibility (avoids aria-hidden issues)
-                $('#deleteSectionModal').on('shown.bs.modal', () => {
-                    $('#deleteSectionModal .btn-secondary').focus();
-                });
-            });
-
-            // Handle confirm delete (unchanged)
-            $('#confirm-delete-section').off('click.deletemgr').on('click.deletemgr', (e) => {
-                const sectionId = $(e.currentTarget).data('section-id');
-                if (!sectionId) {
-                    this.showMessage('No section selected for deletion', 'error');
-                    return;
-                }
-                $('#deleteSectionModal').modal('hide');
-                this.removeSection(sectionId);
-            });
-
-            // Close modal handlers (update to ensure re-disable)
-            $('#deleteSectionModal').off('hidden.bs.modal').on('hidden.bs.modal', () => {
-                $('#confirm-delete-section').removeData('section-id').prop('disabled', true);
-                // Re-append to original container if desired (or leave in body)
-                $('#deleteSectionModal').appendTo('.section-manager');
-            });
-
-            // Close modal handlers
-            $('#addSectionModal').off('hidden.bs.modal').on('hidden.bs.modal', () => {
-                $('#section-select').val('');
-                $('#confirm-add-section').prop('disabled', true);
-                // Re-append to original container if desired (or leave in body)
-                $('#addSectionModal').appendTo('.section-manager');
-            });
-
-            $('#deleteSectionModal').off('hidden.bs.modal').on('hidden.bs.modal', () => {
-                $('#confirm-delete-section').removeData('section-id').prop('disabled', true);
-                // Re-append to original container if desired (or leave in body)
-                $('#deleteSectionModal').appendTo('.section-manager');
-            });
-
-            // After setup, ensure all delete buttons are enabled and clickable
-            this.enableDeleteButtons();
+        // If CKEditor is available, use it
+        if (typeof ClassicEditor !== 'undefined' && typeof ClassicEditor.create === 'function') {
+            await this.initializeCKEditors();
+        } else {
+            console.log('CKEditor not available, using textareas as-is');
+            // Just show the textareas
+            $('textarea[id^="ckeditor_"]').show();
         }
+    }
 
-        async loadAvailableSections() {
-            console.log('Loading available sections for template:', this.templateId);
-            try {
-                const response = await fetch(
-                    `<?= site_url('agency/templates/get_available_sections_for_template/') ?>${this.templateId}`, {
-                        headers: {
-                            'X-Requested-With': 'XMLHttpRequest'
-                        }
-                    });
-                if (!response.ok) throw new Error('Failed to fetch sections');
-                const data = await response.json();
-                if (!data.success) throw new Error(data.error || 'Unknown error');
+    loadCKEditor() {
+        return new Promise((resolve, reject) => {
+            console.log('Loading CKEditor v5...');
 
-                const select = $('#section-select');
-                select.empty().append('<option value="">Select a section...</option>');
-                data.sections.forEach(section => {
-                    select.append(
-                        `<option value="${section.id}">${section.name || 'Unnamed Section'} (${section.section_type || 'General'})</option>`
-                    );
-                });
-
-                // Enable button immediately if sections loaded (user can still change selection)
-                if (data.sections.length > 0) {
-                    $('#confirm-add-section').prop('disabled', false);
-                } else {
-                    $('#confirm-add-section').prop('disabled', true);
-                }
-
-                console.log(`Loaded ${data.sections.length} available sections`);
-            } catch (error) {
-                console.error('Failed to load available sections:', error);
-                this.showMessage('Failed to load sections: ' + error.message, 'error');
-                $('#section-select').html('<option value="">Error loading sections</option>');
-                $('#confirm-add-section').prop('disabled', true);
-            }
-        }
-
-        async addSection(sectionId) {
-            console.log('Adding section ID', sectionId, 'to template:', this.templateId);
-            try {
-                const formData = new FormData();
-                formData.append('section_id', sectionId);
-
-                const response = await fetch(
-                    `<?= site_url('agency/templates/add_section_to_template/') ?>${this.templateId}`, {
-                        method: 'POST',
-                        body: formData,
-                        headers: {
-                            'X-Requested-With': 'XMLHttpRequest'
-                        }
-                    });
-
-                if (!response.ok) throw new Error('HTTP ' + response.status);
-                const data = await response.json();
-
-                if (data.success) {
-                    console.log('Section added successfully');
-                    $('#addSectionModal').modal('hide');
-                    this.showMessage(data.message || 'Section added successfully', 'success');
-                    await this.refreshQuickManage();
-                } else {
-                    throw new Error(data.error || 'Unknown error');
-                }
-            } catch (error) {
-                console.error('Failed to add section:', error);
-                this.showMessage('Failed to add section: ' + error.message, 'error');
-            }
-        }
-
-        async removeSection(sectionId) {
-            console.log('Removing section ID', sectionId, 'from template:', this.templateId);
-            try {
-                const formData = new FormData();
-                formData.append('section_id', sectionId);
-
-                const response = await fetch(
-                    `<?= site_url('agency/templates/remove_section_from_template/') ?>${this.templateId}`, {
-                        method: 'POST',
-                        body: formData,
-                        headers: {
-                            'X-Requested-With': 'XMLHttpRequest'
-                        }
-                    });
-
-                if (!response.ok) throw new Error('HTTP ' + response.status);
-                const data = await response.json();
-
-                if (data.success) {
-                    console.log('Section removed successfully');
-                    this.showMessage(data.message || 'Section removed successfully', 'success');
-                    await this.refreshQuickManage();
-                } else {
-                    throw new Error(data.error || 'Unknown error');
-                }
-            } catch (error) {
-                console.error('Failed to remove section:', error);
-                this.showMessage('Failed to remove section: ' + error.message, 'error');
-            }
-        }
-
-        async refreshQuickManage() {
-            console.log('Refreshing quick manage for template:', this.templateId);
-            try {
-                const cacheBuster = 't=' + new Date().getTime();
-                const url =
-                    `<?= site_url('agency/templates/ajax_quick_manage/') ?>${this.templateId}?${cacheBuster}`;
-                const response = await fetch(url);
-                if (!response.ok) throw new Error('Failed to fetch updated content');
-                const html = await response.text();
-
-                // Parse new HTML and replace the form container
-                const $newDoc = $('<div>').html(html);
-                const $newFormContainer = $newDoc.find('.quick-manage-form-container');
-                $('.quick-manage-form-container').html($newFormContainer.html());
-
-                // Re-initialize the form (destroy old, create new)
-                if (window.quickManageApp) {
-                    window.quickManageApp.destroy();
-                }
-                window.quickManageApp = new window.QuickManageForm();
-
-                // Wait a tick for DOM updates, then enable buttons
-                setTimeout(() => {
-                    if (window.quickManageApp && window.quickManageApp.enableDeleteButtons) {
-                        window.quickManageApp.enableDeleteButtons();
-                    }
-                }, 500); // Adjust if needed based on CKEditor load time
-
-                console.log('Quick manage refreshed successfully');
-            } catch (error) {
-                console.error('Failed to refresh quick manage:', error);
-                this.showMessage('Failed to refresh form. Please reload.', 'error');
-            }
-        }
-
-        enableDeleteButtons() {
-            $('.delete-section').each((i, btn) => {
-                const $btn = $(btn);
-                $btn.prop('disabled', false)
-                    .css({
-                        'pointer-events': 'auto',
-                        'opacity': '1',
-                        'cursor': 'pointer'
-                    })
-                    .removeAttr('aria-disabled');
-                console.log(`Enabled delete button for section: ${$btn.data('section-id')}`);
-            });
-        }
-
-        async initializeWithCKEditor() {
-            console.log('Attempting CKEditor v5 initialization...');
-
-            if (typeof ClassicEditor === 'undefined') {
-                await this.loadCKEditor();
+            if (document.querySelector('script[src*="ckeditor5"]')) {
+                console.log('CKEditor script already in DOM');
+                this.waitForCKEditor(resolve, reject);
+                return;
             }
 
-            await this.initializeAllCKEditors();
-            this.ckeditorReady = true;
-            console.log('CKEditor v5 initialized successfully');
-        }
-
-        async initializeWithFallback() {
-            console.log('Using fallback editor initialization...');
-            await new Promise(resolve => setTimeout(resolve, 200));
-            this.initializeFallbackEditors();
-            console.log('Fallback editors initialized');
-        }
-
-        loadCKEditor() {
-            return new Promise((resolve, reject) => {
-                console.log('Loading CKEditor v5...');
-
-                if (document.querySelector('script[src*="ckeditor5"]')) {
-                    console.log('CKEditor script already in DOM, waiting for load...');
-                    this.waitForCKEditor(resolve, reject);
-                    return;
-                }
-
-                const ckeditorPaths = [
-                    '<?= base_url() ?>assets/ckeditor5/build/ckeditor.js',
-                    '<?= base_url() ?>assets/js/ckeditor5/ckeditor.js',
-                    'https://cdn.ckeditor.com/ckeditor5/41.4.2/classic/ckeditor.js'
-                ];
-
-                let attempts = 0;
-                const tryLoadCKEditor = (index) => {
-                    if (index >= ckeditorPaths.length) {
-                        console.error('All CKEditor paths failed');
-                        reject(new Error('All CKEditor v5 paths failed'));
-                        return;
-                    }
-
-                    const scriptUrl = ckeditorPaths[index];
-                    console.log('Trying CKEditor path:', scriptUrl);
-
-                    const script = document.createElement('script');
-                    script.src = scriptUrl;
-                    script.onload = () => {
-                        console.log('CKEditor script loaded successfully from:', scriptUrl);
-                        this.waitForCKEditor(resolve, reject);
-                    };
-                    script.onerror = () => {
-                        console.error('Failed to load CKEditor from:', scriptUrl);
-                        tryLoadCKEditor(index + 1);
-                    };
-
-                    document.head.appendChild(script);
-                };
-
-                tryLoadCKEditor(0);
-            });
-        }
-
-        waitForCKEditor(resolve, reject) {
-            let attempts = 0;
-            const maxAttempts = 100;
-            const interval = 100;
-
-            const checkCKEditor = () => {
-                attempts++;
-                if (typeof ClassicEditor !== 'undefined' && typeof ClassicEditor.create === 'function') {
-                    console.log('CKEditor v5 fully loaded after', attempts * interval, 'ms');
-                    resolve();
-                } else if (attempts >= maxAttempts) {
-                    console.error('CKEditor v5 timeout - ClassicEditor still not available');
-                    reject(new Error('CKEditor v5 timeout'));
-                } else {
-                    setTimeout(checkCKEditor, interval);
-                }
-            };
-            checkCKEditor();
-        }
-
-        initializeAllCKEditors() {
-            return new Promise((resolve, reject) => {
-                if (typeof ClassicEditor === 'undefined') {
-                    console.log('ClassicEditor not available, rejecting...');
-                    reject(new Error('ClassicEditor not available'));
-                    return;
-                }
-
-                console.log('Initializing CKEditor v5 instances...');
-                const textareas = $('textarea[id^="ckeditor_"]');
-                console.log('Found CKEditor textareas:', textareas.length);
-
-                if (textareas.length === 0) {
-                    console.log('No CKEditor textareas found');
-                    resolve();
-                    return;
-                }
-
-                let initialized = 0;
-                const total = textareas.length;
-                const initializationErrors = [];
-
-                textareas.each((index, textarea) => {
-                    const $textarea = $(textarea);
-                    const textareaId = $textarea.attr('id');
-
-                    if (!textareaId) {
-                        initialized++;
-                        if (initialized === total) {
-                            if (initializationErrors.length > 0) {
-                                reject(new Error('CKEditor initialization errors: ' +
-                                    initializationErrors.join(', ')));
-                            } else {
-                                resolve();
-                            }
-                        }
-                        return;
-                    }
-
-                    if (this.editors.find(e => e.id === textareaId)) {
-                        console.log('CKEditor already initialized for:', textareaId);
-                        initialized++;
-                        if (initialized === total) {
-                            if (initializationErrors.length > 0) {
-                                reject(new Error('CKEditor initialization errors: ' +
-                                    initializationErrors.join(', ')));
-                            } else {
-                                resolve();
-                            }
-                        }
-                        return;
-                    }
-
-                    console.log('Creating CKEditor for:', textareaId);
-
-                    ClassicEditor
-                        .create(textarea, {
-                            toolbar: {
-                                items: [
-                                    'bold', 'italic', 'underline',
-                                    '|',
-                                    'bulletedList', 'numberedList',
-                                    '|',
-                                    'link',
-                                    '|',
-                                    'removeFormat'
-                                ]
-                            },
-                            height: 200,
-                            removePlugins: [
-                                'MediaEmbedToolbar'
-                            ]
-                        })
-                        .then(editor => {
-                            console.log('CKEditor successfully created for:', textareaId);
-
-                            this.editors.push({
-                                id: textareaId,
-                                editor: editor
-                            });
-
-                            editor.model.document.on('change:data', () => {
-                                const data = editor.getData();
-                                const sourceElement = editor.sourceElement;
-                                if (sourceElement) {
-                                    sourceElement.value = data;
-                                }
-                            });
-
-                            initialized++;
-                            console.log(`CKEditor ${initialized}/${total} initialized:`,
-                                textareaId);
-
-                            if (initialized === total) {
-                                if (initializationErrors.length > 0) {
-                                    reject(new Error('CKEditor initialization errors: ' +
-                                        initializationErrors.join(', ')));
-                                } else {
-                                    resolve();
-                                }
-                            }
-                        })
-                        .catch(error => {
-                            console.error('CKEditor init failed for ' + textareaId + ':',
-                                error);
-                            initializationErrors.push(textareaId + ': ' + error.message);
-                            initialized++;
-
-                            if (initialized === total) {
-                                if (initializationErrors.length > 0) {
-                                    reject(new Error('CKEditor initialization errors: ' +
-                                        initializationErrors.join(', ')));
-                                } else {
-                                    resolve();
-                                }
-                            }
-                        });
-                });
-            });
-        }
-
-        initializeFallbackEditors() {
-            console.log('Initializing fallback editors...');
-            this.destroyFallbackEditors();
-
-            $('textarea[id^="ckeditor_"]').each((index, textarea) => {
-                const $textarea = $(textarea);
-                const textareaId = $textarea.attr('id');
-
-                if (!textareaId || this.fallbackEditors.has(textareaId)) return;
-
-                this.createFallbackEditor($textarea);
-            });
-
-            console.log('Fallback editors initialized for', this.fallbackEditors.size, 'textareas');
-        }
-
-        createFallbackEditor($textarea) {
-            const textareaId = $textarea.attr('id');
-            const originalValue = $textarea.val() || '';
-
-            const editorContainer = $('<div class="fallback-editor-container mb-3"></div>');
-            const toolbar = $('<div class="fallback-editor-toolbar mb-2"></div>');
-            const editor = $('<div class="fallback-editor" contenteditable="true"></div>');
-
-            const buttons = [{
-                    label: '<strong>B</strong>',
-                    command: 'bold',
-                    class: 'btn btn-sm btn-outline-secondary'
-                },
-                {
-                    label: '<em>I</em>',
-                    command: 'italic',
-                    class: 'btn btn-sm btn-outline-secondary'
-                },
-                {
-                    label: '<u>U</u>',
-                    command: 'underline',
-                    class: 'btn btn-sm btn-outline-secondary'
-                },
-                {
-                    label: '• List',
-                    command: 'insertUnorderedList',
-                    class: 'btn btn-sm btn-outline-secondary'
-                },
-                {
-                    label: '1. List',
-                    command: 'insertOrderedList',
-                    class: 'btn btn-sm btn-outline-secondary'
-                }
+            const ckeditorPaths = [
+                '<?= base_url() ?>assets/ckeditor5/build/ckeditor.js',
+                '<?= base_url() ?>assets/js/ckeditor5/ckeditor.js',
+                'https://cdn.ckeditor.com/ckeditor5/41.4.2/classic/ckeditor.js'
             ];
 
-            buttons.forEach(button => {
-                const btn = $(
-                    `<button type="button" class="${button.class}" data-command="${button.command}">${button.label}</button>`
-                );
-                btn.on('click', (e) => {
-                    e.preventDefault();
-                    document.execCommand(button.command, false, null);
-                    editor.focus();
-                });
-                toolbar.append(btn);
-            });
-
-            editor.html(originalValue);
-            editor.css({
-                'min-height': '200px',
-                'border': '1px solid #ddd',
-                'padding': '10px',
-                'background': 'white',
-                'outline': 'none',
-                'border-radius': '4px'
-            });
-
-            const syncEditor = () => {
-                $textarea.val(editor.html());
-            };
-            editor.on('input blur keyup paste', syncEditor);
-
-            editorContainer.append(toolbar);
-            editorContainer.append(editor);
-            $textarea.hide().after(editorContainer);
-
-            this.fallbackEditors.set(textareaId, {
-                container: editorContainer,
-                original: $textarea,
-                editor: editor
-            });
-
-            console.log('Fallback editor created for:', textareaId);
-        }
-
-        destroy() {
-            console.log('DESTROYING QuickManageForm for Template:', this.templateId);
-
-            this.destroyCKEditors();
-            this.destroyFallbackEditors();
-
-            $('#save-button').off('click.quickmanage');
-            $('#close-button').off('click.quickmanage');
-            $('.close-quick-manage').off('click.quickmanage');
-            $(document).off('keyup.quickmanage');
-            $('#main-form').off('keypress.quickmanage');
-
-            // Clean up section manager
-            if (this.isComposite) {
-                $('#add-section-btn').off('click.sectionmgr');
-                $('#confirm-add-section').off('click.sectionmgr');
-                $('#section-select').off('change.sectionmgr');
-                $('#addSectionModal').off('hidden.bs.modal');
-                $(document).off('click', '.delete-section');
-                $('#confirm-delete-section').off('click.deletemgr');
-                $('#deleteSectionModal').off('hidden.bs.modal');
-            }
-
-            this.currentTemplateData = {};
-            this.isInitialized = false;
-            window.quickManageInitialized = false;
-            this.editorPromises = [];
-
-            console.log('QuickManageForm destroyed for Template:', this.templateId);
-        }
-
-        destroyCKEditors() {
-            console.log('Destroying CKEditor instances:', this.editors.length);
-            this.editors.forEach(({
-                id,
-                editor
-            }) => {
-                if (editor) {
-                    editor.destroy().then(() => {
-                        console.log('CKEditor destroyed:', id);
-                    }).catch(error => {
-                        console.error('Failed to destroy CKEditor:', id, error);
-                    });
-                }
-            });
-            this.editors = [];
-        }
-
-        destroyFallbackEditors() {
-            console.log('Destroying fallback editors:', this.fallbackEditors.size);
-            this.fallbackEditors.forEach((editorData, textareaId) => {
-                try {
-                    editorData.editor.off('input blur keyup paste');
-                    editorData.container.remove();
-                    editorData.original.show();
-                    console.log('Fallback editor destroyed:', textareaId);
-                } catch (e) {
-                    console.error('Failed to destroy fallback editor:', textareaId, e);
-                }
-            });
-            this.fallbackEditors.clear();
-        }
-
-        cleanupForm() {
-            console.log('Cleaning up form for Template:', this.templateId);
-
-            $('#dynamic-form-content form').each(function() {
-                console.log('Removing nested form tag');
-                const $nestedForm = $(this);
-                const formContent = $nestedForm.html();
-                $nestedForm.replaceWith('<div class="dynamic-form-fields">' + formContent + '</div>');
-            });
-
-            $('.dynamic-form-fields .btn-container').remove();
-            $('.dynamic-form-fields .btn-primary').remove();
-        }
-
-        styleSectionHeaders() {
-            console.log('Styling section headers for Template:', this.templateId);
-
-            $('h1:not(.quick-manage-heading h1)').addClass('section-header');
-            $('h2:not(.quick-manage-heading h2)').each(function(index) {
-                if (index % 3 === 0) {
-                    $(this).addClass('section-header');
-                } else if (index % 3 === 1) {
-                    $(this).addClass('section-header-secondary');
-                } else {
-                    $(this).addClass('section-header-tertiary');
-                }
-            });
-
-            $('h3').addClass('form-row-header');
-            $('h4').addClass('field-group-header');
-
-            console.log('Section headers styled');
-        }
-
-        setupEventHandlers() {
-            $('#save-button').off('click.quickmanage').on('click.quickmanage', (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                this.saveForm();
-            });
-
-            $('#close-button').off('click.quickmanage').on('click.quickmanage', (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                this.closeForm();
-            });
-
-            $('.close-quick-manage').off('click.quickmanage').on('click.quickmanage', (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                this.closeForm();
-            });
-
-            $(document).off('keyup.quickmanage').on('keyup.quickmanage', (e) => {
-                if (e.keyCode === 27) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    this.closeForm();
-                }
-            });
-
-            // Updated keypress handler: Only prevent Enter for non-editable elements
-            $('#main-form').off('keypress.quickmanage').on('keypress.quickmanage', (e) => {
-                // Skip if inside CKEditor editable, fallback editor, textarea, or contenteditable
-                const $target = $(e.target);
-                const isInEditor = $target.is('textarea') ||
-                    $target.closest('.ck-editor__editable').length > 0 ||
-                    ($target.is('[contenteditable="true"]') || $target.closest(
-                        '[contenteditable="true"]').length > 0);
-
-                if (!isInEditor && e.keyCode === 13) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                }
-            });
-        }
-
-        debugFormFields() {
-            console.log('=== DEBUG FORM FIELDS ===');
-            const allFields = $(
-                '#dynamic-form-content input, #dynamic-form-content select, #dynamic-form-content textarea');
-            console.log('Total fields found in DOM:', allFields.length);
-
-            allFields.each((index, element) => {
-                const $el = $(element);
-                const name = $el.attr('name');
-                const id = $el.attr('id');
-                const type = $el.attr('type');
-                const value = $el.val();
-
-                console.log(`Field ${index + 1}:`, {
-                    name: name,
-                    id: id,
-                    type: type,
-                    value: value ? value.substring(0, 50) : 'empty'
-                });
-            });
-            console.log('=== END DEBUG ===');
-        }
-
-        setFormValues() {
-            console.log('=== SETTING FORM VALUES for Template:', this.templateId, '===');
-            console.log('Data to set:', JSON.stringify(this.currentTemplateData, null, 2));
-
-            // Wait for DOM to be fully ready
-            setTimeout(() => {
-                // Debug: Check what fields are actually in the DOM
-                this.debugFormFields();
-
-                if (!this.currentTemplateData || Object.keys(this.currentTemplateData).length === 0) {
-                    console.log('No form data to set');
+            let attempts = 0;
+            const tryLoadCKEditor = (index) => {
+                if (index >= ckeditorPaths.length) {
+                    console.log('All CKEditor paths failed, continuing without CKEditor');
+                    resolve(); // Resolve anyway, we'll use textareas
                     return;
                 }
 
-                Object.keys(this.currentTemplateData).forEach(fieldName => {
-                    const fieldValue = this.currentTemplateData[fieldName];
+                const scriptUrl = ckeditorPaths[index];
+                console.log('Trying CKEditor path:', scriptUrl);
 
-                    // Fix: Ensure fieldValue is a string before using substring
-                    const displayValue = typeof fieldValue === 'string' ? fieldValue.substring(
-                        0, 30) : String(fieldValue);
+                const script = document.createElement('script');
+                script.src = scriptUrl;
+                script.onload = () => {
+                    console.log('CKEditor script loaded from:', scriptUrl);
+                    this.waitForCKEditor(resolve, reject);
+                };
+                script.onerror = () => {
+                    console.log('Failed to load CKEditor from:', scriptUrl);
+                    tryLoadCKEditor(index + 1);
+                };
 
-                    console.log('  Pre-set check for ' + fieldName + ': current DOM val = "' +
-                        ($(`[name="${fieldName}"]`).val() || 'NOT FOUND') + '"');
+                document.head.appendChild(script);
+            };
 
-                    this.setFieldValue(fieldName, fieldValue);
+            tryLoadCKEditor(0);
+        });
+    }
 
-                    console.log('  Post-set check for ' + fieldName + ': new DOM val = "' +
-                        ($(`[name="${fieldName}"]`).val() || 'NOT FOUND') + '"');
+    waitForCKEditor(resolve, reject) {
+        let attempts = 0;
+        const maxAttempts = 50;
+        const interval = 100;
+
+        const checkCKEditor = () => {
+            attempts++;
+            if (typeof ClassicEditor !== 'undefined' && typeof ClassicEditor.create === 'function') {
+                console.log('CKEditor v5 fully loaded after', attempts * interval, 'ms');
+                resolve();
+            } else if (attempts >= maxAttempts) {
+                console.log('CKEditor v5 timeout - continuing without it');
+                resolve(); // Resolve anyway
+            } else {
+                setTimeout(checkCKEditor, interval);
+            }
+        };
+        checkCKEditor();
+    }
+
+    async initializeCKEditors() {
+        const textareas = $('textarea[id^="ckeditor_"]');
+        console.log('Found CKEditor textareas:', textareas.length);
+
+        if (textareas.length === 0) {
+            return;
+        }
+
+        for (const textarea of textareas) {
+            const $textarea = $(textarea);
+            const textareaId = $textarea.attr('id');
+
+            try {
+                const editor = await ClassicEditor.create(textarea, {
+                    toolbar: {
+                        items: [
+                            'bold', 'italic', 'underline',
+                            '|',
+                            'bulletedList', 'numberedList',
+                            '|',
+                            'link',
+                            '|',
+                            'removeFormat'
+                        ]
+                    },
+                    height: 200
                 });
 
-                console.log('Form values set for Template:', this.templateId);
-            }, 500);
+                this.editors.push({
+                    id: textareaId,
+                    editor: editor
+                });
+
+                console.log('CKEditor created for:', textareaId);
+
+                // Sync changes back to textarea
+                editor.model.document.on('change:data', () => {
+                    const data = editor.getData();
+                    $textarea.val(data);
+                });
+
+            } catch (error) {
+                console.error('Failed to create CKEditor for', textareaId, error);
+                // Show the textarea
+                $textarea.show();
+            }
         }
 
-        // ✅ UPDATED: Field name conversion method
-        convert_to_form_field_name(stored_name) {
-            // Handle special cases first
-            if (stored_name === 'template_cache_id') {
-                return 'template_cache_id';
-            }
+        this.ckeditorReady = true;
+        console.log('CKEditor initialization complete');
+    }
 
-            // ✅ FIX: Convert mod_job_medical_requirements_* to mod_job_medical_requirements.*
-            if (stored_name.startsWith('mod_job_medical_requirements_')) {
-                const field_part = stored_name.substring('mod_job_medical_requirements_'.length);
-                return 'mod_job_medical_requirements.' + field_part;
-            }
-
-            // Convert mod_jobs_name to mod_jobs.name
-            if (stored_name.startsWith('mod_jobs_')) {
-                const field_part = stored_name.substring('mod_jobs_'.length);
-                return 'mod_jobs.' + field_part;
-            }
-
-            // Convert usr_medical_emergency_details_ to usr_medical_emergency_details.
-            if (stored_name.startsWith('usr_medical_emergency_details_')) {
-                const field_part = stored_name.substring('usr_medical_emergency_details_'.length);
-                return 'usr_medical_emergency_details.' + field_part;
-            }
-
-            // For other fields, return as is
-            return stored_name;
+    setupSectionManager() {
+        $('#deleteSectionModal').modal('dispose').removeData('bs.modal');
+        $('#confirm-delete-section').off('click.deletemgr').removeData('section-id');
+        if (this.sectionManagerInitialized) {
+            console.log('Section manager already initialized, skipping...');
+            return;
+        }
+        this.cleanupDuplicateModals();
+        if (this.sectionManagerInitialized) {
+            console.log('Section manager already initialized, skipping...');
+            return;
         }
 
-        // ✅ UPDATED: setFieldValue with field name conversion
-        setFieldValue(fieldName, fieldValue) {
-            // ✅ FIX: Convert stored field names to form field names
-            let convertedFieldName = this.convert_to_form_field_name(fieldName);
+        console.log('Setting up section manager for composite template:', this.templateId);
 
-            console.log('  Converting field: ' + fieldName + ' -> ' + convertedFieldName);
+        // Clear existing handlers to prevent duplicates
+        $('#add-section-btn').off('click.sectionmgr');
+        $('#confirm-add-section').off('click.sectionmgr');
+        $('#section-select').off('change.sectionmgr');
+        $(document).off('click', '.delete-section');
+        $(document).off('click.deletemgr', '#confirm-delete-section');
 
-            let $field = $(`[name="${convertedFieldName}"]`);
+        // Handle Add Section button
+        // Handle Add Section button
+        $('#add-section-btn').on('click.sectionmgr', async () => {
+            console.log('Add section button clicked');
 
-            // If not found, try with escaped dots (for mod_jobs.name format)
-            if ($field.length === 0 && convertedFieldName.includes('.')) {
-                const escapedName = convertedFieldName.replace(/\./g, '\\.');
-                $field = $(`[name="${escapedName}"]`);
-            }
+            // Show loading state in dropdown
+            const select = $('#section-select');
+            select.empty().html('<option value="">Loading sections...</option>');
+            $('#confirm-add-section').prop('disabled', true);
 
-            // If still not found, try the original field name as fallback
-            if ($field.length === 0) {
-                $field = $(`[name="${fieldName}"]`);
-                console.log('  Trying original field name as fallback: ' + fieldName);
-            }
+            // Load sections FIRST
+            try {
+                await this.loadAvailableSections();
 
-            // If still not found, try by data attribute
-            if ($field.length === 0) {
-                $field = $(`[data-field="${convertedFieldName}"]`);
-            }
+                // Only show modal AFTER sections are loaded
+                $('#addSectionModal').appendTo('body').css('z-index', '1060').modal('show');
 
-            console.log('  Targeting field: found ' + $field.length + ' elements');
-
-            if ($field.length > 0) {
-                let currentVal = $field.val() || '';
-
-                // Handle multi-select fields
-                if ($field.is('select[multiple]')) {
-                    // Convert fieldValue to array if it's a string
-                    let valuesToSet = [];
-                    if (Array.isArray(fieldValue)) {
-                        valuesToSet = fieldValue;
-                    } else if (typeof fieldValue === 'string' && fieldValue.includes(',')) {
-                        valuesToSet = fieldValue.split(',').map(v => v.trim());
-                    } else if (fieldValue) {
-                        valuesToSet = [fieldValue];
+                // Small delay to ensure modal is fully shown
+                setTimeout(() => {
+                    if (select.find('option').length > 1) { // Has sections besides default
+                        $('#confirm-add-section').prop('disabled', false);
                     }
+                }, 100);
 
-                    $field.val(valuesToSet).trigger('change');
-                    console.log('  Setting multi-select for ' + convertedFieldName + ' = ' + valuesToSet.join(
-                        ', '));
-
-                } else {
-                    // Handle single value fields
-                    let currentDisplay = Array.isArray(currentVal) ? currentVal.join(', ') : currentVal;
-                    let fieldDisplay = Array.isArray(fieldValue) ? fieldValue.join(', ') : fieldValue;
-
-                    // Only skip if current value is different AND not empty
-                    if (currentVal && typeof currentVal === 'string' && currentVal.trim() !== '' &&
-                        currentVal.trim() !== String(fieldValue).trim()) {
-                        console.warn('Skipping set for ' + convertedFieldName + ': DOM has "' + currentDisplay
-                            .substring(
-                                0, 30) +
-                            '", JS has "' + (typeof fieldDisplay === 'string' ? fieldDisplay.substring(0,
-                                    30) :
-                                fieldDisplay) + '" – trusting pre-pop');
-                        return; // Skip overwrite
-                    }
-
-                    // If current value is empty or same as what we want to set, proceed
-                    console.log('  Setting plain val for ' + convertedFieldName + ' = ' + (typeof fieldValue ===
-                        'string' ? fieldValue.substring(0, 30) : fieldValue));
-                    $field.val(fieldValue).trigger('change');
-                }
-            } else {
-                console.warn('Field not found:', convertedFieldName);
-                // FALLBACK SEARCH: Log all names for debugging
-                console.log('  All form names:', $('#dynamic-form-content [name]').map((i, el) => $(el).attr(
-                    'name')).get());
+            } catch (error) {
+                console.error('Failed to load sections:', error);
+                select.empty().html('<option value="">Error loading sections</option>');
+                $('#addSectionModal').appendTo('body').css('z-index', '1060').modal('show');
             }
+        });
+
+        // Handle confirm add
+        $('#confirm-add-section').on('click.sectionmgr', () => {
+            const sectionId = $('#section-select').val();
+            if (!sectionId) {
+                this.showMessage('Please select a section', 'error');
+                return;
+            }
+            this.addSection(sectionId);
+        });
+
+        $('#addSectionModal').off('hidden.bs.modal').on('hidden.bs.modal', () => {
+            $('#section-select').val('').empty().html('<option value="">Select a section...</option>');
+
+            // === FIX: Reset button text AND state ===
+            $('#confirm-add-section').prop('disabled', true).html('Add Section');
+
+            $('#addSectionModal').appendTo('.section-manager');
+        });
+
+        // Fix Cancel and X buttons for Add Section modal
+        const addModal = $('#addSectionModal');
+        if (addModal.length) {
+            // Fix X button (btn-close)
+            const addCloseBtn = addModal.find('.btn-close');
+            addCloseBtn.off('click.modal-close').on('click.modal-close', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                addModal.modal('hide');
+            });
+
+            // Fix Cancel button (text says "Cancel")  
+            const addCancelBtn = addModal.find('button').filter(function() {
+                const text = $(this).text().trim().toLowerCase();
+                return text === 'cancel';
+            });
+
+            addCancelBtn.off('click.modal-close').on('click.modal-close', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                addModal.modal('hide');
+            });
         }
 
-        // Add this helper method for direct field setting
-        setFieldValueDirect(fieldName, fieldValue) {
-            let $field = $(`[name="${fieldName}"]`);
-            if ($field.length > 0) {
-                $field.val(fieldValue).trigger('change');
-                console.log('  ✅ Set value directly for ' + fieldName);
+
+        // Delete section handler - using event delegation for dynamically added buttons
+        $(document).on('click', '.delete-section', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+
+            const $btn = $(e.currentTarget);
+            if ($btn.prop('disabled')) {
+                console.log('Delete button disabled - skipping');
+                return;
             }
-        }
 
-        setCKEditorValue(editorId, value) {
-            const editorInstance = this.editors.find(e => e.id === editorId);
-            if (editorInstance && editorInstance.editor) {
-                try {
-                    $(`#${editorId}`).val(value);
-                    editorInstance.editor.setData(value);
-                    console.log('CKEditor value set:', editorId);
-                } catch (e) {
-                    console.error('Failed to set CKEditor value:', editorId, e);
-                }
-            } else {
-                console.warn('CKEditor instance not found for:', editorId);
-            }
-        }
+            const sectionId = $btn.data('section-id');
+            const sectionName = $btn.closest('.composite-section').find('h5').text().trim();
 
-        setFallbackEditorValue(editorId, value) {
-            if (this.fallbackEditors.has(editorId)) {
-                const editorData = this.fallbackEditors.get(editorId);
-                editorData.original.val(value);
-                editorData.editor.html(value);
-                console.log('Fallback editor value set:', editorId);
-            } else {
-                console.warn('Fallback editor not found for:', editorId);
-            }
-        }
-
-        // In your QuickManageForm class, update these methods:
-
-        debugFormState(stage) {
-            console.log(`=== FORM STATE ${stage} for Template ${this.templateId} ===`);
-
-            const elements = $(
-                '#dynamic-form-content input, #dynamic-form-content select, #dynamic-form-content textarea'
+            $('#delete-section-message').html(
+                `Are you sure you want to delete the section "<strong>${sectionName}</strong>"? This action cannot be undone and will remove all associated form data for this section.`
             );
-            console.log(`Total form elements: ${elements.length}`);
+            $('#confirm-delete-section').data('section-id', sectionId).prop('disabled', false);
 
-            elements.each((index, element) => {
-                const $el = $(element);
-                if ($el.attr('name')) {
-                    let value = $el.val();
-                    // Handle multi-select arrays
-                    if (Array.isArray(value)) {
-                        value = value.join(', ');
-                    } else if (typeof value === 'string') {
-                        value = value.substring(0, 50);
+            $('#deleteSectionModal').appendTo('body').css({
+                'z-index': '1060',
+                'pointer-events': 'auto'
+            }).modal('show');
+        });
+
+        // Handle confirm delete
+        $(document).on('click.deletemgr', '#confirm-delete-section', (e) => {
+            const sectionId = $(e.currentTarget).data('section-id');
+            if (!sectionId) {
+                this.showMessage('No section selected for deletion', 'error');
+                return;
+            }
+            $('#deleteSectionModal').modal('hide');
+            this.removeSection(sectionId);
+        });
+
+        $('#addSectionModal').off('hidden.bs.modal').on('hidden.bs.modal', () => {
+            $('#section-select').val('').empty().html('<option value="">Select a section...</option>');
+
+            // === FIX: Reset button text AND state ===
+            $('#confirm-add-section').prop('disabled', true).html('Add Section');
+
+            $('#addSectionModal').appendTo('.section-manager');
+        });
+
+        $('#deleteSectionModal').off('hidden.bs.modal').on('hidden.bs.modal', () => {
+            $('#confirm-delete-section').removeData('section-id').prop('disabled', true);
+            $('#deleteSectionModal').appendTo('.section-manager');
+        });
+
+        // Fix Cancel and X buttons with direct click handlers
+        const deleteModal = $('#deleteSectionModal');
+        if (deleteModal.length) {
+            // Fix X button (btn-close)
+            const closeBtn = deleteModal.find('.btn-close');
+            closeBtn.off('click.modal-close').on('click.modal-close', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                deleteModal.modal('hide');
+            });
+
+            // Fix Cancel button (text says "Cancel")  
+            const cancelBtn = deleteModal.find('button').filter(function() {
+                const text = $(this).text().trim().toLowerCase();
+                return text === 'cancel';
+            });
+
+            cancelBtn.off('click.modal-close').on('click.modal-close', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                deleteModal.modal('hide');
+            });
+        }
+
+        // Enable delete buttons
+        this.enableDeleteButtons();
+
+        // Enable delete buttons
+        this.enableDeleteButtons();
+
+        this.sectionManagerInitialized = true;
+
+
+        // Ensure proper z-index
+
+        $('#deleteSectionModal').css('z-index', '1060');
+        $('.modal-backdrop').css('z-index', '1055');
+        console.log('Section manager setup complete');
+    }
+    cleanupDuplicateModals() {
+        // Remove any duplicate modals
+        const modals = $('[id="addSectionModal"]');
+        if (modals.length > 1) {
+            console.log(`Cleaning up ${modals.length - 1} duplicate modals`);
+            // Keep the first one, remove the rest
+            modals.slice(1).remove();
+        }
+
+        // Also clean up duplicate backdrops
+        const backdrops = $('.modal-backdrop');
+        if (backdrops.length > 1) {
+            backdrops.slice(1).remove();
+        }
+    }
+    async loadAvailableSections() {
+        console.log('Loading available sections for template:', this.templateId);
+        try {
+            // Clear existing options first
+            const select = $('#section-select');
+            select.empty().html('<option value="">Select a section...</option>');
+            $('#confirm-add-section').prop('disabled', true);
+
+            const response = await fetch(
+                `<?= site_url('agency/templates/get_available_sections_for_template/') ?>${this.templateId}`, {
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'
                     }
-                    console.log(`Field ${index + 1}:`, $el.attr('name'), '=', value);
+                });
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.error('Server response not OK:', response.status, errorText);
+                throw new Error(`Server returned ${response.status}: ${errorText.substring(0, 100)}`);
+            }
+
+            const data = await response.json();
+            console.log('Sections data received:', data);
+
+            if (!data.success) {
+                throw new Error(data.error || 'Server returned unsuccessful response');
+            }
+
+            if (!data.sections || !Array.isArray(data.sections)) {
+                console.error('Invalid sections data:', data);
+                throw new Error('Invalid sections data format');
+            }
+
+            // Add sections to dropdown
+            data.sections.forEach(section => {
+                if (section && section.id && section.name) {
+                    const option = $('<option>', {
+                        value: section.id,
+                        text: `${section.name} (${section.section_type || 'General'})`
+                    });
+                    select.append(option);
+                } else {
+                    console.warn('Invalid section object:', section);
                 }
             });
 
-            console.log('CKEditor instances:', this.editors.length);
-            console.log('Fallback editors:', Array.from(this.fallbackEditors.keys()));
-            console.log('=== END FORM STATE ===');
+            if (data.sections.length > 0) {
+                // === CRITICAL FIX: Wrap everything in setTimeout ===
+                setTimeout(() => {
+                    // === FIX 1: AUTO-SELECT FIRST OPTION ===
+                    const firstSectionId = data.sections[0].id;
+                    select.val(firstSectionId);
+
+                    // === FIX 2: RE-ATTACH CHANGE HANDLER ===
+                    select.off('change.sectionmgr').on('change.sectionmgr', (e) => {
+                        const val = $(e.target).val();
+                        console.log('Dropdown changed to:', val);
+                        $('#confirm-add-section').prop('disabled', !val);
+                    });
+
+                    // === FIX 3: ENABLE BUTTON (since we have a selection) ===
+                    $('#confirm-add-section').prop('disabled', false);
+
+                    console.log(`✓ Loaded ${data.sections.length} available sections into dropdown`);
+                    console.log(`✓ Auto-selected first section: ${firstSectionId}`);
+                    console.log(`✓ Button should be enabled`);
+
+                    // Force the dropdown to update visually
+                    select.trigger('change');
+
+                    // Debug: Check what's actually in the dropdown
+                    console.log('Dropdown options count:', select.find('option').length);
+                    console.log('Dropdown value after auto-select:', select.val());
+                    console.log('Confirm button disabled:', $('#confirm-add-section').prop('disabled'));
+                }, 100); // ← 100ms delay for DOM to update
+
+                return true;
+            } else {
+                console.log('No sections available to add');
+                select.append('<option value="">No sections available</option>');
+                return false;
+            }
+
+        } catch (error) {
+            console.error('Failed to load available sections:', error);
+            this.showMessage('Failed to load sections: ' + error.message, 'error');
+
+            const select = $('#section-select');
+            select.empty().html('<option value="">Error loading sections</option>');
+            $('#confirm-add-section').prop('disabled', true);
+            throw error;
         }
+    }
 
-        debugFormFields() {
-            console.log('=== DEBUG FORM FIELDS ===');
-            const allFields = $(
-                '#dynamic-form-content input, #dynamic-form-content select, #dynamic-form-content textarea'
-            );
-            console.log('Total fields found in DOM:', allFields.length);
+    async syncCSRFToken() {
+        try {
+            console.log('Syncing CSRF token with server...');
 
-            allFields.each((index, element) => {
-                const $el = $(element);
-                const name = $el.attr('name');
-                const id = $el.attr('id');
-                const type = $el.attr('type');
-                let value = $el.val();
+            // Get current token from server
+            const response = await fetch('<?= site_url("agency/templates/test_csrf_debug") ?>');
+            const data = await response.json();
 
-                // Handle multi-select arrays and other non-string values
-                let displayValue;
-                if (Array.isArray(value)) {
-                    displayValue = value.join(', ');
-                } else if (value && typeof value === 'string') {
-                    displayValue = value.substring(0, 50);
-                } else if (value === null || value === undefined) {
-                    displayValue = 'empty';
-                } else {
-                    displayValue = String(value);
-                }
+            // Update ALL CSRF inputs with the server's token
+            $(`input[name="${data.csrf_name}"]`).val(data.csrf_hash);
 
-                console.log(`Field ${index + 1}:`, {
-                    name: name,
-                    id: id,
-                    type: type,
-                    value: displayValue
-                });
+            // Also update meta tags if they exist
+            document.querySelectorAll('meta[name="csrf-token"]').forEach(meta => {
+                meta.setAttribute('content', data.csrf_hash);
             });
-            console.log('=== END DEBUG ===');
+
+            console.log('CSRF token synced:', data.csrf_hash.substring(0, 20) + '...');
+            return data.csrf_hash;
+
+        } catch (error) {
+            console.error('CSRF sync failed:', error);
+            return null;
+        }
+    }
+    cleanupModalState() {
+        console.log('Cleaning up modal state...');
+        // Remove ALL extra backdrops
+        const backdrops = document.querySelectorAll('.modal-backdrop');
+        if (backdrops.length > 1) {
+            for (let i = 1; i < backdrops.length; i++) {
+                backdrops[i].remove();
+            }
         }
 
-        saveForm() {
-            console.log('SAVE BUTTON CLICKED FOR TEMPLATE:', this.templateId);
-            console.log('=== SAVE FORM DEBUG ===');
-            console.log('Template ID:', this.templateId);
-            console.log('Current URL:', window.location.href);
-            console.log('Session check URL:', '<?= site_url("agency/templates/debug_session") ?>');
-            // Check if we have a session cookie
-            console.log('Cookies:', document.cookie);
+        // Force remove Bootstrap modal backdrop
+        $('.modal-backdrop').remove();
 
-            this.syncAllEditors();
+        // Remove modal-open class from body
+        $('body').removeClass('modal-open');
+
+        // Reset body overflow and padding
+        $('body').css({
+            'overflow': '',
+            'padding-right': ''
+        });
+
+        // Force hide all modals
+        $('.modal').each(function() {
+            $(this).removeClass('show');
+            $(this).css('display', 'none');
+            $(this).attr('aria-hidden', 'true');
+        });
+
+        // If Bootstrap modal instances exist, hide them properly
+        $('.modal').modal('hide');
+
+        console.log('Modal state cleaned up');
+    }
+    async addSection(sectionId) {
+        console.log('Adding section ID', sectionId, 'to template:', this.templateId);
+        try {
+            // ENSURE CSRF IS SYNCED BEFORE MAKING REQUEST
+            const csrfToken = await this.syncCSRFToken();
+            if (!csrfToken) {
+                throw new Error('Failed to sync CSRF token');
+            }
+
+            const csrfName = 'csrf_rfid_token';
+
+            // Disable button to prevent duplicate clicks
+            $('#confirm-add-section').prop('disabled', true).html(
+                '<i class="fa fa-spinner fa-spin"></i> Adding...');
 
             const formData = new FormData();
-            let fieldCount = 0;
+            formData.append('section_id', sectionId);
+            formData.append(csrfName, csrfToken);
 
+            const response = await fetch(
+                `<?= site_url('agency/templates/add_section_to_template/') ?>${this.templateId}`, {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                });
 
-            $('#dynamic-form-content input, #dynamic-form-content select, #dynamic-form-content textarea').each(
-                (index, element) => {
-                    const $field = $(element);
-                    const name = $field.attr('name');
-                    let value = $field.val();
+            console.log('Response status:', response.status);
 
-                    if (name && value !== undefined) {
-                        formData.append(name, value);
+            // Check for 403/CSRF errors first
+            if (response.status === 403) {
+                throw new Error('CSRF token expired. Please refresh the page.');
+            }
+
+            const responseText = await response.text();
+            let responseData;
+
+            try {
+                responseData = JSON.parse(responseText);
+            } catch (e) {
+                console.error('Failed to parse JSON:', e);
+                console.error('Raw response:', responseText.substring(0, 200));
+                throw new Error('Invalid server response');
+            }
+
+            // Update CSRF token if returned (the server might send a new one)
+            if (responseData.csrf) {
+                this.updateCSRFToken(responseData.csrf);
+            }
+
+            if (responseData.success) {
+                console.log('Section added successfully');
+
+                // CRITICAL FIX: Clean up modal state BEFORE anything else
+                this.cleanupModalState();
+
+                // Close modal
+                $('#addSectionModal').modal('hide');
+
+                // Reset modal state
+                setTimeout(() => {
+                    $('#section-select').val('').trigger('change');
+                    $('#confirm-add-section').prop('disabled', true).html('Add Section');
+                }, 300);
+
+                this.showMessage(responseData.message || 'Section added successfully', 'success');
+
+                // Refresh the form to show new section
+                await this.refreshQuickManage();
+
+            } else {
+                // Reset button on server error
+                $('#confirm-add-section').prop('disabled', false).html('Add Section');
+                throw new Error(responseData.error || 'Unknown error');
+            }
+        } catch (error) {
+            console.error('Failed to add section:', error);
+            this.showMessage('Failed to add section: ' + error.message, 'error');
+
+            // ALWAYS reset button on any error
+            $('#confirm-add-section').prop('disabled', false).html('Add Section');
+        }
+    }
+
+    async removeSection(sectionId) {
+        console.log('Removing section ID', sectionId, 'from template:', this.templateId);
+        try {
+            // ENSURE CSRF IS SYNCED
+            const csrfToken = await this.syncCSRFToken();
+            if (!csrfToken) {
+                throw new Error('Failed to sync CSRF token');
+            }
+
+            const csrfName = 'csrf_rfid_token';
+
+            // Disable delete button to prevent multiple clicks
+            $('#confirm-delete-section').prop('disabled', true).html(
+                '<i class="fa fa-spinner fa-spin"></i> Deleting...');
+
+            const formData = new FormData();
+            formData.append('section_id', sectionId);
+            formData.append(csrfName, csrfToken);
+
+            const response = await fetch(
+                `<?= site_url('agency/templates/remove_section_from_template/') ?>${this.templateId}`, {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                });
+
+            console.log('Response status:', response.status);
+
+            const responseText = await response.text();
+            let responseData;
+
+            try {
+                responseData = JSON.parse(responseText);
+            } catch (e) {
+                console.error('Failed to parse JSON:', e);
+                console.error('Raw response:', responseText.substring(0, 200));
+                throw new Error('Invalid server response');
+            }
+
+            // Update CSRF token if returned
+            if (responseData.csrf) {
+                this.updateCSRFToken(responseData.csrf);
+            }
+
+            if (responseData.success) {
+                console.log('Section removed successfully');
+                this.showMessage(responseData.message || 'Section removed successfully', 'success');
+
+                // Reset button state
+                $('#confirm-delete-section').prop('disabled', false).html('Delete Section');
+
+                // Refresh the form to show updated sections
+                await this.refreshQuickManage();
+            } else {
+                throw new Error(responseData.error || 'Unknown error');
+            }
+        } catch (error) {
+            console.error('Failed to remove section:', error);
+            this.showMessage('Failed to remove section: ' + error.message, 'error');
+            $('#confirm-delete-section').prop('disabled', false).html('Delete Section');
+        }
+    }
+
+    updateCSRFToken(newToken) {
+        if (!newToken) return false;
+
+        console.log('Updating CSRF token to:', newToken.substring(0, 20) + '...');
+
+        // 1. Update meta tag
+        const metaToken = document.querySelector('meta[name="csrf-token"]');
+        if (metaToken) {
+            metaToken.setAttribute('content', newToken);
+            console.log('Updated meta tag');
+        }
+
+        // 2. Update form input (find by name from meta tag)
+        const tokenNameMeta = document.querySelector('meta[name="csrf-token-name"]');
+        if (tokenNameMeta) {
+            const csrfName = tokenNameMeta.getAttribute('content');
+
+            // Update ALL inputs with this name
+            $(`input[name="${csrfName}"]`).each(function() {
+                $(this).val(newToken);
+            });
+
+            console.log(`Updated form inputs with name="${csrfName}"`);
+        }
+
+        // 3. Also update any hidden CSRF inputs that might have different names
+        $('input[type="hidden"]').each(function() {
+            const name = $(this).attr('name');
+            if (name && (name.includes('csrf') || name.includes('token'))) {
+                $(this).val(newToken);
+                console.log(`Also updated input with name="${name}"`);
+            }
+        });
+
+        return true;
+    }
+
+    async refreshQuickManage() {
+        console.log('Refreshing quick manage for template:', this.templateId);
+        try {
+            // CRITICAL FIX: Clean up modal state before refreshing
+            this.cleanupModalState();
+
+            const cacheBuster = 't=' + new Date().getTime();
+            const url =
+                `<?= site_url('agency/templates/ajax_quick_manage/') ?>${this.templateId}?${cacheBuster}`;
+            const response = await fetch(url);
+
+            if (!response.ok) {
+                throw new Error('Failed to fetch updated content');
+            }
+
+            const html = await response.text();
+
+            // Before replacing content, check if there's a new CSRF token in the response
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = html;
+
+            const newMetaToken = tempDiv.querySelector('meta[name="csrf-token"]');
+            if (newMetaToken && newMetaToken.getAttribute('content')) {
+                const newToken = newMetaToken.getAttribute('content');
+                this.updateCSRFToken(newToken);
+                console.log('Updated CSRF token from refreshed content');
+            }
+
+            const $newDoc = $('<div>').html(html);
+            const $newFormContainer = $newDoc.find('.quick-manage-form-container');
+
+            // === CRITICAL FIX: COMPLETELY REPLACE the form container ===
+            $('.quick-manage-form-container').replaceWith($newFormContainer);
+
+            // === FIX: Store templateId BEFORE destroying instance ===
+            const templateId = this.templateId;
+            const isComposite = this.isComposite;
+
+            // === CRITICAL FIX: Destroy OLD instance ===
+            if (window.quickManageApp) {
+                window.quickManageApp.destroy();
+            }
+
+            // Wait for DOM to be ready
+            setTimeout(() => {
+                // === FIX: Create NEW instance instead of using destroyed 'this' ===
+                if (typeof window.QuickManageForm !== 'undefined') {
+                    try {
+                        window.quickManageApp = new window.QuickManageForm();
+
+                        // === FIX: Manually set properties since new instance might not have them ===
+                        window.quickManageApp.templateId = templateId;
+                        window.quickManageApp.isComposite = isComposite;
+
+                        // Force initialize section manager if composite
+                        if (isComposite && window.quickManageApp.setupSectionManager) {
+                            window.quickManageApp.sectionManagerInitialized = false;
+                            window.quickManageApp.setupSectionManager();
+                            window.quickManageApp.enableDeleteButtons();
+                        }
+
+                        console.log('✅ Quick manage COMPLETELY refreshed with NEW instance');
+                    } catch (error) {
+                        console.error('Failed to create new QuickManageForm:', error);
+                    }
+                }
+            }, 100);
+
+        } catch (error) {
+            console.error('Failed to refresh quick manage:', error);
+            this.showMessage('Failed to refresh form. Please reload.', 'error');
+        }
+    }
+
+    enableDeleteButtons() {
+        $('.delete-section').each((i, btn) => {
+            const $btn = $(btn);
+            $btn.prop('disabled', false)
+                .css({
+                    'pointer-events': 'auto',
+                    'opacity': '1',
+                    'cursor': 'pointer'
+                });
+        });
+    }
+
+    cleanupForm() {
+        console.log('Cleaning up form for Template:', this.templateId);
+
+        $('#dynamic-form-content form').each(function() {
+            const $nestedForm = $(this);
+            const formContent = $nestedForm.html();
+            $nestedForm.replaceWith('<div class="dynamic-form-fields">' + formContent + '</div>');
+        });
+
+        $('.dynamic-form-fields .btn-container').remove();
+        $('.dynamic-form-fields .btn-primary').remove();
+    }
+
+    styleSectionHeaders() {
+        $('h1:not(.quick-manage-heading h1)').addClass('section-header');
+        $('h2:not(.quick-manage-heading h2)').each(function(index) {
+            if (index % 3 === 0) {
+                $(this).addClass('section-header');
+            } else if (index % 3 === 1) {
+                $(this).addClass('section-header-secondary');
+            } else {
+                $(this).addClass('section-header-tertiary');
+            }
+        });
+
+        $('h3').addClass('form-row-header');
+        $('h4').addClass('field-group-header');
+    }
+
+    setupEventHandlers() {
+        // Clear existing handlers first
+        $('#save-button').off('click.quickmanage');
+        $('#close-button').off('click.quickmanage');
+        $('.close-quick-manage').off('click.quickmanage');
+        $(document).off('keyup.quickmanage');
+        $('#main-form').off('keypress.quickmanage');
+
+        $('#save-button').on('click.quickmanage', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            this.saveForm();
+        });
+
+        $('#close-button').on('click.quickmanage', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            this.closeForm();
+        });
+
+        $('.close-quick-manage').on('click.quickmanage', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            this.closeForm();
+        });
+
+        $(document).on('keyup.quickmanage', (e) => {
+            if (e.keyCode === 27) {
+                e.preventDefault();
+                e.stopPropagation();
+                this.closeForm();
+            }
+        });
+
+        $('#main-form').on('keypress.quickmanage', (e) => {
+            const $target = $(e.target);
+            const isInEditor = $target.is('textarea') ||
+                $target.closest('.ck-editor__editable').length > 0 ||
+                ($target.is('[contenteditable="true"]') || $target.closest('[contenteditable="true"]')
+                    .length > 0);
+
+            if (!isInEditor && e.keyCode === 13) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+        });
+    }
+
+    setFormValues() {
+        console.log('=== SETTING FORM VALUES ===');
+
+        // Wait a bit for DOM to be ready
+        setTimeout(() => {
+            Object.keys(this.currentTemplateData).forEach(fieldName => {
+                const fieldValue = this.currentTemplateData[fieldName];
+                this.setFieldValue(fieldName, fieldValue);
+            });
+
+            console.log('Form values set');
+        }, 100);
+    }
+
+    convert_to_form_field_name(stored_name) {
+        if (stored_name === 'template_cache_id') {
+            return 'template_cache_id';
+        }
+
+        if (stored_name.startsWith('mod_job_medical_requirements_')) {
+            const field_part = stored_name.substring('mod_job_medical_requirements_'.length);
+            return 'mod_job_medical_requirements.' + field_part;
+        }
+
+        if (stored_name.startsWith('mod_jobs_')) {
+            const field_part = stored_name.substring('mod_jobs_'.length);
+            return 'mod_jobs.' + field_part;
+        }
+
+        if (stored_name.startsWith('usr_medical_emergency_details_')) {
+            const field_part = stored_name.substring('usr_medical_emergency_details_'.length);
+            return 'usr_medical_emergency_details.' + field_part;
+        }
+
+        return stored_name;
+    }
+
+    setFieldValue(fieldName, fieldValue) {
+        let convertedFieldName = this.convert_to_form_field_name(fieldName);
+        let $field = $(`[name="${convertedFieldName}"]`);
+
+        if ($field.length === 0 && convertedFieldName.includes('.')) {
+            const escapedName = convertedFieldName.replace(/\./g, '\\.');
+            $field = $(`[name="${escapedName}"]`);
+        }
+
+        if ($field.length === 0) {
+            $field = $(`[name="${fieldName}"]`);
+        }
+
+        if ($field.length === 0) {
+            $field = $(`[data-field="${convertedFieldName}"]`);
+        }
+
+        if ($field.length > 0) {
+            if ($field.is('select[multiple]')) {
+                let valuesToSet = [];
+                if (Array.isArray(fieldValue)) {
+                    valuesToSet = fieldValue;
+                } else if (typeof fieldValue === 'string' && fieldValue.includes(',')) {
+                    valuesToSet = fieldValue.split(',').map(v => v.trim());
+                } else if (fieldValue) {
+                    valuesToSet = [fieldValue];
+                }
+                $field.val(valuesToSet).trigger('change');
+            } else {
+                $field.val(fieldValue).trigger('change');
+            }
+        }
+    }
+
+    saveForm() {
+        console.log('SAVE BUTTON CLICKED FOR TEMPLATE:', this.templateId);
+
+        // Sync CKEditor values
+        this.editors.forEach(({
+            editor
+        }) => {
+            if (editor) {
+                const data = editor.getData();
+                const sourceElement = editor.sourceElement;
+                if (sourceElement) {
+                    sourceElement.value = data;
+                }
+            }
+        });
+
+        // Collect all form data
+        const formData = {};
+
+        // Get CSRF token from form (after sync)
+        const csrfToken = $('input[name="csrf_rfid_token"]').val();
+        if (csrfToken) {
+            formData['csrf_rfid_token'] = csrfToken;
+        } else {
+            console.error('No CSRF token found');
+            this.showMessage('Security token not found. Please refresh the page.', 'error');
+            return;
+        }
+
+        // Collect from dynamic form content
+        $('#dynamic-form-content input, #dynamic-form-content select, #dynamic-form-content textarea').each((
+            index, element) => {
+            const $field = $(element);
+            const name = $field.attr('name');
+            let value = $field.val();
+
+            if (name && value !== undefined && name !== 'csrf_rfid_token') {
+                if ($field.is('select[multiple]')) {
+                    const selectedValues = $field.val() || [];
+                    if (Array.isArray(selectedValues)) {
+                        formData[name] = selectedValues;
+                    }
+                } else {
+                    formData[name] = value;
+                }
+            }
+        });
+
+        // Add hidden fields
+        $('#main-form input[type="hidden"]').each((index, element) => {
+            const $field = $(element);
+            const name = $field.attr('name');
+            const value = $field.val();
+
+            if (name && value !== undefined && !formData[name] && name !== 'csrf_rfid_token') {
+                formData[name] = value;
+            }
+        });
+
+        console.log('Total fields to submit:', Object.keys(formData).length);
+
+        if (Object.keys(formData).length === 0) {
+            this.showMessage('No data to save!', 'error');
+            return;
+        }
+
+        $('#save-button').prop('disabled', true).html('<i class="fa fa-spinner fa-spin"></i> Saving...');
+
+        const templateId = $('input[name="id"]').val();
+        const cacheBuster = 't=' + new Date().getTime();
+        const url = '<?= site_url("agency/templates/update_ajax/") ?>' + templateId + '?' + cacheBuster;
+
+        $.ajax({
+            url: url,
+            type: 'POST',
+            data: formData,
+            traditional: true,
+            dataType: 'json',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            success: (data) => {
+                // Update CSRF token if returned
+                if (data.csrf) {
+                    this.updateCSRFToken(data.csrf);
+                }
+
+                this.handleSaveResponse(data);
+            },
+            error: (xhr, status, error) => {
+                console.error('Save error:', error, 'Response:', xhr.responseText);
+
+                // Check if it's a CSRF error
+                if (xhr.status === 403 || (xhr.responseText && xhr.responseText.includes('CSRF'))) {
+                    this.showMessage(
+                        'Security token expired. Please refresh the page and try again.',
+                        'error');
+                } else {
+                    this.showMessage('Save failed: ' + (xhr.responseText || error), 'error');
+                }
+
+                $('#save-button').prop('disabled', false).html(
+                    '<i class="fa fa-save"></i> Save Template Data');
+            }
+        });
+    }
+
+    handleSaveResponse(data) {
+        console.log('Save response:', data);
+
+        if (data.success) {
+            this.showMessage(data.message || 'Template data saved successfully!', 'success');
+            $('#save-button').prop('disabled', false).html('<i class="fa fa-save"></i> Save Template Data');
+            this.showSaveAsJobButton();
+        } else {
+            this.showMessage(data.error || 'Failed to save template data', 'error');
+            $('#save-button').prop('disabled', false).html('<i class="fa fa-save"></i> Save Template Data');
+        }
+    }
+
+    showSaveAsJobButton() {
+        const templateId = $('input[name="id"]').val();
+        if (!templateId) return;
+
+        $('#save-as-job-btn').remove();
+
+        const jobButton = `
+            <button type="button" class="btn btn-primary ml-2" id="save-as-job-btn">
+                <i class="fa fa-briefcase"></i> Save as Job Listing
+            </button>
+        `;
+        $('#save-button').after(jobButton);
+
+        $('#save-as-job-btn').on('click', () => this.saveAsJob(templateId));
+    }
+
+    saveAsJob(templateId) {
+        console.log('SAVE AS JOB BUTTON CLICKED FOR TEMPLATE:', templateId);
+
+        // Sync CKEditor values
+        this.editors.forEach(({
+            editor
+        }) => {
+            if (editor) {
+                const data = editor.getData();
+                const sourceElement = editor.sourceElement;
+                if (sourceElement) {
+                    sourceElement.value = data;
+                }
+            }
+        });
+
+        const params = new URLSearchParams();
+        let fieldCount = 0;
+
+        const csrfToken = $('input[name="csrf_rfid_token"]').val();
+        if (csrfToken) {
+            params.append('csrf_rfid_token', csrfToken);
+        }
+
+        $('#dynamic-form-content input, #dynamic-form-content select, #dynamic-form-content textarea').each(
+            (index, element) => {
+                const $field = $(element);
+                const name = $field.attr('name');
+                let value = $field.val();
+
+                if (name && value !== undefined) {
+                    if ($field.is('select[multiple]')) {
+                        const selectedValues = $field.val() || [];
+                        if (Array.isArray(selectedValues)) {
+                            selectedValues.forEach(val => {
+                                params.append(name, val);
+                            });
+                            fieldCount += selectedValues.length;
+                        }
+                    } else {
+                        params.append(name, value);
                         fieldCount++;
                     }
-                });
-
-            $('input[type="hidden"]').each((index, element) => {
-                const $field = $(element);
-                const name = $field.attr('name');
-                const value = $field.val();
-
-                if (name && !formData.has(name)) {
-                    formData.append(name, value);
                 }
             });
 
-            console.log('Total fields to submit for Template', this.templateId, ':', fieldCount);
+        $('input[type="hidden"]').each((index, element) => {
+            const $field = $(element);
+            const name = $field.attr('name');
+            const value = $field.val();
 
-            if (fieldCount === 0) {
-                this.showMessage('No data to save!', 'error');
-                return;
+            if (name && !params.has(name)) {
+                params.append(name, value);
             }
-            console.log('Fields to save:', fieldCount);
-            console.log('=== SAVE FORM DEBUG END ===');
-            $('#save-button').prop('disabled', true).html('<i class="fa fa-spinner fa-spin"></i> Saving...');
+        });
 
-            const templateId = $('input[name="id"]').val();
-            const cacheBuster = 't=' + new Date().getTime();
-            const url = '<?= site_url("agency/templates/update_ajax/") ?>' + templateId + '?' + cacheBuster;
+        console.log('Total fields to submit as Job:', fieldCount);
 
-            console.log('Making request to:', url);
-
-            fetch(url, {
-                    method: 'POST',
-                    body: formData,
-                    headers: {
-                        'X-Requested-With': 'XMLHttpRequest'
-                    },
-                    credentials: 'include' // ✅ IMPORTANT: Include cookies/session
-                })
-                .then(response => {
-                    // ✅ FIX: First check if response is OK
-                    console.log('Response status:', response.status);
-                    console.log('Response headers:', response.headers);
-                    if (!response.ok) {
-                        throw new Error('Network response was not ok: ' + response.status);
-                    }
-                    return response.text();
-                })
-                .then(text => {
-                    console.log('Raw response:', text);
-
-                    let data;
-                    try {
-                        data = JSON.parse(text);
-                    } catch (e) {
-                        // ✅ FIX: Better error handling for invalid JSON
-                        console.error('JSON parse error:', e, 'Response text:', text);
-
-                        // Check if it's an HTML error page
-                        if (text.includes('<!DOCTYPE') || text.includes('<html')) {
-                            throw new Error('Server returned HTML instead of JSON. Check for PHP errors.');
-                        } else {
-                            throw new Error('Invalid JSON response from server: ' + text.substring(0, 100));
-                        }
-                    }
-                    this.handleSaveResponse(data);
-                })
-                .catch(error => {
-                    console.error('Save error for Template', this.templateId, ':', error);
-                    this.showMessage('Save failed: ' + error.message, 'error');
-                    $('#save-button').prop('disabled', false).html(
-                        '<i class="fa fa-save"></i> Save Template Data');
-                });
+        if (fieldCount === 0) {
+            this.showMessage('No data to save as Job!', 'error');
+            return;
         }
 
-        syncAllEditors() {
-            if (this.ckeditorReady && this.editors.length > 0) {
-                this.editors.forEach(({
-                    editor
-                }) => {
-                    if (editor) {
-                        try {
-                            const data = editor.getData();
-                            const sourceElement = editor.sourceElement;
-                            if (sourceElement) {
-                                sourceElement.value = data;
-                            }
-                            console.log('Synced CKEditor v5');
-                        } catch (e) {
-                            console.error('Failed to sync CKEditor v5:', e);
-                        }
-                    }
-                });
-            }
+        $('#save-as-job-btn').prop('disabled', true).html(
+            '<i class="fa fa-spinner fa-spin"></i> Saving as Job...');
 
-            this.fallbackEditors.forEach((editorData) => {
-                editorData.editor.trigger('blur');
-            });
-        }
+        const cacheBuster = 't=' + new Date().getTime();
+        const url = `<?= site_url("agency/templates/save_as_job/") ?>${templateId}?${cacheBuster}`;
 
-        handleSaveResponse(data) {
-            console.log('Save response for Template', this.templateId, ':', data);
-
-            if (data.success) {
-                this.showMessage(data.message || 'Template data saved successfully!', 'success');
-
-                // FIXED: Re-enable the save button and reset its HTML after success
-                $('#save-button').prop('disabled', false).html('<i class="fa fa-save"></i> Save Template Data');
-
-                // NEW: Do NOT close the form immediately. Instead, show "Save as Job" button
-                this.showSaveAsJobButton();
-            } else {
-                this.showMessage(data.error || 'Failed to save template data', 'error');
-                $('#save-button').prop('disabled', false).html('<i class="fa fa-save"></i> Save Template Data');
-            }
-        }
-
-        showSaveAsJobButton() {
-            const templateId = $('input[name="id"]').val();
-            if (!templateId) {
-                console.warn('No template ID found for Save as Job');
-                return;
-            }
-
-            // Remove existing button if present
-            $('#save-as-job-btn').remove();
-
-            // Append new button to form footer
-            const jobButton = `
-                <button type="button" class="btn btn-primary ml-2" id="save-as-job-btn">
-                    <i class="fa fa-briefcase"></i> Save as Job Listing
-                </button>
-            `;
-            $('#save-button').after(jobButton);
-
-            // Bind click event
-            $('#save-as-job-btn').on('click', () => this.saveAsJob(templateId));
-        }
-
-        saveAsJob(templateId) {
-            console.log('SAVE AS JOB BUTTON CLICKED FOR TEMPLATE:', templateId);
-
-            this.syncAllEditors();
-
-            // ✅ FIX: Initialize formData properly
-            const formData = new FormData();
-            let fieldCount = 0;
-
-            // Collect all form fields (same as saveForm)
-            $('#dynamic-form-content input, #dynamic-form-content select, #dynamic-form-content textarea').each(
-                (index, element) => {
-                    const $field = $(element);
-                    const name = $field.attr('name');
-                    let value = $field.val();
-
-                    if (name && value !== undefined) {
-                        // ✅ FIX: Handle multi-select fields properly
-                        if ($field.is('select[multiple]')) {
-                            // For multi-select, get all selected values as array
-                            const selectedValues = $field.val() || [];
-                            if (Array.isArray(selectedValues)) {
-                                selectedValues.forEach(val => {
-                                    formData.append(name,
-                                        val); // Keep original field name for template forms
-                                });
-                            }
-                            fieldCount += selectedValues.length;
-                        } else {
-                            formData.append(name, value);
-                            fieldCount++;
-                        }
-                    }
-                });
-
-            // ✅ FIX: Add hidden fields
-            $('input[type="hidden"]').each((index, element) => {
-                const $field = $(element);
-                const name = $field.attr('name');
-                const value = $field.val();
-
-                if (name && !formData.has(name)) {
-                    formData.append(name, value);
+        fetch(url, {
+                method: 'POST',
+                body: params.toString(),
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'X-Requested-With': 'XMLHttpRequest'
                 }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    this.showMessage(data.message || 'Job listing saved successfully!', 'success');
+                    setTimeout(() => {
+                        this.closeForm();
+                    }, 2000);
+                } else {
+                    this.showMessage(data.error || 'Failed to save as Job', 'error');
+                }
+                $('#save-as-job-btn').prop('disabled', false).html(
+                    '<i class="fa fa-briefcase"></i> Save as Job Listing');
+            })
+            .catch(error => {
+                console.error('Save as Job error:', error);
+                this.showMessage('Save as Job failed: ' + error.message, 'error');
+                $('#save-as-job-btn').prop('disabled', false).html(
+                    '<i class="fa fa-briefcase"></i> Save as Job Listing');
             });
+    }
 
-            console.log('Total fields to submit as Job for Template', templateId, ':', fieldCount);
+    closeForm() {
+        console.log('Closing quick manage form for Template:', this.templateId);
+        this.destroy();
 
-            // ✅ DEBUG: Log what's actually being sent
-            console.log('Form data being sent to save_as_job:');
-            for (let pair of formData.entries()) {
-                console.log('  ', pair[0] + ': ' + pair[1]);
+        if (typeof close_qm === 'function') {
+            close_qm();
+        } else {
+            $('.quick-manage-overlay').remove();
+            $('.quick-manage-container').empty();
+            $('body').removeClass('qm-full-page');
+        }
+    }
+
+    destroy() {
+        console.log('DESTROYING QuickManageForm for Template:', this.templateId);
+
+        this.editors.forEach(({
+            editor
+        }) => {
+            if (editor && editor.destroy) {
+                editor.destroy().catch(e => console.error('Failed to destroy CKEditor:', e));
             }
+        });
+        this.editors = [];
 
-            if (fieldCount === 0) {
-                this.showMessage('No data to save as Job!', 'error');
-                return;
+        this.fallbackEditors.forEach((editorData, textareaId) => {
+            try {
+                editorData.editor.off('input blur keyup paste');
+                editorData.container.remove();
+                editorData.original.show();
+            } catch (e) {
+                console.error('Failed to destroy fallback editor:', textareaId, e);
             }
+        });
+        this.fallbackEditors.clear();
 
-            $('#save-as-job-btn').prop('disabled', true).html(
-                '<i class="fa fa-spinner fa-spin"></i> Saving as Job...');
+        $('#save-button').off('click.quickmanage');
+        $('#close-button').off('click.quickmanage');
+        $('.close-quick-manage').off('click.quickmanage');
+        $(document).off('keyup.quickmanage');
+        $('#main-form').off('keypress.quickmanage');
 
-            const cacheBuster = 't=' + new Date().getTime();
-            const url = `<?= site_url("agency/templates/save_as_job/") ?>${templateId}?${cacheBuster}`;
-
-            fetch(url, {
-                    method: 'POST',
-                    body: formData,
-                    headers: {
-                        'X-Requested-With': 'XMLHttpRequest'
-                    }
-                })
-                .then(response => {
-                    if (!response.ok) {
-                        throw new Error('Network response was not ok: ' + response.status);
-                    }
-                    return response.json();
-                })
-                .then(data => {
-                    if (data.success) {
-                        this.showMessage(data.message || 'Job listing saved successfully!', 'success');
-                        // Optionally close after success, or keep open
-                        setTimeout(() => {
-                            this.closeForm();
-                        }, 2000);
-                    } else {
-                        this.showMessage(data.error || 'Failed to save as Job', 'error');
-                    }
-                    $('#save-as-job-btn').prop('disabled', false).html(
-                        '<i class="fa fa-briefcase"></i> Save as Job Listing');
-                })
-                .catch(error => {
-                    console.error('Save as Job error for Template', templateId, ':', error);
-                    this.showMessage('Save as Job failed: ' + error.message, 'error');
-                    $('#save-as-job-btn').prop('disabled', false).html(
-                        '<i class="fa fa-briefcase"></i> Save as Job Listing');
-                });
+        if (this.isComposite) {
+            $('#add-section-btn').off('click.sectionmgr');
+            $('#confirm-add-section').off('click.sectionmgr');
+            $('#section-select').off('change.sectionmgr');
+            $('#addSectionModal').off('hidden.bs.modal');
+            $(document).off('click', '.delete-section');
+            $('#confirm-delete-section').off('click.deletemgr');
+            $('#deleteSectionModal').off('hidden.bs.modal');
+            this.sectionManagerInitialized = false;
         }
 
-        closeForm() {
-            console.log('Closing quick manage form for Template:', this.templateId);
-            $('#dynamic-form-content').empty(); // Clear old HTML
-            this.destroy();
+        this.isInitialized = false;
+        window.quickManageInitialized = false;
+    }
 
-            if (typeof close_qm === 'function') {
-                close_qm();
-            } else {
-                $('.quick-manage-overlay').remove();
-                $('.quick-manage-container').empty();
-                $('body').removeClass('qm-full-page');
-            }
+    showMessage(message, type = 'info') {
+        console.log(type.toUpperCase() + ':', message);
+        if (typeof toastr !== 'undefined') {
+            toastr[type === 'error' ? 'error' : 'success'](message);
+        } else {
+            alert(type.toUpperCase() + ': ' + message);
         }
+    }
+};
 
-        showMessage(message, type = 'info') {
-            console.log(type.toUpperCase() + ' for Template', this.templateId, ':', message);
-            if (typeof toastr !== 'undefined') {
-                toastr[type === 'error' ? 'error' : 'success'](message);
-            } else {
-                alert(type.toUpperCase() + ': ' + message);
-            }
-        }
-    };
-}
-// Initialize multi-select if select2 is available
-if (typeof $.fn.select2 !== 'undefined') {
-    $('select[multiple]').select2({
-        width: '100%',
-        placeholder: function() {
-            return $(this).data('placeholder') || 'Select options';
-        }
-    });
-}
 // Initialize QuickManageForm when DOM is ready
 $(document).ready(function() {
     console.log('DOM Ready - Initializing QuickManageForm');
 
     if (window.quickManageApp) {
-        console.log('Cleaning up previous instance...');
         window.quickManageApp.destroy();
         window.quickManageApp = null;
     }
@@ -1717,54 +1777,146 @@ $(document).ready(function() {
                 console.error('Failed to initialize QuickManageForm:', error);
                 $('#editor-status').text('Initialization Failed');
             }
-        } else {
-            console.error('QuickManageForm class not defined');
         }
     }, 100);
 });
 
-function closeQuickManageSimple() {
-    if (window.quickManageApp) {
-        window.quickManageApp.closeForm();
-    } else {
-        $('.quick-manage-overlay').remove();
+// Initialize multi-select if select2 is available
+if (typeof $.fn.select2 !== 'undefined') {
+    $('select[multiple]').select2({
+        width: '100%',
+        placeholder: function() {
+            return $(this).data('placeholder') || 'Select options';
+        }
+    });
+}
+
+// Fix duplicate modal issue
+function fixDuplicateModals() {
+    console.log('🔧 FIXING DUPLICATE MODALS ISSUE');
+
+    // Find all modals with id addSectionModal
+    const modals = $('[id="addSectionModal"]');
+    console.log(`Found ${modals.length} modals with id="addSectionModal"`);
+
+    if (modals.length > 1) {
+        // Keep the first one, remove the rest
+        modals.slice(1).each(function(i) {
+            console.log(`Removing duplicate modal ${i + 1}`);
+            $(this).remove();
+        });
+
+        console.log(`Removed ${modals.length - 1} duplicate modals. Only 1 remains.`);
+    }
+
+    // Also check for modals without proper IDs
+    const allModals = $('.modal');
+    console.log(`Total .modal elements: ${allModals.length}`);
+
+    // Re-initialize the remaining modal
+    const remainingModal = $('#addSectionModal');
+    if (remainingModal.length === 1) {
+        console.log('Re-initializing the modal...');
+
+        // Move to body to avoid container issues
+        remainingModal.appendTo('body');
+
+        // Hide and show to reset
+        remainingModal.modal('hide');
+        setTimeout(() => {
+            remainingModal.modal('show');
+            console.log('Modal should now work properly.');
+        }, 300);
     }
 }
 
-$(document).on('click', '.preview-composite-template', function() {
-    const templateId = $(this).data('id');
-    const templateName = $(this).data('name');
-    window.open('<?= site_url("agency/templates/preview/") ?>' + templateId, '_blank');
-});
+// Also check where duplicates are coming from
+function findModalSources() {
+    console.log('\n🔍 FINDING WHERE MODALS COME FROM');
 
-// Check multi-select fields before submission
-$('form').on('submit', function(e) {
-    console.log('Form submission intercepted');
+    // Check if quick manage is creating duplicates
+    console.log('Checking QuickManageForm initialization...');
+    if (window.quickManageApp) {
+        console.log('QuickManageApp exists');
+        console.log('Is composite?', window.quickManageApp.isComposite);
+    }
 
-    // Check all select elements
-    $('select').each(function() {
-        var $select = $(this);
-        console.log('Select field:', $select.attr('name'), 'Values:', $select.val(), 'Multiple:',
-            $select.prop('multiple'));
+    // Check HTML sources
+    $('[id="addSectionModal"]').each(function(i) {
+        console.log(`\nModal ${i}:`);
+        console.log('Parent chain:');
+        let parent = $(this).parent();
+        let depth = 0;
+        while (parent.length && depth < 5) {
+            console.log(
+                `  ${'  '.repeat(depth)}${parent[0].tagName}${parent.attr('id') ? '#' + parent.attr('id') : ''}${parent.attr('class') ? '.' + parent.attr('class').split(' ')[0] : ''}`
+            );
+            parent = parent.parent();
+            depth++;
+        }
+
+        // Check if it's inside quick manage container
+        const inQM = $(this).closest('.quick-manage-container, .quick-manage-form-container, .qmfc').length > 0;
+        console.log('In quick manage container?', inQM);
     });
+}
 
-    // Specifically check skills and qualifications
-    var skillsValues = $('select[name*="skills"]').val();
-    var qualificationsValues = $('select[name*="qualifications"]').val();
+// Emergency fix - Create a fresh modal
+function createFreshModal() {
+    console.log('🔄 CREATING FRESH MODAL');
 
-    console.log('Skills values:', skillsValues);
-    console.log('Qualifications values:', qualificationsValues);
+    // Remove all existing addSectionModal elements
+    $('[id="addSectionModal"]').remove();
 
-    // Continue with form submission
-    return true;
-});
+    // Create new modal HTML
+    const newModalHTML = `
+    <div class="modal fade" id="addSectionModal" tabindex="-1" aria-labelledby="addSectionModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="addSectionModalLabel">Add New Section</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"><i class="fa fa-times" aria-hidden="true"></i></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="section-select" class="form-label">Select a Section</label>
+                        <select class="form-select" id="section-select">
+                            <option value="">Select a section...</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" id="confirm-add-section">Add Section</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    `;
 
-// Also log on page load
-$(document).ready(function() {
-    console.log('=== PAGE LOAD DEBUG ===');
-    $('select[name*="skills"], select[name*="qualifications"]').each(function() {
-        console.log('Multi-select field found:', $(this).attr('name'), 'Current values:', $(this)
-            .val());
-    });
-});
+    // Add to body
+    $('body').append(newModalHTML);
+
+    console.log('New modal created. Now re-initializing event handlers...');
+
+    // Re-initialize event handlers
+    if (window.quickManageApp && window.quickManageApp.setupSectionManager) {
+        // Remove old handlers first
+        $('#add-section-btn').off('click.sectionmgr');
+        $('#confirm-add-section').off('click.sectionmgr');
+        $('#section-select').off('change.sectionmgr');
+
+        // Re-setup section manager
+        window.quickManageApp.sectionManagerInitialized = false;
+        window.quickManageApp.setupSectionManager();
+
+        console.log('Event handlers re-initialized.');
+    }
+
+    // Show the modal
+    setTimeout(() => {
+        $('#addSectionModal').modal('show');
+        console.log('Fresh modal shown.');
+    }, 100);
+}
 </script>
