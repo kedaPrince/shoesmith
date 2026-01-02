@@ -1,400 +1,51 @@
 <?php defined('BASEPATH') || exit('No direct script access allowed'); ?>
-
-<style>
-:root {
-    --bg-main: #0f172a;
-    --card-bg: #1e293b;
-    --primary: #3b82f6;
-    --success: #10b981;
-    --warning: #f59e0b;
-    --danger: #ef4444;
-    --info: #06b6d4;
-    --text-main: #f1f5f9;
-    --text-muted: #94a3b8;
-    --border: #334155;
-}
-
-#main-content {
-    min-height: 100vh;
-    padding: 32px;
-    background: var(--bg-main);
-    color: var(--text-main);
-}
-
-/* Header */
-.dashboard-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 40px;
-    padding-bottom: 20px;
-    border-bottom: 2px solid var(--border);
-}
-
-.dashboard-header h1 {
-    font-size: 32px;
-    font-weight: 700;
-    background: linear-gradient(135deg, var(--primary) 0%, var(--info) 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    margin: 0;
-}
-
-.dashboard-header p {
-    margin: 8px 0 0;
-    color: var(--text-muted);
-    font-size: 16px;
-}
-
-/* Stats Grid */
-.stats-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-    gap: 24px;
-    margin-bottom: 40px;
-}
-
-.stat-card {
-    background: linear-gradient(145deg, var(--card-bg) 0%, #0f172a 100%);
-    border-radius: 16px;
-    padding: 24px;
-    border: 1px solid var(--border);
-    transition: all 0.3s ease;
-    position: relative;
-    overflow: hidden;
-}
-
-.stat-card:hover {
-    transform: translateY(-5px);
-    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
-    border-color: var(--primary);
-}
-
-.stat-card::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 4px;
-    background: linear-gradient(90deg, var(--primary) 0%, var(--info) 100%);
-}
-
-.stat-card.success::before {
-    background: linear-gradient(90deg, var(--success) 0%, #22c55e 100%);
-}
-
-.stat-card.warning::before {
-    background: linear-gradient(90deg, var(--warning) 0%, #f97316 100%);
-}
-
-.stat-card.danger::before {
-    background: linear-gradient(90deg, var(--danger) 0%, #dc2626 100%);
-}
-
-.stat-title {
-    font-size: 14px;
-    color: var(--text-muted);
-    margin-bottom: 12px;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    font-weight: 600;
-}
-
-.stat-value {
-    font-size: 36px;
-    font-weight: 800;
-    margin-bottom: 8px;
-}
-
-.stat-trend {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 14px;
-}
-
-.stat-trend.up {
-    color: var(--success);
-}
-
-.stat-trend.down {
-    color: var(--danger);
-}
-
-/* Charts Container */
-.charts-container {
-    display: grid;
-    grid-template-columns: 2fr 1fr;
-    gap: 24px;
-    margin-bottom: 40px;
-}
-
-.chart-card {
-    background: var(--card-bg);
-    border-radius: 16px;
-    padding: 24px;
-    border: 1px solid var(--border);
-}
-
-.chart-card h3 {
-    font-size: 18px;
-    font-weight: 600;
-    margin-bottom: 20px;
-    color: var(--text-main);
-}
-
-.chart-card canvas {
-    width: 100% !important;
-    max-height: 300px;
-}
-
-/* Recent Activity */
-.recent-activity {
-    background: var(--card-bg);
-    border-radius: 16px;
-    padding: 24px;
-    border: 1px solid var(--border);
-    margin-bottom: 40px;
-}
-
-.recent-activity h3 {
-    font-size: 18px;
-    font-weight: 600;
-    margin-bottom: 20px;
-    color: var(--text-main);
-}
-
-.activity-list {
-    list-style: none;
-    padding: 0;
-    margin: 0;
-}
-
-.activity-item {
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    padding: 16px;
-    border-bottom: 1px solid var(--border);
-}
-
-.activity-item:last-child {
-    border-bottom: none;
-}
-
-.activity-item:hover {
-    background: rgba(255, 255, 255, 0.05);
-}
-
-.activity-icon {
-    width: 40px;
-    height: 40px;
-    border-radius: 10px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 18px;
-}
-
-.activity-icon.success {
-    background: rgba(16, 185, 129, 0.2);
-    color: var(--success);
-}
-
-.activity-icon.warning {
-    background: rgba(245, 158, 11, 0.2);
-    color: var(--warning);
-}
-
-.activity-icon.primary {
-    background: rgba(59, 130, 246, 0.2);
-    color: var(--primary);
-}
-
-.activity-content {
-    flex: 1;
-}
-
-.activity-title {
-    font-weight: 600;
-    margin-bottom: 4px;
-}
-
-.activity-time {
-    font-size: 12px;
-    color: var(--text-muted);
-}
-
-/* Navigation Grid */
-.nav-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-    gap: 20px;
-}
-
-.nav-card {
-    border-radius: 16px;
-    padding: 24px;
-    display: flex;
-    align-items: center;
-    gap: 20px;
-    font-weight: 600;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    text-decoration: none;
-    color: white;
-    position: relative;
-    overflow: hidden;
-    border: none;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
-}
-
-.nav-card::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0) 100%);
-    opacity: 0;
-    transition: opacity 0.3s ease;
-}
-
-.nav-card:hover {
-    transform: translateY(-5px) scale(1.02);
-    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
-    color: white;
-}
-
-.nav-card:hover::before {
-    opacity: 1;
-}
-
-.nav-card:hover .nav-icon {
-    transform: scale(1.1) rotate(5deg);
-}
-
-.nav-icon {
-    width: 56px;
-    height: 56px;
-    border-radius: 14px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 24px;
-    background: rgba(255, 255, 255, 0.2);
-    backdrop-filter: blur(10px);
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    position: relative;
-    z-index: 1;
-}
-
-.nav-text {
-    position: relative;
-    z-index: 1;
-}
-
-.nav-text strong {
-    font-size: 16px;
-    font-weight: 600;
-    display: block;
-    margin-bottom: 4px;
-}
-
-.nav-text span {
-    font-size: 13px;
-    opacity: 0.9;
-    font-weight: 400;
-}
-
-/* Gradient backgrounds for navigation items */
-.nav-card:nth-child(1) {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-}
-
-.nav-card:nth-child(2) {
-    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-}
-
-.nav-card:nth-child(3) {
-    background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
-}
-
-.nav-card:nth-child(4) {
-    background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
-}
-
-.nav-card:nth-child(5) {
-    background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
-}
-
-.nav-card:nth-child(6) {
-    background: linear-gradient(135deg, #30cfd0 0%, #330867 100%);
-}
-
-/* Buttons */
-.toggle-view-btn {
-    background: linear-gradient(135deg, var(--primary) 0%, var(--info) 100%);
-    color: white;
-    border: none;
-    padding: 12px 28px;
-    border-radius: 12px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-
-.toggle-view-btn:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 12px 24px rgba(59, 130, 246, 0.3);
-}
-
-/* Responsive */
-@media (max-width: 1200px) {
-    .charts-container {
-        grid-template-columns: 1fr;
-    }
-}
-
-@media (max-width: 768px) {
-    #main-content {
-        padding: 20px;
-    }
-
-    .dashboard-header {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 20px;
-    }
-
-    .stats-grid {
-        grid-template-columns: 1fr;
-    }
-
-    .nav-grid {
-        grid-template-columns: 1fr;
-    }
-
-    .nav-card {
-        padding: 20px;
-    }
-
-    .nav-icon {
-        width: 50px;
-        height: 50px;
-        font-size: 22px;
-    }
-}
-</style>
-
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <div id="main-content">
     <div class="container-fluid">
+        <!-- Quick Navigation -->
+        <div class="chart-card">
+            <h3>Quick Navigation</h3>
+            <div class="nav-grid">
+                <?php 
+                $navCounter = 0;
+                foreach ($this->siteMap as $group): 
+                    if (!$group->show) continue;
+
+                    if (isset($group->items)): 
+                        foreach ($group->items as $item): 
+                            if (!$item->show) continue;
+                            $navCounter++;
+                ?>
+                <a href="<?= $item->url ?>" class="nav-card">
+                    <div class="nav-icon">
+                        <i class="fa <?= $item->icon ?>"></i>
+                    </div>
+                    <div class="nav-text">
+                        <strong><?= $item->label ?></strong>
+                        <span>Manage <?= strtolower($item->label) ?></span>
+                    </div>
+                </a>
+                <?php 
+                        endforeach; 
+                    else: 
+                        $navCounter++;
+                ?>
+                <a href="<?= $group->url ?>" class="nav-card">
+                    <div class="nav-icon">
+                        <i class="fa <?= $group->icon ?>"></i>
+                    </div>
+                    <div class="nav-text">
+                        <strong><?= $group->label ?></strong>
+                        <span>Manage <?= strtolower($group->label) ?></span>
+                    </div>
+                </a>
+                <?php 
+                    endif; 
+                endforeach; 
+                ?>
+            </div>
+        </div>
         <!-- Dashboard Header -->
         <div class="dashboard-header">
             <div>
@@ -492,49 +143,7 @@
             <?php endif; ?>
         </div>
 
-        <!-- Quick Navigation -->
-        <div class="chart-card">
-            <h3>Quick Navigation</h3>
-            <div class="nav-grid">
-                <?php 
-                $navCounter = 0;
-                foreach ($this->siteMap as $group): 
-                    if (!$group->show) continue;
 
-                    if (isset($group->items)): 
-                        foreach ($group->items as $item): 
-                            if (!$item->show) continue;
-                            $navCounter++;
-                ?>
-                <a href="<?= $item->url ?>" class="nav-card">
-                    <div class="nav-icon">
-                        <i class="fa <?= $item->icon ?>"></i>
-                    </div>
-                    <div class="nav-text">
-                        <strong><?= $item->label ?></strong>
-                        <span>Manage <?= strtolower($item->label) ?></span>
-                    </div>
-                </a>
-                <?php 
-                        endforeach; 
-                    else: 
-                        $navCounter++;
-                ?>
-                <a href="<?= $group->url ?>" class="nav-card">
-                    <div class="nav-icon">
-                        <i class="fa <?= $group->icon ?>"></i>
-                    </div>
-                    <div class="nav-text">
-                        <strong><?= $group->label ?></strong>
-                        <span>Manage <?= strtolower($group->label) ?></span>
-                    </div>
-                </a>
-                <?php 
-                    endif; 
-                endforeach; 
-                ?>
-            </div>
-        </div>
 
     </div>
 </div>
