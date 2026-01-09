@@ -1192,57 +1192,65 @@ private function get_section_form_preview($schema_id, $template_id, $form_data =
    
 
     public function remove($id) 
-    {
-         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-        $csrf_name = $this->security->get_csrf_token_name();
-        $csrf_token = $this->input->post($csrf_name);
-        
-        if (!$csrf_token || $csrf_token !== $this->security->get_csrf_hash()) {
-            show_error('Invalid CSRF token', 400);
-            return;
-        }
-    } elseif ($_SERVER['REQUEST_METHOD'] !== 'GET') {
-        show_error('Method not allowed', 405);
-        return;
+{
+    log_message('debug', '=== REMOVE METHOD START ===');
+    log_message('debug', 'Template ID: ' . $id);
+    log_message('debug', 'Request Method: ' . $_SERVER['REQUEST_METHOD']);
+    
+    // Get the template first
+    $row = $this->{$this->model}->get_by_id($id);
+    
+    if (!$row) {
+        log_message('debug', 'Template not found or no access');
+        flash_notification(lang('access_denied_description'), 'warning');
+        redir($this->pageName);
+        return FALSE;
     }
-        $row = $this->{$this->model}->get_by_id($id);
-        
-        if (!$row) {
-            flash_notification(lang('access_denied_description'), 'warning');
-            redir($this->pageName);
-            return FALSE;
-        }
+    
+    log_message('debug', 'Found template: ' . print_r($row, true));
+    
+    // Your existing code continues...
+    $messageParams = array('name' => $row->name ?? $row->template_name ?? 'Template');
 
-        if (!$this->remove_extra_before($row)) {
-            redir($this->pageName);
-            return FALSE;
-        }
-
-        $messageParams = array('name' => $row->name ?? $row->template_name ?? 'Template');
-
-        $this->db->trans_start();
+    log_message('debug', 'Starting database transaction');
+    $this->db->trans_start();
+    
+    $result = $this->{$this->model}->remove($id);
+    
+    log_message('debug', 'Model remove() returned: ' . ($result ? 'TRUE' : 'FALSE'));
+    
+    if ($result) {
+        $deleted_count = $this->cascade_delete_to_instances($id, $row->name ?? $row->template_name);
+        log_message('debug', 'Cascade deleted ' . $deleted_count . ' instances');
         
-        $result = $this->{$this->model}->remove($id);
-        
-        if ($result) {
-            $this->cascade_delete_to_instances($id, $row->name ?? $row->template_name);
-            
-            Logger::log('Removed template and related instances: ' . ($row->name ?? $row->template_name), array('id' => $id));
-        }
-        
-        $this->db->trans_complete();
+        Logger::log('Removed template and related instances: ' . ($row->name ?? $row->template_name), array('id' => $id));
+    }
+    
+    $this->db->trans_complete();
 
-        if ($this->db->trans_status() !== FALSE && $result) {
-            flash_notification(langs($this->pageName . '_remove_success_description', $messageParams), 'success');
-            $this->remove_extra_success($row);
-        } else {
+    $transaction_ok = ($this->db->trans_status() !== FALSE);
+    log_message('debug', 'Transaction status: ' . ($transaction_ok ? 'OK' : 'FAILED'));
+    
+    if ($transaction_ok && $result) {
+    $message = langs($this->pageName . '_remove_success_description', $messageParams);
+    
+    // If language string is empty, use default
+    if (empty($message) || $message === $this->pageName . '_remove_success_description') {
+        $message = 'Template "' . ($row->name ?? $row->template_name ?? 'Template') . '" has been deleted successfully.';
+    }
+    
+    flash_notification($message, 'success');
+    $this->remove_extra_success($row);
+    } else {
+            log_message('debug', 'DELETE FAILED');
+            log_message('debug', 'Last query: ' . $this->db->last_query());
             Anomalies::log('Failed to remove template and related instances: ' . ($row->name ?? $row->template_name), $this->db->last_query());
             flash_notification(langs($this->pageName . '_remove_failed_description', $messageParams), 'error');
         }
 
-        redir($this->pageName);
-    }
-
+    log_message('debug', '=== REMOVE METHOD END ===');
+    redir($this->pageName);
+}
     private function cascade_delete_to_instances($template_id, $template_name) 
     {
         
@@ -2123,175 +2131,262 @@ public function remove_section_from_template($template_id) {
     }
 
     public function save_as_job($template_id) 
-    {
-        if (!$this->input->is_ajax_request()) {
-            show_404();
+{
+    
+    if (!$this->input->is_ajax_request()) {
+        show_404();
+    }
+
+    $this->output->set_content_type('application/json');
+
+    try {
+        
+        // Fetch the template
+        $template = $this->{$this->model}->get_by_id($template_id);
+        if (!$template) {
+            throw new Exception('Template not found');
         }
 
-        $this->output->set_content_type('application/json');
+        // Get ALL post data
+        $all_post_data = $this->input->post();
+        
+        $form_data = $this->input->post();
+        unset($form_data[$this->security->get_csrf_token_name()]);
 
-        try {
-            
-            // Fetch the template
-            $template = $this->{$this->model}->get_by_id($template_id);
-            if (!$template) {
-                throw new Exception('Template not found');
+        if (empty($form_data)) {
+            throw new Exception('No form data provided');
+        }
+
+        // ✅ FIX: Better employment_type extraction with priority and validation
+        $employment_type = $this->get_employment_type_from_form_data($form_data);
+        
+        // ✅ FIX: If still empty, check if there's a value in the template instance
+        if (empty($employment_type)) {
+            $employment_type = $this->get_employment_type_from_template_instance($template_id);
+        }
+        
+        // ✅ FIX: Final fallback to 'full-time'
+        if (empty($employment_type)) {
+            $employment_type = 'full-time';
+        }
+        
+        $industry_id = $this->get_field_value($form_data, [
+            'mod_industries.id',
+            'mod_industries_id',
+            'industry_id',
+            'mod_jobs.industry_id',
+            'mod_jobs_industry_id'
+        ], null);
+
+        // Extract skills and qualifications as comma-separated strings
+        $skills_text = '';
+        $qualifications_text = '';
+        
+        // Look for skills fields
+        $possible_skill_fields = [
+            'mod_job_skills.name',
+            'mod_job_skills_name', 
+            'skills',
+            'mod_jobs.skills',
+            'mod_jobs_skills'
+        ];
+        
+        foreach ($possible_skill_fields as $field) {
+            if (isset($form_data[$field]) && !empty(trim($form_data[$field]))) {
+                $skills_text = trim($form_data[$field]);
+                break;
             }
-
-            // Get ALL post data
-            $all_post_data = $this->input->post();
-            
-            $form_data = $this->input->post();
-            unset($form_data[$this->security->get_csrf_token_name()]);
-
-            if (empty($form_data)) {
-                throw new Exception('No form data provided');
+        }
+        
+        // Look for qualifications fields
+        $possible_qualification_fields = [
+            'mod_job_qualifications.name',
+            'mod_job_qualifications_name',
+            'qualifications',
+            'mod_jobs.qualifications',
+            'mod_jobs_qualifications'
+        ];
+        
+        foreach ($possible_qualification_fields as $field) {
+            if (isset($form_data[$field]) && !empty(trim($form_data[$field]))) {
+                $qualifications_text = trim($form_data[$field]);
+                break;
             }
+        }
 
-            //  FIX: Better field mapping for employment type and industry
-            $employment_type = $this->get_field_value($form_data, [
-                'mod_jobs.employment_type', 
-                'mod_jobs_employment_type', 
-                'employment_type',
-                'job_type',
-                'mod_job_type'
-            ], 'full-time');
-            
-            $industry_id = $this->get_field_value($form_data, [
-                'mod_industries.id',
-                'mod_industries_id',
-                'industry_id',
-                'mod_jobs.industry_id',
-                'mod_jobs_industry_id'
-            ], null);
+        // Complete job data with proper field mapping
+        $job_data = [
+            'name' => $this->get_field_value($form_data, ['mod_jobs.name', 'mod_jobs_name', 'name'], 'Unnamed Job'),
+            'agency_id' => $template->agency_id ?? 1,
+            'industry_id' => $industry_id,
+            'employment_type' => $employment_type, // ✅ NOW THIS WILL HAVE A VALUE
+            'location' => $this->get_field_value($form_data, ['mod_jobs.location', 'mod_jobs_location', 'location'], ''),
+            'site' => $this->get_field_value($form_data, ['mod_jobs.site', 'mod_jobs_site', 'site'], ''),
+            'pay_cycle' => $this->get_field_value($form_data, ['mod_jobs.pay_cycle', 'mod_jobs_pay_cycle', 'pay_cycle'], ''),
+            'description' => $this->get_field_value($form_data, ['mod_jobs.description', 'mod_jobs_description', 'description'], ''),
+            'contract_type' => $this->get_field_value($form_data, ['mod_jobs.contract_type', 'mod_jobs_contract_type', 'contract_type'], 'permanent'),
+            'pay_type' => $this->get_field_value($form_data, ['mod_jobs.pay_type', 'mod_jobs_pay_type', 'pay_type'], 'salary'),
+            'pay_rate' => $this->get_field_value($form_data, ['mod_jobs.pay_rate', 'mod_jobs_pay_rate', 'pay_rate'], ''),
+            'salary_min' => $this->get_field_value($form_data, ['mod_jobs.salary_min', 'mod_jobs_salary_min', 'salary_min'], ''),
+            'salary_max' => $this->get_field_value($form_data, ['mod_jobs.salary_max', 'mod_jobs_salary_max', 'salary_max'], ''),
+            'department' => $this->get_field_value($form_data, ['mod_jobs.department', 'mod_jobs_department', 'department'], ''),
+            'project_overview' => $this->get_field_value($form_data, ['mod_jobs.project_overview', 'mod_jobs_project_overview', 'project_overview'], ''),
+            'transport' => $this->get_field_value($form_data, ['mod_jobs.transport', 'mod_jobs_transport', 'transport'], 'no'),
+            'roster' => $this->get_field_value($form_data, ['mod_jobs.roster', 'mod_jobs_roster', 'roster'], 'no'),
+            'accommodation' => $this->get_field_value($form_data, ['mod_jobs.accommodation', 'mod_jobs_accommodation', 'accommodation'], 'no'),
+            'is_remote' => $this->get_field_value($form_data, ['mod_jobs.is_remote', 'mod_jobs_is_remote', 'is_remote'], 0),
+            'application_email' => $this->get_field_value($form_data, ['mod_jobs.application_email', 'mod_jobs_application_email', 'application_email'], ''),
+            'application_url' => $this->get_field_value($form_data, ['mod_jobs.application_url', 'mod_jobs_application_url', 'application_url'], ''),
+            'closing_date' => $this->get_field_value($form_data, ['mod_jobs.closing_date', 'mod_jobs_closing_date', 'closing_date'], ''),
+            'position_quantity' => $this->get_field_value($form_data, ['mod_jobs.position_quantity', 'mod_jobs_position_quantity', 'position_quantity'], ''),
+            'skills' => $skills_text,
+            'qualifications' => $qualifications_text,
+            'reference_number' => $this->generate_job_reference(),
+            'enabled' => 1,
+            'removed' => 0,
+            'created_at' => date('Y-m-d H:i:s'),
+            'updated_at' => date('Y-m-d H:i:s')
+        ];
 
-            // Extract skills and qualifications as comma-separated strings
-            $skills_text = '';
-            $qualifications_text = '';
-            
-            // Look for skills fields (existing code...)
-            $possible_skill_fields = [
-                'mod_job_skills.name',
-                'mod_job_skills_name', 
-                'skills',
-                'mod_jobs.skills',
-                'mod_jobs_skills'
-            ];
-            
-            foreach ($possible_skill_fields as $field) {
-                if (isset($form_data[$field]) && !empty(trim($form_data[$field]))) {
-                    $skills_text = trim($form_data[$field]);
-                    break;
-                }
-            }
-            
-            // Look for qualifications fields (existing code...)
-            $possible_qualification_fields = [
-                'mod_job_qualifications.name',
-                'mod_job_qualifications_name',
-                'qualifications',
-                'mod_jobs.qualifications',
-                'mod_jobs_qualifications'
-            ];
-            
-            foreach ($possible_qualification_fields as $field) {
-                if (isset($form_data[$field]) && !empty(trim($form_data[$field]))) {
-                    $qualifications_text = trim($form_data[$field]);
-                    break;
-                }
-            }
+        // Validate required fields
+        if (empty($job_data['name']) || empty(trim($job_data['name']))) {
+            throw new Exception('Missing or empty job name: "' . $job_data['name'] . '"');
+        }
+        
+        if (empty($job_data['agency_id'])) {
+            throw new Exception('Missing agency_id: ' . $job_data['agency_id']);
+        }
 
-            // Complete job data with proper field mapping
-            $job_data = [
-                'name' => $this->get_field_value($form_data, ['mod_jobs.name', 'mod_jobs_name', 'name'], 'Unnamed Job'),
-                'agency_id' => $template->agency_id ?? 1,
-                'industry_id' => $industry_id,
-                'employment_type' => $employment_type,
-                'location' => $this->get_field_value($form_data, ['mod_jobs.location', 'mod_jobs_location', 'location'], ''),
-                'site' => $this->get_field_value($form_data, ['mod_jobs.site', 'mod_jobs_site', 'site'], ''),
-                'pay_cycle' => $this->get_field_value($form_data, ['mod_jobs.pay_cycle', 'mod_jobs_pay_cycle', 'pay_cycle'], ''),
-                'description' => $this->get_field_value($form_data, ['mod_jobs.description', 'mod_jobs_description', 'description'], ''),
-                'contract_type' => $this->get_field_value($form_data, ['mod_jobs.contract_type', 'mod_jobs_contract_type', 'contract_type'], 'permanent'),
-                'pay_type' => $this->get_field_value($form_data, ['mod_jobs.pay_type', 'mod_jobs_pay_type', 'pay_type'], 'salary'),
-                'pay_rate' => $this->get_field_value($form_data, ['mod_jobs.pay_rate', 'mod_jobs_pay_rate', 'pay_rate'], ''),
-                'salary_min' => $this->get_field_value($form_data, ['mod_jobs.salary_min', 'mod_jobs_salary_min', 'salary_min'], ''),
-                'salary_max' => $this->get_field_value($form_data, ['mod_jobs.salary_max', 'mod_jobs_salary_max', 'salary_max'], ''),
-                'department' => $this->get_field_value($form_data, ['mod_jobs.department', 'mod_jobs_department', 'department'], ''),
-                'project_overview' => $this->get_field_value($form_data, ['mod_jobs.project_overview', 'mod_jobs_project_overview', 'project_overview'], ''),
-                'transport' => $this->get_field_value($form_data, ['mod_jobs.transport', 'mod_jobs_transport', 'transport'], 'no'),
-                'roster' => $this->get_field_value($form_data, ['mod_jobs.roster', 'mod_jobs_roster', 'roster'], 'no'),
-                'accommodation' => $this->get_field_value($form_data, ['mod_jobs.accommodation', 'mod_jobs_accommodation', 'accommodation'], 'no'),
-                'is_remote' => $this->get_field_value($form_data, ['mod_jobs.is_remote', 'mod_jobs_is_remote', 'is_remote'], 0),
-                'application_email' => $this->get_field_value($form_data, ['mod_jobs.application_email', 'mod_jobs_application_email', 'application_email'], ''),
-                'application_url' => $this->get_field_value($form_data, ['mod_jobs.application_url', 'mod_jobs_application_url', 'application_url'], ''),
-                'closing_date' => $this->get_field_value($form_data, ['mod_jobs.closing_date', 'mod_jobs_closing_date', 'closing_date'], ''),
-                'position_quantity' => $this->get_field_value($form_data, ['mod_jobs.position_quantity', 'mod_jobs_position_quantity', 'position_quantity'], ''),
-                'skills' => $skills_text,
-                'qualifications' => $qualifications_text,
-                'reference_number' => $this->generate_job_reference(),
-                'enabled' => 1,
-                'removed' => 0,
-                'created_at' => date('Y-m-d H:i:s'),
-                'updated_at' => date('Y-m-d H:i:s')
-            ];
+        // Load Model_jobs
+        $this->load->model('admin/Model_jobs');
+        
+        $job_id = $this->Model_jobs->save_from_template($template_id, $job_data, $form_data);
 
-            // Validate required fields
-            if (empty($job_data['name']) || empty(trim($job_data['name']))) {
-                throw new Exception('Missing or empty job name: "' . $job_data['name'] . '"');
-            }
+        if ($job_id) {
             
-            if (empty($job_data['agency_id'])) {
-                throw new Exception('Missing agency_id: ' . $job_data['agency_id']);
-            }
-
-            // Load Model_jobs
-            $this->load->model('admin/Model_jobs');
+            // SEND NOTIFICATION TO RECRUITERS (same as manual job creation)
+            $this->send_template_job_notification($job_id, $job_data);
             
-            $job_id = $this->Model_jobs->save_from_template($template_id, $job_data, $form_data);
-
-            if ($job_id) {
-                
-                //  NEW: SEND NOTIFICATION TO RECRUITERS (same as manual job creation)
-                $this->send_template_job_notification($job_id, $job_data);
-                
-                $this->output->set_output(json_encode([
-                    'success' => true,
-                    'message' => 'Job saved! ID: ' . $job_id,
-                    'job_id' => $job_id,
-                    'debug' => [
-                        'employment_type' => $employment_type,
-                        'industry_id' => $industry_id,
-                        'skills_saved' => $skills_text,
-                        'qualifications_saved' => $qualifications_text
-                    ]
-                ]));
-            } else {
-                throw new Exception('Model_jobs->save_from_template() returned false');
-            }
-            
-
-        } catch (Exception $e) {
             $this->output->set_output(json_encode([
-                'success' => false,
-                'error' => $e->getMessage()
+                'success' => true,
+                'message' => 'Job saved! ID: ' . $job_id,
+                'job_id' => $job_id,
+                'debug' => [
+                    'employment_type' => $employment_type,
+                    'industry_id' => $industry_id,
+                    'skills_saved' => $skills_text,
+                    'qualifications_saved' => $qualifications_text
+                ]
             ]));
+        } else {
+            throw new Exception('Model_jobs->save_from_template() returned false');
+        }
+        
+
+    } catch (Exception $e) {
+        $this->output->set_output(json_encode([
+            'success' => false,
+            'error' => $e->getMessage()
+        ]));
+    }
+}
+
+/**
+ * Extract employment type from form data with multiple field name possibilities
+ */
+private function get_employment_type_from_form_data($form_data) {
+    // Define all possible field names for employment_type
+    $possible_fields = [
+        'mod_jobs.employment_type',
+        'mod_jobs_employment_type', 
+        'employment_type',
+        'job_type',
+        'mod_job_type',
+        'mod_jobs.job_type',
+        'mod_jobs_job_type'
+    ];
+    
+    foreach ($possible_fields as $field) {
+        if (isset($form_data[$field]) && !empty(trim($form_data[$field]))) {
+            $value = trim($form_data[$field]);
+            
+            // Validate that it's a valid employment type
+            $valid_types = ['full-time', 'part-time', 'contract', 'internship', 'temporary'];
+            if (in_array($value, $valid_types)) {
+                return $value;
+            }
         }
     }
+    
+    return '';
+}
+
+/**
+ * Get employment type from template instance data
+ */
+private function get_employment_type_from_template_instance($template_id) {
+    // Check if there's a template instance with saved form data
+    $instance = $this->db->select('form_data')
+                        ->from('template_instances')
+                        ->where('template_id', $template_id)
+                        ->where('removed', 0)
+                        ->order_by('id', 'DESC')
+                        ->limit(1)
+                        ->get()
+                        ->row();
+    
+    if ($instance && !empty($instance->form_data)) {
+        try {
+            $form_data = json_decode($instance->form_data, true);
+            if (json_last_error() === JSON_ERROR_NONE && is_array($form_data)) {
+                // Look for employment_type in the stored form data
+                $possible_keys = [
+                    'mod_jobs_employment_type',
+                    'employment_type',
+                    'mod_jobs.employment_type',
+                    'job_type',
+                    'mod_job_type'
+                ];
+                
+                foreach ($possible_keys as $key) {
+                    if (isset($form_data[$key]) && !empty(trim($form_data[$key]))) {
+                        $value = trim($form_data[$key]);
+                        $valid_types = ['full-time', 'part-time', 'contract', 'internship', 'temporary'];
+                        if (in_array($value, $valid_types)) {
+                            return $value;
+                        }
+                    }
+                }
+            }
+        } catch (Exception $e) {
+            log_message('error', 'Error parsing template instance data: ' . $e->getMessage());
+        }
+    }
+    
+    return '';
+}
 
     //  NEW: Helper method to get field value with multiple possible names
-    private function get_field_value($form_data, $field_names, $default = null) {
-        if (!is_array($field_names)) {
-            $field_names = [$field_names];
-        }
-        
-        foreach ($field_names as $field_name) {
-            if (isset($form_data[$field_name]) && $form_data[$field_name] !== '') {
-                return $form_data[$field_name];
+    // ✅ UPDATE: Helper method to get field value with multiple possible names
+private function get_field_value($form_data, $field_names, $default = null) {
+    if (!is_array($field_names)) {
+        $field_names = [$field_names];
+    }
+    
+    foreach ($field_names as $field_name) {
+        if (isset($form_data[$field_name])) {
+            $value = $form_data[$field_name];
+            if (is_array($value)) {
+                // Handle array values (for multi-selects, etc.)
+                return !empty($value) ? implode(',', $value) : $default;
+            } elseif ($value !== null && $value !== '') {
+                return $value;
             }
         }
-        
-        return $default;
     }
+    
+    return $default;
+}
 
     //  NEW: Generate unique job reference
     private function generate_job_reference() {

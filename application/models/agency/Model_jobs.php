@@ -21,6 +21,11 @@ class Model_jobs extends CRUD_Model{
             if (empty($job_data['employment_type'])) {
                 $job_data['employment_type'] = 'full-time'; // Default value
             }
+            // ✅ FIX: Validate employment_type value
+        $valid_types = ['full-time', 'part-time', 'contract', 'internship', 'temporary'];
+        if (!in_array($job_data['employment_type'], $valid_types)) {
+            $job_data['employment_type'] = 'full-time'; // Default to full-time if invalid
+        }
             
             if (empty($job_data['industry_id']) || !is_numeric($job_data['industry_id'])) {
                 $job_data['industry_id'] = null; // Set to null if invalid
@@ -270,6 +275,7 @@ public function get_job_id_from_uuid($uuid) {
  * Get job by UUID or ID
  */
 public function get_job($identifier) {
+    $this->db->select('mod_jobs.*');
     // Check if identifier is UUID
     if (is_string($identifier) && strlen($identifier) == 36 && strpos($identifier, '-') !== false) {
         $this->db->where('uuid', $identifier);

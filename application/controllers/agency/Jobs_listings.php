@@ -350,6 +350,16 @@ public function edit($identifier = null) {
             redir($this->pageName);
             return;
         }
+
+        // After getting the ID, ensure we have proper data
+        if ($id && !$this->enforce_job_access($id)) {
+            return;
+        }
+        
+        // Load the job data fresh to ensure all fields are included
+        if ($id) {
+            $this->data['job'] = $this->{$this->model}->get_job($id);
+        }
         
         // Call parent edit with ID
         parent::edit($id);
@@ -407,6 +417,16 @@ private function generate_uuid() {
    
    public function quick_manage_extra($id, $row): array
 {
+    // DEBUG: Check what's in the row
+    log_message('debug', 'quick_manage_extra called with ID: ' . $id);
+    log_message('debug', 'Row object exists: ' . (!empty($row) ? 'YES' : 'NO'));
+    if (!empty($row)) {
+        log_message('debug', 'Row properties: ' . print_r(get_object_vars($row), true));
+        log_message('debug', 'Has employment_type property: ' . (property_exists($row, 'employment_type') ? 'YES' : 'NO'));
+        if (property_exists($row, 'employment_type')) {
+            log_message('debug', 'Employment type value: ' . $row->employment_type);
+        }
+    }
     $submodules = $this->session->submodules;
     $agency_id = !empty($submodules['job_listings']) ? $submodules['job_listings']->id : null;
 
@@ -416,7 +436,14 @@ private function generate_uuid() {
     
     // FIX: Better data extraction from row
     $current_agency_id = $user_agency_id; // Default to user's agency
-
+// ✅ FIX: Ensure row data includes employment_type
+    if (!empty($id) && !empty($row) && !property_exists($row, 'employment_type')) {
+        // Fetch fresh data from database including employment_type
+        $job_data = $this->{$this->model}->get_job($id);
+        if ($job_data) {
+            $row->employment_type = $job_data->employment_type;
+        }
+    }
     if (!empty($row) && is_object($row)) {
         // More robust check for agency_id
         if (isset($row->agency_id) && !empty($row->agency_id)) {

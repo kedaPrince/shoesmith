@@ -154,6 +154,7 @@ $lang['label_hub'] = 'Hub';
 $lang['filter_user_group'] = 'By User Group';
 $lang['filter_user_type'] = 'By User Type';
 $lang['general_no_results'] = 'There are no results available.';
+$lang['templates_remove_success_description'] = 'Template "{name}" has been deleted successfully.';
 $lang['filter_date'] = 'Date';
 $lang['filter_date_range_from'] = 'Date Range From';
 $lang['filter_date_range_to'] = 'Date Range To';

@@ -205,6 +205,63 @@ public function get_all($section = '')
     
     return $result;
 }
+public function remove($whereValue, $whereField = 'id', $table = false)
+{
+    log_message('debug', 'Model_templates::remove() called');
+    log_message('debug', 'whereValue: ' . $whereValue . ', whereField: ' . $whereField);
+    
+    // If $whereValue is an array (from parent class), extract the ID
+    if (is_array($whereValue)) {
+        $id = isset($whereValue['id']) ? $whereValue['id'] : (isset($whereValue[$whereField]) ? $whereValue[$whereField] : null);
+    } else {
+        $id = $whereValue;
+    }
+    
+    log_message('debug', 'Extracted ID: ' . $id);
+    
+    if (!$id) {
+        log_message('error', 'No ID provided to remove()');
+        return false;
+    }
+    
+    $agency_id = $this->get_agency_id();
+    log_message('debug', 'Agency ID: ' . $agency_id);
+    
+    if (!$agency_id) {
+        log_message('error', 'No agency_id in remove()');
+        return false;
+    }
+    
+    // Try to delete from mod_layouts first (single templates)
+    $this->db->where('id', $id);
+    $this->db->where('removed', 0);
+    $single_result = $this->db->update('mod_layouts', [
+        'removed' => 1,
+        'updated_at' => date('Y-m-d H:i:s')
+    ]);
+    
+    log_message('debug', 'Single template update result: ' . ($single_result ? 'TRUE' : 'FALSE'));
+    log_message('debug', 'Affected rows (single): ' . $this->db->affected_rows());
+    
+    if ($this->db->affected_rows() > 0) {
+        return true;
+    }
+    
+    // If not found in mod_layouts, try agency_custom_templates (composite)
+    $this->db->where('id', $id);
+    $this->db->where('agency_id', $agency_id);
+    $this->db->where('enabled', 1);
+    $composite_result = $this->db->update('agency_custom_templates', [
+        'enabled' => 0,
+        'updated_at' => date('Y-m-d H:i:s')
+    ]);
+    
+    log_message('debug', 'Composite template update result: ' . ($composite_result ? 'TRUE' : 'FALSE'));
+    log_message('debug', 'Affected rows (composite): ' . $this->db->affected_rows());
+    
+    return ($this->db->affected_rows() > 0);
+}
+
 
     public function get_count() 
     {
