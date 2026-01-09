@@ -131,7 +131,6 @@
                                 <th>Reference</th>
                                 <th>Email</th>
                                 <th>Phone</th>
-                                <th>Status</th>
                                 <th>Application Date</th>
                                 <th>Onboarding Stage</th>
                                 <th>Actions</th>
@@ -146,40 +145,63 @@
                                 <td><?php echo htmlspecialchars($candidate->reference_number); ?></td>
                                 <td><?php echo htmlspecialchars($candidate->email); ?></td>
                                 <td><?php echo htmlspecialchars($candidate->phone ?? 'N/A'); ?></td>
-                                <td>
-                                    <?php 
-                                    $status_badge = [
-                                        'new' => 'secondary',
-                                        'reviewed' => 'info',
-                                        'shortlisted' => 'warning',
-                                        'interviewed' => 'primary',
-                                        'hired' => 'success',
-                                        'rejected' => 'danger',
-                                        'on_hold' => 'dark'
-                                    ];
-                                    $badge_class = $status_badge[$candidate->status] ?? 'secondary';
-                                    ?>
-                                    <span class="badge bg-<?php echo $badge_class; ?>">
-                                        <?php echo ucfirst($candidate->status); ?>
-                                    </span>
-                                </td>
+
                                 <td><?php echo date('M j, Y', strtotime($candidate->application_date)); ?></td>
                                 <td>
                                     <?php
-                                    $onboarding_badge = [
-                                        'not_started' => 'secondary',
-                                        'stage_under_review' => 'info',
-                                        'stage_submitted_to_hm' => 'primary',
-                                        'stage_requested_docs' => 'warning',
-                                        'stage_position_offered' => 'success',
-                                        'completed' => 'success'
-                                    ];
-                                    $onboarding_class = $onboarding_badge[$candidate->onboarding_stage] ?? 'secondary';
-                                    $onboarding_label = str_replace('_', ' ', $candidate->onboarding_stage);
-                                    $onboarding_label = ucwords($onboarding_label);
-                                    ?>
-                                    <span class="badge bg-<?php echo $onboarding_class; ?>">
+    // Determine the correct onboarding stage display
+    $onboarding_stage = $candidate->onboarding_stage ?? 'not_started';
+    $onboarding_progress = $candidate->onboarding_progress ?? 0;
+    
+    // If stage is "not_started" but candidate is submitted, show "Under Review" as initial state
+    if ($onboarding_stage === 'not_started' && $candidate->status !== 'rejected') {
+        $onboarding_stage = 'stage_under_review';
+    }
+    
+    // Map stages to badges
+    $onboarding_badge = [
+        'not_started' => 'secondary',
+        'stage_under_review' => 'info',
+        'stage_submitted_to_hm' => 'primary',
+        'stage_hm_decision' => 'warning',
+        'stage_documents_decision' => 'info',
+        'stage_requested_docs' => 'warning',
+        'stage_position_offered' => 'success',
+        'completed' => 'success'
+    ];
+    
+    // Map stages to display labels
+    $onboarding_labels = [
+        'not_started' => 'Not Started',
+        'stage_under_review' => 'Under Review',
+        'stage_submitted_to_hm' => 'Submitted to HM',
+        'stage_hm_decision' => 'HM Decision',
+        'stage_documents_decision' => 'Documents Decision',
+        'stage_requested_docs' => 'Requested Docs',
+        'stage_position_offered' => 'Position Offered',
+        'completed' => 'Completed'
+    ];
+    
+    $onboarding_class = $onboarding_badge[$onboarding_stage] ?? 'secondary';
+    $onboarding_label = $onboarding_labels[$onboarding_stage] ?? 'Unknown';
+    
+    // Special handling for HM decision
+    if ($onboarding_stage === 'stage_hm_decision' && $candidate->hm_decision) {
+        if ($candidate->hm_decision === 'accepted') {
+            $onboarding_label = 'HM Accepted';
+            $onboarding_class = 'success';
+        } elseif ($candidate->hm_decision === 'rejected') {
+            $onboarding_label = 'HM Rejected';
+            $onboarding_class = 'danger';
+        }
+    }
+    ?>
+                                    <span class="badge bg-<?php echo $onboarding_class; ?>"
+                                        title="Progress: <?php echo $onboarding_progress; ?>%">
                                         <?php echo $onboarding_label; ?>
+                                        <?php if ($onboarding_progress > 0 && $onboarding_progress < 100): ?>
+                                        (<?php echo $onboarding_progress; ?>%)
+                                        <?php endif; ?>
                                     </span>
                                 </td>
                                 <td>

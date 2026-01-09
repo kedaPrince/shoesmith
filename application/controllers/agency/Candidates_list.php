@@ -145,28 +145,59 @@ public function index($uuid_or_id = null)
     $job_uuid = $job->uuid;
     $job_name = $job->name;
 
-    // FIXED: Proper query to get active candidates for this job
+    // FIXED: Proper query to get active candidates for this job WITH ONBOARDING PROGRESS
     $this->db->select('c.*, 
                        j.name as job_name, 
                        j.uuid as job_uuid,
                        a.name as agency_name,
                        cja.status as application_status,
-                       cja.assigned_at as application_date');
+                       cja.assigned_at as application_date,
+                       cop.onboarding_stage,
+                       cop.onboarding_progress,
+                       cop.stage_under_review,
+                       cop.stage_submitted_to_hm,
+                       cop.stage_requested_docs,
+                       cop.stage_position_offered,
+                       cop.hm_decision,
+                       cop.documents_required');
     $this->db->from('candidate_job_assignments cja');
     $this->db->join('candidates c', 'c.id = cja.candidate_id', 'inner');
     $this->db->join('mod_jobs j', 'j.id = cja.job_id', 'left');
     $this->db->join('agencies a', 'a.id = j.agency_id', 'left');
     
-    // 🔒 CRITICAL: Join with candidate_agencies to ensure candidate belongs to this agency
+    // Join with candidate_onboarding_progress for THIS SPECIFIC JOB
+    $this->db->join('candidate_onboarding_progress cop', 
+                   'cop.candidate_id = c.id AND cop.job_id = j.id AND cop.agency_id = ' . $this->db->escape($agency_id), 
+                   'left');
+    
+    // Join with candidate_agencies to ensure candidate belongs to this agency
     $this->db->join('candidate_agencies ca', 'ca.candidate_id = c.id AND ca.agency_id = ' . $this->db->escape($agency_id), 'inner');
     
     $this->db->where('cja.job_id', $job_id);
     $this->db->where('cja.removed', 0); // CRITICAL: Only active assignments
-    $this->db->where('j.agency_id', $agency_id); // 🔒 Ensure job belongs to agency
+    $this->db->where('j.agency_id', $agency_id); // Ensure job belongs to agency
     $this->db->where('c.removed', 0);
     $this->db->order_by('c.first_name', 'ASC');
     
     $candidates = $this->db->get()->result();
+    
+    // FIX: If onboarding progress doesn't exist for a candidate, create default "not_started"
+    foreach ($candidates as $candidate) {
+        if (!$candidate->onboarding_stage) {
+            $candidate->onboarding_stage = 'not_started';
+            $candidate->onboarding_progress = 0;
+            $candidate->stage_under_review = 0;
+            $candidate->stage_submitted_to_hm = 0;
+            $candidate->stage_requested_docs = 0;
+            $candidate->stage_position_offered = 0;
+            $candidate->hm_decision = null;
+            $candidate->documents_required = 0;
+            
+            // Optional: Create the record in the database
+            // $this->create_default_onboarding_record($candidate->id, $job_id, $agency_id);
+        }
+    }
+    
     $total_candidates = count($candidates);
 
     // Set session data for breadcrumbs
@@ -189,7 +220,40 @@ public function index($uuid_or_id = null)
     $this->load->view($this->folder . '/view_footer');
 }
 
-
+/**
+ * Create default onboarding record for candidate-job pair
+ */
+private function create_default_onboarding_record($candidate_id, $job_id, $agency_id)
+{
+    // Check if record already exists
+    $existing = $this->db->where('candidate_id', $candidate_id)
+                        ->where('job_id', $job_id)
+                        ->where('agency_id', $agency_id)
+                        ->get('candidate_onboarding_progress')
+                        ->row();
+    
+    if (!$existing) {
+        $onboarding_data = [
+            'candidate_id' => $candidate_id,
+            'job_id' => $job_id,
+            'agency_id' => $agency_id,
+            'onboarding_stage' => 'not_started',
+            'onboarding_progress' => 0,
+            'stage_under_review' => 0,
+            'stage_submitted_to_hm' => 0,
+            'stage_requested_docs' => 0,
+            'stage_position_offered' => 0,
+            'hm_decision' => null,
+            'documents_required' => 0,
+            'created_at' => date('Y-m-d H:i:s'),
+            'updated_at' => date('Y-m-d H:i:s')
+        ];
+        
+        return $this->db->insert('candidate_onboarding_progress', $onboarding_data);
+    }
+    
+    return false;
+}
 public function view($uuid_or_id = null)
 {
     if (!$uuid_or_id) {

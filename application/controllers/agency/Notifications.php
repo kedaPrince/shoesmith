@@ -40,50 +40,58 @@ class Notifications extends CRUD_Controller
     private function setup_listing(): void
 {
     $this->listFields = array(
-        'title' => array('label' => lang('label_title'), 'sort' => true),
-        'message' => array('label' => lang('label_message'), 'sort' => true),
-        'type' => array(
-            'label' => lang('label_type'),
-            'sort' => true,
-            'type' => 'badge',
-            'options' => array(
-                'candidate_applied' => array('class' => 'badge-primary', 'label' => 'Candidate Applied'),
-                'status_changed' => array('class' => 'badge-warning', 'label' => 'Status Changed'),
-                'job_added' => array('class' => 'badge-success', 'label' => 'New Job'),
-                'system' => array('class' => 'badge-info', 'label' => 'System')
-            )
-        ),
-        'first_name' => array(
-            'label' => lang('label_candidate'),
-            'sort' => false,
-            'field' => "CONCAT(c.first_name, ' ', c.last_name) AS candidate_name",
-            'function' => function($value, $row) {
-                if (!empty($row->first_name)) {
-                    return $row->first_name . ' ' . $row->last_name;
-                }
-                return '-';
-            }
-        ),
-        'job_name' => array('label' => lang('label_job'), 'sort' => true),
-        'recruiter_company' => array('label' => lang('label_recruiter'), 'sort' => true),
-        'created_at' => array(
-            'label' => lang('label_created_at'), 
-            'sort' => true, 
-            'type' => 'datetime',
-            'function' => function($value, $row) {
-                return date('M j, Y g:i A', strtotime($value));
-            }
-        ),
-        'is_read' => array(
-            'label' => lang('label_status'),
-            'sort' => true,
-            'type' => 'badge',
-            'options' => array(
-                '0' => array('class' => 'badge-danger', 'label' => 'Unread'),
-                '1' => array('class' => 'badge-secondary', 'label' => 'Read')
-            )
-        ),
-    );
+    'title' => array('label' => lang('label_title'), 'sort' => true),
+    'message' => array('label' => lang('label_message'), 'sort' => true),
+    'type' => array(
+        'label' => lang('label_type'),
+        'sort' => true,
+        'type' => 'badge',
+        'options' => array(
+            'candidate_applied' => array('class' => 'badge-primary', 'label' => 'Candidate Applied'),
+            'status_changed' => array('class' => 'badge-warning', 'label' => 'Status Changed'),
+            'job_added' => array('class' => 'badge-success', 'label' => 'New Job'),
+            'system' => array('class' => 'badge-info', 'label' => 'System')
+        )
+    ),
+    'candidate_name' => array( // ✓ Changed from 'first_name' to 'candidate_name'
+        'label' => lang('label_candidate'),
+        'sort' => false,
+        'field' => "CONCAT(c.first_name, ' ', c.last_name)",
+        'function' => function($value, $row) {
+            return $value ?: '-'; // Return the concatenated value or dash
+        }
+    ),
+    'job_name' => array(
+        'label' => lang('label_job'), 
+        'sort' => true,
+        'field' => 'j.name' // ✓ Correct field from join
+    ),
+    'recruiter_first_name' => array( // ✓ Changed from 'recruiter_company'
+        'label' => lang('label_recruiter'),
+        'sort' => true,
+        'field' => "CONCAT(r.first_name, ' ', r.last_name)",
+        'function' => function($value, $row) {
+            return $value ?: '-';
+        }
+    ),
+    'created_at' => array(
+        'label' => lang('label_created_at'), 
+        'sort' => true, 
+        'type' => 'datetime',
+        'function' => function($value, $row) {
+            return date('M j, Y g:i A', strtotime($value));
+        }
+    ),
+    'is_read' => array(
+        'label' => lang('label_status'),
+        'sort' => true,
+        'type' => 'badge',
+        'options' => array(
+            '0' => array('class' => 'badge-danger', 'label' => 'Unread'),
+            '1' => array('class' => 'badge-secondary', 'label' => 'Read')
+        )
+    ),
+);
 
     // Remove view_related and mark_read actions, add remove action
     $this->listActions = array(
@@ -106,17 +114,17 @@ class Notifications extends CRUD_Controller
         'system' => 'System Notifications'
     );
 
-    $this->filters = array(
+        $this->filters = array(
         'type' => array(
             'label' => lang('label_type'),
             'type' => 'dropdown',
-            'field' => 'n.type',
+            'field' => 'notifications.type', // ✓ FIXED: was 'n.type'
             'options' => $notification_types,
         ),
         'is_read' => array(
             'label' => lang('label_status'),
             'type' => 'dropdown',
-            'field' => 'n.is_read',
+            'field' => 'notifications.is_read', // ✓ FIXED: was 'n.is_read'
             'options' => array(
                 '0' => 'Unread',
                 '1' => 'Read'
@@ -125,7 +133,7 @@ class Notifications extends CRUD_Controller
         'date_range' => array(
             'label' => lang('label_date_range'),
             'type' => 'date_range',
-            'field' => 'n.created_at',
+            'field' => 'notifications.created_at', // ✓ FIXED: was 'n.created_at'
         ),
     );
 }
@@ -445,5 +453,66 @@ public function ajax_mark_notification_read()
         echo json_encode(['success' => false, 'error' => 'Failed to mark notification as read']);
     }
 }
-
+/**
+ * DEBUG: Test Notifications SQL fix
+ */
+public function debug_notifications_sql_fix()
+{
+    echo "=== DEBUG: NOTIFICATIONS SQL FIX ===<br><br>";
+    
+    echo "1. Testing main_selects() method:<br>";
+    $this->load->model('agency/Model_notifications');
+    
+    // Clear any cached query
+    $this->db->flush_cache();
+    
+    // Call main_selects to see what it generates
+    $this->Model_notifications->main_selects();
+    
+    echo "   Generated SELECT clause:<br>";
+    $select = $this->db->get_compiled_select('notifications', false);
+    echo "   <pre>" . htmlspecialchars($select) . "</pre><br>";
+    
+    echo "2. Testing complete query:<br>";
+    $this->db->flush_cache();
+    
+    $this->Model_notifications->main_selects();
+    $this->Model_notifications->main_wheres();
+    $this->Model_notifications->main_sorting();
+    
+    // Get the full query
+    $this->db->limit(5);
+    $query = $this->db->get();
+    
+    echo "   Full SQL:<br>";
+    echo "   <pre>" . htmlspecialchars($this->db->last_query()) . "</pre><br>";
+    
+    if ($query) {
+        echo "   ✅ Query executed successfully<br>";
+        echo "   Rows returned: " . $query->num_rows() . "<br><br>";
+        
+        if ($query->num_rows() > 0) {
+            echo "3. Sample data structure:<br>";
+            $row = $query->row();
+            echo "   <pre>";
+            print_r(array_keys((array)$row));
+            echo "</pre><br>";
+            
+            echo "4. Check available fields:<br>";
+            $fields = $this->db->list_fields();
+            echo "   Available fields in result:<br>";
+            foreach ($fields as $field) {
+                echo "   - {$field}<br>";
+            }
+        }
+    } else {
+        echo "   ❌ Query failed<br>";
+        echo "   Error: " . $this->db->error()['message'] . "<br>";
+    }
+    
+    echo "<br>=== CHANGES MADE ===<br>";
+    echo "1. Fixed main_selects() - added FROM clause and proper aliases<br>";
+    echo "2. Fixed list fields in controller to match SQL aliases<br>";
+    echo "3. Removed duplicate AS in CONCAT() statement<br>";
+}
 }

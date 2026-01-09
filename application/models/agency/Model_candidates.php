@@ -373,14 +373,13 @@ public function main_selects()
         return null;
     }
     
-// IN Model_candidates.php - Update get_all()
 public function get_all($limit = 0, $offset = 0, $section = '')
 {
     $agency_id = $this->get_current_agency_id();
     
     // Use the new base table approach
-    $this->db->from('candidate_job_assignments cja');
-    $this->db->join('candidates c', 'c.id = cja.candidate_id AND c.removed = 0', 'inner');
+    $this->db->from('candidate_job_assignments cja2');  // Changed alias to cja2
+    $this->db->join('candidates c', 'c.id = cja2.candidate_id AND c.removed = 0', 'inner');
     
     // Select with aliases
     $this->db->select('c.*, c.id as candidate_id, c.enabled as candidate_enabled, c.uuid as candidate_uuid');
@@ -390,11 +389,11 @@ public function get_all($limit = 0, $offset = 0, $section = '')
         if ($user_type !== 'admin') {
             $this->db->where('c.id', 0);
         }
-        $this->db->join('mod_jobs j', 'j.id = cja.job_id AND j.removed = 0', 'left');
+        $this->db->join('mod_jobs j', 'j.id = cja2.job_id AND j.removed = 0', 'left');
     } else {
         // CRITICAL: Agency-specific filtering
         $this->db->join('mod_jobs j', 
-            'j.id = cja.job_id AND j.removed = 0 AND j.agency_id = ' . $this->db->escape($agency_id), 
+            'j.id = cja2.job_id AND j.removed = 0 AND j.agency_id = ' . $this->db->escape($agency_id), 
             'inner');
         $this->db->join('candidate_agencies ca', 
             'ca.candidate_id = c.id AND ca.agency_id = ' . $this->db->escape($agency_id), 
@@ -402,10 +401,13 @@ public function get_all($limit = 0, $offset = 0, $section = '')
     }
     
     $this->db->select('j.name as job_name, j.uuid as job_uuid, j.reference_number as job_ref');
-    $this->db->where('cja.removed', 0);
+    $this->db->where('cja2.removed', 0);
     
     // NO GROUP BY - allow multiple rows
     // $this->db->group_by('c.id'); // REMOVE THIS!
+    
+    // Apply the filters from the CRUD system
+    $this->main_filters();
     
     if (!empty($this->sorting)) {
         foreach ($this->sorting as $field => $direction) {
@@ -426,7 +428,75 @@ public function get_all($limit = 0, $offset = 0, $section = '')
     
     return $this->db->get();
 }
+        /**
+     * Override parent get_count() to fix filter field names
+     */
+    public function get_count()
+    {
+        // Start fresh
+        $this->db->flush_cache();
+        
+        // Build the query
+        $this->main_selects();
+        
+        // Apply filters manually with correct field names
+        $this->apply_filters_fixed();
+        
+        // Count distinct candidates
+        $this->db->select('COUNT(DISTINCT c.id) as count', false);
+        
+        $query = $this->db->get();
+        
+        if ($query && $query->num_rows() > 0) {
+            return (int) $query->row()->count;
+        }
+        
+        return 0;
+    }
     
+    /**
+     * Apply filters with fixed field names
+     */
+       /**
+     * Apply filters with fixed field names
+     */
+    private function apply_filters_fixed()
+    {
+        $pageName = 'candidates';
+        $filters = get_ecms_filters($pageName);
+        
+        if (!empty($filters)) {
+            foreach ($filters as $filterName => $options) {
+                if (!isset($options['value']) || $options['value'] === '') {
+                    continue; // Skip empty filters
+                }
+                
+                $value = $options['value'];
+                
+                switch ($filterName) {
+                    case 'general':
+                        // Apply search
+                        $this->db->group_start();
+                        $this->db->or_like('c.first_name', $value);
+                        $this->db->or_like('c.last_name', $value);
+                        $this->db->or_like('c.email', $value);
+                        $this->db->or_like('c.reference_number', $value);
+                        $this->db->group_end();
+                        break;
+                        
+                    case 'status':
+                        // Apply status filter
+                        $this->db->where('c.status', $value);
+                        break;
+                        
+                    case 'onboarding_stage':
+                        // Apply onboarding stage filter
+                        $this->db->where('c.onboarding_stage', $value);
+                        break;
+                }
+            }
+        }
+    }
     public function get_by_id($id, $table = false)
     {
         $table = $table ? $table : $this->table;

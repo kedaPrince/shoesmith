@@ -1,5 +1,5 @@
 <?php defined('BASEPATH') || exit('No direct script access allowed'); ?>
-
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <style>
 /* Fix font size */
 .ecms-listing * {
@@ -15,7 +15,6 @@
     content: attr(title);
     position: absolute;
     top: -35px;
-    /* Changed from bottom to top */
     left: 50%;
     transform: translateX(-50%);
     background: #000;
@@ -34,174 +33,17 @@
     content: '';
     position: absolute;
     top: -8px;
-    /* Position above the tooltip */
     left: 50%;
     transform: translateX(-50%);
     border: 4px solid transparent;
     border-top-color: #000;
-    /* Arrow pointing down */
     z-index: 10000;
 }
 
-/**
- * Candidate Chat Functionality
- * This script handles chat button clicks in candidate listing
- */
-
-$(document).ready(function() {
-
-        // Handle chat button click with loading state
-        $(document).on('click', '.chat-row', function(e) {
-                e.preventDefault();
-                e.stopPropagation();
-
-                var url=$(this).attr('href');
-                var candidateId=url.split('/').pop();
-                var $button=$(this);
-
-                // Store original button content
-                var originalContent=$button.html();
-                var originalClass=$button.attr('class');
-
-                // Show loading state
-                $button.html('<i class="fa fa-spinner fa-spin"></i> Loading...');
-                $button.attr('class', originalClass + ' disabled');
-                $button.prop('disabled', true);
-
-                // Get chat info via AJAX
-                $.ajax( {
-
-                        url: base_url + 'agency/candidates/ajax_get_candidate_chat_info/'+ candidateId,
-                        type: 'GET',
-                        dataType: 'json',
-                        success: function(response) {
-                            if (response.success) {
-                                // Open chat in new tab
-                                window.open(response.chat_url, '_blank');
-
-                                // Show success message
-                                showToast('success', 'Chat opened in new tab');
-                            }
-
-                            else {
-                                // Show error message
-                                showToast('error', response.message || 'Failed to start chat');
-                            }
-                        }
-
-                        ,
-                        error: function(xhr, status, error) {
-                            console.error('Chat error:', error);
-                            showToast('error', 'Network error. Please try again.');
-
-                            // Fallback: Try direct link
-                            setTimeout(function() {
-                                    window.open(url, '_blank');
-                                }
-
-                                , 500);
-                        }
-
-                        ,
-                        complete: function() {
-
-                            // Restore button state after a short delay
-                            setTimeout(function() {
-                                    $button.html(originalContent);
-                                    $button.attr('class', originalClass);
-                                    $button.prop('disabled', false);
-                                }
-
-                                , 1000);
-                        }
-                    }
-
-                );
-            }
-
-        );
-
-        // Quick chat button handler (if you add inline buttons)
-        $(document).on('click', '.quick-chat-btn', function() {
-                var candidateId=$(this).data('candidate-id');
-                var candidateName=$(this).data('candidate-name');
-
-                // Show loading
-                var $btn=$(this);
-                var originalHtml=$btn.html();
-                $btn.html('<i class="fa fa-spinner fa-spin"></i>');
-
-                // Get chat info
-                $.ajax( {
-
-                        url: base_url + 'agency/candidates/ajax_get_candidate_chat_info/'+ candidateId,
-                        type: 'GET',
-                        dataType: 'json',
-                        success: function(response) {
-                            if (response.success) {
-                                window.open(response.chat_url, '_blank');
-                                showToast('success', 'Opening chat about '+ candidateName);
-                            }
-
-                            else {
-                                showToast('error', response.message);
-                            }
-                        }
-
-                        ,
-                        error: function() {
-                            showToast('error', 'Failed to start chat');
-                        }
-
-                        ,
-                        complete: function() {
-                            $btn.html(originalHtml);
-                        }
-                    }
-
-                );
-            }
-
-        );
-    }
-
-);
-
-/**
- * Show toast notification
- */
-function showToast(type, message) {
-
-    // Check if toast container exists
-    if ($('#toast-container').length===0) {
-        $('body').append('<div id="toast-container" style="position: fixed; top: 20px; right: 20px; z-index: 9999;"></div>');
-    }
-
-    var bgColor=type==='success'? '#28a745' : '#dc3545';
-    var icon=type==='success'? 'fa-check-circle' : 'fa-exclamation-circle';
-
-    var toastId='toast-'+Date.now();
-    var toastHtml='<div id="'+toastId+'" style="background: '+bgColor+'; color: white; padding: 12px 20px; margin-bottom: 10px; border-radius: 4px; box-shadow: 0 2px 10px rgba(0,0,0,0.2); min-width: 250px; display: flex; align-items: center;">'+'<i class="fa '+icon+'" style="margin-right: 10px;"></i>'+'<span>'+message+'</span>'+'<button onclick="$(\'#'+toastId+'\').remove()" style="margin-left: auto; background: none; border: none; color: white; cursor: pointer;">'+'<i class="fa fa-times"></i>'+'</button>'+'</div>';
-
-    $('#toast-container').append(toastHtml);
-
-    // Auto remove after 5 seconds
-    setTimeout(function() {
-            $('#'+ toastId).fadeOut(300, function() {
-                    $(this).remove();
-                }
-
-            );
-        }
-
-        , 5000);
-}
-
-/**
- * Alternative: Simple alert function if toast doesn't work
- */
-function showAlert(message, type='info') {
-    alert(message); // Fallback to simple alert
+.ecms-field .c_dropdown ul.multiselect-container li a label.radio input {
+    position: fixed;
+    left: 2px;
+    display: none !important;
 }
 </style>
 
@@ -226,97 +68,51 @@ setInterval(setupTooltips, 500);
 document.addEventListener('click', setupTooltips);
 window.addEventListener('scroll', setupTooltips);
 
-/**
- * Candidate Chat Functionality
- * This script handles chat button clicks in candidate listing
- */
-
 $(document).ready(function() {
-    // Handle chat button click with loading state
+    // Handle chat button click - SIMPLE VERSION
     $(document).on('click', '.chat-row', function(e) {
         e.preventDefault();
         e.stopPropagation();
 
         var url = $(this).attr('href');
-        var candidateId = url.split('/').pop();
         var $button = $(this);
-
-        // Store original button content
         var originalContent = $button.html();
-        var originalClass = $button.attr('class');
 
-        // Show loading state
-        $button.html('<i class="fa fa-spinner fa-spin"></i> Loading...');
-        $button.attr('class', originalClass + ' disabled');
+        // Show loading briefly
+        $button.html('<i class="fa fa-spinner fa-spin"></i> Opening...');
         $button.prop('disabled', true);
 
-        // Get chat info via AJAX
-        $.ajax({
-            url: base_url + 'agency/candidates/ajax_get_candidate_chat_info/' + candidateId,
-            type: 'GET',
-            dataType: 'json',
-            success: function(response) {
-                if (response.success) {
-                    // Open chat in new tab
-                    window.open(response.chat_url, '_blank');
+        // Open link directly (no AJAX)
+        window.open(url, '_blank');
 
-                    // Show success message
-                    showToast('success', 'Chat opened in new tab');
-                } else {
-                    // Show error message
-                    showToast('error', response.message || 'Failed to start chat');
-                }
-            },
-            error: function(xhr, status, error) {
-                console.error('Chat error:', error);
-                showToast('error', 'Network error. Please try again.');
-
-                // Fallback: Try direct link
-                setTimeout(function() {
-                    window.open(url, '_blank');
-                }, 500);
-            },
-            complete: function() {
-                // Restore button state after a short delay
-                setTimeout(function() {
-                    $button.html(originalContent);
-                    $button.attr('class', originalClass);
-                    $button.prop('disabled', false);
-                }, 1000);
-            }
-        });
+        // Restore button after 1 second
+        setTimeout(function() {
+            $button.html(originalContent);
+            $button.prop('disabled', false);
+        }, 1000);
     });
 
-    // Quick chat button handler (if you add inline buttons)
-    $(document).on('click', '.quick-chat-btn', function() {
-        var candidateId = $(this).data('candidate-id');
-        var candidateName = $(this).data('candidate-name');
+    // Quick chat button handler
+    $(document).on('click', '.quick-chat-btn', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
 
-        // Show loading
-        var $btn = $(this);
-        var originalHtml = $btn.html();
-        $btn.html('<i class="fa fa-spinner fa-spin"></i>');
+        var url = $(this).attr('href');
+        var $button = $(this);
+        var originalContent = $button.html();
 
-        // Get chat info
-        $.ajax({
-            url: base_url + 'agency/candidates/ajax_get_candidate_chat_info/' + candidateId,
-            type: 'GET',
-            dataType: 'json',
-            success: function(response) {
-                if (response.success) {
-                    window.open(response.chat_url, '_blank');
-                    showToast('success', 'Opening chat about ' + candidateName);
-                } else {
-                    showToast('error', response.message);
-                }
-            },
-            error: function() {
-                showToast('error', 'Failed to start chat');
-            },
-            complete: function() {
-                $btn.html(originalHtml);
-            }
-        });
+        // Show loading briefly
+        $button.html('<i class="fa fa-spinner fa-spin"></i>');
+        $button.prop('disabled', true);
+
+        // Open link directly
+        window.open(url, '_blank');
+
+        // Restore button after 1 second
+        setTimeout(function() {
+            $button.html(originalContent);
+            $button.prop('disabled', false);
+        }, 1000);
     });
 });
 

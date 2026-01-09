@@ -58,32 +58,131 @@ class Model_agency_staff extends CRUD_Model
     }
 
     /**
-     * 🔒 SECURITY FIX: Get all staff with mandatory agency filtering
+     * Main selects for CRUD system
      */
-    public function get_all($limit = 0, $offset = 0, $section = '')
+    public function main_selects()
     {
-        $this->db->distinct();
+        $this->db->from('agency_staff');
         $this->db->join('agencies', 'agencies.id = agency_staff.agency_id', 'left');
         
         $this->db->select('
             agency_staff.*,
             agencies.name as agency_name
         ', false);
-        
+    }
+
+    /**
+     * Main where conditions
+     */
+    public function main_wheres()
+    {
         $this->db->where('agency_staff.removed', 0);
         
-        // 🔒 CRITICAL: Apply agency filtering
+        // Apply agency filtering
         $agency_id = $this->get_current_agency_id();
         
         if (!empty($agency_id)) {
             $this->db->where('agency_staff.agency_id', $agency_id);
         } else {
-            // If no agency ID and not admin, return empty
+            // If no agency ID and not admin, show nothing
             $user_type = getLoggedInUserTypeMenu();
             if ($user_type !== 'admin') {
-                $this->db->where('agency_staff.id', 0); // Force empty result
+                $this->db->where('agency_staff.id', 0);
             }
         }
+    }
+
+    /**
+     * Apply filters from CRUD system
+     */
+    public function main_filters()
+    {
+        $pageName = 'agency_staff';
+        $filters = get_ecms_filters($pageName);
+        
+        if (!empty($filters)) {
+            foreach ($filters as $filterName => $options) {
+                if (!isset($options['value']) || $options['value'] === '') {
+                    continue; // Skip empty filters
+                }
+                
+                $value = $options['value'];
+                
+                switch ($filterName) {
+                    case 'general':
+                        // Apply search filter
+                        if (!empty($value)) {
+                            $this->db->group_start();
+                            $this->db->or_like('CONCAT(agency_staff.first_name," ",agency_staff.last_name)', $value);
+                            $this->db->or_like('agency_staff.email', $value);
+                            $this->db->or_like('agency_staff.job_role', $value);
+                            $this->db->group_end();
+                        }
+                        break;
+                        
+                    case 'agency':
+                        // Apply agency filter
+                        $this->db->where('agency_staff.agency_id', $value);
+                        break;
+                }
+            }
+        }
+        
+        $this->filters();
+    }
+
+    /**
+     * Additional filters (can be extended)
+     */
+    public function filters()
+    {
+        // Custom filters can be added here if needed
+    }
+
+    /**
+     * Main joins (if any)
+     */
+    public function main_joins()
+    {
+        // Joins are already in main_selects()
+    }
+
+    /**
+     * Override get_count() to work with filters
+     */
+    public function get_count()
+    {
+        // Start fresh
+        $this->db->flush_cache();
+        
+        // Build the query
+        $this->main_selects();
+        $this->main_wheres();
+        $this->main_filters();
+        
+        // Count rows
+        $this->db->select('COUNT(agency_staff.id) as count', false);
+        
+        $query = $this->db->get();
+        
+        if ($query && $query->num_rows() > 0) {
+            return (int) $query->row()->count;
+        }
+        
+        return 0;
+    }
+
+    /**
+     * Override get_all() to work with CRUD system
+     */
+    public function get_all($limit = 0, $offset = 0, $section = '')
+    {
+        $this->db->flush_cache();
+        
+        // Build the query
+        $this->main_selects();
+        $this->main_wheres();
+        $this->main_filters();
         
         // Apply sorting
         if (!empty($this->sorting)) {
@@ -96,32 +195,9 @@ class Model_agency_staff extends CRUD_Model
             $this->db->limit($limit, $offset);
         }
         
-        $query = $this->db->get($this->table);
-        return $query;
+        return $this->db->get();
     }
 
-    /**
-     * 🔒 SECURITY FIX: Get staff count with agency filtering
-     */
-    public function get_count()
-    {
-        $this->db->where('agency_staff.removed', 0);
-        
-        // Apply agency filtering
-        $agency_id = $this->get_current_agency_id();
-        
-        if (!empty($agency_id)) {
-            $this->db->where('agency_staff.agency_id', $agency_id);
-        } else {
-            // If no agency ID and not admin, return 0
-            $user_type = getLoggedInUserTypeMenu();
-            if ($user_type !== 'admin') {
-                return 0;
-            }
-        }
-        
-        return $this->db->count_all_results($this->table);
-    }
 
     /**
  * 🔒 SECURITY FIX: Universal access check for any staff ID - DEBUG VERSION

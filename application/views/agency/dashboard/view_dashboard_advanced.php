@@ -4,17 +4,14 @@
 
 <div id="main-content">
     <div class="container-fluid">
-        <!-- Dashboard Toggle Button -->
-        <div class="dashboard-toggle">
-            <div class="toggle-switch">
-                <button class="toggle-btn" onclick="location.href='<?= site_url("agency/dashboard") ?>'">
-                    <i class="fa fa-tachometer-alt"></i> Main
-                </button>
-                <button class="toggle-btn active">
-                    <i class="fa fa-chart-bar"></i> Advanced View
-                </button>
-            </div>
+        <!-- Dashboard Header -->
+        <div class="dashboard-header">
+            <div></div>
+            <button class="toggle-view-btn" onclick="location.href='<?= site_url("agency/dashboard") ?>'">
+                <i class="fa fa-chart-bar"></i> Main Dashboard
+            </button>
         </div>
+
 
         <!-- Welcome Banner -->
         <div class="welcome-banner">

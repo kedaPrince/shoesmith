@@ -42,114 +42,114 @@ class Candidates extends CRUD_Controller{
     }
 
     private function setup_listing(): void{
-        $this->listFields = array(
-            'reference_number' => array(
-                'label' => lang('label_reference_number'),
-                'sort' => true,
-            ),
-            'first_name' => array(
-                'label' => lang('label_first_name'),
-                'sort' => true,
-            ),
-            'email' => array(
-                'label' => lang('label_email'),
-                'sort' => true,
-            ),
-            'job_name' => array(
-                'label' => lang('label_job'),
-                'sort' => true,
-                'field' => 'jobs.name'
-            ),
-            'status' => array(
-                'label' => lang('label_status'),
-                'sort' => true,
-            ),
-            'onboarding_stage' => array(
-                'label' => 'Onboarding Stage',
-                'sort' => true,
-                'function' => function($value, $row) {
-                    return $this->get_onboarding_stage_display($row);
-                }
-            ),
-            'application_date' => array(
-                'label' => lang('label_application_date'),
-                'sort' => true,
-                'type' => 'date',
-            ),
-        );
+    $this->listFields = array(
+        'reference_number' => array(
+            'label' => lang('label_reference_number'),
+            'sort' => true,
+        ),
+        'first_name' => array(
+            'label' => lang('label_first_name'),
+            'sort' => true,
+        ),
+        'email' => array(
+            'label' => lang('label_email'),
+            'sort' => true,
+        ),
+        'job_name' => array(
+            'label' => lang('label_job'),
+            'sort' => true,
+            'field' => 'jobs.name'
+        ),
+        'status' => array(
+            'label' => lang('label_status'),
+            'sort' => true,
+        ),
+        'onboarding_stage' => array(
+            'label' => 'Onboarding Stage',
+            'sort' => true,
+            'function' => function($value, $row) {
+                return $this->get_onboarding_stage_display($row);
+            }
+        ),
+        'application_date' => array(
+            'label' => lang('label_application_date'),
+            'sort' => true,
+            'type' => 'date',
+        ),
+    );
 
-        $this->listActions = array(
-            'view' => array(
-                    'label'     => lang('label_view'),
-                      'url'       => site_url('agency/candidates/view/{uuid}?job={job_uuid}'),
-                    'icon'      => 'fa-eye',
-                    'class'     => 'view-row',
-                    'title'     => 'View candidate',
-                ),
-            'edit' => array(
-                'label'     => lang('label_edit'),
-                'url'       => redir($this->pageName . '/edit/{uuid}', true),
-                'icon'      => 'fa-edit',
-                'class'     => 'edit-row',
-                'title'     => 'Edit candidate information',
-            ),
-            'onboarding' => array(
-                'label'     => 'Onboarding',
-                'url'       => redir($this->pageName . '/onboarding/{uuid}?job={job_uuid}', true),
+    $this->listActions = array(
+        'view' => array(
+                'label'     => lang('label_view'),
+                  'url'       => site_url('agency/candidates/view/{uuid}?job={job_uuid}'),
                 'icon'      => 'fa-eye',
-                'class'     => 'onboarding-row',
-                'title'     => 'Manage candidate onboarding process',
+                'class'     => 'view-row',
+                'title'     => 'View candidate',
             ),
-            'chat' => array(
-                'label'     => 'Chat',
-                'url'       => site_url('agency/candidates/start_candidate_chat/{uuid}'),
-                'icon'      => 'fa-comments',
-                'class'     => 'chat-row',
-                'title'     => 'Chat with recruiter about this candidate',
-                'target'    => '_blank'
-            ),
-        );
+        'edit' => array(
+            'label'     => lang('label_edit'),
+            'url'       => redir($this->pageName . '/edit/{uuid}', true),
+            'icon'      => 'fa-edit',
+            'class'     => 'edit-row',
+            'title'     => 'Edit candidate information',
+        ),
+        'onboarding' => array(
+            'label'     => 'Onboarding',
+            'url'       => redir($this->pageName . '/onboarding/{uuid}?job={job_uuid}', true),
+            'icon'      => 'fa-eye',
+            'class'     => 'onboarding-row',
+            'title'     => 'Manage candidate onboarding process',
+        ),
+        'chat' => array(
+            'label'     => 'Chat',
+            'url'       => site_url('agency/candidates/start_candidate_chat/{uuid}'),
+            'icon'      => 'fa-comments',
+            'class'     => 'chat-row',
+            'title'     => 'Chat with recruiter about this candidate',
+            'target'    => '_blank'
+        ),
+    );
 
-        $this->filters = array(
-            'search' => array(
-                'label' => lang('label_search'),
-                'type' => 'autocomplete',
-                'field' => array(
-                    'candidates.first_name',
-                    'candidates.last_name',
-                    'candidates.email',
-                    'candidates.reference_number',
-                ),
+    $this->filters = array(
+        'general' => array(
+            'label' => lang('label_search'),
+            'type' => 'autocomplete',
+            'field' => array(
+                'c.first_name',           // ✓ FIXED
+                'c.last_name',            // ✓ FIXED
+                'c.email',               // ✓ FIXED
+                'c.reference_number',    // ✓ FIXED
             ),
-            'status' => array(
-                'label' => lang('label_status'),
-                'type' => 'dropdown',
-                'field' => 'candidates.status',
-                'options' => array(
-                    'new' => 'New',
-                    'reviewed' => 'Reviewed',
-                    'shortlisted' => 'Shortlisted',
-                    'interviewed' => 'Interviewed',
-                    'rejected' => 'Rejected',
-                    'hired' => 'Hired',
-                    'on_hold' => 'On Hold',
-                ),
+        ),
+        'status' => array(
+            'label' => lang('label_status'),
+            'type' => 'dropdown',
+            'field' => 'c.status',       // ✓ WAS: 'candidates.status'
+            'options' => array(
+                'new' => 'New',
+                'reviewed' => 'Reviewed',
+                'shortlisted' => 'Shortlisted',
+                'interviewed' => 'Interviewed',
+                'rejected' => 'Rejected',
+                'hired' => 'Hired',
+                'on_hold' => 'On Hold',
             ),
-            'onboarding_stage' => array(
-                'label' => 'Onboarding Stage',
-                'type' => 'dropdown',
-                'field' => 'candidates.onboarding_stage',
-                'options' => array(
-                    'not_started' => 'Not Started',
-                    'stage_under_review' => 'Under Review',
-                    'stage_submitted_to_hm' => 'Submitted to HM',
-                    'stage_requested_docs' => 'Requested Documents',
-                    'stage_position_offered' => 'Position Offered',
-                    'completed' => 'Completed',
-                ),
+        ),
+        'onboarding_stage' => array(
+            'label' => 'Onboarding Stage',
+            'type' => 'dropdown',
+            'field' => 'c.onboarding_stage',  // ✓ WAS: 'candidates.onboarding_stage'
+            'options' => array(
+                'not_started' => 'Not Started',
+                'stage_under_review' => 'Under Review',
+                'stage_submitted_to_hm' => 'Submitted to HM',
+                'stage_requested_docs' => 'Requested Documents',
+                'stage_position_offered' => 'Position Offered',
+                'completed' => 'Completed',
             ),
-        );
-    }
+        ),
+    );
+}
 
     public function setup_fields(): void{
         $this->formFields = array(
@@ -3183,112 +3183,94 @@ private function send_test_notification($candidate_id, $job_id, $decision, $note
         return false;
     }
 }
-public function direct_notification_test()
+
+/**
+ * DEBUG: Test all filters
+ */
+public function debug_all_filters()
 {
-    echo "<pre>";
-    echo "🚀 DIRECT NOTIFICATION TEST\n";
-    echo "==========================\n\n";
+    echo "=== TESTING ALL FILTERS ===<br><br>";
     
-    // Test data
-    $candidate_id = 1; // Prince
-    $job_id = 1; // First job
-    $decision = 'accepted';
-    $notes = 'Direct test';
-    
-    echo "Testing with:\n";
-    echo "- Candidate ID: {$candidate_id}\n";
-    echo "- Job ID: {$job_id}\n";
-    echo "- Decision: {$decision}\n\n";
-    
-    // Test 1: Simple insert
-    echo "Test 1: Direct database insert...\n";
-    
-    $test_data = [
-        'title' => 'Direct Test Notification',
-        'message' => 'This is a direct test notification',
-        'type' => 'hm_decision',
-        'sender_type' => 'agency',
-        'sender_id' => 1,
-        'receiver_type' => 'recruiter',
-        'receiver_id' => 1,
-        'related_entity' => 'candidate',
-        'related_entity_id' => $candidate_id,
-        'metadata' => json_encode(['test' => 'direct']),
-        'is_read' => 0,
-        'created_at' => date('Y-m-d H:i:s'),
-        'updated_at' => date('Y-m-d H:i:s'),
-        'removed' => 0,
-        'enabled' => 1
+    // Test 1: Status filter
+    echo "1. Testing STATUS filter 'reviewed':<br>";
+    $filters1 = [
+        'status' => [
+            'value' => 'reviewed',
+            'type' => 'dropdown',
+            'field' => 'c.status'
+        ]
     ];
     
-    $result = $this->db->insert('notifications', $test_data);
+    $this->session->set_userdata('candidates_filters', $filters1);
     
-    if ($result) {
-        $id = $this->db->insert_id();
-        echo "✅ SUCCESS: Created notification ID: {$id}\n\n";
-    } else {
-        $error = $this->db->error();
-        echo "❌ FAILED: " . $error['message'] . "\n\n";
+    $this->load->model('agency/Model_candidates');
+    
+    try {
+        $count1 = $this->Model_candidates->get_count();
+        echo "   ✅ Status filter count = {$count1}<br>";
+        echo "   SQL: <pre>" . $this->db->last_query() . "</pre><br>";
+    } catch (Exception $e) {
+        echo "   ❌ Status filter error: " . $e->getMessage() . "<br>";
     }
     
-    // Test 2: Call the function
-    echo "Test 2: Calling notification function...\n";
-    $function_result = $this->send_test_notification($candidate_id, $job_id, $decision, $notes);
-    echo "Function result: " . ($function_result ? '✅ SUCCESS' : '❌ FAILED') . "\n\n";
+    // Clear
+    $this->session->unset_userdata('candidates_filters');
     
-    // Show all notifications
-    echo "All notifications in table:\n";
-    $this->db->select('*');
-    $this->db->from('notifications');
-    $this->db->order_by('id', 'DESC');
-    $this->db->limit(10);
+    // Test 2: Onboarding filter
+    echo "<br>2. Testing ONBOARDING filter 'not_started':<br>";
+    $filters2 = [
+        'onboarding_stage' => [
+            'value' => 'not_started',
+            'type' => 'dropdown',
+            'field' => 'c.onboarding_stage'
+        ]
+    ];
     
-    $notifications = $this->db->get()->result();
+    $this->session->set_userdata('candidates_filters', $filters2);
     
-    if (empty($notifications)) {
-        echo "❌ Table is EMPTY!\n";
-    } else {
-        foreach ($notifications as $n) {
-            echo "- ID: {$n->id}, Type: {$n->type}, Title: {$n->title}\n";
-        }
+    try {
+        $count2 = $this->Model_candidates->get_count();
+        echo "   ✅ Onboarding filter count = {$count2}<br>";
+        echo "   SQL: <pre>" . $this->db->last_query() . "</pre><br>";
+    } catch (Exception $e) {
+        echo "   ❌ Onboarding filter error: " . $e->getMessage() . "<br>";
     }
     
-    echo "\n🎯 Test complete!\n";
-    echo "</pre>";
-}
-public function test_recruiter_id_fix()
-{
-    echo "<h2>Test: Check Recruiter ID Fix</h2>";
+    // Clear
+    $this->session->unset_userdata('candidates_filters');
     
-    $candidate_id = 90;
+    // Test 3: Combined filter
+    echo "<br>3. Testing COMBINED filter (status=reviewed AND search='Prince'):<br>";
+    $filters3 = [
+        'status' => [
+            'value' => 'reviewed',
+            'type' => 'dropdown',
+            'field' => 'c.status'
+        ],
+        'general' => [
+            'value' => 'Prince',
+            'type' => 'autocomplete',
+            'field' => ['c.first_name', 'c.last_name', 'c.email', 'c.reference_number']
+        ]
+    ];
     
-    // Get candidate
-    $candidate = $this->db->where('id', $candidate_id)->get('candidates')->row();
+    $this->session->set_userdata('candidates_filters', $filters3);
     
-    echo "<p>Candidate 90 recruiter_id: <strong>" . ($candidate->recruiter_id ?? 'NULL') . "</strong></p>";
-    
-    if ($candidate->recruiter_id == 3) {
-        echo "<p style='color:green;font-weight:bold;'>✅ PERFECT! Candidate has recruiter_id = 3 (that's YOU!)</p>";
-        
-        // Send a test notification using the fixed method
-        $test_result = $this->send_hm_decision_notification($candidate_id, 100, 'accepted', 'Test fix');
-        
-        if ($test_result) {
-            echo "<p style='color:green;'>✅ Test notification sent to recruiter 3!</p>";
-            echo "<p>Check your notification bell. You should see this test.</p>";
-            
-            // Check database
-            $this->db->where('receiver_id', 3);
-            $this->db->where('receiver_type', 'recruiter');
-            $this->db->where('is_read', 0);
-            $count = $this->db->count_all_results('notifications');
-            echo "<p>Unread notifications for recruiter 3: <strong>{$count}</strong></p>";
-        } else {
-            echo "<p style='color:red;'>❌ Test notification failed</p>";
-        }
-    } else {
-        echo "<p style='color:red;'>❌ Problem: Candidate has wrong recruiter_id</p>";
+    try {
+        $count3 = $this->Model_candidates->get_count();
+        echo "   ✅ Combined filter count = {$count3}<br>";
+        echo "   SQL: <pre>" . $this->db->last_query() . "</pre><br>";
+    } catch (Exception $e) {
+        echo "   ❌ Combined filter error: " . $e->getMessage() . "<br>";
     }
+    
+    // Clear
+    $this->session->unset_userdata('candidates_filters');
+    
+    echo "<br>=== INSTRUCTIONS ===<br>";
+    echo "1. Update controller setup_listing() with 'c.' prefix for ALL filters<br>";
+    echo "2. Update model apply_filters_fixed() to handle all filter types<br>";
+    echo "3. Clear browser cache and test all filters!<br>";
 }
 
 }

@@ -11,44 +11,11 @@ class Model_notifications extends CRUD_Model
         parent::__construct();
     }
 
-    /**
-     * Main query for notifications listing - CRUD methods
-     */
-    public function main_selects()
-    {
-        // Include enabled and removed columns with default values
-        $this->db->select('notifications.*, 1 as enabled, 0 as removed');
-        $this->db->select('c.first_name, c.last_name, c.email');
-        $this->db->select('j.name as job_name');
-        $this->db->select('r.first_name as recruiter_first_name, r.last_name as recruiter_last_name');
-    }
+    
 
-    public function main_joins()
-    {
-        $this->db->join('candidates c', 'c.id = notifications.related_entity_id AND notifications.related_entity = "candidate"', 'left');
-        
-        // Join to get the job through candidate_jobs pivot table
-        $this->db->join('candidate_jobs cj', 'cj.candidate_id = c.id', 'left');
-        $this->db->join('mod_jobs j', 'j.id = cj.job_id', 'left');
-        
-        // Join to get recruiter info
-        $this->db->join('recruiters r', 'r.id = notifications.sender_id AND notifications.sender_type = "recruiter"', 'left');
-    }
+   
 
-    public function main_wheres()
-    {
-        $login_data = $this->session->userdata('login');
-        $agency_id = $login_data['agency']['id'] ?? 0;
-        
-        $this->db->where('notifications.receiver_type', 'agency');
-        $this->db->where('notifications.receiver_id', $agency_id);
-    }
-
-    public function main_sorting()
-    {
-        $this->db->order_by('notifications.is_read', 'ASC');
-        $this->db->order_by('notifications.created_at', 'DESC');
-    }
+ 
 
    /**
      * Get notifications for agency
@@ -249,7 +216,145 @@ public function disable($whereValue, $whereField = 'id', $table = false)
                         ->where('is_read', 0)
                         ->count_all_results($this->table);
     }
+    
+    /**
+     * Main selects for CRUD system
+     */
+    public function main_selects()
+    {
+        $this->db->from('notifications');
+        
+        // Add joins for related data
+        $this->db->join('candidates c', 'c.id = notifications.related_entity_id AND notifications.related_entity = "candidate"', 'left');
+        $this->db->join('candidate_job_assignments cja', 'cja.candidate_id = c.id', 'left');
+        $this->db->join('mod_jobs j', 'j.id = cja.job_id', 'left');
+        $this->db->join('recruiters r', 'r.id = notifications.sender_id AND notifications.sender_type = "recruiter"', 'left');
+        
+        // Select fields - CORRECT VERSION
+        $this->db->select('notifications.*');
+        $this->db->select('CONCAT(c.first_name, " ", c.last_name) as candidate_name', false);
+        $this->db->select('j.name as job_name');
+        $this->db->select('r.first_name as recruiter_first_name, r.last_name as recruiter_last_name');
+        $this->db->select('1 as enabled');
+        $this->db->select('0 as removed');
+    }
 
+    public function main_joins()
+    {
+        // Already included in main_selects(), so leave this empty
+    }
+
+    public function main_wheres()
+    {
+        $login_data = $this->session->userdata('login');
+        $agency_id = $login_data['agency']['id'] ?? 0;
+        
+        $this->db->where('notifications.receiver_type', 'agency');
+        $this->db->where('notifications.receiver_id', $agency_id);
+    }
+
+    public function main_sorting()
+    {
+        $this->db->order_by('notifications.is_read', 'ASC');
+        $this->db->order_by('notifications.created_at', 'DESC');
+    }
+
+    /**
+     * Apply filters from CRUD system
+     */
+    public function main_filters()
+    {
+        $pageName = 'notifications';
+        $filters = get_ecms_filters($pageName);
+        
+        if (!empty($filters)) {
+            foreach ($filters as $filterName => $options) {
+                if (!isset($options['value']) || $options['value'] === '') {
+                    continue; // Skip empty filters
+                }
+                
+                $value = $options['value'];
+                
+                switch ($filterName) {
+                    case 'type':
+                        // Apply type filter
+                        $this->db->where('notifications.type', $value);
+                        break;
+                        
+                    case 'is_read':
+                        // Apply read status filter
+                        $this->db->where('notifications.is_read', $value);
+                        break;
+                        
+                    case 'date_range':
+                        // Apply date range filter
+                        if (isset($value['from']) && isset($value['to'])) {
+                            $from = date('Y-m-d 00:00:00', strtotime($value['from']));
+                            $to = date('Y-m-d 23:59:59', strtotime($value['to']));
+                            $this->db->where('notifications.created_at >=', $from);
+                            $this->db->where('notifications.created_at <=', $to);
+                        }
+                        break;
+                }
+            }
+        }
+        
+        $this->filters();
+    }
+
+    /**
+     * Additional filters (can be extended)
+     */
+    public function filters()
+    {
+        // Custom filters can be added here
+    }
+
+    /**
+     * Override get_count() to work with filters
+     */
+    public function get_count()
+    {
+        // Start fresh
+        $this->db->flush_cache();
+        
+        // Build the query
+        $this->main_selects();
+        $this->main_wheres();
+        $this->main_filters();
+        
+        // Count rows
+        $this->db->select('COUNT(notifications.id) as count', false);
+        
+        $query = $this->db->get();
+        
+        if ($query && $query->num_rows() > 0) {
+            return (int) $query->row()->count;
+        }
+        
+        return 0;
+    }
+
+    /**
+     * Override get_all() to work with CRUD system
+     */
+    public function get_all($limit = 0, $offset = 0, $section = '')
+    {
+        $this->db->flush_cache();
+        
+        // Build the query
+        $this->main_selects();
+        $this->main_wheres();
+        $this->main_filters();
+        $this->main_sorting();
+        
+        if ($limit > 0) {
+            $this->db->limit($limit, $offset);
+        }
+        
+        return $this->db->get();
+    }
+   
     public function get_all_notifications_agency($agency_id)
     {
         return $this->get_agency_notifications($agency_id)->result();

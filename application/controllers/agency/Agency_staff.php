@@ -156,61 +156,65 @@ private function setup_listing(): void
             'sort' => true,
         ),
     );
-log_message('debug', 'List fields set');
-        $this->listActions = array(
-            'edit' => array(
-                'label'     => lang('label_edit'),
-                'url'       => redir($this->pageName . '/edit/{id}', true),
-                'icon'      => 'fa-edit',
-                'class'     => 'edit-row',
+    
+    log_message('debug', 'List fields set');
+    
+    $this->listActions = array(
+        'edit' => array(
+            'label'     => lang('label_edit'),
+            'url'       => redir($this->pageName . '/edit/{id}', true),
+            'icon'      => 'fa-edit',
+            'class'     => 'edit-row',
+        ),
+        'enable' => array(
+            'label'    => lang('label_enable'),
+            'url'      => redir($this->pageName . '/enable/{id}', true),
+            'icon'     => 'fa-eye',
+            'class'    => 'enable-row btn-enable',
+            'function' => (function ($str, $row) {
+                return !$row->enabled ? $str : false; // Show only if disabled
+            }),
+        ),
+        'disable' => array(
+            'label'     => lang('label_disable'),
+            'url'       => redir($this->pageName . '/disable/{id}', true),
+            'icon'      => 'fa-eye-slash',
+            'class'     => 'disable-row btn-disable',
+            'function'  => (function ($str, $row) {
+                return $row->enabled ? $str : false; // Show only if enabled
+            }),
+        ),
+        'delete' => array(
+            'label'     => lang('label_delete'),
+            'url'       => redir($this->pageName . '/remove/{id}', true),
+            'icon'      => 'fa-trash-o',
+            'class'     => 'delete-row btn-delete',
+        ),
+    );
+    
+        log_message('debug', 'List actions set');
+      $this->filters = array(
+        'general' => array(
+            'label'     => lang('label_search'),
+            'type'      => 'autocomplete',
+            'field'     => array(
+                'CONCAT(agency_staff.first_name," ",agency_staff.last_name)', // ✓ CORRECT
+                'agency_staff.email',                                         // ✓ CORRECT
+                'agency_staff.job_role',                                      // ✓ CORRECT
             ),
-            'enable' => array(
-                'label'    => lang('label_enable'),
-                'url'      => redir($this->pageName . '/enable/{id}', true),
-                'icon'     => 'fa-eye',
-                'class'    => 'enable-row btn-enable',
-                'function' => (function ($str, $row) {
-                    return !$row->enabled ? $str : false; // Show only if disabled
-                }),
-            ),
-            'disable' => array(
-                'label'     => lang('label_disable'),
-                'url'       => redir($this->pageName . '/disable/{id}', true),
-                'icon'      => 'fa-eye-slash',
-                'class'     => 'disable-row btn-disable',
-                'function'  => (function ($str, $row) {
-                    return $row->enabled ? $str : false; // Show only if enabled
-                }),
-            ),
-            'delete' => array(
-                'label'     => lang('label_delete'),
-                'url'       => redir($this->pageName . '/remove/{id}', true),
-                'icon'      => 'fa-trash-o',
-                'class'     => 'delete-row btn-delete',
-            ),
-        );
- log_message('debug', 'List actions set');
-        $this->filters = array(
-            'general' => array(
-                'label'     => lang('label_search'),
-                'type'      => 'autocomplete',
-                'field'     => array(
-                    'CONCAT(first_name," ",last_name)',
-                    'email',
-                    'job_role',
-                ),
-            ),
-            'agency' => array(
-                'label'     => lang('label_agency'),
-                'type'      => 'dropdown',
-                'field'     => 'agency_id',
-                'options'   => $agency_options,
-                'id_field'  => 'id',
-                'name_field'=> 'name',
-            ),
-        );
+        ),
+        // 'agency' => array(
+        //     'label'     => lang('label_agency'),
+        //     'type'      => 'dropdown',
+        //     'field'     => 'agency_staff.agency_id', // ✓ CORRECT
+        //     'options'   => $agency_options,
+        //     'id_field'  => 'id',
+        //     'name_field'=> 'name',
+        // ),
+    );
+    
         log_message('debug', 'Filters set. Agency options count: ' . count($agency_options));
-    log_message('debug', '=== SETUP_LISTING END ===');
+        log_message('debug', '=== SETUP_LISTING END ===');
     }
 
     public function setup_fields(): void
@@ -1062,5 +1066,78 @@ public function test_access_control($staff_id)
     echo "<a href='/shoesmith/agency/agency_staff/edit/$staff_id'>Try to edit staff $staff_id</a>";
 }
 
-
+/**
+ * DEBUG: Test Agency Staff search after adding main_filters()
+ */
+public function debug_staff_filters_fix()
+{
+    echo "=== DEBUG: TESTING AGENCY STAFF FILTERS FIX ===<br><br>";
+    
+    echo "1. Testing if main_filters() method exists:<br>";
+    $this->load->model('agency/Model_agency_staff');
+    
+    if (method_exists($this->Model_agency_staff, 'main_filters')) {
+        echo "   ✅ main_filters() method exists<br><br>";
+    } else {
+        echo "   ❌ main_filters() method NOT FOUND<br>";
+        echo "   Add the method to Model_agency_staff.php<br><br>";
+        return;
+    }
+    
+    echo "2. Setting test filter for 'test':<br>";
+    $testFilters = [
+        'general' => [
+            'value' => 'test',
+            'type' => 'autocomplete',
+            'field' => [
+                'CONCAT(agency_staff.first_name," ",agency_staff.last_name)',
+                'agency_staff.email',
+                'agency_staff.job_role'
+            ]
+        ]
+    ];
+    
+    $this->session->set_userdata('agency_staff_filters', $testFilters);
+    
+    echo "3. Testing get_count() with new main_filters():<br>";
+    try {
+        $count = $this->Model_agency_staff->get_count();
+        echo "   ✅ get_count() = {$count}<br><br>";
+        
+        echo "4. SQL Query generated:<br>";
+        echo "   <pre>" . htmlspecialchars($this->db->last_query()) . "</pre><br>";
+        
+        // Check if search condition is in query
+        if (strpos($this->db->last_query(), 'test') !== false) {
+            echo "   ✅ Search condition 'test' found in query!<br>";
+        } else {
+            echo "   ❌ Search condition NOT in query<br>";
+        }
+        
+        echo "<br>5. Testing get_all() to see full query:<br>";
+        $this->db->flush_cache();
+        $query = $this->Model_agency_staff->get_all(10, 0);
+        echo "   SQL:<br>";
+        echo "   <pre>" . htmlspecialchars($this->db->last_query()) . "</pre><br>";
+        
+        echo "   Rows returned: " . $query->num_rows() . "<br>";
+        
+    } catch (Exception $e) {
+        echo "   ❌ Error: " . $e->getMessage() . "<br>";
+        echo "   SQL Error: " . $this->db->error()['message'] . "<br>";
+    }
+    
+    // Clean up
+    $this->session->unset_userdata('agency_staff_filters');
+    
+    echo "<br>6. Test in browser:<br>";
+    echo "   Clear browser cache (Ctrl+F5)<br>";
+    echo "   Go to Agency Staff list<br>";
+    echo "   Try searching - should work now!<br>";
+    
+    echo "<br>=== IMPORTANT ===<br>";
+    echo "Make sure you have BOTH fixes:<br>";
+    echo "1. Controller: Correct filter field names with 'agency_staff.' prefix<br>";
+    echo "2. Model: main_filters() method that handles these filters<br>";
+}
 }
