@@ -8,36 +8,48 @@
 
 .available-sections {
     flex: 1;
-    border: 1px solid #ddd;
+    border: 8px solid #dddddd1c;
     border-radius: 5px;
     padding: 15px;
-    background: #f9f9f9;
+    background: #212529;
 }
 
 .template-preview {
     flex: 2;
-    border: 1px solid #ddd;
+
     border-radius: 5px;
     padding: 15px;
-    background: white;
+    /* background: white; */
+    background: linear-gradient(-181deg, #59c4bc -60%, rgba(23, 162, 184, 0) 55%) !important;
 }
 
+button#resetTemplate {
+    margin-top: 24px !important;
+}
+
+
 .section-item {
-    border: 1px solid #ccc;
+    border: 1px solid #59c4bc;
     border-radius: 3px;
     padding: 10px;
     margin-bottom: 10px;
-    background: white;
+    background: #59c4bc59;
     cursor: move;
 }
 
+.btn.btn-secondary {
+    background-color: #59c4bc !important;
+    border-color: 0px !important;
+    margin-top: 26px !important;
+}
+
 .section-item:hover {
-    border-color: #007bff;
+    border-color: #59c4bc;
 }
 
 .section-item h5 {
     margin: 0 0 5px 0;
-    color: #333;
+    color: #ffffffff;
 }
 
 .section-type {
@@ -49,11 +61,11 @@
 }
 
 .template-section {
-    border: 2px dashed #007bff;
+    border: 2px dashed #59c4bc;
     border-radius: 5px;
     padding: 15px;
     margin-bottom: 15px;
-    background: #f8f9fa;
+    background: #0000004a;
     transition: all 0.3s ease;
 }
 
@@ -92,7 +104,7 @@
     border-bottom: 1px solid #dee2e6;
     padding-bottom: 10px;
     margin-bottom: 15px;
-    color: #495057;
+    color: #ffffffff;
 }
 
 .dragging {
@@ -146,7 +158,7 @@
 
 /* Template management styles */
 .template-management {
-    background: #e9ecef;
+
     border-radius: 5px;
     padding: 15px;
     margin-bottom: 20px;

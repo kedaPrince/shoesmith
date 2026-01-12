@@ -1279,11 +1279,11 @@ table {
 /* EDIT BUTTON - Yellow/Warning */
 .edit-row.btn-warning,
 .btn-action-edit {
-    background-color: #ffc107 !important;
+    background: linear-gradient(93deg, #59c4bc -14%, rgba(23, 162, 184, 0) 55%) !important;
     color: #212529 !important;
     
     &:hover {
-        background-color: #e0a800 !important;
+        background-color: #59c4bc !important;
     }
 }
 
@@ -1438,9 +1438,9 @@ table {
         gap: 4px !important;
     }
 }
-.block-header{
+.block-header {
     background: linear-gradient(93deg, #59c4bc -60%, rgba(23, 162, 184, 0) 55%) !important;
-    color: #ffffff;
+    color: #fff;
     padding: 20px;
     margin: -20px -20px 20px -20px;
 }

@@ -352,7 +352,31 @@ canvas {
 
     </div>
 </div>
+// In recruiter dashboard template
+<script>
+// Update activity every 30 seconds
+setInterval(function() {
+    fetch('/recruiter/update_activity', {
+        method: 'POST',
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    });
+}, 30000);
 
+// Also update on page interactions
+document.addEventListener('click', function() {
+    fetch('/recruiter/update_activity', {
+        method: 'POST'
+    });
+});
+
+document.addEventListener('keypress', function() {
+    fetch('/recruiter/update_activity', {
+        method: 'POST'
+    });
+});
+</script>
 <script>
 // Update toggle button active state
 document.addEventListener('DOMContentLoaded', function() {

@@ -674,7 +674,7 @@ document.addEventListener('DOMContentLoaded', function() {
 /// ===== SIMPLE CHAT NOTIFICATION POLLING =====
 function startChatNotificationPolling() {
     // Poll for new chat messages every 5 seconds (less frequent to reduce server load)
-    setInterval(fetchChatNotifications, 5000);
+    setInterval(fetchChatNotifications, 1000);
 
     // Initial fetch
     setTimeout(fetchChatNotifications, 1000);
@@ -682,7 +682,7 @@ function startChatNotificationPolling() {
 
 function fetchChatNotifications() {
     // Create a simple GET request to the chat controller
-    fetch('<?php echo site_url("agency/chat/ajax_get_unread_count"); ?>?t=' + new Date().getTime(), {
+    fetch('<?php echo site_url("agency/chat/ajax_get_chat_notifications"); ?>?t=' + new Date().getTime(), {
             method: 'GET',
             headers: {
                 'X-Requested-With': 'XMLHttpRequest'

@@ -206,12 +206,74 @@ class Login extends MY_Controller {
     }
 
 }
+public function cleanup_old_sessions()
+{
+    // Delete sessions older than 5 minutes (more aggressive)
+    $five_minutes_ago = date('Y-m-d H:i:s', strtotime('-5 minutes'));
+    
+    // Get sessions to delete
+    $this->db->select('user_id, user_type');
+    $this->db->where('last_activity <', $five_minutes_ago);
+    $expired_sessions = $this->db->get('user_sessions')->result();
+    
+    // Delete the sessions
+    $deleted = $this->db->where('last_activity <', $five_minutes_ago)
+                       ->delete('user_sessions');
+    
+    // Update recruiters who had expired sessions
+    $recruiter_ids = [];
+    foreach ($expired_sessions as $session) {
+        if ($session->user_type == 'recruiter') {
+            $recruiter_ids[] = $session->user_id;
+        }
+    }
+    
+    if (!empty($recruiter_ids)) {
+        $this->db->where_in('id', array_unique($recruiter_ids))
+                 ->update('recruiters', [
+                     'last_logout_at' => date('Y-m-d H:i:s'),
+                     'updated_at' => date('Y-m-d H:i:s')
+                 ]);
+    }
+    
+    log_message('debug', 'Cleaned up ' . $deleted . ' old sessions');
+    echo "Cleaned up " . $deleted . " old sessions at " . date('Y-m-d H:i:s');
+}
 
+public function ajax_update_logout_time()
+{
+    $data = $this->session->login;
+    
+    if (isset($data['recruiter'])) {
+        $recruiter_id = $data['recruiter']['id'];
+        
+        // Delete ALL sessions for this recruiter
+        $this->db->where('user_id', $recruiter_id)
+                 ->where('user_type', 'recruiter')
+                 ->delete('user_sessions');
+        
+        // Update last_logout_at for recruiter
+        $this->db->where('id', $recruiter_id)
+                 ->update('recruiters', [
+                     'last_logout_at' => date('Y-m-d H:i:s'),
+                     'updated_at' => date('Y-m-d H:i:s')
+                 ]);
+        
+        log_message('debug', 'Cleared sessions for recruiter: ' . $recruiter_id);
+    }
+    
+    $this->output->set_content_type('application/json')->set_output(json_encode(['success' => true]));
+}
 public function logout($group = "")
 {
+    // Get current session ID BEFORE doing anything
+    $current_session_id = session_id();
+    
+    // Log the session ID for debugging
+    log_message('debug', 'Logout called. Session ID: ' . $current_session_id);
+    
     // Allow both GET and POST requests for logout
     if ($this->input->server('REQUEST_METHOD') === 'POST') {
-        // For POST requests, validate CSRF token
         $csrf_name = $this->security->get_csrf_token_name();
         $csrf_token = $this->input->post($csrf_name);
         
@@ -221,36 +283,82 @@ public function logout($group = "")
         }
     }
     
-    // For GET requests, just proceed with logout (less secure but more user-friendly)
-    // Or you can require a confirmation page before logout
-
     $data = $this->session->login;
     $loginGroups = $this->config->item('login_groups');
 
     if (!empty($group)) {
         if (isset($data[$group])) {
-            Logger::log($data[$group]['first_name'].' '.$data[$group]['last_name'].' ('.$data[$group]['group'].') has logged out', $data[$group], $group, $data[$group]['id']);
+            $user_id = $data[$group]['id'];
+            
+            Logger::log($data[$group]['first_name'].' '.$data[$group]['last_name'].' ('.$data[$group]['group'].') has logged out', $data[$group], $group, $user_id);
+            
+            // ✅ CRITICAL FIX: Delete ALL sessions for this user
+            if ($group == 'recruiter' && $user_id) {
+                log_message('debug', 'Deleting sessions for recruiter ID: ' . $user_id);
+                
+                // Delete from user_sessions table
+                $deleted = $this->db->where('user_id', $user_id)
+                         ->where('user_type', 'recruiter')
+                         ->delete('user_sessions');
+                
+                log_message('debug', 'Deleted ' . $deleted . ' sessions from user_sessions table');
+                
+                // Also update recruiters table
+                $this->db->where('id', $user_id)
+                         ->update('recruiters', [
+                             'last_logout_at' => date('Y-m-d H:i:s'),
+                             'updated_at' => date('Y-m-d H:i:s')
+                         ]);
+            }
+            
             unset($data[$group]);
         }
     } else {
         foreach ($loginGroups as $g => $groupData) {
             if (isset($data[$g])) {
-                Logger::log($data[$g]['first_name'].' '.$data[$g]['last_name'].' ('.$data[$g]['group'].') has logged out', $data[$g], $g, $data[$g]['id']);
+                $user_id = $data[$g]['id'];
+                
+                Logger::log($data[$g]['first_name'].' '.$data[$g]['last_name'].' ('.$data[$g]['group'].') has logged out', $data[$g], $g, $user_id);
+                
+                // ✅ CRITICAL FIX: Delete ALL sessions for this recruiter
+                if ($g == 'recruiter' && $user_id) {
+                    log_message('debug', 'Deleting sessions for recruiter ID: ' . $user_id);
+                    
+                    $deleted = $this->db->where('user_id', $user_id)
+                             ->where('user_type', 'recruiter')
+                             ->delete('user_sessions');
+                    
+                    log_message('debug', 'Deleted ' . $deleted . ' sessions from user_sessions table');
+                    
+                    $this->db->where('id', $user_id)
+                             ->update('recruiters', [
+                                 'last_logout_at' => date('Y-m-d H:i:s'),
+                                 'updated_at' => date('Y-m-d H:i:s')
+                             ]);
+                }
+                
                 unset($data[$g]);
             }
         }
     }
 
-    // Clear the entire session
+    // Update the session data
     $this->session->set_userdata('login', $data);
     
-    // Also clear other session data to ensure complete logout
-    $this->session->unset_userdata('is_logged_in');
-    $this->session->unset_userdata('agency_id'); // Clear agency_id if set
-    $this->session->unset_userdata('loginRedirect');
-    
-    // Optionally destroy the entire session
-    $this->session->sess_destroy();
+    // If no more logged in groups, destroy session completely
+    if (empty($data)) {
+        $this->session->unset_userdata('is_logged_in');
+        $this->session->unset_userdata('agency_id');
+        $this->session->unset_userdata('loginRedirect');
+        
+        // ✅ Also delete the current session from user_sessions table
+        if ($current_session_id) {
+            $this->db->where('session_id', $current_session_id)
+                     ->delete('user_sessions');
+        }
+        
+        $this->session->sess_destroy();
+    }
 
     // Set a success message
     $this->session->set_flashdata('success', 'You have been logged out successfully.');
@@ -262,6 +370,83 @@ public function logout($group = "")
         // Redirect to generic login page
         redirect('login');
     }
+}
+
+public function test_logout_fix()
+{
+    echo "<h3>Testing Logout Session Cleanup</h3>";
+    
+    // Check if logged in as recruiter
+    $data = $this->session->login;
+    
+    if (!isset($data['recruiter'])) {
+        echo "<p>Not logged in as recruiter. Please log in first.</p>";
+        return;
+    }
+    
+    $recruiter_id = $data['recruiter']['id'];
+    $session_id = session_id();
+    
+    echo "<p>Recruiter ID: {$recruiter_id}</p>";
+    echo "<p>Current Session ID: {$session_id}</p>";
+    
+    // Check current sessions
+    $this->db->where('user_id', $recruiter_id)
+             ->where('user_type', 'recruiter');
+    $sessions = $this->db->get('user_sessions')->result();
+    
+    echo "<p>Current sessions in database: " . count($sessions) . "</p>";
+    
+    foreach ($sessions as $session) {
+        echo "<p>Session ID: {$session->session_id} | Last Activity: {$session->last_activity}</p>";
+    }
+    
+    // Test the delete
+    echo "<hr><h4>Testing Session Deletion:</h4>";
+    
+    $deleted = $this->db->where('user_id', $recruiter_id)
+                       ->where('user_type', 'recruiter')
+                       ->delete('user_sessions');
+    
+    echo "<p>Delete command affected rows: {$deleted}</p>";
+    
+    // Verify
+    $this->db->where('user_id', $recruiter_id)
+             ->where('user_type', 'recruiter');
+    $remaining = $this->db->get('user_sessions')->num_rows();
+    
+    echo "<p>Sessions remaining after delete: {$remaining}</p>";
+    
+    echo "<hr><a href='/login/logout/recruiter'>Click here to actually logout</a>";
+}
+
+public function ajax_update_activity()
+{
+    $data = $this->session->login;
+    $current_session_id = session_id();
+    
+    foreach ($data as $group => $user) {
+        if (isset($user['id'])) {
+            // Update user_sessions table
+            $this->db->where('user_id', $user['id'])
+                     ->where('user_type', $group)
+                     ->where('session_id', $current_session_id)
+                     ->update('user_sessions', [
+                         'last_activity' => date('Y-m-d H:i:s')
+                     ]);
+            
+            // For recruiters, also update recruiters table
+            if ($group == 'recruiter') {
+                $this->db->where('id', $user['id'])
+                         ->update('recruiters', [
+                             'last_activity_at' => date('Y-m-d H:i:s'),
+                             'updated_at' => date('Y-m-d H:i:s')
+                         ]);
+            }
+        }
+    }
+    
+    $this->output->set_content_type('application/json')->set_output(json_encode(['success' => true]));
 }
 
     public function setup_validation()
@@ -355,59 +540,59 @@ public function logout($group = "")
      *
      * @return bool
      */
-  public function email_exists($str)
-{
-    if ($this->input->server('REQUEST_METHOD') === 'POST') {
-        $csrf_name = $this->security->get_csrf_token_name();
-        $csrf_token = $this->input->post($csrf_name);
-        
-        if (!$csrf_token || $csrf_token !== $this->security->get_csrf_hash()) {
-            $this->form_validation->set_message('email_exists', 'Invalid security token');
-            return FALSE;
+    public function email_exists($str)
+    {
+        if ($this->input->server('REQUEST_METHOD') === 'POST') {
+            $csrf_name = $this->security->get_csrf_token_name();
+            $csrf_token = $this->input->post($csrf_name);
+            
+            if (!$csrf_token || $csrf_token !== $this->security->get_csrf_hash()) {
+                $this->form_validation->set_message('email_exists', 'Invalid security token');
+                return FALSE;
+            }
         }
-    }
 
-    $loginGroups = $this->config->item('login_groups');
-    $email = $this->input->post('email');
-    $sql = '';
-    $i = 0;
-    foreach ($loginGroups as $g => $group) {
-        $i++;
-        $sql .= '
-            SELECT
-                id,
-                "'.$g.'" AS login_group
-            FROM '.$group['table'].'
-            WHERE removed = 0 AND email = "'.$this->db->escape_str($email).'"
-        ';
+        $loginGroups = $this->config->item('login_groups');
+        $email = $this->input->post('email');
+        $sql = '';
+        $i = 0;
+        foreach ($loginGroups as $g => $group) {
+            $i++;
+            $sql .= '
+                SELECT
+                    id,
+                    "'.$g.'" AS login_group
+                FROM '.$group['table'].'
+                WHERE removed = 0 AND email = "'.$this->db->escape_str($email).'"
+            ';
 
-        if ($i != count($loginGroups)) {
-            $sql .= ' UNION ALL ';
+            if ($i != count($loginGroups)) {
+                $sql .= ' UNION ALL ';
+            }
         }
-    }
 
-    if (!empty($sql)) {
-        $query = $this->db->query($sql);
+        if (!empty($sql)) {
+            $query = $this->db->query($sql);
 
-        if ($query->num_rows() > 0) {
-            return TRUE;
+            if ($query->num_rows() > 0) {
+                return TRUE;
+            }
+            else {
+                $this->form_validation->set_message('email_exists', lang('forgot_password_no_account'));
+                return FALSE;
+            }
         }
         else {
-            $this->form_validation->set_message('email_exists', lang('forgot_password_no_account'));
+            $message = '
+                Could not validate email for forgot password page
+                because it might missing the login groups.
+            ';
+            Anomalies::log(trim($message));
+
+            $this->form_validation->set_message('email_exists', lang('forgot_password_cant_validate'));
             return FALSE;
         }
     }
-    else {
-        $message = '
-            Could not validate email for forgot password page
-            because it might missing the login groups.
-        ';
-        Anomalies::log(trim($message));
-
-        $this->form_validation->set_message('email_exists', lang('forgot_password_cant_validate'));
-        return FALSE;
-    }
-}
 
     /**
      * Show Hide Captcha
@@ -535,33 +720,33 @@ public function logout($group = "")
      * Get's the latest login and CSRF token,
      * in case one of them expired elsewhere
      */
-public function ajax_refresh_token() {
-    $csrf_name = $this->security->get_csrf_token_name();
-    $csrf_token = $this->input->post($csrf_name);
-    
-    if (!$csrf_token || $csrf_token !== $this->security->get_csrf_hash()) {
-        ajax_return([
-            'success' => false,
-            'message' => 'Invalid CSRF token',
+    public function ajax_refresh_token() {
+        $csrf_name = $this->security->get_csrf_token_name();
+        $csrf_token = $this->input->post($csrf_name);
+        
+        if (!$csrf_token || $csrf_token !== $this->security->get_csrf_hash()) {
+            ajax_return([
+                'success' => false,
+                'message' => 'Invalid CSRF token',
+                'csrf' => $this->security->get_csrf_hash()
+            ]);
+            return;
+        }
+
+        if (!empty($this->session->loginToken)) {
+            $token = $this->session->loginToken;
+        }
+        else {
+            $token = random_string('alnum','32');
+            $this->session->set_userdata('loginToken', $token);
+        }
+
+        ajax_return(array(
+            'success' => true,
+            'token' => $token,
             'csrf' => $this->security->get_csrf_hash()
-        ]);
-        return;
+        ));
     }
-
-    if (!empty($this->session->loginToken)) {
-        $token = $this->session->loginToken;
-    }
-    else {
-        $token = random_string('alnum','32');
-        $this->session->set_userdata('loginToken', $token);
-    }
-
-    ajax_return(array(
-        'success' => true,
-        'token' => $token,
-        'csrf' => $this->security->get_csrf_hash()
-    ));
-}
 
     public function ajax_check_captcha() {
         $showCaptcha = $this->show_hide_captcha(true);
@@ -581,7 +766,7 @@ public function ajax_refresh_token() {
         ));
     }
 
-public function ajax_attempt_login() {
+    public function ajax_attempt_login() {
     // First, get fresh CSRF token
     $csrf_name = $this->security->get_csrf_token_name();
     $csrf_hash = $this->security->get_csrf_hash();
@@ -650,18 +835,7 @@ public function ajax_attempt_login() {
         }
     }
 
-    // ================ FIX 1: Multiple accounts ================
-    // REMOVED: Do NOT reveal accounts for failed login
-    // if (count($accountData) > 1) {
-    //     $accounts = array();
-    //     foreach ($accountData as $group => $row) {
-    //         $accounts[] = array(...);  // ← VULNERABLE!
-    //     }
-    //     ajax_return(['success' => 0, 'accounts' => $accounts]); // ← REMOVE!
-    //     return;
-    // }
-
-    if (count($accountData) >= 1) {  // Changed from == 1 to >= 1
+    if (count($accountData) >= 1) {
         foreach ($accountData as $group => $row);
 
         if(!empty($row->password)){
@@ -671,19 +845,17 @@ public function ajax_attempt_login() {
                 $this->session->unset_userdata('login');
                 $this->session->unset_userdata('is_logged_in');
 
-                // ================ FIX 2: Always generic error ================
                 ajax_return(array(
                     'success'   => 0,
-                    'message'   => 'Invalid Email/Password',  // ← ALWAYS SAME
+                    'message'   => 'Invalid Email/Password',
                     'csrf'      => $csrf_hash
                 ));
                 return;
             }
         } else {
-            // ================ FIX 3: Generic error for no password ================
             ajax_return(array(
                 'success'   => 0,
-                'message'   => 'Invalid Email/Password',  // ← CHANGED FROM SPECIFIC
+                'message'   => 'Invalid Email/Password',
                 'csrf'      => $csrf_hash
             ));
             return;
@@ -701,19 +873,107 @@ public function ajax_attempt_login() {
                 'profile_pic'   => isset($row->profile_pic) ? $row->profile_pic : '',
             );
 
+            // ================ ADDED: ONLINE STATUS TRACKING ================
             if ($group == 'agency') {
                 $login[$group]['email'] = $row->email;
                 $login[$group]['contact_person'] = $row->contact_person;
                 $login[$group]['first_name'] = $row->name;
                 $login[$group]['last_name'] = '';
                 $login[$group]['agency_id'] = $row->id;
+                
+                // Update last login for agency
+                $this->db->where('id', $row->id)
+                         ->update('agencies', [
+                             'last_login' => date('Y-m-d H:i:s'),
+                             'updated_at' => date('Y-m-d H:i:s')
+                         ]);
+                         
+                // Create/update session record
+                $session_data = [
+                    'user_id' => $row->id,
+                    'user_type' => 'agency',
+                    'session_id' => session_id(),
+                    'ip_address' => $this->input->ip_address(),
+                    'user_agent' => $this->input->user_agent(),
+                    'last_activity' => date('Y-m-d H:i:s'),
+                    'created_at' => date('Y-m-d H:i:s')
+                ];
+                
+                $this->update_or_create_session($session_data);
+                
             } elseif ($group == 'agency_staff') {
                 $login[$group]['email'] = $row->email;
                 $login[$group]['first_name'] = $row->first_name;
                 $login[$group]['last_name'] = $row->last_name;
                 $login[$group]['agency_id'] = $row->agency_id;
                 $login[$group]['usr_type_id'] = $row->usr_type_id;
+                
+                // Update last login for agency staff
+                $this->db->where('id', $row->id)
+                         ->update('agency_staff', [
+                             'last_login' => date('Y-m-d H:i:s'),
+                             'updated_at' => date('Y-m-d H:i:s')
+                         ]);
+                         
+                // Create/update session record
+                $session_data = [
+                    'user_id' => $row->id,
+                    'user_type' => 'agency_staff',
+                    'session_id' => session_id(),
+                    'ip_address' => $this->input->ip_address(),
+                    'user_agent' => $this->input->user_agent(),
+                    'last_activity' => date('Y-m-d H:i:s'),
+                    'created_at' => date('Y-m-d H:i:s')
+                ];
+                
+                $this->update_or_create_session($session_data);
+                
+            } elseif ($group == 'recruiter') {
+                $login[$group]['email'] = $row->email;
+                $login[$group]['first_name'] = $row->first_name;
+                $login[$group]['last_name'] = $row->last_name;
+                $login[$group]['agency_id'] = $row->agency_id;
+                $login[$group]['usr_type_id'] = $row->usr_type_id;
+                
+                // Update recruiter's updated_at timestamp
+                $this->db->where('id', $row->id)
+                         ->update('recruiters', [
+                             'updated_at' => date('Y-m-d H:i:s')
+                         ]);
+                
+                // ✅ CRITICAL: Create/update session record for recruiter online status
+                $session_data = [
+                    'user_id' => $row->id,
+                    'user_type' => 'recruiter',
+                    'session_id' => session_id(),
+                    'ip_address' => $this->input->ip_address(),
+                    'user_agent' => $this->input->user_agent(),
+                    'last_activity' => date('Y-m-d H:i:s'),
+                    'created_at' => date('Y-m-d H:i:s')
+                ];
+                
+                $this->update_or_create_session($session_data);
+                
+            } elseif ($group == 'candidate') {
+                $login[$group]['email'] = $row->email;
+                $login[$group]['first_name'] = $row->first_name;
+                $login[$group]['last_name'] = $row->last_name;
+                $login[$group]['agency_id'] = isset($row->agency_id) ? $row->agency_id : null;
+                
+                // Create/update session record for candidate
+                $session_data = [
+                    'user_id' => $row->id,
+                    'user_type' => 'candidate',
+                    'session_id' => session_id(),
+                    'ip_address' => $this->input->ip_address(),
+                    'user_agent' => $this->input->user_agent(),
+                    'last_activity' => date('Y-m-d H:i:s'),
+                    'created_at' => date('Y-m-d H:i:s')
+                ];
+                
+                $this->update_or_create_session($session_data);
             }
+            // ================ END ADDED CODE ================
 
             if (!empty($loginGroups[$group]['session_fields'])) {
                 foreach ($loginGroups[$group]['session_fields'] as $field) {
@@ -739,10 +999,9 @@ public function ajax_attempt_login() {
             ));
         }
         else {
-            // ================ FIX 4: Generic error for disabled account ================
             ajax_return(array(
                 'success'   => 0,
-                'message'   => 'Invalid Email/Password',  // ← CHANGED FROM SPECIFIC
+                'message'   => 'Invalid Email/Password',
                 'csrf'      => $csrf_hash
             ));
         }
@@ -750,13 +1009,70 @@ public function ajax_attempt_login() {
         return;
     }
 
-    // ================ FIX 5: Generic error for no account found ================
     ajax_return(array(
         'success'   => 0,
-        'message'   => 'Invalid Email/Password',  // ← ALWAYS SAME
+        'message'   => 'Invalid Email/Password',
         'csrf'      => $csrf_hash
     ));
 }
+
+// ================ ADD THIS HELPER METHOD TO THE SAME CLASS ================
+
+/**
+ * Update or create session record in user_sessions table
+ */
+private function update_or_create_session($session_data)
+{
+    // Check if session already exists
+    $this->db->where('user_id', $session_data['user_id'])
+             ->where('user_type', $session_data['user_type'])
+             ->where('session_id', $session_data['session_id']);
+    
+    $existing = $this->db->get('user_sessions')->row();
+    
+    if ($existing) {
+        // Update existing session
+        $this->db->where('id', $existing->id)
+                 ->update('user_sessions', $session_data);
+    } else {
+        // Insert new session
+        $this->db->insert('user_sessions', $session_data);
+    }
+    
+    // Clean up old sessions for this user (keep only the latest 5)
+    $this->cleanup_user_sessions($session_data['user_id'], $session_data['user_type']);
+}
+
+    /**
+     * Clean up old sessions for a user
+     */
+    private function cleanup_user_sessions($user_id, $user_type)
+    {
+        // Get all sessions for this user, ordered by last_activity
+        $this->db->where('user_id', $user_id)
+                ->where('user_type', $user_type)
+                ->order_by('last_activity', 'DESC');
+        
+        $sessions = $this->db->get('user_sessions')->result();
+        
+        // If more than 5 sessions, delete the oldest ones
+        if (count($sessions) > 5) {
+            $sessions_to_delete = array_slice($sessions, 5);
+            
+            foreach ($sessions_to_delete as $session) {
+                $this->db->where('id', $session->id)
+                        ->delete('user_sessions');
+            }
+        }
+        
+        // Also delete sessions older than 1 day
+        $one_day_ago = date('Y-m-d H:i:s', strtotime('-1 day'));
+        $this->db->where('user_id', $user_id)
+                ->where('user_type', $user_type)
+                ->where('last_activity <', $one_day_ago)
+                ->delete('user_sessions');
+    }
+    
     private function do_login($email, $group) {
         //Reset filter data
         $this->session->unset_userdata('ecmsFilters');
@@ -807,6 +1123,38 @@ public function ajax_attempt_login() {
         }
     }
 
-
+// When recruiter logs in, update user_sessions
+public function update_recruiter_session($recruiter_id)
+{
+    $session_id = session_id();
+    $ip_address = $this->input->ip_address();
+    $user_agent = $this->input->user_agent();
+    
+    $session_data = [
+        'session_id' => $session_id,
+        'user_id' => $recruiter_id,
+        'user_type' => 'recruiter',
+        'ip_address' => $ip_address,
+        'user_agent' => substr($user_agent, 0, 255),
+        'last_activity' => date('Y-m-d H:i:s'),
+        'created_at' => date('Y-m-d H:i:s')
+    ];
+    
+    // Check if session already exists
+    $this->db->where('session_id', $session_id)
+             ->where('user_id', $recruiter_id)
+             ->where('user_type', 'recruiter');
+    
+    $existing = $this->db->get('user_sessions')->row();
+    
+    if ($existing) {
+        // Update existing session
+        $this->db->where('id', $existing->id)
+                 ->update('user_sessions', $session_data);
+    } else {
+        // Insert new session
+        $this->db->insert('user_sessions', $session_data);
+    }
+}
     
 }

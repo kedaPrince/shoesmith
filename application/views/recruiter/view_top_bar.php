@@ -427,7 +427,7 @@ function confirmLogout() {
         }
     }).then((result) => {
         if (result.isConfirmed) {
-            window.location.href = '<?= site_url(); ?>';
+            window.location.href = '<?php echo site_url("login/logout/recruiter"); ?>';
         }
     });
 }

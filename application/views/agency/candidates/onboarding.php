@@ -110,11 +110,13 @@ if (isset($candidate->stage_hm_decision) && $candidate->stage_hm_decision &&
 }
 
 .onboarding-progress-section {
-    background: #fff;
+    /* background: #fff; */
     border-radius: 12px;
     padding: 25px;
     margin-bottom: 30px;
-    border: 1px solid #e9ecef;
+    border: none !important;
+    width: 100%;
+    background: linear-gradient(-1deg, #59c4bc -352%, rgba(23, 162, 184, 0) 55%) !important;
 }
 
 .progress-header {
@@ -127,7 +129,7 @@ if (isset($candidate->stage_hm_decision) && $candidate->stage_hm_decision &&
 .progress-title {
     font-size: 18px;
     font-weight: 600;
-    color: #212529;
+    color: #ffffffff;
     margin: 0;
 }
 
@@ -185,14 +187,44 @@ if (isset($candidate->stage_hm_decision) && $candidate->stage_hm_decision &&
 
 .onboarding-stages {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    grid-template-columns: repeat(6, 1fr);
+    /* Force 6 equal columns */
     gap: 25px;
     margin-bottom: 30px;
 }
 
+.onboarding-stages {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    /* Force 6 equal columns */
+    gap: 25px;
+    margin-bottom: 30px;
+}
+
+@media (max-width: 1200px) {
+    .onboarding-stages {
+        grid-template-columns: repeat(3, 1fr);
+        /* 3 columns on medium screens */
+    }
+}
+
+@media (max-width: 768px) {
+    .onboarding-stages {
+        grid-template-columns: repeat(2, 1fr);
+        /* 2 columns on small screens */
+    }
+}
+
+@media (max-width: 576px) {
+    .onboarding-stages {
+        grid-template-columns: 1fr;
+        /* 1 column on mobile */
+    }
+}
+
 .stage-card {
     background: #fff;
-    border: 2px solid #e9ecef;
+    border: none !important;
     border-radius: 12px;
     padding: 25px;
     transition: all 0.3s ease;
@@ -216,7 +248,7 @@ if (isset($candidate->stage_hm_decision) && $candidate->stage_hm_decision &&
 }
 
 .stage-card.active::before {
-    background: #007bff;
+    background: #59c4bc;
 }
 
 .stage-card.rejected::before {
@@ -224,17 +256,18 @@ if (isset($candidate->stage_hm_decision) && $candidate->stage_hm_decision &&
 }
 
 .stage-card.completed {
-    border-color: #28a745;
-    background: linear-gradient(135deg, #f8fff9 0%, #f0fff4 100%);
+    border-color: none !important;
+    background: linear-gradient(1deg, #59c4bc -60%, rgba(23, 162, 184, 0) 55%) !important;
     transform: translateY(-2px);
     box-shadow: 0 4px 15px rgba(40, 167, 69, 0.15);
 }
 
 .stage-card.active {
-    border-color: #007bff;
-    background: linear-gradient(135deg, #f8fbff 0%, #f0f7ff 100%);
+    border-color: #59c4bc;
+    /* background: linear-gradient(7deg, #59c4bc 0%, #59c4bc 100%); */
     transform: translateY(-2px);
     box-shadow: 0 4px 15px rgba(0, 123, 255, 0.15);
+    background: linear-gradient(175deg, #59c4bc -60%, rgba(23, 162, 184, 0) 55%) !important;
 }
 
 .stage-card.pending {
@@ -286,7 +319,7 @@ if (isset($candidate->stage_hm_decision) && $candidate->stage_hm_decision &&
 .completion-badge {
     background: #28a745;
     color: white;
-    padding: 6px 12px;
+    padding: 5px 5px;
     border-radius: 20px;
     font-size: 11px;
     font-weight: 600;
@@ -297,7 +330,7 @@ if (isset($candidate->stage_hm_decision) && $candidate->stage_hm_decision &&
 .rejection-badge {
     background: #dc3545;
     color: white;
-    padding: 6px 12px;
+    padding: 5px 5px;
     border-radius: 20px;
     font-size: 11px;
     font-weight: 600;
@@ -310,10 +343,16 @@ if (isset($candidate->stage_hm_decision) && $candidate->stage_hm_decision &&
 }
 
 .stage-title {
-    font-weight: 700;
+    font-weight: 400;
     margin-bottom: 8px;
-    color: #212529;
-    font-size: 16px;
+    color: #ffffff;
+    font-size: 14px;
+}
+
+.btn-warning {
+    color: #ffffff !important;
+    background-color: #28a745 !important;
+    border-color: #28a745 !important;
 }
 
 .stage-description {
@@ -604,6 +643,174 @@ if (isset($candidate->stage_hm_decision) && $candidate->stage_hm_decision &&
     background: #28a745;
     color: white;
 }
+
+/* Add this to your CSS section */
+.onboarding-header-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 30px;
+    margin-bottom: 30px;
+}
+
+.onboarding-header-main {
+    flex: 2;
+    min-width: 300px;
+}
+
+.onboarding-info-sidebar {
+    flex: 1;
+    background: linear-gradient(135deg, #f8fbff 0%, #f0f7ff 100%);
+    border-radius: 12px;
+    padding: 25px;
+    border: 1px solid #e9ecef;
+    box-shadow: 0 4px 15px rgba(0, 123, 255, 0.1);
+}
+
+.onboarding-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 30px;
+    border-radius: 12px;
+    position: relative;
+    overflow: hidden;
+    margin-bottom: 0;
+}
+
+.onboarding-header::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 100" fill="rgba(255,255,255,0.1)"><polygon points="0,0 1000,100 0,100"/></svg>');
+    background-size: cover;
+}
+
+.onboarding-title {
+    margin: 0;
+    font-size: 28px;
+    font-weight: 700;
+    position: relative;
+    z-index: 2;
+}
+
+.onboarding-subtitle {
+    margin: 5px 0 0 0;
+    font-size: 16px;
+    opacity: 0.9;
+    position: relative;
+    z-index: 2;
+}
+
+.job-assignment-info {
+    background: #e3f2fd;
+    border: 1px solid #2196f3;
+    border-radius: 8px;
+    padding: 0;
+    margin-bottom: 0;
+}
+
+.job-assignment-info h5 {
+    background: #2196f3;
+    color: white;
+    margin: 0;
+    padding: 15px 20px;
+    border-radius: 8px 8px 0 0;
+    font-weight: 600;
+    font-size: 16px;
+}
+
+.job-info-content {
+    padding: 20px;
+}
+
+.job-info-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid rgba(33, 150, 243, 0.1);
+}
+
+.job-info-row:last-child {
+    margin-bottom: 0;
+    padding-bottom: 0;
+    border-bottom: none;
+}
+
+.job-info-label {
+    font-weight: 600;
+    color: #1976d2;
+    font-size: 14px;
+}
+
+.job-info-value {
+    color: #212529;
+    font-size: 14px;
+    font-weight: 500;
+    text-align: right;
+    max-width: 200px;
+    word-break: break-word;
+}
+
+.candidate-info-quick {
+    margin-top: 20px;
+    background: #fff;
+    border-radius: 8px;
+    padding: 15px;
+    border: 1px solid #e9ecef;
+}
+
+.candidate-info-quick h6 {
+    color: #1976d2;
+    margin: 0 0 10px 0;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.candidate-info-quick .job-info-row {
+    border-bottom: 1px solid #f0f0f0;
+    padding: 8px 0;
+    margin: 0;
+}
+
+.candidate-info-quick .job-info-row:last-child {
+    border-bottom: none;
+}
+
+@media (max-width: 992px) {
+    .onboarding-header-row {
+        flex-direction: column;
+    }
+
+    .onboarding-info-sidebar {
+        flex: 0 0 100%;
+        width: 100%;
+    }
+}
+
+button.btn.btn-warning.btn-toggle-stage.Under-Review {
+    margin-top: 41px;
+}
+
+button.btn.btn-warning.btn-toggle-stage.Submitted-to-Hiring-Manager {
+    margin-top: 41px;
+}
+
+button.btn.btn-warning.btn-toggle-stage.Hiring-Manager-Decision {
+    margin-top: 23px;
+}
+
+button.btn.btn-warning.btn-toggle-stage.Position-Offered {
+    margin-top: 30px;
+}
+
+button.btn.btn-warning.btn-toggle-stage.Requested-Further-Documents {
+    margin-top: 21px;
+}
 </style>
 
 <div id="main-content">
@@ -630,409 +837,356 @@ if (isset($candidate->stage_hm_decision) && $candidate->stage_hm_decision &&
                         <li class="breadcrumb-item active">Onboarding</li>
                     </ul>
                 </div>
-                <div class="col-lg-6 col-md-6 col-sm-12">
-                    <div class="d-flex flex-row-reverse">
-                        <div class="page_action">
-                            <a href="<?= redir('candidates/edit/' . $candidate->id, true) ?>" class="btn btn-primary">
-                                <i class="fa fa-edit"></i> Edit Candidate
-                            </a>
-                        </div>
-                    </div>
-                </div>
+
             </div>
         </div>
-
+        <!-- ADD THE ONBOARDING PROGRESS AND STAGES HERE -->
+        <div class="onboarding-progress-section">
+            <div class="progress-header">
+                <h3 class="progress-title">Onboarding Progress</h3>
+                <div class="progress-percentage"><?= round($candidate->onboarding_progress) ?>%</div>
+            </div>
+            <div class="progress-bar-container">
+                <div id="animated-progress" class="progress-fill"
+                    style="width: <?= $candidate->onboarding_progress ?>%"></div>
+            </div>
+            <div class="progress-stats">
+                <span>Started</span>
+                <span>In Progress</span>
+                <span>Completed</span>
+            </div>
+        </div>
         <div class="row clearfix">
+
             <div class="col-lg-12">
-                <div class="onboarding-container">
-                    <div class="onboarding-header">
-                        <h1 class="onboarding-title">Candidate Onboarding</h1>
-                        <p class="onboarding-subtitle">Track and manage the onboarding progress for
-                            <?= $candidate->first_name . ' ' . $candidate->last_name ?></p>
+                <div class="onboarding-stages">
+                    <!-- STAGE 1: UNDER REVIEW -->
+                    <div
+                        class="stage-card <?= $candidate->stage_under_review ? 'completed' : ($candidate->onboarding_stage == 'stage_under_review' ? 'active' : '') ?>">
+                        <div class="stage-header">
+                            <div class="stage-number">1</div>
+                            <?php if ($candidate->stage_under_review): ?>
+                            <div class="completion-badge">Completed</div>
+                            <?php endif; ?>
+                        </div>
+                        <div class="stage-content">
+                            <h4 class="stage-title">Under Review</h4>
+                            <p class="stage-description">Initial candidate review and assessment</p>
+                            <?php if (isset($candidate->stage_under_review_at) && $candidate->stage_under_review_at): ?>
+                            <div class="stage-date">Completed:
+                                <?= date('M j, Y', strtotime($candidate->stage_under_review_at)) ?></div>
+                            <?php endif; ?>
+                        </div>
+                        <div class="stage-actions">
+                            <?php if (!$candidate->stage_under_review): ?>
+                            <button class="btn btn-success btn-toggle-stage" data-stage="stage_under_review"
+                                data-value="1" data-action="complete" data-stage-name="Under Review">
+                                <i class="fa fa-check"></i> Mark Complete
+                            </button>
+                            <?php else: ?>
+                            <button class="btn btn-warning btn-toggle-stage Under-Review"
+                                data-stage="stage_under_review" data-value="0" data-action="reopen"
+                                data-stage-name="Under Review">
+                                <i class="fa fa-undo"></i> Reopen Stage
+                            </button>
+                            <?php endif; ?>
+                        </div>
                     </div>
 
-                    <div class="onboarding-content">
-                        <?php if (empty($candidate->job_id)): ?>
-                        <div class="waiting-assignment-message">
-                            <h4> Waiting for Job Assignment</h4>
-                            <p>This candidate needs to be assigned to a job before onboarding can begin.<br>
-                                Please contact a recruiter to assign this candidate to a job.</p>
-                        </div>
-                        <?php else: ?>
-                        <div class="job-assignment-info">
-                            <h5> Job Assignment</h5>
-                            <p><strong>Job:</strong> <?= $candidate->job_name ?? 'Not specified' ?></p>
-                            <p><strong>Reference:</strong> <?= $candidate->job_ref ?? 'N/A' ?></p>
-                        </div>
-
-                        <!-- Show rejection notice if candidate is rejected -->
-                        <?php if ($is_rejected): ?>
-                        <div class="rejection-notice">
-                            <h4> Candidate Rejected</h4>
-                            <p>This candidate has been rejected. The onboarding process has been stopped.<br>
-                                To continue with onboarding, please reopen the HM decision stage and change the
-                                decision.</p>
-                            <?php if (isset($candidate->hm_decision_at) && $candidate->hm_decision_at): ?>
-                            <p><strong>Rejected on:</strong>
-                                <?= date('F j, Y \a\t g:i A', strtotime($candidate->hm_decision_at)) ?></p>
+                    <!-- STAGE 2: SUBMITTED TO HM -->
+                    <div
+                        class="stage-card <?= $candidate->stage_submitted_to_hm ? 'completed' : ($candidate->onboarding_stage == 'stage_submitted_to_hm' ? 'active' : '') ?> <?= !$candidate->stage_under_review ? 'disabled-stage' : '' ?>">
+                        <div class="stage-header">
+                            <div class="stage-number">2</div>
+                            <?php if ($candidate->stage_submitted_to_hm): ?>
+                            <div class="completion-badge">Completed</div>
                             <?php endif; ?>
+                        </div>
+                        <div class="stage-content">
+                            <h4 class="stage-title">Submitted to Hiring Manager</h4>
+                            <p class="stage-description">Candidate profile submitted for HM review</p>
+                            <?php if (isset($candidate->stage_submitted_to_hm_at) && $candidate->stage_submitted_to_hm_at): ?>
+                            <div class="stage-date">Completed:
+                                <?= date('M j, Y', strtotime($candidate->stage_submitted_to_hm_at)) ?></div>
+                            <?php endif; ?>
+                        </div>
+                        <div class="stage-actions">
+                            <?php if (!$candidate->stage_submitted_to_hm && $candidate->stage_under_review): ?>
+                            <button class="btn btn-success btn-toggle-stage" data-stage="stage_submitted_to_hm"
+                                data-value="1" data-action="complete" data-stage-name="Submitted to Hiring Manager">
+                                <i class="fa fa-check"></i> Mark Complete
+                            </button>
+                            <?php elseif ($candidate->stage_submitted_to_hm): ?>
+                            <button class="btn btn-warning btn-toggle-stage Submitted-to-Hiring-Manager"
+                                data-stage="stage_submitted_to_hm" data-value="0" data-action="reopen"
+                                data-stage-name="Submitted to Hiring Manager">
+                                <i class="fa fa-undo"></i> Reopen Stage
+                            </button>
+                            <?php else: ?>
+                            <button class="btn btn-secondary" disabled title="Complete previous stage first">
+                                <i class="fa fa-lock"></i> Locked
+                            </button>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+
+                    <!-- STAGE 3: HM DECISION -->
+                    <div
+                        class="stage-card <?= $candidate->stage_hm_decision ? ($is_rejected ? 'rejected' : 'completed') : ($candidate->onboarding_stage == 'stage_hm_decision' ? 'active' : '') ?> <?= !$candidate->stage_submitted_to_hm ? 'disabled-stage' : '' ?>">
+                        <div class="stage-header">
+                            <div class="stage-number">3</div>
+                            <?php if ($candidate->stage_hm_decision): ?>
+                            <?php if ($is_rejected): ?>
+                            <div class="rejection-badge">Rejected</div>
+                            <?php else: ?>
+                            <div class="completion-badge">Completed</div>
+                            <?php endif; ?>
+                            <?php endif; ?>
+                        </div>
+                        <div class="stage-content">
+                            <h4 class="stage-title">Hiring Manager Decision</h4>
+                            <p class="stage-description">Awaiting Hiring Manager acceptance or rejection</p>
+
+                            <?php if ($candidate->stage_hm_decision): ?>
+                            <div class="stage-date">
+                                Decision: <strong
+                                    class="<?= isset($candidate->hm_decision) && $candidate->hm_decision === 'accepted' ? 'text-success' : 'text-danger' ?>">
+                                    <?= isset($candidate->hm_decision) ? ucfirst($candidate->hm_decision) : 'Pending' ?>
+                                </strong>
+                                <?php if (isset($candidate->hm_decision_at) && $candidate->hm_decision_at): ?>
+                                <br>Decided: <?= date('M j, Y', strtotime($candidate->hm_decision_at)) ?>
+                                <?php endif; ?>
+                            </div>
                             <?php if (isset($candidate->hm_decision_notes) && $candidate->hm_decision_notes): ?>
-                            <p><strong>Reason:</strong>
-                                <?= htmlspecialchars($candidate->hm_decision_notes, ENT_QUOTES, 'UTF-8') ?></p>
+                            <div class="stage-notes mt-2">
+                                <small><strong>Notes:</strong>
+                                    <?= htmlspecialchars($candidate->hm_decision_notes, ENT_QUOTES, 'UTF-8') ?></small>
+                            </div>
+                            <?php endif; ?>
                             <?php endif; ?>
                         </div>
-                        <?php endif; ?>
-
-                        <!-- ADD THE ONBOARDING PROGRESS AND STAGES HERE -->
-                        <div class="onboarding-progress-section">
-                            <div class="progress-header">
-                                <h3 class="progress-title">Onboarding Progress</h3>
-                                <div class="progress-percentage"><?= round($candidate->onboarding_progress) ?>%</div>
-                            </div>
-                            <div class="progress-bar-container">
-                                <div id="animated-progress" class="progress-fill"
-                                    style="width: <?= $candidate->onboarding_progress ?>%"></div>
-                            </div>
-                            <div class="progress-stats">
-                                <span>Started</span>
-                                <span>In Progress</span>
-                                <span>Completed</span>
-                            </div>
-                        </div>
-
-                        <div class="onboarding-stages">
-                            <!-- STAGE 1: UNDER REVIEW -->
-                            <div
-                                class="stage-card <?= $candidate->stage_under_review ? 'completed' : ($candidate->onboarding_stage == 'stage_under_review' ? 'active' : '') ?>">
-                                <div class="stage-header">
-                                    <div class="stage-number">1</div>
-                                    <?php if ($candidate->stage_under_review): ?>
-                                    <div class="completion-badge">Completed</div>
-                                    <?php endif; ?>
-                                </div>
-                                <div class="stage-content">
-                                    <h4 class="stage-title">Under Review</h4>
-                                    <p class="stage-description">Initial candidate review and assessment</p>
-                                    <?php if (isset($candidate->stage_under_review_at) && $candidate->stage_under_review_at): ?>
-                                    <div class="stage-date">Completed:
-                                        <?= date('M j, Y', strtotime($candidate->stage_under_review_at)) ?></div>
-                                    <?php endif; ?>
-                                </div>
-                                <div class="stage-actions">
-                                    <?php if (!$candidate->stage_under_review): ?>
-                                    <button class="btn btn-success btn-toggle-stage" data-stage="stage_under_review"
-                                        data-value="1" data-action="complete" data-stage-name="Under Review">
-                                        <i class="fa fa-check"></i> Mark Complete
-                                    </button>
-                                    <?php else: ?>
-                                    <button class="btn btn-warning btn-toggle-stage" data-stage="stage_under_review"
-                                        data-value="0" data-action="reopen" data-stage-name="Under Review">
-                                        <i class="fa fa-undo"></i> Reopen Stage
-                                    </button>
-                                    <?php endif; ?>
-                                </div>
-                            </div>
-
-                            <!-- STAGE 2: SUBMITTED TO HM -->
-                            <div
-                                class="stage-card <?= $candidate->stage_submitted_to_hm ? 'completed' : ($candidate->onboarding_stage == 'stage_submitted_to_hm' ? 'active' : '') ?> <?= !$candidate->stage_under_review ? 'disabled-stage' : '' ?>">
-                                <div class="stage-header">
-                                    <div class="stage-number">2</div>
-                                    <?php if ($candidate->stage_submitted_to_hm): ?>
-                                    <div class="completion-badge">Completed</div>
-                                    <?php endif; ?>
-                                </div>
-                                <div class="stage-content">
-                                    <h4 class="stage-title">Submitted to Hiring Manager</h4>
-                                    <p class="stage-description">Candidate profile submitted for HM review</p>
-                                    <?php if (isset($candidate->stage_submitted_to_hm_at) && $candidate->stage_submitted_to_hm_at): ?>
-                                    <div class="stage-date">Completed:
-                                        <?= date('M j, Y', strtotime($candidate->stage_submitted_to_hm_at)) ?></div>
-                                    <?php endif; ?>
-                                </div>
-                                <div class="stage-actions">
-                                    <?php if (!$candidate->stage_submitted_to_hm && $candidate->stage_under_review): ?>
-                                    <button class="btn btn-success btn-toggle-stage" data-stage="stage_submitted_to_hm"
-                                        data-value="1" data-action="complete"
-                                        data-stage-name="Submitted to Hiring Manager">
-                                        <i class="fa fa-check"></i> Mark Complete
-                                    </button>
-                                    <?php elseif ($candidate->stage_submitted_to_hm): ?>
-                                    <button class="btn btn-warning btn-toggle-stage" data-stage="stage_submitted_to_hm"
-                                        data-value="0" data-action="reopen"
-                                        data-stage-name="Submitted to Hiring Manager">
-                                        <i class="fa fa-undo"></i> Reopen Stage
-                                    </button>
-                                    <?php else: ?>
-                                    <button class="btn btn-secondary" disabled title="Complete previous stage first">
-                                        <i class="fa fa-lock"></i> Locked
-                                    </button>
-                                    <?php endif; ?>
-                                </div>
-                            </div>
-
-                            <!-- STAGE 3: HM DECISION -->
-                            <div
-                                class="stage-card <?= $candidate->stage_hm_decision ? ($is_rejected ? 'rejected' : 'completed') : ($candidate->onboarding_stage == 'stage_hm_decision' ? 'active' : '') ?> <?= !$candidate->stage_submitted_to_hm ? 'disabled-stage' : '' ?>">
-                                <div class="stage-header">
-                                    <div class="stage-number">3</div>
-                                    <?php if ($candidate->stage_hm_decision): ?>
-                                    <?php if ($is_rejected): ?>
-                                    <div class="rejection-badge">Rejected</div>
-                                    <?php else: ?>
-                                    <div class="completion-badge">Completed</div>
-                                    <?php endif; ?>
-                                    <?php endif; ?>
-                                </div>
-                                <div class="stage-content">
-                                    <h4 class="stage-title">Hiring Manager Decision</h4>
-                                    <p class="stage-description">Awaiting Hiring Manager acceptance or rejection</p>
-
-                                    <?php if ($candidate->stage_hm_decision): ?>
-                                    <div class="stage-date">
-                                        Decision: <strong
-                                            class="<?= isset($candidate->hm_decision) && $candidate->hm_decision === 'accepted' ? 'text-success' : 'text-danger' ?>">
-                                            <?= isset($candidate->hm_decision) ? ucfirst($candidate->hm_decision) : 'Pending' ?>
-                                        </strong>
-                                        <?php if (isset($candidate->hm_decision_at) && $candidate->hm_decision_at): ?>
-                                        <br>Decided: <?= date('M j, Y', strtotime($candidate->hm_decision_at)) ?>
-                                        <?php endif; ?>
-                                    </div>
-                                    <?php if (isset($candidate->hm_decision_notes) && $candidate->hm_decision_notes): ?>
-                                    <div class="stage-notes mt-2">
-                                        <small><strong>Notes:</strong>
-                                            <?= htmlspecialchars($candidate->hm_decision_notes, ENT_QUOTES, 'UTF-8') ?></small>
-                                    </div>
-                                    <?php endif; ?>
-                                    <?php endif; ?>
-                                </div>
-                                <div class="stage-actions">
-                                    <?php if (!$candidate->stage_hm_decision && $candidate->stage_submitted_to_hm): ?>
-                                    <button type="button" class="btn btn-info btn-sm" data-toggle="modal"
-                                        data-target="#hmDecisionModal">
-                                        <i class="fa fa-clipboard-check"></i> Record Decision
-                                    </button>
-                                    <?php elseif ($candidate->stage_hm_decision && !$is_rejected): ?>
-                                    <button class="btn btn-warning btn-toggle-stage" data-stage="stage_hm_decision"
-                                        data-value="0" data-action="reopen" data-stage-name="Hiring Manager Decision">
-                                        <i class="fa fa-undo"></i> Reopen Stage
-                                    </button>
-                                    <?php elseif ($candidate->stage_hm_decision && $is_rejected): ?>
-                                    <button class="btn btn-warning btn-toggle-stage" data-stage="stage_hm_decision"
-                                        data-value="0" data-action="reopen" data-stage-name="Hiring Manager Decision">
-                                        <i class="fa fa-undo"></i> Reopen & Change Decision
-                                    </button>
-                                    <?php else: ?>
-                                    <button class="btn btn-secondary" disabled title="Complete previous stage first">
-                                        <i class="fa fa-lock"></i> Locked
-                                    </button>
-                                    <?php endif; ?>
-                                </div>
-                            </div>
-
-                            <!-- STAGE 4: DOCUMENTS DECISION - NEW STAGE -->
-                            <div
-                                class="stage-card <?= (isset($candidate->stage_documents_decision) && $candidate->stage_documents_decision) ? 'completed' : ($candidate->onboarding_stage == 'stage_documents_decision' ? 'active' : '') ?> <?= (!$candidate->stage_hm_decision || $is_rejected) ? 'disabled-stage' : '' ?> <?= $is_rejected ? 'rejected-stage' : '' ?>">
-                                <div class="stage-header">
-                                    <div class="stage-number">4</div>
-                                    <?php if (isset($candidate->stage_documents_decision) && $candidate->stage_documents_decision): ?>
-                                    <div
-                                        class="documents-decision-badge <?= (isset($candidate->documents_required) && $candidate->documents_required) ? 'documents-required' : 'documents-not-required' ?>">
-                                        <?= (isset($candidate->documents_required) && $candidate->documents_required) ? 'Docs Required' : 'No Docs Needed' ?>
-                                    </div>
-                                    <?php endif; ?>
-                                </div>
-                                <div class="stage-content">
-                                    <h4 class="stage-title">Documents Decision</h4>
-                                    <p class="stage-description">Decide if additional documents are required from the
-                                        candidate</p>
-
-                                    <?php if (isset($candidate->stage_documents_decision) && $candidate->stage_documents_decision): ?>
-                                    <?php if (isset($candidate->documents_required) && $candidate->documents_required): ?>
-                                    <div class="stage-date">
-                                        <strong class="text-warning"> Documents Required</strong>
-                                        <?php if (isset($candidate->documents_notes) && $candidate->documents_notes): ?>
-                                        <div class="stage-notes mt-2">
-                                            <small><strong>Required Documents:</strong>
-                                                <?= htmlspecialchars($candidate->documents_notes, ENT_QUOTES, 'UTF-8') ?></small>
-                                        </div>
-                                        <?php endif; ?>
-                                    </div>
-                                    <?php else: ?>
-                                    <div class="stage-date">
-                                        <strong class="text-success"> No Additional Documents Required</strong>
-                                    </div>
-                                    <?php endif; ?>
-                                    <?php if (isset($candidate->stage_documents_decision_at) && $candidate->stage_documents_decision_at): ?>
-                                    <div class="stage-date">Decided:
-                                        <?= date('M j, Y', strtotime($candidate->stage_documents_decision_at)) ?></div>
-                                    <?php endif; ?>
-                                    <?php endif; ?>
-                                </div>
-                                <div class="stage-actions">
-                                    <?php if ((!isset($candidate->stage_documents_decision) || !$candidate->stage_documents_decision) && $candidate->stage_hm_decision && !$is_rejected): ?>
-                                    <button type="button" class="btn btn-info btn-sm" data-toggle="modal"
-                                        data-target="#documentsDecisionModal">
-                                        <i class="fa fa-file-alt"></i> Make Decision
-                                    </button>
-                                    <?php elseif ((isset($candidate->stage_documents_decision) && $candidate->stage_documents_decision) && !$is_rejected): ?>
-                                    <button class="btn btn-warning btn-toggle-stage"
-                                        data-stage="stage_documents_decision" data-value="0" data-action="reopen"
-                                        data-stage-name="Documents Decision">
-                                        <i class="fa fa-undo"></i> Reopen Decision
-                                    </button>
-                                    <?php else: ?>
-                                    <?php if ($is_rejected): ?>
-                                    <button class="btn btn-secondary" disabled
-                                        title="Candidate rejected - process stopped">
-                                        <i class="fa fa-ban"></i> Process Stopped
-                                    </button>
-                                    <?php else: ?>
-                                    <button class="btn btn-secondary" disabled title="Complete previous stage first">
-                                        <i class="fa fa-lock"></i> Locked
-                                    </button>
-                                    <?php endif; ?>
-                                    <?php endif; ?>
-                                </div>
-                            </div>
-
-                            <!-- STAGE 5: REQUESTED FURTHER DOCUMENTS -->
-                            <div
-                                class="stage-card <?= (isset($candidate->stage_requested_docs) && $candidate->stage_requested_docs) ? 'completed' : ($candidate->onboarding_stage == 'stage_requested_docs' ? 'active' : '') ?> <?= ((!isset($candidate->stage_documents_decision) || !$candidate->stage_documents_decision || (isset($candidate->documents_required) && !$candidate->documents_required) || $is_rejected) ? 'disabled-stage' : '' )?> <?= $is_rejected ? 'rejected-stage' : '' ?>">
-                                <div class="stage-header">
-                                    <div class="stage-number">5</div>
-                                    <?php if (isset($candidate->stage_requested_docs) && $candidate->stage_requested_docs): ?>
-                                    <div class="completion-badge">Submitted & Reviewed</div>
-                                    <?php elseif ($has_required_docs && !$candidate->stage_requested_docs): ?>
-                                    <div class="badge badge-warning">Documents Submitted</div>
-                                    <?php elseif (isset($candidate->documents_required) && !$candidate->documents_required): ?>
-                                    <!--  ADD THIS: Show skipped badge when documents are not required -->
-                                    <div class="badge badge-info">Skipped</div>
-                                    <?php elseif (isset($candidate->documents_required) && $candidate->documents_required): ?>
-                                    <div class="badge badge-info">Awaiting Documents</div>
-                                    <?php endif; ?>
-                                </div>
-                                <div class="stage-content">
-                                    <h4 class="stage-title">Requested Further Documents</h4>
-                                    <p class="stage-description">Additional documentation requested from candidate</p>
-
-                                    <?php if (isset($candidate->documents_required) && !$candidate->documents_required): ?>
-                                    <!--  ADD THIS: Show skipped message -->
-                                    <div class="stage-date text-info">
-                                        <strong> Stage Skipped - No Documents Required</strong>
-                                    </div>
-                                    <?php elseif ($has_required_docs && !$candidate->stage_requested_docs): ?>
-                                    <div class="stage-date text-warning">
-                                        <strong> Documents Submitted - Awaiting Review</strong>
-                                    </div>
-                                    <?php elseif (isset($candidate->stage_requested_docs_at) && $candidate->stage_requested_docs_at): ?>
-                                    <div class="stage-date">Completed:
-                                        <?= date('M j, Y', strtotime($candidate->stage_requested_docs_at)) ?></div>
-                                    <?php endif; ?>
-                                </div>
-                                <div class="stage-actions">
-                                    <?php if ((!isset($candidate->stage_requested_docs) || !$candidate->stage_requested_docs) && (isset($candidate->stage_documents_decision) && $candidate->stage_documents_decision) && (isset($candidate->documents_required) && $candidate->documents_required) && !$is_rejected): ?>
-                                    <button class="btn btn-success btn-toggle-stage" data-stage="stage_requested_docs"
-                                        data-value="1" data-action="complete"
-                                        data-stage-name="Requested Further Documents">
-                                        <i class="fa fa-check"></i> Mark Complete
-                                    </button>
-                                    <?php elseif ((isset($candidate->stage_requested_docs) && $candidate->stage_requested_docs) && !$is_rejected): ?>
-                                    <button class="btn btn-warning btn-toggle-stage" data-stage="stage_requested_docs"
-                                        data-value="0" data-action="reopen"
-                                        data-stage-name="Requested Further Documents">
-                                        <i class="fa fa-undo"></i> Reopen Stage
-                                    </button>
-                                    <?php else: ?>
-                                    <?php if ($is_rejected): ?>
-                                    <button class="btn btn-secondary" disabled
-                                        title="Candidate rejected - process stopped">
-                                        <i class="fa fa-ban"></i> Process Stopped
-                                    </button>
-                                    <?php elseif (isset($candidate->documents_required) && !$candidate->documents_required): ?>
-                                    <button class="btn btn-secondary" disabled title="Documents not required - skipped">
-                                        <i class="fa fa-forward"></i> Skipped
-                                    </button>
-                                    <?php else: ?>
-                                    <button class="btn btn-secondary" disabled title="Complete previous stage first">
-                                        <i class="fa fa-lock"></i> Locked
-                                    </button>
-                                    <?php endif; ?>
-                                    <?php endif; ?>
-                                </div>
-                            </div>
-
-                            <!-- STAGE 6: POSITION OFFERED -->
-                            <?php
-                            $position_offered_disabled = false;
-                            if (!$candidate->stage_documents_decision) {
-                                $position_offered_disabled = true;
-                            } elseif (isset($candidate->documents_required) && $candidate->documents_required && !$candidate->stage_requested_docs) {
-                                $position_offered_disabled = true;
-                            } elseif ($is_rejected) {
-                                $position_offered_disabled = true;
-                            }
-                            ?>
-                            <div
-                                class="stage-card <?= (isset($candidate->stage_position_offered) && $candidate->stage_position_offered) ? 'completed' : ($candidate->onboarding_stage == 'stage_position_offered' ? 'active' : '') ?> <?= $position_offered_disabled ? 'disabled-stage' : '' ?> <?= $is_rejected ? 'rejected-stage' : '' ?>">
-                                <div class="stage-header">
-                                    <div class="stage-number">
-                                        <?= (isset($candidate->documents_required) && $candidate->documents_required) ? '6' : '5' ?>
-                                    </div>
-                                    <?php if (isset($candidate->stage_position_offered) && $candidate->stage_position_offered): ?>
-                                    <div class="completion-badge">Completed</div>
-                                    <?php endif; ?>
-                                </div>
-                                <div class="stage-content">
-                                    <h4 class="stage-title">Position Offered</h4>
-                                    <p class="stage-description">Formal job offer extended to candidate</p>
-                                    <?php if (isset($candidate->stage_position_offered_at) && $candidate->stage_position_offered_at): ?>
-                                    <div class="stage-date">Completed:
-                                        <?= date('M j, Y', strtotime($candidate->stage_position_offered_at)) ?></div>
-                                    <?php endif; ?>
-                                </div>
-                                <div class="stage-actions">
-                                    <?php if ((!isset($candidate->stage_position_offered) || !$candidate->stage_position_offered) && !$position_offered_disabled): ?>
-                                    <button class="btn btn-success btn-toggle-stage" data-stage="stage_position_offered"
-                                        data-value="1" data-action="complete" data-stage-name="Position Offered">
-                                        <i class="fa fa-check"></i> Mark Complete
-                                    </button>
-                                    <?php elseif ((isset($candidate->stage_position_offered) && $candidate->stage_position_offered) && !$is_rejected): ?>
-                                    <button class="btn btn-warning btn-toggle-stage" data-stage="stage_position_offered"
-                                        data-value="0" data-action="reopen" data-stage-name="Position Offered">
-                                        <i class="fa fa-undo"></i> Reopen Stage
-                                    </button>
-                                    <?php else: ?>
-                                    <?php if ($is_rejected): ?>
-                                    <button class="btn btn-secondary" disabled
-                                        title="Candidate rejected - process stopped">
-                                        <i class="fa fa-ban"></i> Process Stopped
-                                    </button>
-                                    <?php else: ?>
-                                    <button class="btn btn-secondary" disabled title="Complete previous stage first">
-                                        <i class="fa fa-lock"></i> Locked
-                                    </button>
-                                    <?php endif; ?>
-                                    <?php endif; ?>
-                                </div>
-                            </div>
-                        </div>
-
-                        <?php if ($candidate->onboarding_stage === 'completed' && !$is_rejected): ?>
-                        <div class="completion-celebration">
-                            <h4>🎉 Onboarding Completed!</h4>
-                            <p>All stages have been successfully completed. Candidate is ready for the next steps.</p>
-                            <?php if (isset($candidate->onboarding_completed_at) && $candidate->onboarding_completed_at): ?>
-                            <p><strong>Completed on:</strong>
-                                <?= date('F j, Y \a\t g:i A', strtotime($candidate->onboarding_completed_at)) ?></p>
+                        <div class="stage-actions">
+                            <?php if (!$candidate->stage_hm_decision && $candidate->stage_submitted_to_hm): ?>
+                            <button type="button" class="btn btn-info btn-sm" data-toggle="modal"
+                                data-target="#hmDecisionModal">
+                                <i class="fa fa-clipboard-check"></i> Record Decision
+                            </button>
+                            <?php elseif ($candidate->stage_hm_decision && !$is_rejected): ?>
+                            <button class="btn btn-warning btn-toggle-stage Hiring-Manager-Decision"
+                                data-stage="stage_hm_decision" data-value="0" data-action="reopen"
+                                data-stage-name="Hiring Manager Decision">
+                                <i class="fa fa-undo"></i> Reopen Stage
+                            </button>
+                            <?php elseif ($candidate->stage_hm_decision && $is_rejected): ?>
+                            <button class="btn btn-warning btn-toggle-stage Hiring-Manager-Decision"
+                                data-stage="stage_hm_decision" data-value="0" data-action="reopen"
+                                data-stage-name="Hiring Manager Decision">
+                                <i class="fa fa-undo"></i> Reopen & Change Decision
+                            </button>
+                            <?php else: ?>
+                            <button class="btn btn-secondary" disabled title="Complete previous stage first">
+                                <i class="fa fa-lock"></i> Locked
+                            </button>
                             <?php endif; ?>
                         </div>
-                        <?php endif; ?>
+                    </div>
 
-                        <?php endif; ?>
+                    <!-- STAGE 4: DOCUMENTS DECISION - NEW STAGE -->
+                    <div
+                        class="stage-card <?= (isset($candidate->stage_documents_decision) && $candidate->stage_documents_decision) ? 'completed' : ($candidate->onboarding_stage == 'stage_documents_decision' ? 'active' : '') ?> <?= (!$candidate->stage_hm_decision || $is_rejected) ? 'disabled-stage' : '' ?> <?= $is_rejected ? 'rejected-stage' : '' ?>">
+                        <div class="stage-header">
+                            <div class="stage-number">4</div>
+                            <?php if (isset($candidate->stage_documents_decision) && $candidate->stage_documents_decision): ?>
+                            <div
+                                class="documents-decision-badge <?= (isset($candidate->documents_required) && $candidate->documents_required) ? 'documents-required' : 'documents-not-required' ?>">
+                                <?= (isset($candidate->documents_required) && $candidate->documents_required) ? 'Docs Required' : 'No Docs Needed' ?>
+                            </div>
+                            <?php endif; ?>
+                        </div>
+                        <div class="stage-content">
+                            <h4 class="stage-title">Documents Decision</h4>
+                            <p class="stage-description">Decide if additional documents are required from the
+                                candidate</p>
+
+                            <?php if (isset($candidate->stage_documents_decision) && $candidate->stage_documents_decision): ?>
+                            <?php if (isset($candidate->documents_required) && $candidate->documents_required): ?>
+                            <div class="stage-date">
+                                <strong class="text-warning"> Documents Required</strong>
+                                <?php if (isset($candidate->documents_notes) && $candidate->documents_notes): ?>
+                                <div class="stage-notes mt-2">
+                                    <small><strong>Required Documents:</strong>
+                                        <?= htmlspecialchars($candidate->documents_notes, ENT_QUOTES, 'UTF-8') ?></small>
+                                </div>
+                                <?php endif; ?>
+                            </div>
+                            <?php else: ?>
+                            <div class="stage-date">
+                                <strong class="text-success"> No Additional Documents Required</strong>
+                            </div>
+                            <?php endif; ?>
+                            <?php if (isset($candidate->stage_documents_decision_at) && $candidate->stage_documents_decision_at): ?>
+                            <div class="stage-date">Decided:
+                                <?= date('M j, Y', strtotime($candidate->stage_documents_decision_at)) ?></div>
+                            <?php endif; ?>
+                            <?php endif; ?>
+                        </div>
+                        <div class="stage-actions">
+                            <?php if ((!isset($candidate->stage_documents_decision) || !$candidate->stage_documents_decision) && $candidate->stage_hm_decision && !$is_rejected): ?>
+                            <button type="button" class="btn btn-info btn-sm" data-toggle="modal"
+                                data-target="#documentsDecisionModal">
+                                <i class="fa fa-file-alt"></i> Make Decision
+                            </button>
+                            <?php elseif ((isset($candidate->stage_documents_decision) && $candidate->stage_documents_decision) && !$is_rejected): ?>
+                            <button class="btn btn-warning btn-toggle-stage" data-stage="stage_documents_decision"
+                                data-value="0" data-action="reopen" data-stage-name="Documents Decision">
+                                <i class="fa fa-undo"></i> Reopen Decision
+                            </button>
+                            <?php else: ?>
+                            <?php if ($is_rejected): ?>
+                            <button class="btn btn-secondary" disabled title="Candidate rejected - process stopped">
+                                <i class="fa fa-ban"></i> Process Stopped
+                            </button>
+                            <?php else: ?>
+                            <button class="btn btn-secondary" disabled title="Complete previous stage first">
+                                <i class="fa fa-lock"></i> Locked
+                            </button>
+                            <?php endif; ?>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+
+                    <!-- STAGE 5: REQUESTED FURTHER DOCUMENTS -->
+                    <div
+                        class="stage-card <?= (isset($candidate->stage_requested_docs) && $candidate->stage_requested_docs) ? 'completed' : ($candidate->onboarding_stage == 'stage_requested_docs' ? 'active' : '') ?> <?= ((!isset($candidate->stage_documents_decision) || !$candidate->stage_documents_decision || (isset($candidate->documents_required) && !$candidate->documents_required) || $is_rejected) ? 'disabled-stage' : '' )?> <?= $is_rejected ? 'rejected-stage' : '' ?>">
+                        <div class="stage-header">
+                            <div class="stage-number">5</div>
+                            <?php if (isset($candidate->stage_requested_docs) && $candidate->stage_requested_docs): ?>
+                            <div class="completion-badge">Submitted & Reviewed</div>
+                            <?php elseif ($has_required_docs && !$candidate->stage_requested_docs): ?>
+                            <div class="badge badge-warning">Documents Submitted</div>
+                            <?php elseif (isset($candidate->documents_required) && !$candidate->documents_required): ?>
+                            <!--  ADD THIS: Show skipped badge when documents are not required -->
+                            <div class="badge badge-info">Skipped</div>
+                            <?php elseif (isset($candidate->documents_required) && $candidate->documents_required): ?>
+                            <div class="badge badge-info">Awaiting Documents</div>
+                            <?php endif; ?>
+                        </div>
+                        <div class="stage-content">
+                            <h4 class="stage-title">Requested Further Documents</h4>
+                            <p class="stage-description">Additional documentation requested from candidate</p>
+
+                            <?php if (isset($candidate->documents_required) && !$candidate->documents_required): ?>
+                            <!--  ADD THIS: Show skipped message -->
+                            <div class="stage-date text-info">
+                                <strong> Stage Skipped - No Documents Required</strong>
+                            </div>
+                            <?php elseif ($has_required_docs && !$candidate->stage_requested_docs): ?>
+                            <div class="stage-date text-warning">
+                                <strong> Documents Submitted - Awaiting Review</strong>
+                            </div>
+                            <?php elseif (isset($candidate->stage_requested_docs_at) && $candidate->stage_requested_docs_at): ?>
+                            <div class="stage-date">Completed:
+                                <?= date('M j, Y', strtotime($candidate->stage_requested_docs_at)) ?></div>
+                            <?php endif; ?>
+                        </div>
+                        <div class="stage-actions">
+                            <?php if ((!isset($candidate->stage_requested_docs) || !$candidate->stage_requested_docs) && (isset($candidate->stage_documents_decision) && $candidate->stage_documents_decision) && (isset($candidate->documents_required) && $candidate->documents_required) && !$is_rejected): ?>
+                            <button class="btn btn-success btn-toggle-stage" data-stage="stage_requested_docs"
+                                data-value="1" data-action="complete" data-stage-name="Requested Further Documents">
+                                <i class="fa fa-check"></i> Mark Complete
+                            </button>
+                            <?php elseif ((isset($candidate->stage_requested_docs) && $candidate->stage_requested_docs) && !$is_rejected): ?>
+                            <button class="btn btn-warning btn-toggle-stage Requested-Further-Documents"
+                                data-stage="stage_requested_docs" data-value="0" data-action="reopen"
+                                data-stage-name="Requested Further Documents">
+                                <i class="fa fa-undo"></i> Reopen Stage
+                            </button>
+                            <?php else: ?>
+                            <?php if ($is_rejected): ?>
+                            <button class="btn btn-secondary" disabled title="Candidate rejected - process stopped">
+                                <i class="fa fa-ban"></i> Process Stopped
+                            </button>
+                            <?php elseif (isset($candidate->documents_required) && !$candidate->documents_required): ?>
+                            <button class="btn btn-secondary" disabled title="Documents not required - skipped">
+                                <i class="fa fa-forward"></i> Skipped
+                            </button>
+                            <?php else: ?>
+                            <button class="btn btn-secondary" disabled title="Complete previous stage first">
+                                <i class="fa fa-lock"></i> Locked
+                            </button>
+                            <?php endif; ?>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+
+                    <!-- STAGE 6: POSITION OFFERED -->
+                    <?php
+                    $position_offered_disabled = false;
+                    if (!$candidate->stage_documents_decision) {
+                        $position_offered_disabled = true;
+                    } elseif (isset($candidate->documents_required) && $candidate->documents_required && !$candidate->stage_requested_docs) {
+                        $position_offered_disabled = true;
+                    } elseif ($is_rejected) {
+                        $position_offered_disabled = true;
+                    }
+                    ?>
+                    <div
+                        class="stage-card <?= (isset($candidate->stage_position_offered) && $candidate->stage_position_offered) ? 'completed' : ($candidate->onboarding_stage == 'stage_position_offered' ? 'active' : '') ?> <?= $position_offered_disabled ? 'disabled-stage' : '' ?> <?= $is_rejected ? 'rejected-stage' : '' ?>">
+                        <div class="stage-header">
+                            <div class="stage-number">
+                                <?= (isset($candidate->documents_required) && $candidate->documents_required) ? '6' : '5' ?>
+                            </div>
+                            <?php if (isset($candidate->stage_position_offered) && $candidate->stage_position_offered): ?>
+                            <div class="completion-badge">Completed</div>
+                            <?php endif; ?>
+                        </div>
+                        <div class="stage-content">
+                            <h4 class="stage-title">Position Offered</h4>
+                            <p class="stage-description">Formal job offer extended to candidate</p>
+                            <?php if (isset($candidate->stage_position_offered_at) && $candidate->stage_position_offered_at): ?>
+                            <div class="stage-date">Completed:
+                                <?= date('M j, Y', strtotime($candidate->stage_position_offered_at)) ?></div>
+                            <?php endif; ?>
+                        </div>
+                        <div class="stage-actions">
+                            <?php if ((!isset($candidate->stage_position_offered) || !$candidate->stage_position_offered) && !$position_offered_disabled): ?>
+                            <button class="btn btn-success btn-toggle-stage" data-stage="stage_position_offered"
+                                data-value="1" data-action="complete" data-stage-name="Position Offered">
+                                <i class="fa fa-check"></i> Mark Complete
+                            </button>
+                            <?php elseif ((isset($candidate->stage_position_offered) && $candidate->stage_position_offered) && !$is_rejected): ?>
+                            <button class="btn btn-warning btn-toggle-stage Position-Offered"
+                                data-stage="stage_position_offered" data-value="0" data-action="reopen"
+                                data-stage-name="Position Offered">
+                                <i class="fa fa-undo"></i> Reopen Stage
+                            </button>
+                            <?php else: ?>
+                            <?php if ($is_rejected): ?>
+                            <button class="btn btn-secondary" disabled title="Candidate rejected - process stopped">
+                                <i class="fa fa-ban"></i> Process Stopped
+                            </button>
+                            <?php else: ?>
+                            <button class="btn btn-secondary" disabled title="Complete previous stage first">
+                                <i class="fa fa-lock"></i> Locked
+                            </button>
+                            <?php endif; ?>
+                            <?php endif; ?>
+                        </div>
                     </div>
                 </div>
+
+                <?php if ($candidate->onboarding_stage === 'completed' && !$is_rejected): ?>
+                <div class="completion-celebration">
+                    <h4>🎉 Onboarding Completed!</h4>
+                    <p>All stages have been successfully completed. Candidate is ready for the next steps.</p>
+                    <?php if (isset($candidate->onboarding_completed_at) && $candidate->onboarding_completed_at): ?>
+                    <p><strong>Completed on:</strong>
+                        <?= date('F j, Y \a\t g:i A', strtotime($candidate->onboarding_completed_at)) ?></p>
+                    <?php endif; ?>
+                </div>
+                <?php endif; ?>
             </div>
+
         </div>
     </div>
 

@@ -160,4 +160,26 @@ function smartCloseForm() {
     }
     return false;
 }
+
+// Add this to your main.js or header template
+window.addEventListener('beforeunload', function(e) {
+    // Only trigger if user is logged in as recruiter
+    if (window.location.pathname.includes('/recruiter/')) {
+        // Send a quick ping to update last logout time
+        navigator.sendBeacon('<?php echo site_url("login/ajax_update_logout_time"); ?>');
+    }
+});
+
+// Also add periodic activity update
+setInterval(function() {
+    if (document.hasFocus()) {
+        // User is active, update activity time
+        fetch('/login/ajax_update_activity', {
+            method: 'POST',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        });
+    }
+}, 300000); // Every 5 minutes
 </script>

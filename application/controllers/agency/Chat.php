@@ -42,6 +42,8 @@ class Chat extends CRUD_Controller
     
     // Now call parent constructor
     parent::__construct();
+
+
     
     $this->folder = 'agency';
     $this->load->model('agency/Model_chat_messages');
@@ -53,7 +55,38 @@ class Chat extends CRUD_Controller
         redirect('agency/login');
     }
 }
+// This method should exist in agency Chat.php:
+public function ajax_get_chat_notifications()
+{
+    $agency_id = $this->get_user_agency_id();
+    
+    $response = [
+        'success' => false,
+        'unread_count' => 0,
+        'csrf_token' => $this->security->get_csrf_hash()
+    ];
 
+    try {
+        if (!$agency_id) {
+            $response['message'] = 'Not logged in';
+            $this->output->set_content_type('application/json')->set_output(json_encode($response));
+            return;
+        }
+
+        // Get unread count from chat messages
+        $unread_count = $this->Model_chat_messages->get_unread_count_for_agency($agency_id);
+        
+        $response['unread_count'] = (int)$unread_count;
+        $response['success'] = true;
+
+    } catch (Exception $e) {
+        $response['message'] = 'Server error: ' . $e->getMessage();
+    }
+
+    $this->output
+        ->set_content_type('application/json')
+        ->set_output(json_encode($response));
+}
     private function set_security_headers() {
         if (!headers_sent()) {
             header('X-Frame-Options: DENY');
@@ -176,7 +209,15 @@ class Chat extends CRUD_Controller
                 $agency_id  // Add this parameter
             );
         }
-        
+        // In your conversation() method, add:
+        if (isset($conversation) && $conversation->recruiter_id) {
+            // Update recruiter's activity in user_sessions
+            $this->db->where('user_id', $conversation->recruiter_id)
+                    ->where('user_type', 'recruiter')
+                    ->update('user_sessions', [
+                        'last_activity' => date('Y-m-d H:i:s')
+                    ]);
+        }
         // Also get candidate info for each conversation in sidebar
         $all_conversations_with_candidates = [];
         foreach ($all_conversations as $conv) {
@@ -315,11 +356,35 @@ public function ajax_send_message()
     );
     
     if ($message_id) {
+        $this->Model_chat_messages->create_chat_notification(
+            $conversation->id,
+            $conversation->recruiter_id,  // Send to recruiter
+            'recruiter',                  // Recruiter type
+            $message_text,                // Message content
+            $agency_id                    // Sender is agency
+        );
+        // ===== ADD THIS: Update sender's activity =====
+        // If agency sent message, update agency activity
+        $this->db->where('user_id', $agency_id)
+                 ->where('user_type', 'agency')
+                 ->update('user_sessions', [
+                     'last_activity' => date('Y-m-d H:i:s')
+                 ]);
+        
+        // ===== ADD THIS: Also update conversation activity =====
+        if (isset($conversation) && $conversation->recruiter_id) {
+            // Update recruiter's activity since they received a message
+            $this->db->where('user_id', $conversation->recruiter_id)
+                    ->where('user_type', 'recruiter')
+                    ->update('user_sessions', [
+                        'last_activity' => date('Y-m-d H:i:s')
+                    ]);
+        }
+        // =====================================================
+        
         $response['success'] = true;
         $response['message'] = 'Message sent successfully';
         $response['message_id'] = $message_id;
-        
-        // Generate fresh CSRF token for next request
         $response['csrf_token'] = $this->security->get_csrf_hash();
     } else {
         $response['message'] = 'Failed to save message';
@@ -329,7 +394,47 @@ public function ajax_send_message()
         ->set_content_type('application/json')
         ->set_output(json_encode($response));
 }
-
+// Add this to Chat.php or create separate recruiter chat controller
+public function ajax_recruiter_send_message()
+{
+    $recruiter_id = $this->session->userdata('login')['recruiter']['id'] ?? 0;
+    
+    if (!$recruiter_id) {
+        echo json_encode(['success' => false, 'message' => 'Not logged in']);
+        return;
+    }
+    
+    // ... get message data ...
+    
+    $message_id = $this->Model_chat_messages->send_message(
+        $conversation_id,
+        'recruiter',
+        $recruiter_id,
+        $message_text,
+        'text',
+        null
+    );
+    
+    if ($message_id) {
+        // ===== CRITICAL: Update recruiter's activity =====
+        $this->db->where('user_id', $recruiter_id)
+                 ->where('user_type', 'recruiter')
+                 ->update('user_sessions', [
+                     'last_activity' => date('Y-m-d H:i:s')
+                 ]);
+        
+        // Also update recruiters table
+        $this->db->where('id', $recruiter_id)
+                 ->update('recruiters', [
+                     'last_activity_at' => date('Y-m-d H:i:s')
+                 ]);
+        // ================================================
+        
+        echo json_encode(['success' => true, 'message_id' => $message_id]);
+    } else {
+        echo json_encode(['success' => false, 'message' => 'Failed to send']);
+    }
+}
 public function ajax_get_messages()
 {
     // Always return JSON with CSRF token
@@ -524,4 +629,90 @@ public function ajax_check_session()
         
         return null;
     }
+
+        public function cleanup_old_sessions()
+    {
+        // Delete sessions older than 1 day
+        $one_day_ago = date('Y-m-d H:i:s', strtotime('-1 day'));
+        $this->db->where('last_activity <', $one_day_ago)
+                ->delete('user_sessions');
+        
+        echo "Cleaned up old sessions";
+    }
+
+public function ajax_check_online_status()
+{
+    // PREVENT CACHING
+    header("Cache-Control: no-cache, no-store, must-revalidate");
+    header("Pragma: no-cache");
+    header("Expires: 0");
+    
+    $response = [
+        'success' => true,
+        'online_status' => [],
+        'csrf_token' => $this->security->get_csrf_hash(),
+        'timestamp' => microtime(true),
+        'generated_at' => date('Y-m-d H:i:s')
+    ];
+    
+    try {
+        $agency_id = $this->get_user_agency_id();
+        
+        if (!$agency_id) {
+            throw new Exception('Not logged in');
+        }
+        
+        // FIRST: Clean up expired sessions (older than 10 minutes)
+        $ten_minutes_ago = date('Y-m-d H:i:s', strtotime('-10 minutes'));
+        $this->db->where('last_activity <', $ten_minutes_ago)
+                 ->delete('user_sessions');
+        
+        // GET ALL RECRUITERS FOR THIS AGENCY
+        $recruiters = $this->Model_chat_messages->get_available_recruiters($agency_id);
+        
+        $onlineStatus = [];
+        
+        foreach ($recruiters as $recruiter) {
+            // Check if there's an active session within last 10 minutes
+            $this->db->select('id, last_activity');
+            $this->db->from('user_sessions');
+            $this->db->where('user_id', $recruiter->id);
+            $this->db->where('user_type', 'recruiter');
+            $this->db->where('last_activity >=', $ten_minutes_ago);
+            $this->db->limit(1);
+            
+            $session_exists = $this->db->get()->row() !== null;
+            
+            $onlineStatus[$recruiter->id] = $session_exists;
+            
+            // Also update the recruiter's last_activity_at in recruiters table
+            if ($session_exists) {
+                $this->db->where('id', $recruiter->id)
+                         ->update('recruiters', [
+                             'last_activity_at' => date('Y-m-d H:i:s'),
+                             'updated_at' => date('Y-m-d H:i:s')
+                         ]);
+            }
+        }
+        
+        $response['online_status'] = $onlineStatus;
+        $response['debug_info'] = [
+            'current_time' => date('Y-m-d H:i:s'),
+            'threshold' => $ten_minutes_ago,
+            'total_recruiters' => count($recruiters),
+            'online_count' => array_sum($onlineStatus),
+            'note' => '10-minute threshold, sessions auto-cleaned'
+        ];
+        
+    } catch (Exception $e) {
+        $response['success'] = false;
+        $response['message'] = $e->getMessage();
+    }
+    
+    $this->output
+        ->set_content_type('application/json')
+        ->set_output(json_encode($response));
+}
+
+
 }
