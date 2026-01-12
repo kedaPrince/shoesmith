@@ -322,7 +322,52 @@ public function index(): void
         return $input_data;
     }
 
-   
+   /**
+ * Get default access groups for user type
+ */
+private function get_default_access_groups_for_user_type($usr_type_id)
+{
+    $defaults = [
+        5 => [1],           // Agency Admin → Full Access
+        6 => [2],           // Agency Manager → Staff Management
+        7 => [3, 10],       // Agency Agent → Candidate + Onboarding
+        8 => [4],           // Agency Support → Basic Access
+    ];
+    
+    return isset($defaults[$usr_type_id]) ? $defaults[$usr_type_id] : [4]; // Default to basic access
+}
+
+/**
+ * Assign access groups to new staff member
+ */
+private function assign_access_groups_to_staff($staff_id, $usr_type_id, $selected_groups = [])
+{
+    // If groups were manually selected in form, use those
+    if (!empty($selected_groups) && is_array($selected_groups)) {
+        $groups_to_assign = $selected_groups;
+    } else {
+        // Otherwise use defaults based on user type
+        $groups_to_assign = $this->get_default_access_groups_for_user_type($usr_type_id);
+    }
+    
+    // Always add Full Access for Agency Admin (type 5)
+    if ($usr_type_id == 5 && !in_array(1, $groups_to_assign)) {
+        $groups_to_assign[] = 1;
+    }
+    
+    // Insert the groups
+    foreach ($groups_to_assign as $group_id) {
+        if ($group_id) { // Make sure it's not empty
+            $this->db->insert('pivot_agency_staff_access_groups', [
+                'agency_staff_id' => $staff_id,
+                'access_group_id' => $group_id
+            ]);
+        }
+    }
+    
+    log_message('debug', "Assigned access groups to staff $staff_id: " . implode(', ', $groups_to_assign));
+    return count($groups_to_assign);
+}
 
     /**
      * Is Unique Email
@@ -503,6 +548,13 @@ public function index(): void
             Anomalies::log("Failed to create usr_medical_emergency_details for agency staff ID {$id}", $this->db->last_query());
         }
 
+        // Get user type and selected access groups
+    $usr_type_id = $this->input->post('usr_type_id');
+    $selected_groups = $this->input->post('access_groups');
+    
+    // Assign access groups
+    $this->assign_access_groups_to_staff($id, $usr_type_id, $selected_groups);
+
         // Send password reset email
         $this->send_password_mail($id);
     }
@@ -534,7 +586,25 @@ public function index(): void
         $this->db->update('agency_staff', [
             'name' => $this->input->post('first_name') . ' ' . $this->input->post('last_name')
         ]);
+    $selected_groups = $this->input->post('access_groups');
+    if ($selected_groups !== null) {
+        // First, remove existing groups
+        $this->db->where('agency_staff_id', $id);
+        $this->db->delete('pivot_agency_staff_access_groups');
+        
+        // Add new groups
+        if (!empty($selected_groups) && is_array($selected_groups)) {
+            foreach ($selected_groups as $group_id) {
+                if ($group_id) {
+                    $this->db->insert('pivot_agency_staff_access_groups', [
+                        'agency_staff_id' => $id,
+                        'access_group_id' => $group_id
+                    ]);
+                }
+            }
+        }
     }
+}
 
     public function login_as($id): void
     {

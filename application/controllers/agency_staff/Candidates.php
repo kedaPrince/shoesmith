@@ -14,29 +14,45 @@ class Candidates extends CRUD_Controller{
     public $hideSubNav = false;
     public $quickManageSize = 3;
 
-    public function __construct(){
+   public function __construct()
+    {
         parent::__construct();
 
-        // Access check
-        if (!function_exists('getLoggedInUserTypeMenu')) {
-            $ci = &get_instance();
-            $ci->load->helper('profile_helper');
-        }
+        // Load helpers
+        $this->load->helper(['profile_helper', 'agency_access_helper']);
+
+        // Check if user is logged in as agency staff
+        $login_data = $this->session->userdata('login');
+        $is_agency_logged_in = !empty($login_data['agency']);
         
-        $userType = getLoggedInUserTypeMenu();
-        if ($userType !== 'agency') {
-            error_log("REDIRECTING TO DASHBOARD - User type: " . $userType);
-            redir('dashboard');
+        if (!$is_agency_logged_in) {
+            redirect('login');
         }
 
+        // Check access to candidates section
+        if (!agency_staff_can_access_page('candidates')) {
+            if ($this->input->is_ajax_request()) {
+                ajax_return([
+                    'success' => false,
+                    'error' => 'Access denied to candidates section'
+                ]);
+            } else {
+                $this->session->set_flashdata('error', 'Access denied to candidates section');
+                redirect('dashboard');
+            }
+            exit;
+        }
+
+        $this->load->model($this->folder . '/' . $this->model);
         $this->setup_listing();
         $this->setup_fields();
-        $this->load->model($this->folder . '/' . $this->model);
+        
         $this->zone = array(
             'title' => lang($this->pageName . '_heading'),
             'url' => redir($this->pageName, true),
         );
     }
+
 
     private function setup_listing(): void{
         $this->listFields = array(

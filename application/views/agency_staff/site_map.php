@@ -1,8 +1,10 @@
 <?php
+// This sitemap is for AGENCY STAFF members (not recruiters)
 
 $this->siteMap = array(
     (object) [
         'group'         => 'Dashboard',
+        'page'          => 'dashboard',
         'label'         => 'Dashboard',
         'icon'          => 'fa-dashboard',
         'url'           => url('dashboard'),
@@ -10,19 +12,43 @@ $this->siteMap = array(
         'show'          => true,
         'active_by'     => 'view',
     ],
-    (object)array(
-        'group'         => 'Jobs_listings',
+    
+    (object) [
+        'group'         => 'Agency Staff',
+        'page'          => 'agency_staff',
+        'label'         => lang('agency_staff_heading'),
+        'icon'          => 'fa-users',
+        'url'           => url('agency_staff'),
+        'class'         => 'Agency_Staff',
+        'show'          => true,
+        'show_heading'  => false,
+        'active_by'     => 'agency_staff',
+    ],
+    
+    (object) [
+        'group'         => 'Recruiters',
+        'page'          => 'recruiters',
+        'label'         => lang('recruiters_heading'),
+        'icon'          => 'fa-user-tie',
+        'url'           => url('recruiters'),
+        'class'         => 'Recruiters',
+        'show'          => true,
+        'show_heading'  => false,
+        'active_by'     => 'recruiters',
+    ],
+    
+    (object) [
+        'group'         => 'Jobs Listings',
         'page'          => 'jobs_listings',
         'label'         => lang('jobs_listings_heading'),
-        'icon'          => 'fa-universal-access',
+        'icon'          => 'fa-briefcase',
         'url'           => url('jobs_listings'),
         'class'         => 'Jobs_listings',
         'show'          => true,
         'show_heading'  => false,
-        'active_by'     => 'view',
-    ),
- 
-
+        'active_by'     => 'jobs_listings',
+    ],
+    
     (object) [
         'group'         => 'Candidates Management',
         'page'          => 'candidates',
@@ -48,6 +74,77 @@ $this->siteMap = array(
                 'label'         => lang('candidates_resume_listings_heading'),
                 'icon'          => 'fa-file-text',
                 'url'           => url('candidates_resume_listings'),
+                'show'          => true,
+            ],
+            (object) [
+                'page'          => 'candidates_onboarding',
+                'view'          => 'onboarding_listing',
+                'label'         => 'Onboarding Management',
+                'icon'          => 'fa-tasks',
+                'url'           => url('candidates/onboarding_listing'),
+                'show'          => true,
+            ],
+        ),
+    ],
+    
+    (object) [
+        'group'         => 'Notifications',
+        'page'          => 'notifications',
+        'label'         => lang('notifications_heading'),
+        'icon'          => 'fa-bell',
+        'url'           => url('notifications'),
+        'class'         => '',
+        'show'          => true,
+        'show_heading'  => false,
+        'active_by'     => 'notifications',
+        'badge_count'   => true,
+    ],
+    
+    (object) [
+        'group'         => 'Chat',
+        'page'          => 'chat',
+        'label'         => lang('chat_heading'),
+        'icon'          => 'fa-comments',
+        'url'           => url('chat'),
+        'class'         => 'Chat',
+        'show'          => true,
+        'show_heading'  => false,
+        'active_by'     => 'chat',
+        'badge_count'   => true,
+    ],
+    
+    (object) [
+        'group'         => 'Templates',
+        'page'          => 'templates',
+        'label'         => 'Templates',
+        'icon'          => 'fa-paint-brush',
+        'url'           => url('templates'),
+        'class'         => '',
+        'show'          => true,
+        'active_by'     => 'templates',
+        'items' => array(
+            (object) [
+                'page'          => 'templates',
+                'view'          => 'listing',
+                'label'         => 'Templates',
+                'icon'          => 'fa-file',
+                'url'           => url('templates'),
+                'show'          => true,
+            ],
+            (object) [
+                'page'          => 'template_sections',
+                'view'          => 'listing', 
+                'label'         => 'Template Sections',
+                'icon'          => 'fa-puzzle-piece',
+                'url'           => url('template_sections'),
+                'show'          => true,
+            ],
+            (object) [
+                'page'          => 'agency_templates',
+                'view'          => 'build',
+                'label'         => 'Template Builder',
+                'icon'          => 'fa-wrench',
+                'url'           => url('agency_templates/build'),
                 'show'          => true,
             ],
         ),

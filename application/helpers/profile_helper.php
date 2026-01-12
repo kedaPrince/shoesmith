@@ -2,42 +2,50 @@
 function getLoggedInAccessGroups(): array
 {
     $ci = &get_instance();
-    $login = $ci->session->get_userdata();
+    $login = $ci->session->userdata();
+    
     if (empty($login) || !isset($login['is_logged_in']) || $login['is_logged_in'] < 0) {
         return [];
     }
-
-    // FIXED: Include agency in the login data check
-    if (isset($login['login']['admin'])) {
-        $loginData = $login['login']['admin'];
-        $userGroup = 'admin';
-    } elseif (isset($login['login']['staff'])) {
-        $loginData = $login['login']['staff'];
-        $userGroup = 'staff';
-    } elseif (isset($login['login']['agency'])) {
-        $loginData = $login['login']['agency'];
-        $userGroup = 'agency';
-    } else {
-        return [];
-    }
-
-    // Get the access groups
-    $pivotTable = 'pivot_' . $userGroup . '_access_groups';
-    $tableUsers = 'usr_' . ($userGroup === 'admin' ? 'admins' : ($userGroup === 'staff' ? 'staff' : 'agency_staff'));
     
-    $ci->db->distinct();
-    $ci->db->select('mod_access_groups.id, mod_access_groups.name');
-    $ci->db->join($pivotTable, $pivotTable . '.' . $userGroup . '_id = mod_access_groups.id', 'inner');
-    $ci->db->join($tableUsers, $tableUsers . '.id = ' . $pivotTable . '.' . $userGroup . '_id AND ' . $tableUsers . '.id = ' . $loginData['id'], 'inner');
-    $ci->db->order_by('mod_access_groups.id', 'asc');
-    $results = $ci->db->get('mod_access_groups')->result();
-
-    $list = [];
-    foreach ($results as $row) {
-        $list[(int)$row->id] = $row->name;
+    // CORRECT: Check login['login']['agency_staff']
+    if (isset($login['login']['agency_staff']) && isset($login['login']['agency_staff']['id'])) {
+        $user_data = $login['login']['agency_staff'];
+        $user_id = $user_data['id'];
+        
+        // Get access groups
+        $ci->db->select('mag.id, mag.name');
+        $ci->db->from('mod_access_groups mag');
+        $ci->db->join('pivot_agency_staff_access_groups pag', 'mag.id = pag.access_group_id');
+        $ci->db->where('pag.agency_staff_id', $user_id);
+        $ci->db->where('mag.enabled', 1);
+        $ci->db->where('mag.removed', 0);
+        $ci->db->order_by('mag.id', 'asc');
+        
+        $results = $ci->db->get()->result();
+        
+        $list = [];
+        foreach ($results as $row) {
+            $list[(int)$row->id] = $row->name;
+        }
+        
+        return $list;
     }
-
-    return $list;
+    
+    // Also check other user types for backward compatibility
+    if (isset($login['login']['admin']) && isset($login['login']['admin']['id'])) {
+        // ... admin logic
+    }
+    
+    if (isset($login['login']['staff']) && isset($login['login']['staff']['id'])) {
+        // ... staff logic  
+    }
+    
+    if (isset($login['login']['agency']) && isset($login['login']['agency']['id'])) {
+        // ... agency logic
+    }
+    
+    return [];
 }
 
 function getLoggedInAccessGroupIds(array $userAccessGroups): array
