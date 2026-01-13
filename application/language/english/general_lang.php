@@ -568,7 +568,7 @@ $lang['candidates_profile_heading'] = 'Candidates Profile';
 //jobs
 $lang['jobs_listings_heading'] = 'Jobs Listings';
 $lang['recruiters_heading'] = 'Recruiters';
-$lang['agency_staff_heading'] = 'Agency Staff';
+$lang['agency_staff_heading'] = 'Internal Staff';
 // Leave Management
 $lang['leave_heading'] = 'Leave Management';
 

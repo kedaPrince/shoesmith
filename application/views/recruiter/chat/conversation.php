@@ -4,23 +4,53 @@ defined('BASEPATH') || exit('No direct script access allowed');
 // ===== CSRF FIX: Store token once to prevent multiple different tokens =====
 $csrf_token = $this->security->get_csrf_hash();
 $csrf_name = $this->security->get_csrf_token_name();
+
+// Check online status for each agency (5 minute threshold)
+$online_agencies_count = 0;
+if (!empty($available_agencies)) {
+    foreach ($available_agencies as $agency) {
+        $agency->is_online = false;
+        
+        // Check last_activity_at field
+        if (!empty($agency->last_activity_at) && $agency->last_activity_at != '0000-00-00 00:00:00') {
+            $last_activity = strtotime($agency->last_activity_at);
+            if ($last_activity !== false && (time() - $last_activity) < 300) {
+                $agency->is_online = true;
+            }
+        }
+        
+        // If no last_activity_at, check last_login
+        if (!$agency->is_online && !empty($agency->last_login) && $agency->last_login != '0000-00-00 00:00:00') {
+            $last_login = strtotime($agency->last_login);
+            if ($last_login !== false && (time() - $last_login) < 300) {
+                $agency->is_online = true;
+            }
+        }
+        
+        // Count online agencies
+        if ($agency->is_online) {
+            $online_agencies_count++;
+        }
+    }
+}
 ?>
 <style>
-/* ===== DARK THEME COLOR SCHEME ===== */
+/* ===== MODERN CHAT UI STYLING ===== */
 :root {
-    --primary-gradient: linear-gradient(135deg, #8B5CF6 0%, #7C3AED 100%);
-    --secondary-gradient: linear-gradient(135deg, #F59E0B 0%, #D97706 100%);
-    --accent-gradient: linear-gradient(135deg, #10B981 0%, #059669 100%);
-    --warning-gradient: linear-gradient(135deg, #EF4444 0%, #DC2626 100%);
-    --dark-bg: rgba(15, 23, 42, 0.98);
-    --darker-bg: rgba(3, 7, 18, 0.95);
-    --dark-border: rgba(55, 65, 81, 0.3);
-    --light-border: rgba(75, 85, 99, 0.2);
-    --text-primary: #F9FAFB;
-    --text-secondary: #D1D5DB;
-    --text-muted: #9CA3AF;
-    --text-accent: #C4B5FD;
-    --shadow-glow: 0 8px 32px rgba(139, 92, 246, 0.15);
+    --bg: #0f172a;
+    --bg-alt: #020617;
+    --sidebar-bg: #020617;
+    --accent: #22c55e;
+    --accent-soft: rgba(34, 197, 94, 0.1);
+    --text-main: #e5e7eb;
+    --text-muted: #9ca3af;
+    --bubble-me: #22c55e;
+    --bubble-them: #111827;
+    --border-subtle: #1f2937;
+    --input-bg: #020617;
+    --danger: #ef4444;
+    --warning: #f59e0b;
+    --info: #3b82f6;
 }
 
 /* ===== COSMIC CHAT HEADER ===== */
@@ -30,6 +60,17 @@ $csrf_name = $this->security->get_csrf_token_name();
     margin: 20px 0;
     padding: 0;
     overflow: hidden;
+    background: linear-gradient(93deg, #59c4bc -60%, rgba(23, 162, 184, 0) 55%) !important;
+}
+
+.cosmic-container {
+    position: relative;
+    z-index: 2;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 30px;
+    min-height: 100px;
 }
 
 /* Navigation Styles */
@@ -42,7 +83,6 @@ $csrf_name = $this->security->get_csrf_token_name();
     align-items: center;
     gap: 10px;
     flex-wrap: wrap;
-    padding: 4px 0 0 33px;
 }
 
 .nav-item {
@@ -51,9 +91,8 @@ $csrf_name = $this->security->get_csrf_token_name();
     gap: 10px;
     padding: 10px 18px;
     background: rgba(255, 255, 255, 0.03);
-    border: 1px solid var(--light-border);
     border-radius: 14px;
-    color: var(--text-secondary);
+    color: var(--text-main);
     text-decoration: none;
     font-weight: 500;
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -81,18 +120,16 @@ $csrf_name = $this->security->get_csrf_token_name();
 
 .nav-item:hover {
     background: rgba(255, 255, 255, 0.05);
-    border-color: rgba(139, 92, 246, 0.4);
+    border-color: var(--accent);
     transform: translateY(-2px);
-    box-shadow: var(--shadow-glow);
-    color: var(--text-primary);
+    box-shadow: 0 8px 32px rgba(34, 197, 94, 0.15);
+    color: var(--text-main);
 }
 
 .nav-item.active {
-    background: linear-gradient(135deg,
-            rgba(139, 92, 246, 0.15),
-            rgba(124, 58, 237, 0.1));
-    border-color: rgba(139, 92, 246, 0.3);
-    color: var(--text-accent);
+    background: var(--accent-soft);
+    border-color: var(--accent);
+    color: var(--accent);
 }
 
 .nav-icon {
@@ -121,8 +158,7 @@ $csrf_name = $this->security->get_csrf_token_name();
     align-items: center;
     gap: 14px;
     padding: 14px 20px;
-    background: linear-gradient(135deg, rgb(11 155 42 / 12%), rgb(43 0 0 / 8%));
-    border: 1px solid rgb(255 255 255 / 0%);
+    background: var(--accent-soft);
     border-radius: 16px;
     position: relative;
     backdrop-filter: blur(10px);
@@ -138,7 +174,7 @@ $csrf_name = $this->security->get_csrf_token_name();
     width: 100%;
     height: 100%;
     border-radius: 50%;
-    background: var(--primary-gradient);
+    background: var(--accent);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -146,7 +182,7 @@ $csrf_name = $this->security->get_csrf_token_name();
     color: white;
     font-size: 1.1rem;
     box-shadow:
-        0 0 20px rgba(139, 92, 246, 0.4),
+        0 0 20px rgba(34, 197, 94, 0.4),
         inset 0 1px 0 rgba(255, 255, 255, 0.2);
     animation: avatarGlow 3s ease-in-out infinite;
 }
@@ -156,14 +192,14 @@ $csrf_name = $this->security->get_csrf_token_name();
     0%,
     100% {
         box-shadow:
-            0 0 20px rgba(139, 92, 246, 0.4),
+            0 0 20px rgba(34, 197, 94, 0.4),
             inset 0 1px 0 rgba(255, 255, 255, 0.2);
     }
 
     50% {
         box-shadow:
-            0 0 30px rgba(139, 92, 246, 0.6),
-            0 0 40px rgba(139, 92, 246, 0.3),
+            0 0 30px rgba(34, 197, 94, 0.6),
+            0 0 40px rgba(34, 197, 94, 0.3),
             inset 0 1px 0 rgba(255, 255, 255, 0.3);
     }
 }
@@ -175,44 +211,18 @@ $csrf_name = $this->security->get_csrf_token_name();
     width: 10px;
     height: 10px;
     border-radius: 50%;
-    border: 2px solid var(--darker-bg);
+    background: var(--accent);
+    border: 2px solid var(--bg-alt);
     z-index: 2;
-}
-
-.status-indicator.online {
-    background: var(--accent-gradient);
 }
 
 .status-indicator.offline {
     background: var(--text-muted);
 }
 
-.pulse-ring {
-    position: absolute;
-    top: -3px;
-    left: -3px;
-    right: -3px;
-    bottom: -3px;
-    border: 2px solid #10B981;
-    border-radius: 50%;
-    animation: pulseRing 2s linear infinite;
-}
-
-@keyframes pulseRing {
-    0% {
-        transform: scale(0.8);
-        opacity: 1;
-    }
-
-    100% {
-        transform: scale(1.8);
-        opacity: 0;
-    }
-}
-
 .conversation-info h4 {
     margin: 0;
-    color: var(--text-primary);
+    color: var(--text-main);
     font-size: 1rem;
     font-weight: 600;
     line-height: 1.2;
@@ -232,414 +242,579 @@ $csrf_name = $this->security->get_csrf_token_name();
     opacity: 0.7;
 }
 
-/* Badges */
-.cosmic-badge {
-    position: absolute;
-    top: -5px;
-    right: -5px;
-    background: var(--warning-gradient);
-    color: white;
-    border-radius: 8px;
-    padding: 3px 6px;
-    font-size: 0.65rem;
-    font-weight: 700;
-    min-width: 18px;
+/* ===== MODERN MESSAGE BUBBLES ===== */
+#chatMessages {
+    display: flex !important;
+    flex-direction: column !important;
+    height: calc(74vh - 120px) !important;
+    overflow-y: auto !important;
+    flex-shrink: 0 !important;
+    padding: 16px 20px !important;
+    gap: 0.5rem;
+    scroll-behavior: smooth;
+    background-color: rgb(15 36 42 / 65%) !important;
+    background-image: url('http://localhost/shoesmith/resources/cms/images/wheel-of-fortune-smwdyono.png') !important;
+    background-repeat: repeat !important;
+    background-size: 400px !important;
+    background-blend-mode: overlay !important;
+}
+
+.messages-container {
+    flex: 1;
+    padding: 1rem 1.1rem;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    scroll-behavior: smooth;
+}
+
+.day-divider {
     text-align: center;
-    box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    margin: 0.75rem 0;
+    position: relative;
 }
 
-.cosmic-badge.pulse {
-    animation: cosmicPulse 2s infinite;
+.day-divider::before,
+.day-divider::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    width: 30%;
+    height: 1px;
+    background: var(--border-subtle);
 }
 
-@keyframes cosmicPulse {
-
-    0%,
-    100% {
-        transform: scale(1);
-    }
-
-    50% {
-        transform: scale(1.08);
-    }
+.day-divider::before {
+    left: 0;
 }
 
-.conversation-badge.cosmic {
-    background: var(--accent-gradient);
+.day-divider::after {
+    right: 0;
+}
+
+/* Message row alignment - FIXED */
+.message-row {
+    display: flex;
+    width: 100%;
+    margin-bottom: 8px;
+    clear: both;
+}
+
+.message-row.me {
+    justify-content: flex-end;
+}
+
+.message-row.them {
+    justify-content: flex-start;
+}
+
+/* Message bubbles - CLEAN DESIGN */
+.message-bubble {
+    max-width: 40%;
+    padding: 0.5rem 0.7rem 0.3rem;
+    border-radius: 1rem;
+    font-size: 0.8rem;
+    position: relative;
+    word-wrap: break-word;
+    display: block;
+    align-items: unset;
+    justify-content: unset;
+    height: auto;
+    min-height: 0;
+    padding-top: 6px;
+    padding-bottom: 6px;
+    line-height: 1.35;
+    text-align: left;
+    box-sizing: border-box;
+}
+
+.message-bubble>* {
+    vertical-align: top !important;
+}
+
+.message-row.me .message-bubble {
+    background: var(--bubble-me);
     color: white;
-    border-radius: 10px;
-    padding: 5px 8px;
-    font-size: 0.75rem;
-    font-weight: 700;
-    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-bottom-right-radius: 0.25rem;
 }
 
-/* Cosmic Background Elements */
-.cosmic-background {
+.message-row.them .message-bubble {
+    background: var(--bubble-them);
+    border-bottom-left-radius: 0.25rem;
+    color: var(--text-main);
+    border: 1px solid var(--border-subtle);
+}
+
+.message-meta {
+    font-size: 0.65rem;
+    color: rgba(255, 255, 255, 0.7);
+    margin-top: 0.2rem;
+    text-align: right;
+    opacity: 0.85;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 4px;
+}
+
+.message-row.them .message-meta {
+    color: var(--text-muted);
+}
+
+.message-time {
+    font-size: 0.65rem;
+}
+
+.message-status {
+    display: flex;
+    align-items: center;
+}
+
+/* ===== MODERN SIDEBAR ===== */
+.chat-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0.25rem 0.25rem 0.75rem;
+}
+
+.chat-item {
+    display: flex;
+    gap: 0.6rem;
+    padding: 0.6rem 0.6rem;
+    margin: 0.1rem 0.4rem;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: background 0.3s ease;
+    align-items: center;
+    text-decoration: none;
+    color: var(--text-main);
+}
+
+.chat-item:hover {
+    background: rgba(15, 23, 42, 0.6);
+}
+
+.chat-item.active {
+    background: var(--accent-soft);
+    border-left: 3px solid var(--accent);
+}
+
+.sidebar-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 999px;
+    background: linear-gradient(135deg, var(--accent), #16a34a);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: white;
+    flex-shrink: 0;
+}
+
+.chat-item-text {
+    flex: 1;
+    min-width: 0;
+}
+
+.chat-name {
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: var(--text-main);
+}
+
+.chat-last-msg {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    overflow: hidden;
+}
+
+.chat-meta {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    text-align: right;
+}
+
+.chat-unread {
+    display: inline-block;
+    min-width: 16px;
+    padding: 0 0.25rem;
+    font-size: 0.65rem;
+    background: var(--accent);
+    color: white;
+    border-radius: 999px;
+    text-align: center;
+    margin-top: 0.2rem;
+}
+
+/* ===== MODERN CHAT INPUT ===== */
+.chat-input-area {
+    padding: 0.6rem 0.8rem;
+    border-top: 1px solid var(--border-subtle);
+    background: var(--bg-alt);
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+}
+
+.chat-input-container {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    background: var(--input-bg);
+    border-radius: 999px;
+    border: 1px solid var(--border-subtle);
+    padding: 0.4rem 0.7rem;
+}
+
+.chat-input {
+    border: none;
+    outline: none;
+    background: transparent;
+    flex: 1;
+    color: var(--text-main);
+    font-size: 0.85rem;
+    padding: 0.2rem 0;
+}
+
+.chat-input::placeholder {
+    color: var(--text-muted);
+}
+
+.send-btn {
+    border-radius: 999px;
+    padding: 0.4rem 0.9rem;
+    border: none;
+    background: var(--accent);
+    color: white;
+    font-size: 0.8rem;
+    font-weight: 500;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+}
+
+.send-btn:disabled {
+    opacity: 0.5;
+    cursor: default;
+}
+
+/* ===== SIDEBAR FILTER TABS ===== */
+.filter-tabs {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+    padding: 0 1rem;
+}
+
+.filter-tab {
+    flex: 1;
+    padding: 0.5rem 0.75rem;
+    background: transparent;
+    border: 1px solid var(--border-subtle);
+    border-radius: 8px;
+    color: var(--text-muted);
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-align: center;
+}
+
+.filter-tab:hover {
+    background: var(--accent-soft);
+    color: var(--accent);
+}
+
+.filter-tab.active {
+    background: var(--accent);
+    color: var(--sidebar-bg);
+    border-color: var(--accent);
+}
+
+/* ===== INSTAGRAM-STYLE AGENCY PROFILES SECTION ===== */
+.agency-profiles-section {
+    border-bottom: 1px solid var(--border-subtle);
+    padding: 12px 16px;
+    height: 160px;
+}
+
+.profiles-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+}
+
+.profiles-header h6 {
+    margin: 0;
+    color: var(--text-main);
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
+.profiles-header .view-all {
+    color: var(--accent);
+    font-size: 0.7rem;
+    cursor: pointer;
+    transition: opacity 0.2s;
+}
+
+.profiles-header .view-all:hover {
+    opacity: 0.8;
+}
+
+.profiles-container {
+    display: flex;
+    gap: 25px;
+    overflow-x: auto;
+    padding: 5px 10px;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border-subtle) transparent;
+    height: 120px;
+}
+
+.profiles-container::-webkit-scrollbar {
+    height: 4px;
+}
+
+.profiles-container::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.profiles-container::-webkit-scrollbar-thumb {
+    background: var(--border-subtle);
+    border-radius: 2px;
+}
+
+.profiles-container::-webkit-scrollbar-thumb:hover {
+    background: #374151;
+}
+
+.profile-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-decoration: none;
+    min-width: 70px;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    flex-shrink: 0;
+}
+
+.profile-item:hover {
+    transform: translateY(-5px);
+}
+
+.profile-item.active {
+    transform: scale(1.05);
+}
+
+/* Active profile gradient border */
+.profile-item.active .profile-avatar-wrapper {
+    position: relative;
+    border-radius: 50%;
+    padding: 3px;
+    background: linear-gradient(93deg, #59c4bc -60%, rgba(23, 162, 184, 0) 55%) !important;
+    display: inline-block;
+}
+
+.profile-item.active .profile-avatar {
+    border-color: transparent !important;
+    box-shadow: 0 0 20px rgba(34, 197, 94, 0.3);
+}
+
+.profile-avatar-wrapper {
+    position: relative;
+    margin-bottom: 8px;
+}
+
+.profile-avatar {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+    position: relative;
+    overflow: hidden;
+    transition: all 0.3s ease;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.profile-avatar.online {
+    animation: avatarGlow 3s ease-in-out infinite;
+}
+
+.profile-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 50%;
+    transition: transform 0.3s ease, filter 0.3s ease;
+}
+
+.profile-item:hover .profile-avatar img {
+    transform: scale(1.1);
+    filter: brightness(1.1);
+}
+
+.profile-avatar::before {
+    content: '';
     position: absolute;
     top: 0;
     left: 0;
     right: 0;
     bottom: 0;
-    z-index: 1;
-    overflow: hidden;
-    pointer-events: none;
-}
-
-.floating-orb {
-    position: absolute;
+    background: linear-gradient(45deg,
+            rgba(34, 197, 94, 0.1),
+            rgba(59, 130, 246, 0.1),
+            rgba(139, 92, 246, 0.1));
+    opacity: 0;
+    transition: opacity 0.3s ease;
     border-radius: 50%;
-    filter: blur(35px);
-    opacity: 0.2;
-    animation: float 8s ease-in-out infinite;
+    z-index: 1;
 }
 
-.orb-1 {
-    width: 80px;
-    height: 80px;
-    background: radial-gradient(circle, #8B5CF6, transparent);
-    top: 20%;
-    left: 10%;
-    animation-delay: 0s;
+.profile-avatar:hover::before {
+    opacity: 1;
 }
 
-.orb-2 {
-    width: 120px;
-    height: 120px;
-    background: radial-gradient(circle, #f59f0b0a, transparent);
-    top: 60%;
-    right: 15%;
-    animation-delay: -3s;
-}
-
-.orb-3 {
-    width: 60px;
-    height: 60px;
-    background: radial-gradient(circle, #10B981, transparent);
-    bottom: 20%;
-    left: 20%;
-    animation-delay: -6s;
-}
-
-@keyframes float {
-
-    0%,
-    100% {
-        transform: translateY(0) scale(1);
-    }
-
-    50% {
-        transform: translateY(-15px) scale(1.05);
-    }
-}
-
-.energy-wave {
-    position: absolute;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    height: 1px;
-    background: linear-gradient(90deg,
-            transparent,
-            #8B5CF6,
-            #F59E0B,
-            #10B981,
-            transparent);
-    opacity: 0.3;
-    animation: waveFlow 4s linear infinite;
-}
-
-@keyframes waveFlow {
-    0% {
-        transform: translateX(-100%);
-    }
-
-    100% {
-        transform: translateX(100%);
-    }
-}
-
-/* Cosmic Glow Effect */
-.cosmic-glow {
-    position: relative;
-}
-
-.cosmic-glow::after {
+.profile-avatar::after {
     content: '';
     position: absolute;
-    top: -1px;
-    left: -1px;
-    right: -1px;
-    bottom: -1px;
-    background: var(--primary-gradient);
-    border-radius: inherit;
+    top: -2px;
+    left: -2px;
+    right: -2px;
+    bottom: -2px;
+    border-radius: 50%;
+    background: linear-gradient(45deg, var(--accent), #3b82f6, #8b5cf6);
     z-index: -1;
     opacity: 0;
     transition: opacity 0.3s ease;
 }
 
-.cosmic-glow:hover::after {
-    opacity: 0.2;
+.profile-avatar:hover::after {
+    opacity: 0.6;
 }
 
-/* ===== CHAT STYLES ===== */
-/* WhatsApp Message Styles - COMPACT FIX */
-#chatMessages {
-    display: block !important;
-    flex-direction: column !important;
-    height: calc(74vh - 120px) !important;
-    overflow-y: auto !important;
-    flex-shrink: 0 !important;
-    padding: 8px 12px !important;
-    background-color: #e5ddd5 !important;
-    background-image: url('data:image/svg+xml,<svg width="100" height="100" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><path d="M11 18c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm48 25c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm-43-7c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm63 31c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM34 90c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm56-76c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM12 86c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm28-65c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm23-11c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-6 60c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm29 22c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zM32 63c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm57-13c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-9-21c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM60 91c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM35 41c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM12 60c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2z" fill="%2391a29e" fill-opacity="0.1" fill-rule="evenodd"/></svg>') !important;
+@keyframes avatarRotate {
+    0% {
+        transform: rotate(0deg);
+    }
+
+    100% {
+        transform: rotate(360deg);
+    }
 }
 
-.message-wrapper {
-    display: flex !important;
-    margin-bottom: 8px !important;
-    clear: both !important;
+.profile-avatar.rotating img {
+    animation: avatarRotate 20s linear infinite;
 }
 
-.message-sent {
-    justify-content: flex-end !important;
-}
-
-.message-received {
-    justify-content: flex-start !important;
-}
-
-.message-content {
-    max-width: 65% !important;
-    padding: 6px 9px 4px 9px !important;
-    border-radius: 7.5px !important;
-    box-shadow: 0 1px 0.5px rgba(0, 0, 0, 0.13) !important;
-    position: relative !important;
-    word-wrap: break-word !important;
-    word-break: break-word !important;
-    display: inline-block !important;
-}
-
-.message-sent .message-content {
-    background-color: #dcf8c6 !important;
-    border-radius: 7.5px 0 7.5px 7.5px !important;
-}
-
-.message-received .message-content {
-    background-color: #ffffff !important;
-    border-radius: 0 7.5px 7.5px 7.5px !important;
-}
-
-.message-text-wrapper {
-    display: inline !important;
-    line-height: 1.28 !important;
-}
-
-.message-text {
-    font-size: 14.2px !important;
-    color: #111b21 !important;
-    line-height: 19px !important;
-    font-family: 'Segoe UI', 'Helvetica Neue', sans-serif !important;
-    word-wrap: break-word !important;
-    white-space: inherit;
-    text-align: left !important;
-    display: inline !important;
-    margin-right: 8px !important;
-}
-
-.message-meta {
-    display: inline-flex !important;
-    align-items: center !important;
-    vertical-align: bottom !important;
-    height: 15px !important;
-    margin-left: 4px !important;
-}
-
-.message-time {
-    font-size: 11px !important;
-    color: #667781 !important;
-    white-space: nowrap !important;
-    display: inline-block !important;
-    line-height: 15px !important;
-}
-
-.message-status {
-    display: inline-flex !important;
-    align-items: center !important;
-    margin-left: 4px !important;
-    height: 15px !important;
-}
-
-.message-status i {
-    font-size: 10px !important;
-    line-height: 15px !important;
-}
-
-/* WhatsApp-style Conversation Badges */
-.conversation-badge {
-    background: #25D366 !important;
-    color: white !important;
-    border-radius: 10px !important;
-    padding: 2px 6px !important;
-    font-size: 0.7rem !important;
-    font-weight: bold !important;
-    min-width: 18px !important;
-    height: 18px !important;
-    display: flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2) !important;
-    animation: badgePulse 2s infinite !important;
-    margin-top: 2px !important;
+.profile-unread-badge {
+    position: absolute;
+    top: -5px;
+    right: -5px;
+    background: var(--danger);
+    color: white;
+    font-size: 0.6rem;
+    font-weight: 700;
+    min-width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 2px solid var(--bg-alt);
+    z-index: 2;
+    animation: badgePulse 2s infinite;
 }
 
 @keyframes badgePulse {
-    0% {
+
+    0%,
+    100% {
         transform: scale(1);
     }
 
     50% {
-        transform: scale(1.05);
+        transform: scale(1.1);
+    }
+}
+
+.online-indicator {
+    position: absolute;
+    bottom: 8px;
+    right: 8px;
+    width: 14px;
+    height: 14px;
+    background: var(--accent);
+    border-radius: 50%;
+    border: 2px solid var(--bg-alt);
+    z-index: 2;
+    animation: indicatorPulse 2s infinite;
+}
+
+@keyframes indicatorPulse {
+
+    0%,
+    100% {
+        box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7);
+    }
+
+    70% {
+        box-shadow: 0 0 0 6px rgba(34, 197, 94, 0);
     }
 
     100% {
-        transform: scale(1);
+        box-shadow: 0 0 0 0 rgba(34, 197, 94, 0);
     }
 }
 
-/* Visual indicators for conversations with unread messages */
-.conversation-item.has-unread-messages {
-    background-color: rgba(37, 211, 102, 0.1) !important;
-    border-left: 3px solid #25D366 !important;
-}
-
-.conversation-item.has-unread-messages .conversation-preview {
-    font-weight: 600 !important;
-}
-
-/* Section badge styling */
-.section-badge {
-    background: #25D366 !important;
-    color: white !important;
-    border-radius: 8px !important;
-    padding: 2px 6px !important;
-    font-size: 0.7rem !important;
-    margin-left: 8px !important;
-}
-
-/* Global notification badge */
-.notification-badge {
-    background: linear-gradient(135deg, #25D366, #128C7E) !important;
-    color: white !important;
-    border-radius: 10px !important;
-    padding: 2px 6px !important;
-    font-size: 0.7rem !important;
-    font-weight: bold !important;
-    min-width: 18px !important;
-    text-align: center !important;
-    box-shadow: 0 2px 5px rgba(37, 211, 102, 0.3) !important;
-}
-
-/* Online indicator */
-.online-indicator {
-    position: absolute;
-    bottom: 2px;
-    right: 2px;
-    width: 10px;
-    height: 10px;
-    background: #25D366;
-    border: 2px solid #202225;
-    border-radius: 50%;
-}
-
-/* Conversation item hover effects */
-.conversation-item:hover {
-    background-color: #2f3136 !important;
-    transform: translateX(2px);
+.profile-name {
+    font-size: 0.8rem;
+    color: var(--text-main);
+    text-align: center;
+    max-width: 100%;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-weight: 500;
+    margin-top: 2px;
+    padding: 4px 8px;
+    background: rgba(15, 23, 42, 0.7);
+    border-radius: 12px;
     transition: all 0.2s ease;
+    backdrop-filter: blur(10px);
+    border: 1px solid var(--border-subtle);
 }
 
-.conversation-item.active {
-    background-color: #000000ff !important;
-    color: white !important;
+.profile-item:hover .profile-name {
+    background: rgba(34, 197, 94, 0.2);
+    color: var(--accent);
+    font-weight: 600;
+    border-color: var(--accent);
+    transform: translateY(-2px);
 }
 
-/* Bold text for unread messages in preview */
-.conversation-preview strong {
-    color: #ffffff !important;
-    font-weight: 700 !important;
+.profile-item.active .profile-name {
+    background: var(--accent);
+    color: var(--bg-alt);
+    font-weight: 700;
+    border-color: var(--accent);
+    box-shadow: 0 4px 12px rgba(34, 197, 94, 0.3);
 }
 
-/* Time styling */
-.conversation-time {
-    color: #888 !important;
-    font-size: 0.7rem !important;
-}
-
-.list-group-item.active {
-    z-index: 2;
-    color: #fff;
-    background-color: #000000ff;
-    border-color: #000000ff;
-}
-
-/* Chat Container Styles */
-#main-content {
-    overflow: hidden !important;
-}
-
-.container-fluid.p-0 {
-    overflow: hidden !important;
-    height: 74vh !important;
-}
-
-.avatar {
-    width: 40px;
-    height: 40px;
-    border-radius: 50%;
-    background-color: #4e5058;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-weight: bold;
-    color: #ffffff;
-}
-
-#chatMessages::-webkit-scrollbar {
-    width: 6px;
-}
-
-#chatMessages::-webkit-scrollbar-track {
-    background: transparent;
-}
-
-#chatMessages::-webkit-scrollbar-thumb {
-    background: #cccccc;
-    border-radius: 3px;
-}
-
-#chatMessages::-webkit-scrollbar-thumb:hover {
-    background: #aaaaaa;
-}
-
-.input-group {
-    min-height: 44px !important;
-}
-
-.btn-link {
-    min-height: 40px !important;
-    display: flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-}
-
-.message-bubble {
-    margin: 0 !important;
-}
-
-/* Responsive Design */
+/* ===== RESPONSIVE DESIGN ===== */
 @media (max-width: 1200px) {
     .cosmic-container {
         flex-direction: column;
@@ -686,432 +861,248 @@ $csrf_name = $this->security->get_csrf_token_name();
         flex: 0 0 100%;
     }
 
-    .message-content {
-        max-width: 85% !important;
+    .message-bubble {
+        max-width: 85%;
     }
 
     #chatMessages {
         height: calc(74vh - 110px) !important;
+        padding: 12px 16px !important;
     }
 }
 
-/* ===== DISCORD-STYLE RIGHT SIDEBAR ===== */
-.chat-sidebar-right {
-    width: 280px;
-    background: #2f3136;
-    border-left: 1px solid #36393f;
-    display: flex;
-    flex-direction: column;
-    height: 100%;
-    flex-shrink: 0;
-    overflow: hidden;
-    /* Prevent parent from scrolling */
-}
-
-/* SCROLLABLE RIGHT SIDEBAR CONTENT */
-.sidebar-scrollable {
-    flex: 1;
-    overflow-y: auto;
-    overflow-x: hidden;
-    display: flex;
-    flex-direction: column;
-}
-
-/* Style the scrollbar for better appearance */
-.sidebar-scrollable::-webkit-scrollbar {
-    width: 6px;
-}
-
-.sidebar-scrollable::-webkit-scrollbar-track {
-    background: transparent;
-}
-
-.sidebar-scrollable::-webkit-scrollbar-thumb {
-    background: #4a4d52;
-    border-radius: 3px;
-}
-
-.sidebar-scrollable::-webkit-scrollbar-thumb:hover {
-    background: #5d6065;
-}
-
-/* Adjust sections to work with scrollable container */
-.sidebar-section {
-    padding: 16px;
-    border-bottom: 1px solid #36393f;
-    flex-shrink: 0;
-    /* Prevent sections from shrinking */
-}
-
-.sidebar-section:last-child {
-    border-bottom: none;
-}
-
-.sidebar-header {
-    color: #8e9297;
-    font-size: 12px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    margin-bottom: 8px;
-}
-
-/* Agency Profile Section - Fixed at top */
-.agency-profile {
-    text-align: center;
-    padding: 20px 16px;
-    flex-shrink: 0;
-    /* Don't shrink with content */
-}
-
-.agency-avatar-large {
-    width: 80px;
-    height: 80px;
-    border-radius: 50%;
-    background: linear-gradient(135deg, #7289da, #424549);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    margin: 0 auto 16px;
-    font-size: 2rem;
-    font-weight: bold;
-    color: white;
-    border: 4px solid #36393f;
-    position: relative;
-}
-
-.agency-avatar-large.online::before {
-    content: '';
-    position: absolute;
-    bottom: 4px;
-    right: 4px;
-    width: 16px;
-    height: 16px;
-    background: #3ba55d;
-    border: 3px solid #2f3136;
-    border-radius: 50%;
-    z-index: 2;
-}
-
-.agency-avatar-large.offline::before {
-    content: '';
-    position: absolute;
-    bottom: 4px;
-    right: 4px;
-    width: 16px;
-    height: 16px;
-    background: #747f8d;
-    border: 3px solid #2f3136;
-    border-radius: 50%;
-    z-index: 2;
-}
-
-.agency-name-large {
-    color: white;
-    font-size: 1.2rem;
-    font-weight: 600;
-    margin-bottom: 4px;
-}
-
-.agency-status {
-    color: #b9bbbe;
-    font-size: 0.9rem;
-    margin-bottom: 12px;
-}
-
-.status-online {
-    color: #3ba55d;
-}
-
-.status-offline {
-    color: #747f8d;
-}
-
-/* Action Buttons */
-.sidebar-actions {
-    display: flex;
-    gap: 8px;
-    justify-content: center;
-    margin-bottom: 16px;
-}
-
-.sidebar-btn {
-    background: #4f545c;
-    border: none;
-    border-radius: 4px;
-    color: white;
-    padding: 8px 12px;
-    font-size: 0.8rem;
-    cursor: pointer;
-    transition: background-color 0.2s;
-    display: flex;
-    align-items: center;
-    gap: 4px;
-}
-
-.sidebar-btn:hover {
-    background: #5d6269;
-}
-
-.sidebar-btn.primary {
-    background: #7289da;
-}
-
-.sidebar-btn.primary:hover {
-    background: #677bc4;
-}
-
-/* Info Cards */
-.info-card {
-    background: #40444b;
+/* ===== BADGES ===== */
+.cosmic-badge {
+    background: var(--accent);
+    color: var(--bg-alt);
+    padding: 3px 6px;
     border-radius: 8px;
-    padding: 12px;
-    margin-bottom: 8px;
+    font-size: 0.65rem;
+    font-weight: 700;
+    min-width: 18px;
+    text-align: center;
+    border: none;
+    box-shadow: none;
 }
 
-.info-card-title {
-    color: #b9bbbe;
-    font-size: 0.8rem;
-    font-weight: 600;
-    margin-bottom: 4px;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
+.conversation-badge.cosmic {
+    background: var(--accent);
+    color: var(--bg-alt);
+    border-radius: 10px;
+    padding: 5px 8px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    border: none;
+    box-shadow: none;
 }
 
-.info-card-value {
-    color: white;
-    font-size: 1rem;
-    font-weight: 600;
+/* ===== OVERRIDE EXISTING STYLES ===== */
+#main-content {
+    height: calc(100vh - 120px);
+    overflow: hidden;
 }
 
-.info-card-description {
-    color: #8e9297;
-    font-size: 0.8rem;
-    margin-top: 4px;
+.container-fluid.p-0 {
+    height: calc(96vh - 200px) !important;
+    overflow: hidden;
+    background: linear-gradient(0deg, #59c4bc -60%, #00000000 55%) !important;
 }
 
-/* Member List */
-.member-list {
+.row.no-gutters {
+    height: 100%;
+}
+
+.col-md-4.col-lg-3 {
+    border-right: 1px solid var(--border-subtle) !important;
+    background-color: var(--sidebar-bg);
+}
+
+.col-md-8.col-lg-9 {
     display: flex;
     flex-direction: column;
-    gap: 8px;
 }
 
-.member-item {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 4px 8px;
-    border-radius: 4px;
-    transition: background-color 0.2s;
+.d-flex.align-items-center.justify-content-between.p-3.border-bottom {
+    background: linear-gradient(93deg, #59c4bc -60%, rgba(23, 162, 184, 0) 55%) !important;
+    border-bottom: 1px solid var(--border-subtle) !important;
+    padding: 1rem 1.1rem !important;
 }
 
-.member-item:hover {
-    background: #393c42;
-}
-
-.member-avatar {
-    width: 32px;
-    height: 32px;
-    border-radius: 50%;
-    background: #7289da;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 0.8rem;
-    font-weight: bold;
-    color: white;
-}
-
-.member-name {
-    color: #8e9297;
-    font-size: 0.9rem;
-    flex: 1;
-}
-
-.member-role {
-    background: #7289da;
-    color: white;
-    padding: 2px 6px;
-    border-radius: 4px;
-    font-size: 0.7rem;
-    font-weight: 600;
-}
-
-/* Note Section */
-.note-section {
-    margin-top: auto;
-    /* Push to bottom */
-    flex-shrink: 0;
-}
-
-.note-textarea {
-    width: 100%;
-    background: #40444b;
-    border: 1px solid #36393f;
-    border-radius: 4px;
-    color: white;
-    padding: 8px;
-    font-size: 0.9rem;
-    resize: vertical;
-    min-height: 80px;
-}
-
-.note-textarea:focus {
-    outline: none;
-    border-color: #7289da;
-}
-
-/* Quick Stats */
-.stats-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 8px;
-    margin-top: 12px;
-}
-
-.stat-item {
-    text-align: center;
-    padding: 8px;
-    background: #40444b;
-    border-radius: 4px;
-}
-
-.stat-number {
-    color: white;
-    font-size: 1.2rem;
-    font-weight: 600;
-    display: block;
-}
-
-.stat-label {
-    color: #8e9297;
-    font-size: 0.7rem;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-}
-
-/* Responsive Design */
-@media (max-width: 1200px) {
-    .chat-sidebar-right {
-        width: 240px;
-    }
-}
-
-@media (max-width: 992px) {
-    .chat-sidebar-right {
-        display: none;
-    }
-
-    .col-md-8.col-lg-9 {
-        width: 100%;
-        flex: 0 0 100%;
-    }
-}
-
-/* Toggle button for mobile */
-.sidebar-toggle {
-    position: absolute;
-    top: 10px;
-    right: 10px;
-    background: #7289da;
-    border: none;
-    border-radius: 4px;
-    color: white;
-    padding: 8px;
-    cursor: pointer;
-    z-index: 1000;
+.p-3.border-bottom {
+    background: linear-gradient(93deg, #59c4bc -60%, rgba(23, 162, 184, 0) 55%) !important;
+    border-bottom: 1px solid var(--border-subtle) !important;
     display: none;
 }
 
-@media (max-width: 992px) {
-    .sidebar-toggle {
-        display: block;
-    }
-
-    .chat-sidebar-right.mobile-open {
-        display: flex;
-        position: fixed;
-        right: 0;
-        top: 0;
-        bottom: 0;
-        z-index: 999;
-        width: 280px;
-    }
+.input-group {
+    background: var(--input-bg) !important;
+    border-radius: 999px !important;
+    padding: 0.3rem !important;
+    border: 1px solid var(--border-subtle) !important;
 }
 
-.avatar {
-    width: 32px;
+.input-group-text {
+    background: transparent !important;
     border: none !important;
+    color: var(--text-muted) !important;
 }
 
-/* ===== CANDIDATE CHAT WIDGET ===== */
+.form-control {
+    background: transparent !important;
+    border: none !important;
+    color: var(--text-main) !important;
+}
+
+.form-control::placeholder {
+    color: var(--text-muted) !important;
+}
+
+.sidebar-section h6 {
+    color: var(--text-muted) !important;
+    font-size: 0.8rem !important;
+}
+
+.conversation-item {
+    background: transparent !important;
+    border: none !important;
+    border-radius: 12px !important;
+    margin-bottom: 4px !important;
+    padding: 0.6rem 0.6rem !important;
+    transition: background 0.3s ease !important;
+}
+
+.conversation-item:hover {
+    background: rgba(15, 23, 42, 0.6) !important;
+}
+
+.conversation-item.active {
+    background: var(--accent-soft) !important;
+    border-left: 3px solid var(--accent) !important;
+}
+
+.conversation-item .avatar {
+    width: 32px !important;
+    height: 32px !important;
+    background: linear-gradient(135deg, var(--accent), #16a34a) !important;
+    font-size: 0.8rem !important;
+}
+
+.conversation-item h6 {
+    color: var(--text-main) !important;
+    font-size: 0.85rem !important;
+}
+
+.conversation-preview {
+    color: var(--text-muted) !important;
+    font-size: 0.75rem !important;
+}
+
+.conversation-time {
+    color: var(--text-muted) !important;
+    font-size: 0.7rem !important;
+}
+
+.conversation-badge {
+    background: var(--accent) !important;
+    color: var(--bg-alt) !important;
+    border: none !important;
+    box-shadow: none !important;
+}
+
+.border-top.p-2 {
+    background: var(--bg-alt) !important;
+    border-top: 1px solid var(--border-subtle) !important;
+    padding: 0.6rem 0.8rem !important;
+}
+
+.input-group.h-100 {
+    background: var(--input-bg) !important;
+    border-radius: 999px !important;
+    border: 1px solid var(--border-subtle) !important;
+    padding: 0.3rem !important;
+}
+
+.btn-link {
+    color: var(--text-muted) !important;
+    background: transparent !important;
+}
+
+.btn-link:hover {
+    color: var(--accent) !important;
+}
+
+#messageInput {
+    color: var(--text-main) !important;
+    background: transparent !important;
+}
+
+#messageInput::placeholder {
+    color: var(--text-muted) !important;
+}
+
+#chatMessages::-webkit-scrollbar {
+    width: 6px;
+}
+
+#chatMessages::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+#chatMessages::-webkit-scrollbar-thumb {
+    background: var(--border-subtle);
+    border-radius: 3px;
+}
+
+#chatMessages::-webkit-scrollbar-thumb:hover {
+    background: #374151;
+}
+
+.no-messages .text-center {
+    color: var(--text-muted) !important;
+}
+
+.no-messages .fa-comments {
+    color: var(--accent) !important;
+}
+
+/* ===== CANDIDATE WIDGET STYLES ===== */
 .candidate-chat-widget {
-    background: var(--darker-bg);
-    backdrop-filter: blur(10px);
-    border: 1px solid var(--dark-border);
-    border-radius: 16px;
+    background: var(--bg-alt);
+    border: 1px solid var(--border-subtle);
+    border-radius: 12px;
     padding: 16px;
-    margin: 15px 0;
-    position: relative;
-    overflow: hidden;
-}
-
-.candidate-chat-widget::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 3px;
-    background: var(--primary-gradient);
+    margin: 12px 0;
 }
 
 .candidate-widget-header {
     display: flex;
     align-items: center;
     margin-bottom: 12px;
-    padding-bottom: 12px;
-    border-bottom: 1px solid var(--light-border);
 }
 
 .candidate-avatar {
-    width: 48px;
-    height: 48px;
+    width: 40px;
+    height: 40px;
     border-radius: 50%;
-    background: linear-gradient(135deg, #7289da, #424549);
+    background: linear-gradient(135deg, var(--accent), #16a34a);
     display: flex;
     align-items: center;
     justify-content: center;
     margin-right: 12px;
-    font-size: 1.2rem;
     font-weight: bold;
     color: white;
-    position: relative;
-}
-
-.candidate-avatar::after {
-    content: '';
-    position: absolute;
-    bottom: 2px;
-    right: 2px;
-    width: 10px;
-    height: 10px;
-    background: var(--accent-gradient);
-    border: 2px solid var(--darker-bg);
-    border-radius: 50%;
 }
 
 .candidate-info h5 {
     margin: 0;
-    color: var(--text-primary);
-    font-size: 1rem;
+    color: var(--text-main);
+    font-size: 0.9rem;
     font-weight: 600;
 }
 
 .candidate-info small {
     color: var(--text-muted);
-    font-size: 0.8rem;
+    font-size: 0.75rem;
 }
 
 .candidate-details-grid {
@@ -1123,7 +1114,7 @@ $csrf_name = $this->security->get_csrf_token_name();
 
 .candidate-detail-item {
     background: rgba(255, 255, 255, 0.03);
-    border: 1px solid var(--light-border);
+    border: 1px solid var(--border-subtle);
     border-radius: 8px;
     padding: 8px;
 }
@@ -1131,14 +1122,12 @@ $csrf_name = $this->security->get_csrf_token_name();
 .detail-label {
     color: var(--text-muted);
     font-size: 0.7rem;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
     margin-bottom: 2px;
 }
 
 .detail-value {
-    color: var(--text-primary);
-    font-size: 0.85rem;
+    color: var(--text-main);
+    font-size: 0.8rem;
     font-weight: 500;
 }
 
@@ -1149,15 +1138,13 @@ $csrf_name = $this->security->get_csrf_token_name();
 
 .btn-candidate-action {
     flex: 1;
-    background: var(--primary-gradient);
+    background: var(--accent);
     border: none;
     border-radius: 8px;
     color: white;
     padding: 8px 12px;
     font-size: 0.8rem;
-    font-weight: 500;
     cursor: pointer;
-    transition: all 0.2s ease;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1165,498 +1152,85 @@ $csrf_name = $this->security->get_csrf_token_name();
 }
 
 .btn-candidate-action:hover {
-    transform: translateY(-2px);
-    box-shadow: var(--shadow-glow);
+    opacity: 0.9;
 }
 
-.btn-candidate-action.secondary {
-    background: var(--dark-bg);
-    color: var(--text-secondary);
-}
-
-.btn-candidate-action.secondary:hover {
-    background: rgba(255, 255, 255, 0.05);
-    color: var(--text-primary);
-}
-
-/* ===== CANDIDATE CONTEXT BADGE ===== */
-.candidate-context-badge {
-    position: absolute;
-    top: 12px;
-    right: 12px;
-    background: var(--accent-gradient);
-    color: white;
-    border-radius: 12px;
-    padding: 4px 8px;
-    font-size: 0.7rem;
-    font-weight: 600;
-    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    z-index: 2;
-}
-
-/* ===== CANDIDATE DOCUMENTS ===== */
-.candidate-documents {
-    margin-top: 12px;
-    padding-top: 12px;
-    border-top: 1px solid var(--light-border);
-}
-
-.documents-header {
-    color: var(--text-muted);
-    font-size: 0.8rem;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    margin-bottom: 8px;
-}
-
-.document-item {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    background: rgba(255, 255, 255, 0.02);
-    border: 1px solid var(--light-border);
-    border-radius: 6px;
-    padding: 6px 10px;
-    margin-bottom: 6px;
-    transition: all 0.2s ease;
-}
-
-.document-item:hover {
-    background: rgba(255, 255, 255, 0.05);
-    border-color: rgba(139, 92, 246, 0.3);
-}
-
-.document-info {
-    flex: 1;
-}
-
-.document-name {
-    color: var(--text-primary);
-    font-size: 0.8rem;
-    font-weight: 500;
-    margin-bottom: 2px;
-}
-
-.document-meta {
-    color: var(--text-muted);
-    font-size: 0.7rem;
-}
-
-.document-actions {
-    display: flex;
-    gap: 5px;
-}
-
-.btn-document-action {
-    background: transparent;
-    border: 1px solid var(--light-border);
-    border-radius: 4px;
-    color: var(--text-muted);
-    width: 28px;
-    height: 28px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    transition: all 0.2s ease;
-}
-
-.btn-document-action:hover {
-    background: var(--dark-bg);
-    color: var(--text-primary);
-    border-color: var(--text-muted);
-}
-
-.btn-document-action.primary {
-    background: var(--primary-gradient);
-    border-color: rgba(139, 92, 246, 0.5);
-    color: white;
-}
-
-.btn-document-action.primary:hover {
-    background: rgba(139, 92, 246, 0.8);
-}
-
-/* ===== CANDIDATE ONBOARDING STATUS ===== */
-.onboarding-status {
-    margin-top: 12px;
-    padding: 10px;
-    background: linear-gradient(135deg, rgba(16, 185, 129, 0.1), rgba(5, 150, 105, 0.05));
-    border: 1px solid rgba(16, 185, 129, 0.2);
-    border-radius: 8px;
-}
-
-.container-fluid.p-0 {
-    margin-top: 37px;
-    border-top-left-radius: 40px;
-    border-top-right-radius: 40px;
-}
-
-.onboarding-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 8px;
-}
-
-.onboarding-title {
-    color: var(--text-primary);
-    font-size: 0.85rem;
-    font-weight: 600;
-}
-
-.onboarding-stage {
-    background: var(--accent-gradient);
-    color: white;
-    border-radius: 6px;
-    padding: 2px 6px;
-    font-size: 0.7rem;
-    font-weight: 600;
-}
-
-.onboarding-progress {
-    background: rgba(255, 255, 255, 0.05);
-    border-radius: 4px;
-    height: 6px;
-    overflow: hidden;
-    margin-bottom: 8px;
-}
-
-.onboarding-progress-bar {
+/* ===== AGENCY SWITCH LOADER ===== */
+.agency-switch-loader {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
     height: 100%;
-    background: var(--accent-gradient);
-    transition: width 0.3s ease;
-}
-
-.onboarding-info {
-    color: var(--text-muted);
-    font-size: 0.75rem;
-    display: flex;
-    justify-content: space-between;
-}
-
-.cosmic-container {
-    position: relative;
-    z-index: 2;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 20px 30px;
-    min-height: 100px;
-    background: linear-gradient(93deg, #59c4bc -60%, rgba(23, 162, 184, 0) 55%) !important;
-    color: #fff;
-    padding: 20px;
-    margin: -20px -20px 20px -20px;
-}
-
-/* ===== ENHANCED BADGE STYLES ===== */
-.conversation-meta-badges {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 4px;
-    margin: 4px 0;
-}
-
-.conversation-meta-badge {
-    font-size: 0.65rem;
-    padding: 2px 6px;
-    border-radius: 10px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.3px;
-    display: inline-flex;
-    align-items: center;
-    gap: 3px;
-    white-space: nowrap;
-}
-
-.conversation-meta-badge.chat-type {
-    background: rgba(139, 92, 246, 0.2);
-    color: #C4B5FD;
-    border: 1px solid rgba(139, 92, 246, 0.3);
-}
-
-.conversation-meta-badge.chat-type.candidate {
-    background: rgba(139, 92, 246, 0.2);
-    color: #C4B5FD;
-    border: 1px solid rgba(139, 92, 246, 0.3);
-}
-
-.conversation-meta-badge.chat-type.general {
-    background: rgba(16, 185, 129, 0.2);
-    color: #A7F3D0;
-    border: 1px solid rgba(16, 185, 129, 0.3);
-}
-
-.conversation-meta-badge.job {
-    background: rgba(245, 158, 11, 0.2);
-    color: #FDE68A;
-    border: 1px solid rgba(245, 158, 11, 0.3);
-}
-
-.conversation-meta-badge.agency {
-    background: rgba(59, 130, 246, 0.2);
-    color: #93C5FD;
-    border: 1px solid rgba(59, 130, 246, 0.3);
-}
-
-/* Enhanced conversation item with badges */
-.conversation-item-with-badges {
-    position: relative;
-}
-
-.conversation-badge-stack {
+    background: rgba(15, 23, 42, 0.95);
     display: flex;
     flex-direction: column;
-    gap: 3px;
-    margin-left: 8px;
-}
-
-/* Badge for job name in conversation list */
-.job-name-badge {
-    max-width: 120px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-/* ===== DOCUMENT UPLOAD STYLES ===== */
-.document-upload-wrapper {
-    position: relative;
-}
-
-.document-preview-item {
-    background: #f8f9fa;
-    border: 1px solid #dee2e6;
-    border-radius: 8px;
-    padding: 8px;
-    margin: 4px;
-    max-width: 200px;
-    position: relative;
-}
-
-.document-preview-item .document-icon {
-    font-size: 1.5rem;
-    color: #6c757d;
-    margin-right: 8px;
-}
-
-.document-preview-item .document-name {
-    font-size: 0.8rem;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    max-width: 150px;
-}
-
-.document-preview-item .remove-document {
-    position: absolute;
-    top: -5px;
-    right: -5px;
-    background: #dc3545;
-    color: white;
-    border-radius: 50%;
-    width: 18px;
-    height: 18px;
-    font-size: 10px;
-    display: flex;
-    align-items: center;
     justify-content: center;
-    cursor: pointer;
-    border: 2px solid white;
-}
-
-.document-preview-item .remove-document:hover {
-    background: #c82333;
-}
-
-/* Document type colors */
-.document-pdf {
-    color: #e63946;
-}
-
-.document-doc {
-    color: #2a6f97;
-}
-
-.document-image {
-    color: #38b000;
-}
-
-.document-excel {
-    color: #2d6a4f;
-}
-
-.document-generic {
-    color: #6c757d;
-}
-
-/* Upload button animation */
-#documentUploadBtn.uploading {
-    animation: pulse 1.5s infinite;
-    color: #128C7E !important;
-}
-
-@keyframes pulse {
-    0% {
-        opacity: 1;
-    }
-
-    50% {
-        opacity: 0.7;
-    }
-
-    100% {
-        opacity: 1;
-    }
-}
-
-/* File size indicator */
-.file-size {
-    font-size: 0.7rem;
-    color: #6c757d;
-}
-
-/* Upload restrictions warning */
-.upload-warning {
-    font-size: 0.7rem;
-    color: #dc3545;
-    margin-top: 2px;
-}
-
-/* Document Upload Styles */
-.document-upload-wrapper {
-    position: relative;
-}
-
-.document-preview-item {
-    background: #f8f9fa;
-    border: 1px solid #dee2e6;
-    border-radius: 8px;
-    padding: 8px;
-    margin: 4px;
-    max-width: 200px;
-    position: relative;
-}
-
-.document-preview-item .document-icon {
-    font-size: 1.5rem;
-    color: #6c757d;
-    margin-right: 8px;
-}
-
-.document-preview-item .document-name {
-    font-size: 0.8rem;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    max-width: 150px;
-}
-
-.document-preview-item .remove-document {
-    position: absolute;
-    top: -5px;
-    right: -5px;
-    background: #dc3545;
-    color: white;
-    border-radius: 50%;
-    width: 18px;
-    height: 18px;
-    font-size: 10px;
-    display: flex;
     align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    border: 2px solid white;
+    z-index: 9999;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
 }
 
-.document-preview-item .remove-document:hover {
-    background: #c82333;
+.agency-switch-loader.active {
+    opacity: 1;
+    pointer-events: all;
 }
 
-/* Document type colors */
-.document-pdf {
-    color: #e63946;
+.switch-loader-content {
+    text-align: center;
+    color: var(--text-main);
+    padding: 30px;
+    border-radius: 16px;
+    background: rgba(2, 6, 23, 0.8);
+    backdrop-filter: blur(10px);
+    border: 1px solid var(--border-subtle);
+    animation: fadeInUp 0.4s ease-out;
 }
 
-.document-doc {
-    color: #2a6f97;
-}
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
 
-.document-image {
-    color: #38b000;
-}
-
-.document-excel {
-    color: #2d6a4f;
-}
-
-.document-generic {
-    color: #6c757d;
-}
-
-/* Upload button animation */
-#documentUploadBtn.uploading {
-    animation: pulse 1.5s infinite;
-    color: #128C7E !important;
-}
-
-/* Prevent multiple file dialog openings */
-#documentUploadBtn {
-    pointer-events: auto !important;
-}
-
-#documentUploadBtn:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
-}
-
-/* Hide any duplicate file inputs */
-input[type="file"]:not(#fileInput) {
-    display: none !important;
-}
-
-@keyframes pulse {
-    0% {
+    to {
         opacity: 1;
-    }
-
-    50% {
-        opacity: 0.7;
-    }
-
-    100% {
-        opacity: 1;
+        transform: translateY(0);
     }
 }
 
-/* File size indicator */
-.file-size {
-    font-size: 0.7rem;
-    color: #6c757d;
+.switch-loader-icon {
+    width: 60px;
+    height: 60px;
+    border: 3px solid var(--border-subtle);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin-bottom: 20px;
 }
 
-/* Upload restrictions warning */
-.upload-warning {
-    font-size: 0.7rem;
-    color: #dc3545;
-    margin-top: 2px;
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
 }
 </style>
+
 <div id="main-content">
     <div id="csrf-container" style="display: none;">
         <input type="hidden" name="<?php echo $csrf_name; ?>" id="csrf_rfid_token" value="<?php echo $csrf_token; ?>">
         <meta name="csrf-token" content="<?php echo $csrf_token; ?>">
     </div>
-    <!-- Cosmic Chat Header - Dark Theme -->
+
+    <!-- Cosmic Chat Header -->
     <div class="cosmic-chat-header">
         <div class="cosmic-container">
             <!-- Left: Navigation & Chat Info -->
             <div class="cosmic-navigation">
                 <div class="nav-path">
-                    <a href="<?php echo site_url('recruiter/dashboard'); ?>" class="nav-item cosmic-glow">
+                    <a href="<?php echo site_url('recruiter/dashboard'); ?>" class="nav-item">
                         <div class="nav-icon">
                             <i class="fa fa-chart-line"></i>
                         </div>
@@ -1667,55 +1241,76 @@ input[type="file"]:not(#fileInput) {
                         <i class="fa fa-chevron-right"></i>
                     </div>
 
-                    <div class="nav-item cosmic-glow active">
+                    <div class="nav-item active">
                         <div class="nav-icon">
                             <i class="fa fa-comments"></i>
                             <?php if (isset($total_unread_count) && $total_unread_count > 0): ?>
-                            <span class="cosmic-badge pulse" id="globalNotificationBadge">
+                            <span class="cosmic-badge" id="globalNotificationBadge">
                                 <?php echo $total_unread_count > 99 ? '99+' : $total_unread_count; ?>
                             </span>
                             <?php endif; ?>
                         </div>
-                        <span>Messages</span>
+                        <span>Recruiter Chat</span>
                     </div>
 
-                    <!-- In the current conversation section -->
                     <?php if (isset($conversation)): ?>
-                    <div class="current-conversation cosmic-glow">
+                    <div class="nav-separator">
+                        <i class="fa fa-chevron-right"></i>
+                    </div>
+
+                    <div class="current-conversation">
                         <div class="conversation-avatar">
                             <div class="avatar-glow">
                                 <div class="avatar-pulse">
                                     <?php echo substr(htmlspecialchars($conversation->agency_name), 0, 1); ?>
                                 </div>
+                                <!-- Check if current conversation's agency is online -->
+                                <?php 
+                                $current_agency_online = false;
+                                if (!empty($available_agencies)) {
+                                    foreach ($available_agencies as $agency) {
+                                        if ($agency->id == $conversation->agency_id && !empty($agency->is_online)) {
+                                            $current_agency_online = true;
+                                            break;
+                                        }
+                                    }
+                                }
+                                ?>
                                 <div
-                                    class="status-indicator <?php echo (isset($conversation->is_online) && $conversation->is_online) ? 'online' : 'offline'; ?>">
-                                    <div class="pulse-ring"></div>
+                                    class="status-indicator <?php echo $current_agency_online ? 'online' : 'offline'; ?>">
                                 </div>
                             </div>
                         </div>
                         <div class="conversation-info">
-                            <h4 class="agency-name"><?php echo htmlspecialchars($conversation->agency_name); ?></h4>
+                            <h4 class="agency-name">
+                                <?php echo htmlspecialchars($conversation->agency_name); ?></h4>
                             <p class="conversation-context">
-                                <!-- Add chat type indicator -->
                                 <?php if (!empty($conversation->candidate_id)): ?>
-                                <span style="color: #8B5CF6; margin-right: 8px;">
+                                <span style="color: var(--accent); margin-right: 8px;">
                                     <i class="fa fa-user"></i> Candidate Chat
                                 </span>
                                 <?php else: ?>
-                                <span style="color: #10B981; margin-right: 8px;">
+                                <span style="color: var(--accent); margin-right: 8px;">
                                     <i class="fa fa-comments"></i> General Chat
                                 </span>
                                 <?php endif; ?>
 
+                                <?php if ($conversation->job_name): ?>
                                 <i class="fa fa-briefcase"></i>
-                                <?php echo $conversation->job_name ? htmlspecialchars($conversation->job_name) : 'Direct Message'; ?>
+                                <?php echo htmlspecialchars($conversation->job_name); ?>
+                                <?php endif; ?>
 
-                                <!-- Show candidate info if this is a candidate chat -->
-                                <?php if (!empty($conversation->candidate_name)): ?>
+                                <?php if (!empty($conversation->candidate_id) && !empty($candidate_details)): ?>
                                 <br>
                                 <i class="fa fa-user" style="margin-right: 5px;"></i>
-                                <span style="color: var(--text-accent);">
-                                    <?= htmlspecialchars($conversation->candidate_name) ?>
+                                <span style="color: var(--accent);">
+                                    <?= htmlspecialchars($candidate_details->first_name . ' ' . $candidate_details->last_name) ?>
+                                </span>
+                                <?php elseif (!empty($conversation->candidate_id)): ?>
+                                <br>
+                                <i class="fa fa-user" style="margin-right: 5px;"></i>
+                                <span style="color: var(--accent);">
+                                    Candidate #<?= $conversation->candidate_id ?>
                                 </span>
                                 <?php endif; ?>
                             </p>
@@ -1730,809 +1325,349 @@ input[type="file"]:not(#fileInput) {
                 </div>
             </div>
         </div>
-
-        <!-- Animated Background Elements -->
-        <div class="cosmic-background">
-            <div class="floating-orb orb-1"></div>
-            <div class="floating-orb orb-2"></div>
-            <div class="floating-orb orb-3"></div>
-            <div class="energy-wave"></div>
-        </div>
     </div>
-    <!-- Candidate Chat Header -->
-    <?php if (!empty($candidate_details)): ?>
-    <div class="candidate-chat-header cosmic-glow" style="    /* background: linear-gradient(135deg, rgba(139, 92, 246, 0.1), rgba(16, 185, 129, 0.1)); */
-    /* border: 1px solid var(--light-border); */
-    border-radius: 16px;
-    /* padding: 20px; */
-    /* margin: 20px 20px 0 20px; */
-    position: relative;
-    overflow: hidden;
-    background: linear-gradient(-93deg, #59c4bc -60%, rgba(23, 162, 184, 0) 55%) !important;
-    color: #fff;
-    padding: 20px;
-    margin: -20px 20px 20px 20px;">
 
-        <div class="cosmic-background" style="opacity: 0.3;">
-            <div class="floating-orb orb-1" style="background: radial-gradient(circle, #10B981, transparent);"></div>
-            <div class="floating-orb orb-2" style="background: radial-gradient(circle, #8B5CF6, transparent);"></div>
-        </div>
-
-        <div class="d-flex justify-content-between align-items-center position-relative z-index-2">
-            <div style="flex: 1;">
-                <h4
-                    style="color: var(--text-primary); font-weight: 600; margin-bottom: 12px; display: flex; align-items: center; gap: 10px;">
-                    <i class="fa fa-user-circle" style="color: #8B5CF6;"></i>
-                    Discussing Candidate
-                    <span class="cosmic-badge" style="background: var(--primary-gradient);">
-                        <i class="fa fa-user"></i> Candidate Chat
-                    </span>
-                </h4>
-
-                <div style="display: flex; flex-wrap: wrap; gap: 20px;">
-                    <!-- Candidate Info -->
-                    <div style="min-width: 200px;">
-                        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
-                            <div
-                                style="width: 40px; height: 40px; background: var(--primary-gradient); border-radius: 10px; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold;">
-                                <?= substr(htmlspecialchars($candidate_details->first_name), 0, 1) ?>
-                            </div>
-                            <div>
-                                <h5 style="color: var(--text-primary); margin: 0; font-size: 1.1rem;">
-                                    <?= htmlspecialchars($candidate_details->first_name . ' ' . $candidate_details->last_name) ?>
-                                </h5>
-                                <small style="color: var(--text-muted);">
-                                    Ref: <?= htmlspecialchars($candidate_details->reference_number) ?>
-                                </small>
-                            </div>
-                        </div>
-
-                        <div style="display: flex; flex-wrap: wrap; gap: 15px; margin-top: 10px;">
-                            <?php if (!empty($candidate_details->email)): ?>
-                            <div style="display: flex; align-items: center; gap: 5px;">
-                                <i class="fa fa-envelope" style="color: var(--text-muted); font-size: 0.8rem;"></i>
-                                <span style="color: var(--text-secondary); font-size: 0.85rem;">
-                                    <?= htmlspecialchars($candidate_details->email) ?>
-                                </span>
-                            </div>
-                            <?php endif; ?>
-
-                            <?php if (!empty($candidate_details->phone)): ?>
-                            <div style="display: flex; align-items: center; gap: 5px;">
-                                <i class="fa fa-phone" style="color: var(--text-muted); font-size: 0.8rem;"></i>
-                                <span style="color: var(--text-secondary); font-size: 0.85rem;">
-                                    <?= htmlspecialchars($candidate_details->phone) ?>
-                                </span>
-                            </div>
-                            <?php endif; ?>
-                        </div>
-                    </div>
-
-                    <!-- Job & Status Info -->
-                    <div style="min-width: 200px;">
-                        <?php if (!empty($candidate_details->job_name)): ?>
-                        <div style="margin-bottom: 10px;">
-                            <div style="display: flex; align-items: center; gap: 5px; margin-bottom: 5px;">
-                                <i class="fa fa-briefcase" style="color: var(--text-muted); font-size: 0.8rem;"></i>
-                                <strong style="color: var(--text-secondary); font-size: 0.85rem;">Job:</strong>
-                            </div>
-                            <div
-                                style="background: rgba(255, 255, 255, 0.05); padding: 8px 12px; border-radius: 8px; border: 1px solid var(--light-border);">
-                                <span style="color: var(--text-primary); font-weight: 500;">
-                                    <?= htmlspecialchars($candidate_details->job_name) ?>
-                                </span>
-                                <?php if (!empty($candidate_details->job_ref)): ?>
-                                <small style="color: var(--text-muted); margin-left: 8px;">
-                                    (<?= htmlspecialchars($candidate_details->job_ref) ?>)
-                                </small>
-                                <?php endif; ?>
-                            </div>
-                        </div>
-                        <?php endif; ?>
-
-                        <?php if (!empty($candidate_details->status)): ?>
-                        <div>
-                            <div style="display: flex; align-items: center; gap: 5px; margin-bottom: 5px;">
-                                <i class="fa fa-chart-line" style="color: var(--text-muted); font-size: 0.8rem;"></i>
-                                <strong style="color: var(--text-secondary); font-size: 0.85rem;">Status:</strong>
-                            </div>
-                            <span class="badge" style="background: <?= 
-                        $candidate_details->status == 'hired' ? 'linear-gradient(135deg, #10B981, #059669)' : 
-                        ($candidate_details->status == 'rejected' ? 'linear-gradient(135deg, #EF4444, #DC2626)' : 
-                        'linear-gradient(135deg, #F59E0B, #D97706)') ?>; 
-                        color: white; padding: 6px 12px; border-radius: 8px; font-size: 0.8rem;">
-                                <?= ucfirst($candidate_details->status) ?>
-                            </span>
-                        </div>
-                        <?php endif; ?>
-                    </div>
-
-                    <!-- Onboarding Progress -->
-                    <?php if (!empty($candidate_details->onboarding_stage) && $candidate_details->onboarding_stage != 'not_started'): ?>
-                    <div style="min-width: 200px;">
-                        <div style="display: flex; align-items: center; gap: 5px; margin-bottom: 5px;">
-                            <i class="fa fa-tasks" style="color: var(--text-muted); font-size: 0.8rem;"></i>
-                            <strong style="color: var(--text-secondary); font-size: 0.85rem;">Onboarding:</strong>
-                        </div>
-                        <div
-                            style="background: rgba(255, 255, 255, 0.05); padding: 10px; border-radius: 8px; border: 1px solid var(--light-border);">
-                            <div
-                                style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                                <span style="color: var(--text-primary); font-size: 0.85rem; font-weight: 500;">
-                                    <?= ucwords(str_replace('_', ' ', $candidate_details->onboarding_stage)) ?>
-                                </span>
-                                <?php if (!empty($candidate_details->onboarding_progress)): ?>
-                                <span style="color: var(--text-accent); font-weight: 600; font-size: 0.9rem;">
-                                    <?= round($candidate_details->onboarding_progress) ?>%
-                                </span>
-                                <?php endif; ?>
-                            </div>
-                            <?php if (!empty($candidate_details->onboarding_progress)): ?>
-                            <div class="progress"
-                                style="height: 6px; background: rgba(255, 255, 255, 0.1); border-radius: 3px; overflow: hidden;">
-                                <div class="progress-bar" role="progressbar"
-                                    style="width: <?= $candidate_details->onboarding_progress ?>%; background: var(--accent-gradient);">
-                                </div>
-                            </div>
-                            <?php endif; ?>
-                        </div>
-                    </div>
-                    <?php endif; ?>
-                </div>
-            </div>
-
-            <!-- View Profile Button -->
-            <div style="margin-left: 20px;">
-                <a href="<?= site_url('recruiter/candidates/view/' . $candidate_details->id) ?>" target="_blank"
-                    class="btn cosmic-glow"
-                    style="background: var(--primary-gradient); color: white; border: none; padding: 10px 20px; border-radius: 10px; font-weight: 500; display: flex; align-items: center; gap: 8px; text-decoration: none; transition: all 0.3s ease;">
-                    <i class="fa fa-external-link-alt"></i>
-                    View Full Profile
-                </a>
-            </div>
-        </div>
-    </div>
-    <?php elseif (isset($conversation) && !empty($conversation->candidate_id) && empty($candidate_details)): ?>
-    <div class="candidate-chat-header cosmic-glow"
-        style="background: linear-gradient(135deg, rgba(239, 68, 68, 0.1), rgba(220, 38, 38, 0.1)); border: 1px solid var(--light-border); border-radius: 16px; padding: 20px; margin: 20px 20px 0 20px;">
-        <div class="d-flex justify-content-between align-items-center">
-            <div>
-                <h5 style="color: var(--text-primary); margin: 0; display: flex; align-items: center; gap: 10px;">
-                    <i class="fa fa-exclamation-triangle" style="color: #EF4444;"></i>
-                    Candidate Discussion
-                </h5>
-                <p style="color: var(--text-muted); margin: 8px 0 0 0;">
-                    <strong>Candidate ID:</strong> <?= $conversation->candidate_id ?>
-                    <small style="margin-left: 8px;">(Profile access restricted)</small>
-                </p>
-            </div>
-            <span class="badge"
-                style="background: var(--warning-gradient); color: white; padding: 6px 12px; border-radius: 8px;">
-                Restricted Access
-            </span>
-        </div>
-    </div>
-    <?php endif; ?>
-    <div class="container-fluid p-0" style="height: 64vh; overflow: hidden;">
+    <!-- Main Chat Container -->
+    <div class="container-fluid p-0" style="height: calc(100vh - 240px);">
         <div class="row no-gutters" style="height: 100%;">
-            <!-- Left Sidebar: Conversations & Agencies List -->
-            <div class="col-md-4 col-lg-3"
-                style="background-color: #202225; border-right: 1px solid #36393f; height: 100%; display: flex; flex-direction: column;">
-
-                <!-- Search Box -->
-                <div class="p-3 border-bottom" style="border-color: #36393f;">
-                    <div class="input-group" style="background-color: #2f3136; border-radius: 8px; padding: 2px;">
-                        <div class="input-group-prepend">
-                            <span class="input-group-text" style="background-color: transparent; border: none;">
-                                <i class="fa fa-search text-muted"></i>
-                            </span>
-                        </div>
-                        <input type="text" class="form-control" placeholder="Find or start a conversation"
-                            style="background-color: transparent; border: none; color: #ffffff; font-size: 0.9rem;"
-                            autocomplete="off">
-                    </div>
-                </div>
-
-                <!-- Add this Chat Type Tabs section after the Search Box -->
-                <!-- Chat Type Tabs -->
-                <div class="px-3 pt-3" style="border-bottom: 1px solid #36393f;">
-                    <div class="d-flex" style="gap: 5px;">
-                        <button
-                            class="btn btn-sm flex-fill chat-type-tab <?= empty($_GET['chat_type']) || $_GET['chat_type'] == 'all' ? 'active' : '' ?>"
-                            data-chat-type="all" style="background: <?= empty($_GET['chat_type']) || $_GET['chat_type'] == 'all' ? 'linear-gradient(135deg, #7289da, #5b6eae)' : '#2f3136' ?>; 
-                   color: white; border: none; border-radius: 8px; padding: 8px 0; font-size: 0.8rem;">
-                            <i class="fa fa-comments mr-1"></i> All Chats
-                        </button>
-                        <button
-                            class="btn btn-sm flex-fill chat-type-tab <?= isset($_GET['chat_type']) && $_GET['chat_type'] == 'candidate' ? 'active' : '' ?>"
-                            data-chat-type="candidate" style="background: <?= isset($_GET['chat_type']) && $_GET['chat_type'] == 'candidate' ? 'linear-gradient(135deg, #8B5CF6, #7C3AED)' : '#2f3136' ?>; 
-                   color: white; border: none; border-radius: 8px; padding: 8px 0; font-size: 0.8rem;">
-                            <i class="fa fa-user mr-1"></i> Candidate
-                        </button>
-                        <button
-                            class="btn btn-sm flex-fill chat-type-tab <?= isset($_GET['chat_type']) && $_GET['chat_type'] == 'general' ? 'active' : '' ?>"
-                            data-chat-type="general" style="background: <?= isset($_GET['chat_type']) && $_GET['chat_type'] == 'general' ? 'linear-gradient(135deg, #10B981, #059669)' : '#2f3136' ?>; 
-                   color: white; border: none; border-radius: 8px; padding: 8px 0; font-size: 0.8rem;">
-                            <i class="fa fa-comments mr-1"></i> General
-                        </button>
-                    </div>
-                </div>
-
-                <!-- Enhanced Sidebar with Notifications -->
-                <div class="flex-grow-1 overflow-auto" style="padding: 0 10px;">
-                    <!-- Active Conversations with Notifications -->
-                    <div class="sidebar-section">
-                        <h6 class="text-muted px-3 py-2" style="font-size: 0.8rem; letter-spacing: 0.5px;">
-                            ACTIVE CHATS
-                            <?php if (isset($total_unread_count) && $total_unread_count > 0): ?>
-                            <span class="section-badge"><?php echo $total_unread_count; ?></span>
-                            <?php endif; ?>
-                        </h6>
-                        <div class="list-group" style="background-color: transparent;">
-                            <?php 
-                            // Get the current chat type filter
-                            $current_chat_type = isset($_GET['chat_type']) ? $_GET['chat_type'] : 'all';
-                            
-                            // Filter conversations based on the current filter
-                            $filtered_conversations = $all_conversations;
-                            if ($current_chat_type == 'candidate') {
-                                $filtered_conversations = array_filter($all_conversations, function($conv) {
-                                    return !empty($conv->candidate_id);
-                                });
-                            } elseif ($current_chat_type == 'general') {
-                                $filtered_conversations = array_filter($all_conversations, function($conv) {
-                                    return empty($conv->candidate_id);
-                                });
-                            }
-                            ?>
-
-                            <?php if (empty($filtered_conversations)): ?>
-                            <div class="text-center py-4">
-                                <i class="fa fa-comments fa-2x mb-2" style="color: #7289da;"></i>
-                                <p class="text-muted" style="font-size: 0.8rem;">
-                                    <?php if ($current_chat_type == 'candidate'): ?>
-                                    No candidate chats yet
-                                    <?php elseif ($current_chat_type == 'general'): ?>
-                                    No general chats yet
-                                    <?php else: ?>
-                                    No chats yet
-                                    <?php endif; ?>
-                                </p>
+            <!-- Left Sidebar: Conversations -->
+            <div class="col-md-4 col-lg-3" style="height: 100%;">
+                <div style="height: 100%; display: flex; flex-direction: column;">
+                    <!-- Search Box -->
+                    <div class="p-3 border-bottom">
+                        <div class="input-group">
+                            <div class="input-group-prepend">
+                                <span class="input-group-text">
+                                    <i class="fa fa-search"></i>
+                                </span>
                             </div>
-                            <?php else: ?>
-                            <?php foreach ($filtered_conversations as $conv): ?>
-                            <!-- Inside the conversation list in recruiter view -->
-                            <a href="<?php echo site_url('recruiter/chat/conversation/' . $conv->uuid); ?>"
-                                class="list-group-item list-group-item-action d-flex align-items-center conversation-item <?php echo (isset($conversation) && $conversation->uuid == $conv->uuid) ? 'active' : ''; ?>"
-                                style="border: none; border-radius: 8px; margin-bottom: 5px; padding: 10px 15px; transition: all 0.2s; <?= !empty($conv->candidate_id) ? 'border-left: 3px solid #8B5CF6 !important;' : 'border-left: 3px solid #10B981 !important;' ?>"
-                                data-conversation-uuid="<?php echo $conv->uuid; ?>">
+                            <input type="text" class="form-control" placeholder="Find or start a conversation"
+                                autocomplete="off">
+                        </div>
+                    </div>
 
-                                <div class="conversation-avatar mr-3 position-relative">
-                                    <div class="avatar"
-                                        style="width: 40px; height: 40px; border-radius: 50%; background-color: <?= !empty($conv->candidate_id) ? '#8B5CF6' : '#10B981' ?>; display: flex; align-items: center; justify-content: center; font-weight: bold; color: #ffffff;">
-                                        <?php echo substr(htmlspecialchars($conv->agency_name), 0, 1); ?>
-                                    </div>
-                                    <?php if (isset($conv->is_online) && $conv->is_online): ?>
-                                    <div class="online-indicator"></div>
-                                    <?php endif; ?>
+                    <!-- Filter Tabs -->
+                    <div class="filter-tabs">
+                        <button
+                            class="filter-tab <?= empty($_GET['chat_type']) || $_GET['chat_type'] == 'all' ? 'active' : '' ?>"
+                            data-chat-type="all">All Chats</button>
+                        <button
+                            class="filter-tab <?= isset($_GET['chat_type']) && $_GET['chat_type'] == 'candidate' ? 'active' : '' ?>"
+                            data-chat-type="candidate">Candidate</button>
+                        <button
+                            class="filter-tab <?= isset($_GET['chat_type']) && $_GET['chat_type'] == 'general' ? 'active' : '' ?>"
+                            data-chat-type="general">General</button>
+                    </div>
+
+                    <!-- Conversations List -->
+                    <div class="chat-list" style="flex: 1; overflow-y: auto;">
+                        <?php 
+                        // Filter conversations based on tab selection
+                        $filtered_conversations = $all_conversations;
+                        if (isset($_GET['chat_type']) && $_GET['chat_type'] == 'candidate') {
+                            $filtered_conversations = array_filter($all_conversations, function($conv) {
+                                return !empty($conv->candidate_id);
+                            });
+                        } elseif (isset($_GET['chat_type']) && $_GET['chat_type'] == 'general') {
+                            $filtered_conversations = array_filter($all_conversations, function($conv) {
+                                return empty($conv->candidate_id);
+                            });
+                        }
+                        ?>
+
+                        <?php if (empty($filtered_conversations)): ?>
+                        <div class="text-center py-4">
+                            <i class="fa fa-comments fa-2x mb-2" style="color: var(--text-muted);"></i>
+                            <p style="color: var(--text-muted); font-size: 0.8rem;">
+                                <?php if (isset($_GET['chat_type']) && $_GET['chat_type'] == 'candidate'): ?>
+                                No candidate chats yet
+                                <?php elseif (isset($_GET['chat_type']) && $_GET['chat_type'] == 'general'): ?>
+                                No general chats yet
+                                <?php else: ?>
+                                No chats yet
+                                <?php endif; ?>
+                            </p>
+                        </div>
+                        <?php else: ?>
+                        <?php foreach ($filtered_conversations as $conv): ?>
+                        <a href="<?php echo site_url('/recruiter/chat/conversation/' .  $conv->uuid); ?>"
+                            class="chat-item <?php echo (isset($conversation) && $conversation->uuid == $conv->uuid) ? 'active' : ''; ?>"
+                            data-conversation-id="<?php echo $conv->uuid; ?>"
+                            data-agency-id="<?php echo $conv->agency_id ?? 0; ?>"
+                            data-agency-name="<?php echo htmlspecialchars($conv->agency_name); ?>"
+                            onclick="return handleAgencySwitch(event, <?php echo $conv->agency_id ?? 0; ?>, '<?php echo htmlspecialchars($conv->agency_name); ?>')">
+
+                            <div class="sidebar-avatar">
+                                <?php echo substr(htmlspecialchars($conv->agency_name), 0, 1); ?>
+                            </div>
+
+                            <div class="chat-item-text">
+                                <div class="chat-name"><?php echo htmlspecialchars($conv->agency_name); ?></div>
+                                <div class="chat-last-msg">
+                                    <?php echo htmlspecialchars($conv->last_message ?: 'No messages yet'); ?>
                                 </div>
+                            </div>
 
-                                <div class="flex-grow-1">
-                                    <!-- Agency Name with Badges -->
-                                    <div class="d-flex align-items-center mb-1">
-                                        <h6 class="mb-0" style="color: #ffffff; font-weight: 500; margin-right: 8px;">
-                                            <?php echo htmlspecialchars($conv->agency_name); ?>
-                                        </h6>
+                            <div class="chat-meta">
+                                <div><?php echo time_ago($conv->last_message_at ?: $conv->created_at); ?></div>
+                                <?php if (isset($conv->unread_count) && $conv->unread_count > 0): ?>
+                                <div class="chat-unread"><?php echo $conv->unread_count; ?></div>
+                                <?php endif; ?>
+                            </div>
+                        </a>
+                        <?php endforeach; ?>
+                        <?php endif; ?>
+                    </div>
+                </div>
+            </div>
 
-                                        <!-- ADDED: Chat Type Badge -->
-                                        <span
-                                            class="conversation-meta-badge chat-type <?= !empty($conv->candidate_id) ? 'candidate' : 'general' ?>">
-                                            <i class="fa fa-<?= !empty($conv->candidate_id) ? 'user' : 'comments' ?> mr-1"
-                                                style="font-size: 0.6rem;"></i>
-                                            <?= !empty($conv->candidate_id) ? 'Candidate' : 'General' ?>
-                                        </span>
-                                    </div>
-
-                                    <!-- ADDED: Job Badge (if exists) -->
-                                    <?php if (!empty($conv->job_name)): ?>
-                                    <div class="conversation-meta-badges">
-                                        <span class="conversation-meta-badge job job-name-badge"
-                                            title="<?= htmlspecialchars($conv->job_name) ?>">
-                                            <i class="fa fa-briefcase mr-1" style="font-size: 0.6rem;"></i>
-                                            <?= strlen($conv->job_name) > 20 ? substr(htmlspecialchars($conv->job_name), 0, 20) . '...' : htmlspecialchars($conv->job_name) ?>
-                                        </span>
-                                    </div>
-                                    <?php endif; ?>
-
-                                    <!-- ADDED: Agency Badge (always shown for recruiter) -->
-                                    <div class="conversation-meta-badges">
-                                        <span class="conversation-meta-badge agency">
-                                            <i class="fa fa-building mr-1" style="font-size: 0.6rem;"></i>
-                                            Agency
-                                        </span>
-                                    </div>
-
-                                    <!-- Message Preview -->
-                                    <small class="text-muted d-block conversation-preview"
-                                        style="font-size: 0.75rem; max-width: 150px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"
-                                        data-conversation-uuid="<?php echo $conv->uuid; ?>">
-                                        <?php if (isset($conv->unread_count) && $conv->unread_count > 0): ?>
-                                        <strong><?php echo htmlspecialchars($conv->last_message ?: 'New message'); ?></strong>
-                                        <?php else: ?>
-                                        <?php echo htmlspecialchars($conv->last_message ?: 'No messages yet'); ?>
-                                        <?php endif; ?>
-                                    </small>
-                                </div>
-
-                                <div class="text-right ml-2">
-                                    <small class="text-muted d-block conversation-time" style="font-size: 0.7rem;"
-                                        data-conversation-uuid="<?php echo $conv->uuid; ?>">
-                                        <?php echo time_ago($conv->last_message_at ?: $conv->created_at); ?>
-                                    </small>
-                                    <?php if (isset($conv->unread_count) && $conv->unread_count > 0): ?>
-                                    <span class="conversation-badge"
-                                        data-conversation-uuid="<?php echo $conv->uuid; ?>">
-                                        <?php echo $conv->unread_count > 99 ? '99+' : $conv->unread_count; ?>
+            <!-- Main Chat Area -->
+            <div class="col-md-8 col-lg-9" style="height: 100%;">
+                <?php if (isset($conversation)): ?>
+                <!-- Instagram-style Agency Profiles Row -->
+                <div class="agency-profiles-section">
+                    <div class="profiles-header">
+                        <h6>Agencies</h6>
+                        <small class="view-all" id="onlineCountDisplay"><?php echo $online_agencies_count; ?>
+                            online</small>
+                    </div>
+                    <div class="profiles-container" id="agencyProfilesContainer">
+                        <?php if (!empty($available_agencies)): ?>
+                        <?php foreach ($available_agencies as $agency): ?>
+                        <?php 
+                        // Check if this agency is the current one (ACTIVE CHAT)
+                        $is_current = (isset($conversation->agency_id) && $conversation->agency_id == $agency->id);
+                        
+                        // Get conversation for this agency
+                        $agency_conversation = null;
+                        foreach ($all_conversations as $conv) {
+                            if ($conv->agency_id == $agency->id) {
+                                $agency_conversation = $conv;
+                                break;
+                            }
+                        }
+                        
+                        // Use conversation UUID if exists
+                        $conversation_uuid = $agency_conversation ? $agency_conversation->uuid : '';
+                        
+                        // If no conversation exists yet, create/get one
+                        if (empty($conversation_uuid)) {
+                            $temp_conversation = $this->Model_chat_messages->get_or_create_conversation(
+                                $agency->id, 
+                                $recruiter_id
+                            );
+                            if ($temp_conversation) {
+                                $conversation_uuid = $temp_conversation->uuid;
+                            }
+                        }
+                        
+                        // Check if has unread messages
+                        $has_unread = isset($agency_conversation->unread_count) && $agency_conversation->unread_count > 0;
+                        
+                        // Generate DiceBear avatar URL
+                        $avatar_seed = urlencode($agency->name . '-' . $agency->id);
+                        $styles = ['avataaars', 'micah', 'adventurer', 'big-ears', 'big-smile', 'bottts', 'croodles', 'miniavs'];
+                        $selected_style = $styles[$agency->id % count($styles)];
+                        $avatar_url = "https://api.dicebear.com/7.x/{$selected_style}/svg?seed={$avatar_seed}&radius=50&backgroundColor=22c55e&backgroundType=gradientLinear";
+                        ?>
+                        <a href="<?php echo !empty($conversation_uuid) ? site_url('/recruiter/chat/conversation/' . $conversation_uuid) : '#'; ?>"
+                            class="profile-item <?php echo $is_current ? 'active' : ''; ?>"
+                            title="<?php echo htmlspecialchars($agency->name); ?>"
+                            data-agency-id="<?php echo $agency->id; ?>"
+                            data-agency-name="<?php echo htmlspecialchars($agency->name); ?>"
+                            onclick="return handleAgencySwitch(event, <?php echo $agency->id; ?>, '<?php echo htmlspecialchars($agency->name); ?>')"
+                            id="agencyProfile_<?php echo $agency->id; ?>">
+                            <div class="profile-avatar-wrapper">
+                                <div class="profile-avatar <?php echo $agency->is_online ? 'online' : 'offline'; ?>"
+                                    data-avatar-seed="<?php echo $avatar_seed; ?>"
+                                    data-avatar-style="<?php echo $selected_style; ?>"
+                                    id="agencyAvatar_<?php echo $agency->id; ?>">
+                                    <img src="<?php echo $avatar_url; ?>"
+                                        alt="<?php echo htmlspecialchars($agency->name); ?>" loading="lazy"
+                                        onerror="this.onerror=null; this.src='https://api.dicebear.com/7.x/avataaars/svg?seed=<?php echo $avatar_seed; ?>&radius=50&backgroundColor=22c55e'">
+                                    <?php if ($has_unread): ?>
+                                    <span class="profile-unread-badge" id="unreadBadge_<?php echo $agency->id; ?>">
+                                        <?php echo $agency_conversation->unread_count > 9 ? '9+' : $agency_conversation->unread_count; ?>
                                     </span>
                                     <?php endif; ?>
                                 </div>
-                            </a>
-                            <?php endforeach; ?>
-                            <?php endif; ?>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Main Chat Area with Right Sidebar -->
-            <div class="col-md-8 col-lg-9"
-                style="background-color: #e5ddd5; display: flex; flex-direction: column; height: 100%;">
-
-                <!-- Mobile Sidebar Toggle -->
-                <button class="sidebar-toggle" id="sidebarToggle">
-                    <i class="fa fa-info-circle"></i>
-                </button>
-
-                <?php if (isset($conversation)): ?>
-                <div class="d-flex" style="flex: 1; overflow: hidden;">
-                    <!-- Chat Messages Area -->
-                    <div class="flex-grow-1 d-flex flex-column" style="min-width: 0;">
-                        <!-- Chat Header -->
-                        <div class="d-flex align-items-center justify-content-between p-3 border-bottom"
-                            style="border-color: #e0e0e0; background-color: #007171; height: 60px; flex-shrink: 0; min-height: 60px;">
-                            <div class="d-flex align-items-center">
-                                <div class="avatar mr-3"
-                                    style="width: 40px; height: 40px; border-radius: 50%; background-color: #128C7E; display: flex; align-items: center; justify-content: center; font-weight: bold; color: #ffffff; font-size: 1.2rem;">
-                                    <?php echo substr(htmlspecialchars($conversation->agency_name), 0, 1); ?>
-                                </div>
-                                <div>
-                                    <h5 class="mb-0" style="color: #ffffffff; font-weight: 500; font-size: 1.2rem;">
-                                        <?php echo htmlspecialchars($conversation->agency_name); ?></h5>
-                                    <small class="text-muted" style="font-size: 0.75rem; color:#a0a0a0ff!important;">
-                                        <?php echo $conversation->job_name ? 'Job: ' . htmlspecialchars($conversation->job_name) : 'Online'; ?>
-                                    </small>
-                                </div>
+                                <div class="online-indicator" id="onlineIndicator_<?php echo $agency->id; ?>"
+                                    style="display: <?php echo $agency->is_online ? 'block' : 'none'; ?>;"></div>
                             </div>
-                        </div>
-
-                        <!-- Messages Area - WhatsApp Style - COMPACT FIXED -->
-                        <div id="chatMessages">
-                            <?php if (!empty($messages)): ?>
-                            <div id="messagesContainer">
-                                <?php foreach ($messages as $message): ?>
-                                <div
-                                    class="message-wrapper <?php echo $message->sender_type == 'recruiter' ? 'message-sent' : 'message-received'; ?>">
-                                    <div class="message-content">
-                                        <span class="message-text-wrapper">
-                                            <span class="message-text">
-                                                <?php 
-                                                if (strpos($message->message, '<a ') !== false && strpos($message->message, 'target="_blank"') !== false) {
-                                                    echo $message->message;
-                                                } else {
-                                                    echo nl2br(htmlspecialchars($message->message));
-                                                }
-                                                ?>
-                                            </span>
-                                            <span class="message-meta">
-                                                <span class="message-time">
-                                                    <?php echo date('h:i A', strtotime($message->created_at)); ?>
-                                                </span>
-                                                <?php if ($message->sender_type == 'recruiter'): ?>
-                                                <span class="message-status">
-                                                    <i
-                                                        class="fa fa-check<?php echo $message->is_read ? '-double' : ''; ?>"></i>
-                                                </span>
-                                                <?php endif; ?>
-                                            </span>
-                                        </span>
-                                    </div>
-                                </div>
-                                <?php endforeach; ?>
+                            <div class="profile-name" id="profileName_<?php echo $agency->id; ?>">
+                                <?php 
+                                $name = htmlspecialchars($agency->name);
+                                echo strlen($name) > 8 ? substr($name, 0, 8) . '...' : $name;
+                                ?>
                             </div>
-                            <?php else: ?>
-                            <div class="no-messages"
-                                style="display: flex; align-items: center; justify-content: center; height: 100%;">
-                                <div class="text-center" style="color: #667781;">
-                                    <i class="fa fa-comments fa-3x mb-3" style="color: #128C7E;"></i>
-                                    <p style="font-size: 1rem; margin: 0;">No messages yet. Start the conversation!</p>
-                                </div>
-                            </div>
-                            <?php endif; ?>
-                        </div>
-
-                        <!-- Message Input - Simplified -->
-                        <div class="border-top p-2"
-                            style="border-color: #e0e0e0; background-color: #f0f0f0; height: 60px; flex-shrink: 0; min-height: 60px;">
-                            <div class="d-flex h-100 align-items-center">
-                                <!-- Document Upload Button -->
-                                <button type="button" id="documentUploadBtn" class="btn btn-link"
-                                    style="color: #666; min-width: 40px;">
-                                    <i class="fa fa-paperclip fa-lg"></i>
-                                </button>
-                                <input type="file" id="fileInput" multiple style="display: none;">
-
-                                <!-- Message Input -->
-                                <div class="flex-grow-1 mx-2">
-                                    <textarea id="messageInput" class="form-control" rows="1"
-                                        placeholder="Type a message..."
-                                        style="border-radius: 20px; border: 1px solid #ddd; resize: none; min-height: 40px; max-height: 120px; padding: 10px 15px;"
-                                        onkeydown="if(event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); sendMessage(); }"></textarea>
-                                </div>
-
-                                <!-- Send Button -->
-                                <button type="button" id="sendButton" class="btn btn-link"
-                                    style="color: #128C7E; min-width: 40px;" onclick="sendMessage()">
-                                    <i class="fa fa-paper-plane fa-lg"></i>
-                                </button>
-                            </div>
-
-                            <!-- Hidden CSRF fields -->
-                            <input type="hidden" name="<?php echo $csrf_name; ?>" value="<?php echo $csrf_token; ?>">
-                            <input type="hidden" id="conversationUuid"
-                                value="<?php echo isset($conversation) ? $conversation->uuid : ''; ?>">
-                            <input type="hidden" id="candidateId"
-                                value="<?php echo isset($candidate_details) ? $candidate_details->id : ''; ?>">
-
-                        </div>
-                    </div>
-
-                    <!-- Right Sidebar - Agency Details -->
-                    <div class="chat-sidebar-right" id="agencySidebar">
-                        <?php if (isset($agency_details)): ?>
-                        <!-- Agency Profile - Fixed at top -->
-                        <div class="sidebar-section agency-profile">
-                            <div class="agency-avatar-large <?php echo $agency_online ? 'online' : 'offline'; ?>">
-                                <?php echo substr(htmlspecialchars($agency_details->name), 0, 1); ?>
-                            </div>
-                            <h3 class="agency-name-large"><?php echo htmlspecialchars($agency_details->name); ?></h3>
-                            <div
-                                class="agency-status <?php echo $agency_online ? 'status-online' : 'status-offline'; ?>">
-                                <i class="fa fa-circle"></i>
-                                <?php echo $agency_online ? 'Online' : 'Offline'; ?>
-                            </div>
-                        </div>
-
-                        <!-- Scrollable Content Area -->
-                        <div class="sidebar-scrollable">
-                            <!-- Agency Information -->
-                            <div class="sidebar-section">
-                                <div class="sidebar-header">Agency Information</div>
-
-                                <?php if ($agency_details->email): ?>
-                                <div class="info-card">
-                                    <div class="info-card-title">Email</div>
-                                    <div class="info-card-value"><?php echo htmlspecialchars($agency_details->email); ?>
-                                    </div>
-                                </div>
-                                <?php endif; ?>
-
-                                <?php if ($agency_details->phone): ?>
-                                <div class="info-card">
-                                    <div class="info-card-title">Phone</div>
-                                    <div class="info-card-value"><?php echo htmlspecialchars($agency_details->phone); ?>
-                                    </div>
-                                </div>
-                                <?php endif; ?>
-
-                                <?php if ($agency_details->industry): ?>
-                                <div class="info-card">
-                                    <div class="info-card-title">Industry</div>
-                                    <div class="info-card-value">
-                                        <?php echo htmlspecialchars($agency_details->industry); ?>
-                                    </div>
-                                </div>
-                                <?php endif; ?>
-
-                                <?php if ($agency_details->website): ?>
-                                <div class="info-card">
-                                    <div class="info-card-title">Website</div>
-                                    <div class="info-card-value">
-                                        <a href="<?php echo htmlspecialchars($agency_details->website); ?>"
-                                            target="_blank" style="color: #7289da; text-decoration: none;">
-                                            Visit Website
-                                        </a>
-                                    </div>
-                                </div>
-                                <?php endif; ?>
-                            </div>
-
-                            <!-- Quick Stats -->
-                            <div class="sidebar-section">
-                                <div class="sidebar-header">Statistics</div>
-                                <div class="stats-grid">
-                                    <div class="stat-item">
-                                        <span
-                                            class="stat-number"><?php echo $agency_details->total_recruiters ?? 0; ?></span>
-                                        <span class="stat-label">Recruiters</span>
-                                    </div>
-                                    <div class="stat-item">
-                                        <span
-                                            class="stat-number"><?php echo $agency_details->active_jobs ?? 0; ?></span>
-                                        <span class="stat-label">Active Jobs</span>
-                                    </div>
-                                    <div class="stat-item">
-                                        <span
-                                            class="stat-number"><?php echo $agency_details->total_conversations ?? 0; ?></span>
-                                        <span class="stat-label">Chats</span>
-                                    </div>
-                                    <div class="stat-item">
-                                        <span class="stat-number">
-                                            <?php echo $agency_online ? 'Now' : date('M j', strtotime($agency_details->last_activity_at ?? 'now')); ?>
-                                        </span>
-                                        <span
-                                            class="stat-label"><?php echo $agency_online ? 'Active' : 'Last Seen'; ?></span>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- Conversation Context -->
-                            <!-- Candidate Information (If this is a candidate-specific chat) -->
-                            <?php if (isset($candidate_details) && $candidate_details): ?>
-                            <div class="sidebar-section">
-                                <div class="sidebar-header"
-                                    style="display: flex; align-items: center; justify-content: space-between;">
-                                    <span>Candidate</span>
-                                    <span class="candidate-context-badge">Active Chat</span>
-                                </div>
-
-                                <div class="candidate-chat-widget">
-                                    <!-- Candidate Header -->
-                                    <div class="candidate-widget-header">
-                                        <div class="candidate-avatar">
-                                            <?php echo substr(htmlspecialchars($candidate_details->first_name), 0, 1) . substr(htmlspecialchars($candidate_details->last_name), 0, 1); ?>
-                                        </div>
-                                        <div class="candidate-info">
-                                            <h5><?php echo htmlspecialchars($candidate_details->first_name . ' ' . $candidate_details->last_name); ?>
-                                            </h5>
-                                            <small>
-                                                <i class="fa fa-id-card"></i>
-                                                <?php echo htmlspecialchars($candidate_details->reference_number); ?>
-                                            </small>
-                                        </div>
-                                    </div>
-
-                                    <!-- Candidate Details Grid -->
-                                    <div class="candidate-details-grid">
-                                        <div class="candidate-detail-item">
-                                            <div class="detail-label">Status</div>
-                                            <div class="detail-value">
-                                                <?php 
-                        $status = $candidate_details->status ?? 'new';
-                        $status_labels = [
-                            'new' => 'New',
-                            'reviewed' => 'Reviewed',
-                            'shortlisted' => 'Shortlisted',
-                            'interviewed' => 'Interviewed',
-                            'rejected' => 'Rejected',
-                            'hired' => 'Hired',
-                            'on_hold' => 'On Hold'
-                        ];
-                        echo isset($status_labels[$status]) ? $status_labels[$status] : ucfirst($status);
-                        ?>
-                                            </div>
-                                        </div>
-
-                                        <div class="candidate-detail-item">
-                                            <div class="detail-label">Email</div>
-                                            <div class="detail-value">
-                                                <?php echo htmlspecialchars($candidate_details->email ?? 'N/A'); ?>
-                                            </div>
-                                        </div>
-
-                                        <div class="candidate-detail-item">
-                                            <div class="detail-label">Phone</div>
-                                            <div class="detail-value">
-                                                <?php echo htmlspecialchars($candidate_details->phone ?? 'N/A'); ?>
-                                            </div>
-                                        </div>
-
-                                        <div class="candidate-detail-item">
-                                            <div class="detail-label">Applied</div>
-                                            <div class="detail-value">
-                                                <?php echo date('M d, Y', strtotime($candidate_details->application_date ?? 'now')); ?>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <!-- Candidate Actions -->
-                                    <div class="candidate-chat-actions">
-                                        <a href="<?php echo site_url('recruiter/candidates/view/' . $candidate_details->id); ?>"
-                                            class="btn-candidate-action" target="_blank">
-                                            <i class="fa fa-eye"></i>
-                                            View Profile
-                                        </a>
-                                        <a href="<?php echo site_url('recruiter/candidates/edit/' . $candidate_details->id); ?>"
-                                            class="btn-candidate-action secondary" target="_blank">
-                                            <i class="fa fa-edit"></i>
-                                            Edit
-                                        </a>
-                                    </div>
-
-                                    <!-- Onboarding Status (if available) -->
-                                    <?php if (isset($candidate_details->onboarding_stage) && $candidate_details->onboarding_stage !== 'not_started'): ?>
-                                    <div class="onboarding-status">
-                                        <div class="onboarding-header">
-                                            <span class="onboarding-title">Onboarding Progress</span>
-                                            <span class="onboarding-stage">
-                                                <?php 
-                        $stage = $candidate_details->onboarding_stage ?? 'not_started';
-                        $stage_labels = [
-                            'not_started' => 'Not Started',
-                            'stage_under_review' => 'Under Review',
-                            'stage_submitted_to_hm' => 'Submitted to HM',
-                            'stage_hm_decision' => 'HM Decision',
-                            'stage_documents_decision' => 'Docs Decision',
-                            'stage_requested_docs' => 'Docs Requested',
-                            'stage_position_offered' => 'Position Offered',
-                            'completed' => 'Completed'
-                        ];
-                        echo isset($stage_labels[$stage]) ? $stage_labels[$stage] : ucfirst(str_replace('_', ' ', $stage));
-                        ?>
-                                            </span>
-                                        </div>
-                                        <div class="onboarding-progress">
-                                            <div class="onboarding-progress-bar"
-                                                style="width: <?php echo min(100, max(0, $candidate_details->onboarding_progress ?? 0)); ?>%">
-                                            </div>
-                                        </div>
-                                        <div class="onboarding-info">
-                                            <span><?php echo min(100, max(0, $candidate_details->onboarding_progress ?? 0)); ?>%
-                                                Complete</span>
-                                            <span>
-                                                <?php if ($candidate_details->onboarding_completed_at): ?>
-                                                Completed:
-                                                <?php echo date('M d', strtotime($candidate_details->onboarding_completed_at)); ?>
-                                                <?php else: ?>
-                                                In Progress
-                                                <?php endif; ?>
-                                            </span>
-                                        </div>
-                                    </div>
-                                    <?php endif; ?>
-
-                                    <!-- Recent Documents (if any) -->
-                                    <?php 
-            // You'll need to pass candidate documents to the view
-            if (isset($candidate_documents) && !empty($candidate_documents)): 
-                $recent_docs = array_slice($candidate_documents, 0, 3); // Show only 3 most recent
-            ?>
-                                    <div class="candidate-documents">
-                                        <div class="documents-header">
-                                            <i class="fa fa-file-alt"></i>
-                                            Recent Documents
-                                        </div>
-                                        <?php foreach ($recent_docs as $doc): ?>
-                                        <div class="document-item">
-                                            <div class="document-info">
-                                                <div class="document-name">
-                                                    <?php echo htmlspecialchars($doc->document_name); ?>
-                                                </div>
-                                                <div class="document-meta">
-                                                    <?php echo date('M d', strtotime($doc->created_at)); ?>
-                                                    • <?php echo $this->format_file_size($doc->file_size); ?>
-                                                </div>
-                                            </div>
-                                            <div class="document-actions">
-                                                <a href="<?php echo site_url('recruiter/chat/download_document/' . $doc->candidate_id . '/' . $doc->file_name); ?>"
-                                                    class="btn-document-action primary" target="_blank"
-                                                    title="Download">
-                                                    <i class="fa fa-download"></i>
-                                                </a>
-                                            </div>
-                                        </div>
-                                        <?php endforeach; ?>
-                                        <?php if (count($candidate_documents) > 3): ?>
-                                        <a href="<?php echo site_url('recruiter/candidates/view/' . $candidate_details->id . '#documents'); ?>"
-                                            class="btn-candidate-action secondary" style="width: 100%; margin-top: 8px;"
-                                            target="_blank">
-                                            <i class="fa fa-folder-open"></i>
-                                            View All Documents (<?php echo count($candidate_documents); ?>)
-                                        </a>
-                                        <?php endif; ?>
-                                    </div>
-                                    <?php endif; ?>
-
-                                    <!-- Switch to General Chat Button -->
-                                    <div class="candidate-chat-actions" style="margin-top: 12px;">
-                                        <button class="btn-candidate-action secondary" id="switchToGeneralChat"
-                                            style="width: 100%;">
-                                            <i class="fa fa-exchange-alt"></i>
-                                            Switch to General Chat
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- Job Information -->
-                            <?php if ($conversation->job_name): ?>
-                            <div class="sidebar-section">
-                                <div class="sidebar-header">Job Information</div>
-                                <div class="info-card">
-                                    <div class="info-card-title">Position</div>
-                                    <div class="info-card-value">
-                                        <?php echo htmlspecialchars($conversation->job_name); ?>
-                                    </div>
-                                    <?php if ($candidate_details->job_ref): ?>
-                                    <div class="info-card-description">
-                                        Reference: <?php echo htmlspecialchars($candidate_details->job_ref); ?>
-                                    </div>
-                                    <?php endif; ?>
-                                </div>
-                            </div>
-                            <?php endif; ?>
-
-                            <?php elseif ($conversation->job_name): ?>
-                            <!-- If not candidate-specific, show regular job context -->
-                            <div class="sidebar-section">
-                                <div class="sidebar-header">Conversation Context</div>
-                                <div class="info-card">
-                                    <div class="info-card-title">Job Position</div>
-                                    <div class="info-card-value">
-                                        <?php echo htmlspecialchars($conversation->job_name); ?>
-                                    </div>
-                                    <div class="info-card-description">
-                                        This conversation is regarding the job position mentioned above.
-                                    </div>
-                                </div>
-                            </div>
-                            <?php endif; ?>
-
-                            <!-- Note Section -->
-                            <div class="sidebar-section note-section">
-                                <div class="sidebar-header">Private Notes</div>
-                                <textarea class="note-textarea"
-                                    placeholder="Add private notes about this agency..."></textarea>
-                            </div>
-                        </div>
-
+                        </a>
+                        <?php endforeach; ?>
                         <?php else: ?>
-                        <!-- Loading State -->
-                        <div class="sidebar-section agency-profile">
-                            <div class="agency-avatar-large offline" style="background: #40444b;">
-                                <i class="fa fa-spinner fa-spin"></i>
-                            </div>
-                            <h3 class="agency-name-large">Loading...</h3>
-                            <div class="agency-status status-offline">
-                                <i class="fa fa-circle"></i>
-                                Fetching details
-                            </div>
+                        <div class="no-profiles-msg">
+                            <small style="color: var(--text-muted);">No agencies available</small>
                         </div>
                         <?php endif; ?>
                     </div>
                 </div>
+
+                <!-- Main Chat Container -->
+                <div style="height: calc(100% - 150px); display: flex; flex-direction: column;">
+                    <!-- Chat Header -->
+                    <div class="d-flex align-items-center justify-content-between p-3 border-bottom"
+                        style="flex-shrink: 0;">
+                        <!-- Left: Current Conversation Info -->
+                        <div class="d-flex align-items-center">
+                            <div class="sidebar-avatar mr-3" style="width: 40px; height: 40px; font-size: 1rem;">
+                                <?php echo substr(htmlspecialchars($conversation->agency_name), 0, 1); ?>
+                            </div>
+                            <div>
+                                <h5 style="margin: 0; color: var(--text-main); font-weight: 500; font-size: 1rem;">
+                                    <?php echo htmlspecialchars($conversation->agency_name); ?>
+                                </h5>
+                                <small style="color: var(--text-muted); font-size: 0.75rem;">
+                                    <?php echo $conversation->job_name ? 'Job: ' . htmlspecialchars($conversation->job_name) : 'General Chat'; ?>
+                                    <?php 
+                                    // Check if current agency is online
+                                    $current_online = false;
+                                    foreach ($available_agencies as $agency) {
+                                        if ($agency->id == $conversation->agency_id && !empty($agency->is_online)) {
+                                            $current_online = true;
+                                            break;
+                                        }
+                                    }
+                                    ?>
+
+                                </small>
+                            </div>
+                        </div>
+
+                        <!-- Right: Action Buttons -->
+                        <div class="d-flex align-items-center gap-2">
+                            <?php if (!empty($conversation->candidate_id)): ?>
+                            <button class="btn btn-sm" onclick="switchToGeneralChat()"
+                                style="background: var(--accent); color: white; border: none; border-radius: 6px; padding: 5px 10px; font-size: 0.7rem; display: flex; align-items: center; gap: 5px;">
+                                <i class="fa fa-exchange-alt"></i> Switch to General
+                            </button>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+
+                    <!-- Messages Area - Modern Design -->
+                    <div id="chatMessages" style="flex: 1; overflow-y: auto;">
+                        <?php if (!empty($messages)): ?>
+                        <div id="messagesContainer">
+                            <!-- Today's Date Separator -->
+                            <div class="day-divider">Today</div>
+
+                            <?php 
+                            // Group messages by date if needed
+                            $currentDate = null;
+                            foreach ($messages as $message): 
+                                $messageDate = date('Y-m-d', strtotime($message->created_at));
+                                
+                                // Add date separator if date changes
+                                if ($currentDate !== $messageDate) {
+                                    $currentDate = $messageDate;
+                                    $displayDate = date('M j, Y', strtotime($message->created_at));
+                                    if ($displayDate == date('M j, Y')) {
+                                        $displayDate = 'Today';
+                                    } elseif ($displayDate == date('M j, Y', strtotime('-1 day'))) {
+                                        $displayDate = 'Yesterday';
+                                    }
+                                    ?>
+                            <div class="day-divider"><?php echo $displayDate; ?></div>
+                            <?php
+                                }
+                            ?>
+
+                            <div class="message-row <?php echo $message->sender_type == 'recruiter' ? 'me' : 'them'; ?>"
+                                data-message-id="<?php echo $message->id; ?>">
+                                <div class="message-bubble">
+                                    <?php 
+                                    $messageContent = $message->message;
+                                    if (strpos($messageContent, '<a ') !== false && strpos($messageContent, 'target="_blank"') !== false) {
+                                        echo $messageContent;
+                                    } else {
+                                        echo nl2br(htmlspecialchars($messageContent));
+                                    }
+                                    ?>
+                                    <div class="message-meta">
+                                        <span class="message-time">
+                                            <?php echo date('h:i A', strtotime($message->created_at)); ?>
+                                        </span>
+                                        <?php if ($message->sender_type == 'recruiter'): ?>
+                                        <span class="message-status">
+                                            <i class="fa fa-check<?php echo $message->is_read ? '-double' : ''; ?>"></i>
+                                        </span>
+                                        <?php endif; ?>
+                                    </div>
+                                </div>
+                            </div>
+                            <?php endforeach; ?>
+                        </div>
+                        <?php else: ?>
+                        <div class="no-messages"
+                            style="display: flex; align-items: center; justify-content: center; height: 100%;">
+                            <div class="text-center">
+                                <i class="fa fa-comments fa-3x mb-3"></i>
+                                <p style="font-size: 1rem; margin: 0;">No messages yet. Start the conversation!</p>
+                            </div>
+                        </div>
+                        <?php endif; ?>
+                    </div>
+
+                    <!-- Message Input - Modern Design -->
+                    <div class="chat-input-area" style="flex-shrink: 0;">
+                        <!-- Document Upload Button -->
+                        <button type="button" id="documentUploadBtn" class="btn btn-link"
+                            style="color: var(--text-muted); min-width: 40px;">
+                            <i class="fa fa-paperclip fa-lg"></i>
+                        </button>
+                        <input type="file" id="fileInput" multiple style="display: none;">
+
+                        <div class="chat-input-container">
+                            <textarea class="chat-input" id="messageInput" rows="1"
+                                placeholder="Type a message and press Enter…"
+                                style="resize: none; border: none; outline: none; background: transparent; flex: 1; color: var(--text-main); font-size: 0.85rem; padding: 0.2rem 0; font-family: inherit;"
+                                onkeydown="if(event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); sendMessage(); }"></textarea>
+                        </div>
+                        <button class="send-btn" id="sendBtn" onclick="sendMessage()">
+                            <span class="icon">➤</span>
+                            <span>Send</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Hidden Fields -->
+                <input type="hidden" id="conversationUuid" value="<?php echo $conversation->uuid; ?>">
+                <input type="hidden" id="currentAgencyId" value="<?php echo $conversation->agency_id; ?>">
+                <input type="hidden" name="<?php echo $csrf_name; ?>" value="<?php echo $csrf_token; ?>">
+                <input type="hidden" id="candidateId"
+                    value="<?php echo isset($candidate_details) ? $candidate_details->id : ''; ?>">
 
                 <?php else: ?>
                 <!-- No Conversation Selected -->
                 <div class="d-flex align-items-center justify-content-center h-100" style="flex: 1;">
-                    <div class="text-center text-muted">
-                        <i class="fa fa-comments fa-4x mb-3" style="color: #128C7E;"></i>
+                    <div class="text-center" style="color: var(--text-muted);">
+                        <i class="fa fa-comments fa-4x mb-3"></i>
                         <h4>Welcome to Chat</h4>
-                        <p>Select a conversation from the left sidebar to start chatting,<br>or start a new chat with an
+                        <p>Select a conversation from the sidebar to start chatting,<br>or start a new chat with an
                             available agency.</p>
                     </div>
                 </div>
                 <?php endif; ?>
             </div>
+        </div>
+    </div>
+</div>
+
+<!-- Agency Switch Loader -->
+<div id="agencySwitchLoader" class="agency-switch-loader">
+    <div class="switch-loader-content">
+        <div class="switch-loader-icon"></div>
+        <div class="switch-loader-text">Switching to Agency...</div>
+        <div class="switch-loader-subtext loading-pulse">
+            Loading conversation, please wait
         </div>
     </div>
 </div>
@@ -2547,218 +1682,16 @@ let chatState = {
     isSending: false,
     isPolling: false,
     lastMessageId: <?php echo !empty($messages) ? end($messages)->id : 0; ?>,
-    currentConversationUuid: null,
+    currentConversationUuid: '<?php echo isset($conversation) ? $conversation->uuid : ""; ?>',
     displayedMessageIds: new Set(),
     pollInterval: null,
     conversationInterval: null,
-    activePolling: true
+    activePolling: true,
+    currentAgencyId: '<?php echo isset($conversation) ? $conversation->agency_id : ""; ?>'
 };
 
-let selectedFiles = [];
-let csrfRetryCount = 0;
-const MAX_CSRF_RETRIES = 2;
-
-// ===== CSRF HELPER FUNCTIONS =====
-
-// Get fresh CSRF token from page
-function getFreshCsrfToken() {
-    // Check hidden input
-    const csrfInput = document.querySelector('input[name="csrf_rfid_token"]');
-    if (csrfInput && csrfInput.value && csrfInput.value.length > 10) {
-        return csrfInput.value;
-    }
-
-    // Check meta tag
-    const metaToken = document.querySelector('meta[name="csrf-token"]');
-    if (metaToken && metaToken.content && metaToken.content.length > 10) {
-        return metaToken.content;
-    }
-
-    // Check JavaScript variable
-    if (typeof currentCsrfToken !== 'undefined' && currentCsrfToken && currentCsrfToken.length > 10) {
-        return currentCsrfToken;
-    }
-
-    console.error('No valid CSRF token found on page');
-    return null;
-}
-
-// Update CSRF token on page
-function updateCsrfTokenOnPage(newToken) {
-    if (!newToken || newToken.length < 10) {
-        console.error('Invalid CSRF token received for update');
-        return false;
-    }
-
-    console.log(`Updated CSRF token to: ${newToken.substring(0, 10)}...`);
-
-    // Update hidden input
-    const csrfInput = document.querySelector('input[name="csrf_rfid_token"]');
-    if (csrfInput) {
-        csrfInput.value = newToken;
-    }
-
-    // Update meta tag
-    const metaToken = document.querySelector('meta[name="csrf-token"]');
-    if (metaToken) {
-        metaToken.content = newToken;
-    }
-
-    // Update JavaScript variables
-    window.latestCsrfToken = newToken;
-    if (typeof currentCsrfToken !== 'undefined') {
-        currentCsrfToken = newToken;
-    }
-
-    return true;
-}
-
-async function makeRequestWithRetry(url, data, options, retryCount = 0) {
-    const MAX_RETRIES = 2; // Reduced for better UX
-
-    try {
-        // Get fresh CSRF token for each attempt
-        let csrfToken = getFreshCsrfToken();
-
-        // If no token or token looks expired, try to refresh
-        if (!csrfToken || csrfToken.length < 10) {
-            console.log('CSRF token missing or invalid, attempting to refresh...');
-            csrfToken = await refreshCsrfToken();
-
-            if (csrfToken) {
-                updateAllCsrfTokens(csrfToken);
-            } else {
-                console.error('Failed to refresh CSRF token');
-                return {
-                    success: false,
-                    message: 'Security token missing. Please refresh the page.',
-                    needs_refresh: true
-                };
-            }
-        }
-
-        console.log(`Using CSRF token: ${csrfToken.substring(0, 10)}... (Attempt ${retryCount + 1})`);
-
-        // Create FormData
-        const formData = new FormData();
-        formData.append('csrf_rfid_token', csrfToken);
-
-        // Add other data
-        if (data && typeof data === 'object') {
-            Object.keys(data).forEach(key => {
-                if (data[key] !== null && data[key] !== undefined) {
-                    // Handle file uploads
-                    if (key === 'documents' && Array.isArray(data[key])) {
-                        data[key].forEach((file, index) => {
-                            if (file instanceof File) {
-                                formData.append('documents[]', file, file.name || `file_${index}`);
-                            }
-                        });
-                    } else {
-                        formData.append(key, data[key]);
-                    }
-                }
-            });
-        }
-
-        // Make the request
-        const response = await fetch(url, {
-            method: 'POST',
-            body: formData,
-            headers: {
-                'X-Requested-With': 'XMLHttpRequest',
-                'Accept': 'application/json'
-            },
-            credentials: 'same-origin'
-        });
-
-        // Check response
-        const contentType = response.headers.get('content-type');
-        let result;
-
-        if (contentType && contentType.includes('application/json')) {
-            result = await response.json();
-        } else {
-            const text = await response.text();
-            console.error(`Server returned non-JSON (${response.status}):`, text.substring(0, 200));
-
-            // Handle different error statuses
-            if (response.status === 404) {
-                // Endpoint not found - try with different URL
-                result = {
-                    success: false,
-                    message: 'Endpoint not found. Please check the URL.',
-                    status: 404,
-                    needs_redirect: true
-                };
-            } else if (response.status === 403) {
-                // CSRF error
-                result = {
-                    success: false,
-                    message: 'CSRF token validation failed.',
-                    csrf_invalid: true,
-                    needs_retry: true,
-                    status: 403
-                };
-            } else {
-                // Other error
-                result = {
-                    success: false,
-                    message: `Server error (status: ${response.status})`,
-                    needs_refresh: true,
-                    status: response.status
-                };
-            }
-        }
-
-        // Always update CSRF token if provided in response
-        if (result && result.csrf_token) {
-            updateAllCsrfTokens(result.csrf_token);
-            console.log('Updated CSRF token from response');
-        }
-
-        // Check if we need to retry due to CSRF
-        if (!result.success && result.needs_retry && retryCount < MAX_RETRIES) {
-            console.log(`CSRF token expired, retrying... (${retryCount + 1}/${MAX_RETRIES})`);
-
-            // Wait before retry
-            await new Promise(resolve => setTimeout(resolve, 300));
-
-            // Try to get a fresh token before retry
-            const freshToken = await refreshCsrfToken();
-            if (freshToken) {
-                updateAllCsrfTokens(freshToken);
-                console.log('Got fresh CSRF token for retry');
-            }
-
-            // Update data with fresh token for retry
-            const newData = {
-                ...data
-            };
-            newData.csrf_rfid_token = getFreshCsrfToken();
-
-            // Retry with updated token
-            return await makeRequestWithRetry(url, newData, options, retryCount + 1);
-        }
-
-        return result;
-
-    } catch (error) {
-        console.error('Request failed:', error);
-
-        if (retryCount < MAX_RETRIES) {
-            console.log(`Network error, retrying... (${retryCount + 1}/${MAX_RETRIES})`);
-            await new Promise(resolve => setTimeout(resolve, 500));
-            return await makeRequestWithRetry(url, data, options, retryCount + 1);
-        }
-
-        return {
-            success: false,
-            message: `Network error: ${error.message}`,
-            error: error.toString()
-        };
-    }
-}
+// ===== ONLINE STATUS MANAGEMENT =====
+let onlineStatusInterval = null;
 
 // ===== UTILITY FUNCTIONS =====
 function scrollToBottom() {
@@ -2772,16 +1705,41 @@ function scrollToBottom() {
 
 function escapeHtml(text) {
     if (!text) return '';
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
+    const map = {
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#039;'
+    };
+    return text.replace(/[&<>"']/g, function(m) {
+        return map[m];
+    });
+}
+
+function renderMessageContent(content) {
+    if (content.includes('<a ') && content.includes('target="_blank"')) {
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = content;
+        const links = tempDiv.querySelectorAll('a');
+        links.forEach(link => {
+            const href = link.getAttribute('href');
+            if (href && href.startsWith('http')) {
+                link.setAttribute('target', '_blank');
+                link.setAttribute('rel', 'noopener noreferrer');
+            }
+        });
+        return tempDiv.innerHTML;
+    }
+    const escaped = escapeHtml(content);
+    return escaped.replace(/\n/g, '<br>');
 }
 
 // ===== MESSAGE DISPLAY FUNCTIONS =====
 function createMessageElement(message, isRecruiter = false) {
-    const messageWrapper = document.createElement('div');
-    messageWrapper.className = `message-wrapper ${isRecruiter ? 'message-sent' : 'message-received'}`;
-    messageWrapper.dataset.messageId = message.id;
+    const messageRow = document.createElement('div');
+    messageRow.className = `message-row ${isRecruiter ? 'me' : 'them'}`;
+    messageRow.dataset.messageId = message.id;
 
     const messageTime = new Date(message.created_at);
     const timeString = messageTime.toLocaleTimeString([], {
@@ -2791,71 +1749,21 @@ function createMessageElement(message, isRecruiter = false) {
 
     const renderedContent = renderMessageContent(message.message || '');
 
-    messageWrapper.innerHTML = `
-        <div class="message-content">
-            <span class="message-text-wrapper">
-                <span class="message-text">
-                    ${renderedContent}
-                </span>
-                <span class="message-meta">
-                    <span class="message-time">
-                        ${timeString}
+    messageRow.innerHTML = `
+        <div class="message-bubble">
+            ${renderedContent}
+            <div class="message-meta">
+                <span class="message-time">${timeString}</span>
+                ${isRecruiter ? `
+                    <span class="message-status">
+                        <i class="fa fa-check${message.is_read ? '-double' : ''}"></i>
                     </span>
-                    ${isRecruiter ? `
-                        <span class="message-status">
-                            <i class="fa fa-check${message.is_read ? '-double' : ''}"></i>
-                        </span>
-                    ` : ''}
-                </span>
-            </span>
+                ` : ''}
+            </div>
         </div>
     `;
 
-    return messageWrapper;
-}
-
-function renderMessageContent(content) {
-    // Check if content has HTML tags for document links
-    if (content.includes('<a ') && content.includes('target="_blank"')) {
-        // Create a temporary div to parse the HTML
-        const tempDiv = document.createElement('div');
-        tempDiv.innerHTML = content;
-
-        // Get all links and make sure they're safe
-        const links = tempDiv.querySelectorAll('a');
-        links.forEach(link => {
-            const href = link.getAttribute('href');
-            if (href && href.includes('uploads/candidate_documents')) {
-                // Extract filename and candidate ID from the path
-                const pathParts = href.split('/');
-                const candidateIdIndex = pathParts.indexOf('candidate_documents') + 1;
-                const filenameIndex = candidateIdIndex + 1;
-
-                if (pathParts[candidateIdIndex] && pathParts[filenameIndex]) {
-                    const candidateId = pathParts[candidateIdIndex];
-                    const filename = pathParts[filenameIndex];
-
-                    // Create secure download URL
-                    const secureUrl = window.location.origin +
-                        '/shoesmith/recruiter/chat/download_document/' +
-                        candidateId + '/' +
-                        encodeURIComponent(filename);
-
-                    link.setAttribute('href', secureUrl);
-                }
-            }
-
-            // Ensure links open in new tab
-            link.setAttribute('target', '_blank');
-            link.setAttribute('rel', 'noopener noreferrer');
-        });
-
-        return tempDiv.innerHTML;
-    }
-
-    // For regular text, escape HTML and preserve line breaks
-    const escaped = escapeHtml(content);
-    return escaped.replace(/\n/g, '<br>');
+    return messageRow;
 }
 
 function addMessageToDisplay(message, isRecruiter = false) {
@@ -2866,14 +1774,10 @@ function addMessageToDisplay(message, isRecruiter = false) {
         return;
     }
 
-    // Check if there's a messages container, if not create one
     let messagesContainer = document.getElementById('messagesContainer');
     if (!messagesContainer) {
-        // Remove the "no messages" content
         const noMessages = chatMessages.querySelector('.no-messages');
         if (noMessages) noMessages.remove();
-
-        // Create container
         messagesContainer = document.createElement('div');
         messagesContainer.id = 'messagesContainer';
         chatMessages.appendChild(messagesContainer);
@@ -2890,71 +1794,667 @@ function addMessageToDisplay(message, isRecruiter = false) {
     scrollToBottom();
 }
 
-function initializeDocumentUpload() {
-    console.log('🚀 Initializing document upload system...');
+// ===== AJAX FUNCTIONS =====
+async function makeAjaxRequest(endpoint, data = {}) {
+    const baseUrl = window.location.origin + '/shoesmith/recruiter/chat/';
+    let fullUrl = baseUrl + endpoint;
 
-    // Clear any existing event listeners first
-    const originalBtn = document.getElementById('documentUploadBtn');
-    const originalInput = document.getElementById('fileInput');
-
-    if (originalBtn && originalInput) {
-        // Create completely new elements to remove old listeners
-        const newBtn = originalBtn.cloneNode(true);
-        const newInput = originalInput.cloneNode(true);
-
-        originalBtn.parentNode.replaceChild(newBtn, originalBtn);
-        originalInput.parentNode.replaceChild(newInput, originalInput);
-
-        console.log('✅ Removed old event listeners');
+    const params = new URLSearchParams();
+    const csrfToken = document.getElementById('csrf_rfid_token')?.value;
+    if (csrfToken) {
+        params.append('csrf_rfid_token', csrfToken);
     }
 
-    // Get fresh references
+    Object.keys(data).forEach(key => {
+        if (data[key] !== null && data[key] !== undefined) {
+            params.append(key, data[key]);
+        }
+    });
+
+    const queryString = params.toString();
+    if (queryString) {
+        fullUrl += '?' + queryString;
+    }
+
+    try {
+        const response = await fetch(fullUrl, {
+            method: 'GET',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'Accept': 'application/json'
+            }
+        });
+
+        const result = await response.json();
+
+        if (result.csrf_token) {
+            document.querySelectorAll('input[name="csrf_rfid_token"]').forEach(input => {
+                input.value = result.csrf_token;
+            });
+        }
+
+        return result;
+
+    } catch (error) {
+        console.error('Request failed:', error);
+        return {
+            success: false,
+            message: 'Network error: ' + error.message
+        };
+    }
+}
+
+// ===== MESSAGE SENDING =====
+async function sendMessage() {
+    const messageInput = document.getElementById('messageInput');
+    const messageText = messageInput.value.trim();
+    const conversationUuid = document.getElementById('conversationUuid')?.value;
+
+    if (!messageText || chatState.isSending || !conversationUuid) {
+        return;
+    }
+
+    chatState.isSending = true;
+
+    const tempId = Date.now();
+    const tempMessage = {
+        id: 'temp_' + tempId,
+        message: messageText,
+        created_at: new Date().toISOString(),
+        sender_type: 'recruiter',
+        is_read: false,
+        sender_name: 'You'
+    };
+
+    addMessageToDisplay(tempMessage, true);
+    messageInput.value = '';
+    messageInput.focus();
+
+    try {
+        const response = await makeAjaxRequest('ajax_send_message', {
+            conversation_uuid: conversationUuid,
+            message: messageText
+        });
+
+        if (response.success) {
+            const tempMsg = document.querySelector(`[data-message-id="temp_${tempId}"]`);
+            if (tempMsg) tempMsg.remove();
+
+            if (response.message_id) {
+                const messageObj = {
+                    id: response.message_id,
+                    message: messageText,
+                    created_at: new Date().toISOString(),
+                    sender_type: 'recruiter',
+                    is_read: false,
+                    sender_name: 'You'
+                };
+                addMessageToDisplay(messageObj, true);
+            }
+
+            setTimeout(fetchUpdatedConversations, 500);
+        } else {
+            const tempMsg = document.querySelector(`[data-message-id="temp_${tempId}"]`);
+            if (tempMsg) tempMsg.remove();
+            messageInput.value = messageText;
+            alert(response.message || "Failed to send message");
+        }
+
+    } catch (error) {
+        console.error("Send fetch error:", error);
+        const tempMsg = document.querySelector(`[data-message-id="temp_${tempId}"]`);
+        if (tempMsg) tempMsg.remove();
+        messageInput.value = messageText;
+        alert("Network error. Please check your connection and try again.");
+    } finally {
+        chatState.isSending = false;
+    }
+}
+
+// ===== ONLINE STATUS FUNCTIONS =====
+// Replace the checkAgencyOnlineStatus function:
+async function checkAgencyOnlineStatus() {
+    try {
+        // Get fresh CSRF token
+        const csrfToken = document.getElementById('csrf_rfid_token')?.value;
+
+        // Build the URL
+        const url = window.location.origin + '/shoesmith/recruiter/chat/ajax_check_online_status' +
+            (csrfToken ? `?csrf_rfid_token=${encodeURIComponent(csrfToken)}` : '');
+
+        const response = await fetch(url, {
+            method: 'GET',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'Accept': 'application/json'
+            }
+        });
+
+        const result = await response.json();
+
+        if (result.success && result.online_status) {
+            updateOnlineStatusDisplay(result.online_status);
+        } else {
+            console.error('Failed to get online status:', result);
+        }
+
+    } catch (error) {
+        console.error("Online status check failed:", error);
+    }
+}
+
+function updateOnlineStatusDisplay(onlineData) {
+    let onlineCount = 0;
+
+    Object.keys(onlineData).forEach(agencyId => {
+        const isOnline = onlineData[agencyId];
+        const profile = document.getElementById(`agencyProfile_${agencyId}`);
+        const avatar = document.getElementById(`agencyAvatar_${agencyId}`);
+        const indicator = document.getElementById(`onlineIndicator_${agencyId}`);
+
+        if (profile && avatar && indicator) {
+            profile.setAttribute('data-is-online', isOnline ? '1' : '0');
+
+            avatar.classList.remove('online', 'offline');
+            avatar.classList.add(isOnline ? 'online' : 'offline');
+
+            if (isOnline) {
+                indicator.style.display = 'block';
+                onlineCount++;
+            } else {
+                indicator.style.display = 'none';
+            }
+        }
+    });
+
+    const onlineDisplay = document.getElementById('onlineCountDisplay');
+    if (onlineDisplay) {
+        onlineDisplay.textContent = `${onlineCount} online`;
+    }
+}
+
+function startOnlineStatusPolling() {
+    if (onlineStatusInterval) clearInterval(onlineStatusInterval);
+
+    checkAgencyOnlineStatus();
+
+    onlineStatusInterval = setInterval(checkAgencyOnlineStatus, 10000);
+}
+
+function stopOnlineStatusPolling() {
+    if (onlineStatusInterval) {
+        clearInterval(onlineStatusInterval);
+        onlineStatusInterval = null;
+    }
+}
+
+// ===== POLLING FUNCTIONS =====
+async function fetchNewMessages() {
+    if (chatState.isPolling || !chatState.currentConversationUuid || !chatState.activePolling) {
+        return;
+    }
+
+    chatState.isPolling = true;
+
+    try {
+        const response = await makeAjaxRequest('ajax_get_messages', {
+            conversation_uuid: chatState.currentConversationUuid,
+            last_message_id: chatState.lastMessageId
+        });
+
+        if (response.success && response.messages) {
+            response.messages.forEach(message => {
+                const isRecruiter = message.sender_type === 'recruiter';
+                addMessageToDisplay(message, isRecruiter);
+            });
+
+            if (response.messages.length > 0) {
+                const lastMsg = response.messages[response.messages.length - 1];
+                chatState.lastMessageId = parseInt(lastMsg.id);
+            }
+        }
+
+    } catch (error) {
+        console.error("Poll fetch error:", error);
+    } finally {
+        chatState.isPolling = false;
+    }
+}
+
+async function fetchUpdatedConversations() {
+    if (!chatState.activePolling) return;
+
+    try {
+        const response = await makeAjaxRequest('ajax_get_conversations', {});
+
+        if (response.success && response.conversations) {
+            updateConversationBadges(response.conversations);
+            if (response.total_unread_count !== undefined) {
+                updateAllNotificationBadges(response.total_unread_count);
+            }
+
+            updateOnlineStatus(response.conversations);
+        }
+    } catch (error) {
+        console.error("Conversations fetch error:", error);
+    }
+}
+
+// ===== SIDEBAR FUNCTIONS =====
+function updateAllNotificationBadges(totalUnreadCount) {
+    const globalBadge = document.getElementById('globalNotificationBadge');
+    if (globalBadge) {
+        if (totalUnreadCount > 0) {
+            globalBadge.textContent = totalUnreadCount > 99 ? '99+' : totalUnreadCount;
+            globalBadge.style.display = 'inline-block';
+        } else {
+            globalBadge.style.display = 'none';
+        }
+    }
+}
+
+function updateOnlineStatus(conversationsData) {
+    let onlineCount = 0;
+
+    conversationsData.forEach(conv => {
+        const profileItem = document.querySelector(`.profile-item[data-agency-id="${conv.agency_id}"]`);
+        if (profileItem) {
+            const isOnline = conv.is_online || false;
+            const avatar = profileItem.querySelector('.profile-avatar');
+            const onlineIndicator = profileItem.querySelector('.online-indicator');
+
+            if (avatar) {
+                avatar.classList.remove('online', 'offline');
+                avatar.classList.add(isOnline ? 'online' : 'offline');
+            }
+
+            if (onlineIndicator) {
+                if (isOnline) {
+                    onlineIndicator.style.display = 'block';
+                } else {
+                    onlineIndicator.style.display = 'none';
+                }
+            }
+
+            profileItem.setAttribute('data-is-online', isOnline ? '1' : '0');
+
+            if (isOnline) {
+                onlineCount++;
+            }
+        }
+    });
+
+    const onlineCountElement = document.getElementById('onlineCountDisplay');
+    if (onlineCountElement) {
+        onlineCountElement.textContent = onlineCount + ' online';
+    }
+}
+
+function updateConversationBadges(conversationsData) {
+    conversationsData.forEach(conv => {
+        const conversationItem = document.querySelector(`.chat-item[data-conversation-id="${conv.uuid}"]`);
+        if (conversationItem) {
+            const unreadBadge = conversationItem.querySelector('.chat-unread');
+
+            if (conv.unread_count > 0) {
+                if (!unreadBadge) {
+                    const metaDiv = conversationItem.querySelector('.chat-meta');
+                    const newBadge = document.createElement('div');
+                    newBadge.className = 'chat-unread';
+                    metaDiv.appendChild(newBadge);
+                }
+                conversationItem.querySelector('.chat-unread').textContent = conv.unread_count;
+                const preview = conversationItem.querySelector('.chat-last-msg');
+                if (preview) {
+                    preview.textContent = conv.last_message;
+                    preview.style.fontWeight = '600';
+                }
+            } else {
+                if (unreadBadge) unreadBadge.remove();
+                const preview = conversationItem.querySelector('.chat-last-msg');
+                if (preview) {
+                    preview.textContent = conv.last_message || 'No messages yet';
+                    preview.style.fontWeight = '400';
+                }
+            }
+        }
+    });
+}
+
+// ===== PROFILE MANAGEMENT =====
+function updateActiveProfile(agencyId = null) {
+    if (!agencyId) {
+        const currentAgencyField = document.getElementById('currentAgencyId');
+        agencyId = currentAgencyField ? currentAgencyField.value : null;
+    }
+
+    if (!agencyId) return;
+
+    document.querySelectorAll('.profile-item').forEach(item => {
+        item.classList.remove('active');
+    });
+
+    const currentProfile = document.querySelector(`.profile-item[data-agency-id="${agencyId}"]`);
+    if (currentProfile) {
+        currentProfile.classList.add('active');
+    }
+}
+
+// ===== AVATAR ANIMATION FUNCTIONS =====
+function setupAvatarAnimations() {
+    const profileAvatars = document.querySelectorAll('.profile-avatar');
+
+    profileAvatars.forEach(avatar => {
+        const originalSeed = avatar.getAttribute('data-avatar-seed');
+        const originalStyle = avatar.getAttribute('data-avatar-style');
+        const img = avatar.querySelector('img');
+
+        if (!originalSeed || !img) return;
+
+        const styles = [
+            'avataaars', 'micah', 'adventurer', 'big-ears',
+            'big-smile', 'bottts', 'croodles', 'miniavs',
+            'open-peeps', 'personas', 'pixel-art'
+        ];
+
+        let currentIndex = styles.indexOf(originalStyle);
+        if (currentIndex === -1) currentIndex = 0;
+
+        let animationInterval;
+
+        avatar.addEventListener('mouseenter', function() {
+            let counter = 0;
+            const maxChanges = 8;
+
+            animationInterval = setInterval(() => {
+                currentIndex = (currentIndex + 1) % styles.length;
+                const newStyle = styles[currentIndex];
+
+                img.src =
+                    `https://api.dicebear.com/7.x/${newStyle}/svg?seed=${originalSeed}&radius=50&backgroundColor=22c55e&backgroundType=gradientLinear`;
+
+                counter++;
+                if (counter >= maxChanges) {
+                    clearInterval(animationInterval);
+                    setTimeout(() => {
+                        img.src =
+                            `https://api.dicebear.com/7.x/${originalStyle}/svg?seed=${originalSeed}&radius=50&backgroundColor=22c55e&backgroundType=gradientLinear`;
+                    }, 500);
+                }
+            }, 100);
+        });
+
+        avatar.addEventListener('mouseleave', function() {
+            if (animationInterval) {
+                clearInterval(animationInterval);
+            }
+            img.src =
+                `https://api.dicebear.com/7.x/${originalStyle}/svg?seed=${originalSeed}&radius=50&backgroundColor=22c55e&backgroundType=gradientLinear`;
+        });
+    });
+}
+
+// ===== FIX FOR PROFILE ACTIVE STATE =====
+function highlightClickedProfile(profileItem) {
+    document.querySelectorAll('.profile-item').forEach(item => {
+        item.classList.remove('active');
+    });
+
+    profileItem.classList.add('active');
+
+    const agencyId = profileItem.getAttribute('data-agency-id');
+    if (agencyId) {
+        sessionStorage.setItem('lastActiveAgency', agencyId);
+    }
+}
+
+// ===== INITIALIZATION =====
+function initializeDisplayedMessages() {
+    const existingMessages = document.querySelectorAll('#messagesContainer .message-row');
+    existingMessages.forEach(msg => {
+        const messageId = msg.dataset.messageId;
+        if (messageId) {
+            chatState.displayedMessageIds.add(parseInt(messageId));
+        }
+    });
+}
+
+function startPolling() {
+    if (!chatState.currentConversationUuid) return;
+
+    if (chatState.pollInterval) clearInterval(chatState.pollInterval);
+    if (chatState.conversationInterval) clearInterval(chatState.conversationInterval);
+
+    chatState.pollInterval = setInterval(fetchNewMessages, 3000);
+    chatState.conversationInterval = setInterval(fetchUpdatedConversations, 15000);
+
+    setTimeout(fetchNewMessages, 500);
+    setTimeout(fetchUpdatedConversations, 1000);
+}
+
+function stopPolling() {
+    chatState.activePolling = false;
+
+    if (chatState.pollInterval) {
+        clearInterval(chatState.pollInterval);
+        chatState.pollInterval = null;
+    }
+
+    if (chatState.conversationInterval) {
+        clearInterval(chatState.conversationInterval);
+        chatState.conversationInterval = null;
+    }
+}
+
+function setupEventListeners() {
+    const messageInput = document.getElementById('messageInput');
+    const sendButton = document.getElementById('sendBtn');
+
+    if (messageInput) {
+        messageInput.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+            }
+        });
+
+        setTimeout(() => {
+            messageInput.focus();
+        }, 1000);
+    }
+
+    if (sendButton) {
+        sendButton.addEventListener('click', sendMessage);
+    }
+
+    const filterTabs = document.querySelectorAll('.filter-tab');
+    filterTabs.forEach(tab => {
+        tab.addEventListener('click', function() {
+            const filter = this.getAttribute('data-chat-type');
+            filterTabs.forEach(t => t.classList.remove('active'));
+            this.classList.add('active');
+
+            const currentUrl = new URL(window.location.href);
+            if (filter === 'all') {
+                currentUrl.searchParams.delete('chat_type');
+            } else {
+                currentUrl.searchParams.set('chat_type', filter);
+            }
+
+            window.location.href = currentUrl.toString();
+        });
+    });
+
+    const searchInput = document.querySelector('.form-control[placeholder="Find or start a conversation"]');
+    if (searchInput) {
+        searchInput.addEventListener('input', function() {
+            const searchTerm = this.value.toLowerCase();
+            const conversationItems = document.querySelectorAll('.chat-item');
+
+            conversationItems.forEach(item => {
+                const text = item.textContent.toLowerCase();
+                item.style.display = text.includes(searchTerm) ? 'flex' : 'none';
+            });
+        });
+    }
+
+    // Profile click handlers for better UX
+    document.querySelectorAll('.profile-item').forEach(item => {
+        item.addEventListener('click', function() {
+            const agencyId = this.getAttribute('data-agency-id');
+            if (agencyId) {
+                const hiddenField = document.getElementById('currentAgencyId');
+                if (hiddenField) {
+                    hiddenField.value = agencyId;
+                }
+
+                chatState.currentAgencyId = agencyId;
+                highlightClickedProfile(this);
+            }
+        });
+    });
+
+    // Chat item click handlers
+    document.querySelectorAll('.chat-item').forEach(item => {
+        item.addEventListener('click', function() {
+            const agencyId = this.getAttribute('data-agency-id');
+            if (agencyId) {
+                const hiddenField = document.getElementById('currentAgencyId');
+                if (hiddenField) {
+                    hiddenField.value = agencyId;
+                }
+
+                chatState.currentAgencyId = agencyId;
+                setTimeout(() => updateActiveProfile(agencyId), 300);
+            }
+        });
+    });
+}
+
+function initializeChatSystem() {
+    if (chatState.currentConversationUuid) {
+        initializeDisplayedMessages();
+        setupEventListeners();
+        startPolling();
+        startOnlineStatusPolling();
+        scrollToBottom();
+
+        updateActiveProfile();
+
+        const onlineDisplay = document.getElementById('onlineCountDisplay');
+        if (onlineDisplay) {
+            onlineDisplay.textContent = '<?php echo $online_agencies_count; ?> online';
+        }
+    }
+}
+
+// ===== MAIN INITIALIZATION =====
+document.addEventListener('DOMContentLoaded', function() {
+    setTimeout(setupAvatarAnimations, 1000);
+
+    const observer = new MutationObserver(setupAvatarAnimations);
+    observer.observe(document.body, {
+        childList: true,
+        subtree: true
+    });
+
+    initializeChatSystem();
+});
+
+// ===== PAGE VISIBILITY HANDLERS =====
+document.addEventListener('visibilitychange', function() {
+    if (document.hidden) {
+        stopPolling();
+        stopOnlineStatusPolling();
+    } else {
+        chatState.activePolling = true;
+        startPolling();
+        startOnlineStatusPolling();
+    }
+});
+
+// ===== AGENCY SWITCH LOADER FUNCTIONS =====
+function showAgencySwitchLoader(agencyName) {
+    const loader = document.getElementById('agencySwitchLoader');
+    const loaderText = loader.querySelector('.switch-loader-text');
+
+    if (agencyName) {
+        loaderText.textContent = `Switching to ${agencyName}...`;
+    } else {
+        loaderText.textContent = 'Switching to Agency...';
+    }
+
+    loader.classList.add('active');
+    document.body.style.overflow = 'hidden';
+}
+
+function hideAgencySwitchLoader() {
+    const loader = document.getElementById('agencySwitchLoader');
+    loader.classList.remove('active');
+    document.body.style.overflow = '';
+}
+
+function handleAgencySwitch(event, agencyId, agencyName = '') {
+    event.preventDefault();
+    event.stopPropagation();
+
+    showAgencySwitchLoader(agencyName);
+
+    const link = event.currentTarget;
+    const url = link.getAttribute('href');
+
+    setTimeout(() => {
+        window.location.href = url;
+    }, 300);
+
+    return false;
+}
+
+window.addEventListener('pageshow', function(event) {
+    if (event.persisted) {
+        hideAgencySwitchLoader();
+    }
+});
+
+window.addEventListener('load', function() {
+    setTimeout(hideAgencySwitchLoader, 500);
+});
+
+// ===== DOCUMENT UPLOAD FUNCTIONS =====
+function initializeDocumentUpload() {
     const uploadBtn = document.getElementById('documentUploadBtn');
     const fileInput = document.getElementById('fileInput');
 
     if (!uploadBtn || !fileInput) {
-        console.error('❌ Missing required elements');
+        console.error('Missing upload elements');
         return;
     }
 
-    console.log('✅ Found upload elements');
-
-    // Add simple click handler - just opens file picker
     uploadBtn.addEventListener('click', function(e) {
         e.preventDefault();
         e.stopPropagation();
-        console.log('📎 Paperclip clicked - opening file picker');
         fileInput.click();
     });
 
-    // Handle file selection
+    // Replace the file input change event listener:
     fileInput.addEventListener('change', async function(e) {
-        console.log('📂 File input changed - processing files...');
-
-        // Get the files immediately
         const files = Array.from(this.files);
 
         if (files.length === 0) {
-            console.log('No files selected');
             return;
         }
 
-        console.log(`Selected ${files.length} file(s):`, files.map(f => f.name));
-
-        // Clear the input immediately to prevent double triggers
-        this.value = '';
-
-        // Get required data
         const candidateId = document.getElementById('candidateId')?.value;
         const conversationUuid = document.getElementById('conversationUuid')?.value;
 
-        if (!candidateId || !conversationUuid) {
-            alert('⚠️ Document upload requires an active candidate conversation.');
+        // ===== FIX: Allow document uploads even without candidate (general chat) =====
+        if (!conversationUuid) {
+            alert('⚠️ Please select a conversation first.');
+            this.value = '';
             return;
         }
 
-        // Validate files
-        const maxSize = 10 * 1024 * 1024; // 10MB
+        const maxSize = 10 * 1024 * 1024;
         const allowedExtensions = ['.pdf', '.doc', '.docx', '.txt', '.jpg', '.jpeg', '.png', '.xls',
             '.xlsx'
         ];
@@ -2975,75 +2475,29 @@ function initializeDocumentUpload() {
         });
 
         if (validFiles.length === 0) {
-            console.log('No valid files to upload');
+            this.value = '';
             return;
         }
 
-        console.log(`📤 Uploading ${validFiles.length} valid file(s)...`);
-
-        // Show loading state on paperclip
         const originalHtml = uploadBtn.innerHTML;
         uploadBtn.innerHTML = '<i class="fa fa-spinner fa-spin fa-lg"></i>';
         uploadBtn.disabled = true;
 
-        // Show progress overlay
-        const progressOverlay = document.createElement('div');
-        progressOverlay.id = 'uploadProgressOverlay';
-        progressOverlay.style.cssText = `
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(0, 0, 0, 0.7);
-            z-index: 9998;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        `;
-
-        const progressCard = document.createElement('div');
-        progressCard.style.cssText = `
-            background: white;
-            padding: 30px;
-            border-radius: 12px;
-            text-align: center;
-            min-width: 300px;
-            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
-        `;
-        progressCard.innerHTML = `
-            <i class="fa fa-spinner fa-spin fa-2x mb-3" style="color: #4CAF50;"></i>
-            <h4 style="margin-bottom: 10px; color: #333;">Uploading Files</h4>
-            <p style="color: #666; margin-bottom: 20px;">${validFiles.length} file(s) selected</p>
-            <div id="uploadProgressBar" style="height: 6px; background: #f0f0f0; border-radius: 3px; overflow: hidden;">
-                <div style="width: 0%; height: 100%; background: linear-gradient(90deg, #4CAF50, #8BC34A); transition: width 0.3s;"></div>
-            </div>
-        `;
-
-        progressOverlay.appendChild(progressCard);
-        document.body.appendChild(progressOverlay);
-
         try {
-            // Upload each file sequentially
+            const csrfToken = document.getElementById('csrf_rfid_token').value;
+
             for (let i = 0; i < validFiles.length; i++) {
                 const file = validFiles[i];
 
-                // Update progress
-                const progressPercent = ((i) / validFiles.length * 100).toFixed(0);
-                document.querySelector('#uploadProgressBar div').style.width = `${progressPercent}%`;
-                progressCard.querySelector('p').textContent =
-                    `Uploading ${i + 1} of ${validFiles.length}: ${file.name}`;
-
-                console.log(`Uploading file ${i + 1}/${validFiles.length}: ${file.name}`);
-
-                // Get current CSRF token
-                const csrfToken = document.querySelector('input[name="csrf_rfid_token"]').value;
-
-                // 1. Upload file to server
                 const formData = new FormData();
                 formData.append('documents[]', file);
                 formData.append('conversation_uuid', conversationUuid);
-                formData.append('candidate_id', candidateId);
+
+                // Only include candidate_id if it exists (for candidate chats)
+                if (candidateId && candidateId !== '') {
+                    formData.append('candidate_id', candidateId);
+                }
+
                 formData.append('csrf_rfid_token', csrfToken);
 
                 const uploadResponse = await fetch(window.location.origin +
@@ -3053,69 +2507,36 @@ function initializeDocumentUpload() {
                     });
 
                 const uploadResult = await uploadResponse.json();
-                console.log('Upload response:', uploadResult);
 
                 if (!uploadResult.success) {
                     throw new Error(`Failed to upload "${file.name}": ${uploadResult.message}`);
                 }
 
-                // Update CSRF token
                 if (uploadResult.csrf_token) {
-                    document.querySelectorAll('input[name="csrf_rfid_token"]').forEach(input => {
-                        input.value = uploadResult.csrf_token;
-                    });
+                    document.getElementById('csrf_rfid_token').value = uploadResult.csrf_token;
                 }
 
-                // 2. Send chat message about the upload
                 let chatMessage = `📎 Uploaded document: ${file.name}`;
                 if (uploadResult.documents && uploadResult.documents[0]?.path) {
                     chatMessage =
-                        `📎 Uploaded: <a href="${uploadResult.documents[0].path}" target="_blank" style="color: #128C7E; text-decoration: underline;">${file.name}</a>`;
+                        `📎 Uploaded: <a href="${uploadResult.documents[0].path}" target="_blank" style="color: var(--accent); text-decoration: underline;">${file.name}</a>`;
                 }
 
-                // Use GET method (this works!)
                 const encodedMessage = encodeURIComponent(chatMessage);
                 const messageUrl =
-                    `${window.location.origin}/shoesmith/recruiter/chat/ajax_send_message?conversation_uuid=${encodeURIComponent(conversationUuid)}&message=${encodedMessage}&csrf_rfid_token=${encodeURIComponent(uploadResult.csrf_token || csrfToken)}&is_document_notification=true`;
+                    `${window.location.origin}/shoesmith/recruiter/chat/ajax_send_message?conversation_uuid=${encodeURIComponent(conversationUuid)}&message=${encodedMessage}&csrf_rfid_token=${encodeURIComponent(uploadResult.csrf_token || csrfToken)}`;
 
-                console.log('Sending chat message via GET...');
-                const messageResponse = await fetch(messageUrl, {
+                await fetch(messageUrl, {
                     method: 'GET',
                     headers: {
                         'X-Requested-With': 'XMLHttpRequest',
                         'Accept': 'application/json'
                     }
                 });
-
-                const messageResult = await messageResponse.json();
-                console.log('Message response:', messageResult);
-
-                if (messageResult.success) {
-                    console.log(`✅ "${file.name}" uploaded and message sent`);
-                } else {
-                    console.warn(`⚠️ Message for "${file.name}" failed, but file was uploaded`);
-                }
             }
 
-            // Update to 100% complete
-            document.querySelector('#uploadProgressBar div').style.width = '100%';
-            progressCard.innerHTML = `
-                <i class="fa fa-check-circle fa-2x mb-3" style="color: #4CAF50;"></i>
-                <h4 style="margin-bottom: 10px; color: #333;">Upload Complete!</h4>
-                <p style="color: #666; margin-bottom: 20px;">${validFiles.length} file(s) uploaded successfully</p>
-                <button id="closeUploadOverlay" style="background: #4CAF50; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer;">
-                    Close
-                </button>
-            `;
+            alert(`✅ ${validFiles.length} file(s) uploaded successfully!`);
 
-            console.log('✅ All files uploaded successfully!');
-
-            // Add close button event
-            document.getElementById('closeUploadOverlay').addEventListener('click', function() {
-                progressOverlay.remove();
-            });
-
-            // Auto-refresh chat messages
             setTimeout(() => {
                 if (typeof fetchNewMessages === 'function') {
                     fetchNewMessages();
@@ -3123,701 +2544,31 @@ function initializeDocumentUpload() {
             }, 1000);
 
         } catch (error) {
-            console.error('❌ Upload error:', error);
-
-            progressCard.innerHTML = `
-                <i class="fa fa-times-circle fa-2x mb-3" style="color: #F44336;"></i>
-                <h4 style="margin-bottom: 10px; color: #333;">Upload Failed</h4>
-                <p style="color: #666; margin-bottom: 20px;">${error.message}</p>
-                <button id="closeErrorOverlay" style="background: #F44336; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer;">
-                    Close
-                </button>
-            `;
-
-            document.getElementById('closeErrorOverlay').addEventListener('click', function() {
-                progressOverlay.remove();
-            });
-
+            console.error('Upload error:', error);
             alert(`Upload failed: ${error.message}`);
-
         } finally {
-            // Reset button
             uploadBtn.innerHTML = originalHtml;
             uploadBtn.disabled = false;
-
-            // Auto-remove overlay after 3 seconds (if not already removed)
-            setTimeout(() => {
-                if (progressOverlay.parentNode) {
-                    progressOverlay.remove();
-                }
-            }, 3000);
-        }
-    });
-
-    console.log('✅ Document upload system initialized successfully');
-}
-
-// Now call it to initialize
-initializeDocumentUpload();
-console.log('🔄 Re-initialized upload system for immediate upload');
-
-async function sendMessage() {
-    const messageInput = document.getElementById('messageInput');
-    const messageText = messageInput.value.trim();
-    const conversationUuid = document.getElementById('conversationUuid').value;
-
-    if (!messageText || chatState.isSending || !conversationUuid) {
-        return;
-    }
-
-    chatState.isSending = true;
-
-    // Show optimistic message
-    const tempId = Date.now();
-    const tempMessage = {
-        id: 'temp_' + tempId,
-        message: messageText,
-        created_at: new Date().toISOString(),
-        sender_type: 'recruiter',
-        is_read: false,
-        sender_name: 'You'
-    };
-
-    addMessageToDisplay(tempMessage, true);
-    messageInput.value = '';
-    messageInput.focus();
-
-    try {
-        // Send via GET (not POST)
-        const response = await makeAjaxRequest('ajax_send_message', {
-            conversation_uuid: conversationUuid,
-            message: messageText
-        });
-
-        console.log("Send response:", response);
-
-        if (response.success) {
-            // Remove temp message
-            const tempMsg = document.querySelector(`[data-message-id="temp_${tempId}"]`);
-            if (tempMsg) tempMsg.remove();
-
-            // Add real message if provided
-            if (response.message_id) {
-                const messageObj = {
-                    id: response.message_id,
-                    message: messageText,
-                    created_at: new Date().toISOString(),
-                    sender_type: 'recruiter',
-                    is_read: false,
-                    sender_name: 'You'
-                };
-                addMessageToDisplay(messageObj, true);
-
-                if (response.message_id > chatState.lastMessageId) {
-                    chatState.lastMessageId = parseInt(response.message_id);
-                }
-            }
-
-            // Update CSRF token if provided
-            if (response.csrf_token) {
-                updateAllCsrfTokens(response.csrf_token);
-            }
-
-            // Refresh conversations
-            setTimeout(fetchUpdatedConversations, 500);
-
-            console.log("Message sent successfully");
-        } else {
-            // Handle error - remove optimistic message
-            const tempMsg = document.querySelector(`[data-message-id="temp_${tempId}"]`);
-            if (tempMsg) tempMsg.remove();
-
-            // Restore message to input
-            messageInput.value = messageText;
-
-            console.error("Send error:", response.message);
-            alert(response.message || "Failed to send message");
-        }
-
-    } catch (error) {
-        console.error("Send fetch error:", error);
-
-        // Remove optimistic message
-        const tempMsg = document.querySelector(`[data-message-id="temp_${tempId}"]`);
-        if (tempMsg) tempMsg.remove();
-
-        // Restore message to input
-        messageInput.value = messageText;
-
-        alert("Network error. Please check your connection and try again.");
-    } finally {
-        chatState.isSending = false;
-    }
-}
-
-// ===== POLLING FUNCTIONS =====
-async function fetchNewMessages() {
-    if (chatState.isPolling || !chatState.currentConversationUuid || !chatState.activePolling) {
-        return;
-    }
-
-    chatState.isPolling = true;
-
-    try {
-        const response = await makeAjaxRequest('ajax_get_messages', {
-            conversation_uuid: chatState.currentConversationUuid,
-            last_message_id: chatState.lastMessageId
-        });
-
-        console.log("Poll response:", response);
-
-        if (response.success && response.messages) {
-            // Process new messages
-            response.messages.forEach(message => {
-                const isRecruiter = message.sender_type === 'recruiter';
-                addMessageToDisplay(message, isRecruiter);
-            });
-
-            // Update last message ID if we got new messages
-            if (response.messages.length > 0) {
-                const lastMsg = response.messages[response.messages.length - 1];
-                chatState.lastMessageId = parseInt(lastMsg.id);
-            }
-        } else if (response.status === 404) {
-            console.log('Messages endpoint returned 404, stopping polling');
-            // Stop polling if endpoint doesn't exist
-            stopPolling();
-        }
-
-    } catch (error) {
-        console.error("Poll fetch error:", error);
-    } finally {
-        chatState.isPolling = false;
-    }
-}
-
-async function fetchUpdatedConversations() {
-    if (!chatState.activePolling) return;
-
-    try {
-        const response = await makeAjaxRequest('ajax_get_conversations', {});
-
-        if (response.success && response.conversations) {
-            updateSidebarConversationBadges(response.conversations);
-            if (response.total_unread_count !== undefined) {
-                updateAllNotificationBadges(response.total_unread_count);
-            }
-        } else if (response.status === 404) {
-            console.log('Conversations endpoint returned 404, stopping polling');
-            stopPolling();
-        }
-    } catch (error) {
-        console.error("Conversations fetch error:", error);
-    }
-}
-
-
-
-// ===== SIDEBAR FUNCTIONS =====
-function updateAllNotificationBadges(totalUnreadCount) {
-    const globalBadge = document.getElementById('globalNotificationBadge');
-    if (globalBadge) {
-        if (totalUnreadCount > 0) {
-            globalBadge.textContent = totalUnreadCount > 99 ? '99+' : totalUnreadCount;
-            globalBadge.style.display = 'inline-block';
-        } else {
-            globalBadge.style.display = 'none';
-        }
-    }
-
-    const sectionBadge = document.querySelector('.sidebar-section .section-badge');
-    if (sectionBadge) {
-        if (totalUnreadCount > 0) {
-            sectionBadge.textContent = totalUnreadCount;
-            sectionBadge.style.display = 'inline-block';
-        } else {
-            sectionBadge.style.display = 'none';
-        }
-    }
-}
-
-function updateSidebarConversationBadges(conversationsData) {
-    conversationsData.forEach(conv => {
-        const conversationItem = document.querySelector(
-            `.conversation-item[data-conversation-uuid="${conv.uuid}"]`);
-        if (conversationItem) {
-            updateSingleConversationBadge(conversationItem, conv);
+            this.value = '';
         }
     });
 }
 
-function updateSingleConversationBadge(conversationItem, convData) {
-    let badge = conversationItem.querySelector('.conversation-badge');
-
-    if (convData.unread_count > 0) {
-        if (!badge) {
-            badge = document.createElement('span');
-            badge.className = 'conversation-badge';
-            badge.setAttribute('data-conversation-uuid', convData.uuid);
-
-            const textRightDiv = conversationItem.querySelector('.text-right');
-            if (textRightDiv) {
-                textRightDiv.appendChild(badge);
-            }
-        }
-
-        badge.textContent = convData.unread_count > 99 ? '99+' : convData.unread_count;
-        badge.style.display = 'flex';
-        conversationItem.classList.add('has-unread-messages');
-
-    } else {
-        if (badge) {
-            badge.style.display = 'none';
-        }
-        conversationItem.classList.remove('has-unread-messages');
-    }
-
-    const previewElement = conversationItem.querySelector('.conversation-preview');
-    if (previewElement) {
-        let previewText = '';
-
-        if (convData.unread_count > 0) {
-            if (convData.last_sender_type === 'agency') {
-                previewText =
-                    `<strong>${escapeHtml(convData.agency_name || 'Agency')}: ${escapeHtml(convData.last_message || 'New message')}</strong>`;
-            } else {
-                previewText = `<strong>You: ${escapeHtml(convData.last_message || 'New message')}</strong>`;
-            }
-        } else {
-            if (convData.last_sender_type === 'agency') {
-                previewText =
-                    `${escapeHtml(convData.agency_name || 'Agency')}: ${escapeHtml(convData.last_message || 'No messages yet')}`;
-            } else {
-                previewText = `You: ${escapeHtml(convData.last_message || 'No messages yet')}`;
-            }
-        }
-
-        previewElement.innerHTML = previewText;
-    }
-}
-
-// ===== HELPER FUNCTIONS =====
-function initializeDisplayedMessages() {
-    const existingMessages = document.querySelectorAll('#chatMessages [data-message-id]');
-    existingMessages.forEach(msg => {
-        const msgId = msg.dataset.messageId;
-        if (msgId && !msgId.startsWith('temp_')) {
-            chatState.displayedMessageIds.add(parseInt(msgId));
-        }
-    });
-    console.log(`Initialized ${chatState.displayedMessageIds.size} displayed messages`);
-}
-
-// ===== POLLING MANAGEMENT =====
-function startPolling() {
-    console.log("Starting polling...");
-
-    // Clear any existing intervals
-    if (chatState.pollInterval) clearInterval(chatState.pollInterval);
-    if (chatState.conversationInterval) clearInterval(chatState.conversationInterval);
-
-    // Message polling every 3 seconds
-    chatState.pollInterval = setInterval(fetchNewMessages, 3000);
-
-    // Conversation polling every 15 seconds
-    chatState.conversationInterval = setInterval(fetchUpdatedConversations, 15000);
-
-    // Initial fetches
-    setTimeout(fetchNewMessages, 500);
-    setTimeout(fetchUpdatedConversations, 1000);
-}
-
-function stopPolling() {
-    console.log("Stopping polling...");
-    chatState.activePolling = false;
-
-    if (chatState.pollInterval) {
-        clearInterval(chatState.pollInterval);
-        chatState.pollInterval = null;
-    }
-
-    if (chatState.conversationInterval) {
-        clearInterval(chatState.conversationInterval);
-        chatState.conversationInterval = null;
-    }
-}
-
-// ===== EVENT LISTENERS =====
-function setupEventListeners() {
-    const messageInput = document.getElementById('messageInput');
-
-    // Message input - Enter key
-    if (messageInput) {
-        messageInput.addEventListener('keydown', function(e) {
-            if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                sendMessage();
-                return false;
-            }
-        });
-
-        // Focus input
-        setTimeout(() => {
-            messageInput.focus();
-        }, 1000);
-    }
-
-    // Chat type filter buttons
-    const chatTypeTabs = document.querySelectorAll('.chat-type-tab');
-    chatTypeTabs.forEach(tab => {
-        tab.addEventListener('click', function() {
-            const chatType = this.getAttribute('data-chat-type');
-
-            // Update active tab
-            chatTypeTabs.forEach(t => {
-                t.classList.remove('active');
-                t.style.background = '#2f3136';
-            });
-
-            // Set active tab styles
-            this.classList.add('active');
-            if (chatType === 'all') {
-                this.style.background = 'linear-gradient(135deg, #7289da, #5b6eae)';
-            } else if (chatType === 'candidate') {
-                this.style.background = 'linear-gradient(135deg, #8B5CF6, #7C3AED)';
-            } else if (chatType === 'general') {
-                this.style.background = 'linear-gradient(135deg, #10B981, #059669)';
-            }
-
-            // Update URL with filter parameter
-            const currentUrl = new URL(window.location.href);
-            if (chatType === 'all') {
-                currentUrl.searchParams.delete('chat_type');
-            } else {
-                currentUrl.searchParams.set('chat_type', chatType);
-            }
-
-            window.location.href = currentUrl.toString();
-        });
-    });
-
-    // Search functionality
-    const searchInput = document.querySelector('.form-control[placeholder="Find or start a conversation"]');
-    if (searchInput) {
-        searchInput.addEventListener('input', function() {
-            const searchTerm = this.value.toLowerCase();
-            const conversationItems = document.querySelectorAll('.conversation-item');
-
-            conversationItems.forEach(item => {
-                const agencyName = item.querySelector('h6').textContent.toLowerCase();
-                const previewText = item.querySelector('.conversation-preview').textContent
-                    .toLowerCase();
-
-                if (agencyName.includes(searchTerm) || previewText.includes(searchTerm)) {
-                    item.style.display = 'flex';
-                } else {
-                    item.style.display = 'none';
-                }
-            });
-        });
-    }
-}
-
-// ===== INITIALIZATION =====
-function initializeChatSystem() {
-    console.log('=== RECRUITER CHAT SYSTEM INITIALIZING ===');
-
-    // Verify CSRF token
-    const csrfToken = getFreshCsrfToken();
-    if (!csrfToken) {
-        console.error('Cannot initialize chat system: No CSRF token found!');
-        alert('Security token missing. Please refresh the page.');
-        return;
-    }
-
-    console.log('CSRF token verified, length:', csrfToken.length);
-
-    // Get current conversation UUID
-    const uuidField = document.getElementById('conversationUuid');
-    if (uuidField && uuidField.value) {
-        chatState.currentConversationUuid = uuidField.value;
-        console.log("Current conversation UUID:", chatState.currentConversationUuid);
-    } else {
-        console.error("No conversation UUID found!");
-        return;
-    }
-
-    // Initialize displayed messages
-    initializeDisplayedMessages();
-
-    // Setup event listeners
-    setupEventListeners();
-
-    // Initialize document upload
-    initializeDocumentUpload();
-
-    // Wait for layout to settle, then scroll to bottom
-    setTimeout(() => {
-        scrollToBottom();
-        setTimeout(scrollToBottom, 500);
-    }, 300);
-
-    // Start polling
-    startPolling();
-
-    console.log('=== RECRUITER CHAT SYSTEM INITIALIZED ===');
-}
-
-// ===== PAGE VISIBILITY =====
-document.addEventListener('visibilitychange', function() {
-    if (document.hidden) {
-        stopPolling();
-    } else {
-        chatState.activePolling = true;
-        startPolling();
-    }
-});
-
-// ===== MAIN INITIALIZATION =====
+// Initialize document upload
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('DOM Content Loaded - Initializing Chat System');
-
-    // Test CSRF token
-    setTimeout(() => {
-        const token = getFreshCsrfToken();
-        console.log('CSRF Token Status:', token ? 'Present' : 'Missing');
-        if (token) {
-            console.log('Token length:', token.length);
-        }
-    }, 500);
-
-    // Initialize chat system
-    setTimeout(initializeChatSystem, 1000);
-
+    initializeDocumentUpload();
 });
 
-// Add this function to update CSRF tokens globally
-function updateAllCsrfTokens(newToken) {
-    if (!newToken || newToken.length < 10) {
-        console.error('Invalid CSRF token received:', newToken);
-        return false;
+// ===== SWITCH TO GENERAL CHAT =====
+function switchToGeneralChat() {
+    const conversationUuid = document.getElementById('conversationUuid').value;
+    const agencyId = document.getElementById('currentAgencyId').value;
+
+    if (!conversationUuid || !agencyId) {
+        alert('Cannot switch chat type');
+        return;
     }
 
-    console.log(`Updating CSRF token to: ${newToken.substring(0, 10)}...`);
-
-    // Update all forms on the page
-    document.querySelectorAll('input[name="csrf_rfid_token"]').forEach(input => {
-        input.value = newToken;
-    });
-
-    // Update meta tag
-    const metaToken = document.querySelector('meta[name="csrf-token"]');
-    if (metaToken) {
-        metaToken.content = newToken;
-    }
-
-    // Update JavaScript variable
-    if (typeof currentCsrfToken !== 'undefined') {
-        currentCsrfToken = newToken;
-    }
-
-    return true;
-}
-// Function to get truly fresh CSRF token from server
-async function refreshCsrfToken() {
-    try {
-        // Make a simple request to get fresh token
-        const response = await fetch(window.location.href, {
-            method: 'GET',
-            headers: {
-                'X-Requested-With': 'XMLHttpRequest',
-                'Accept': 'application/json'
-            },
-            credentials: 'same-origin'
-        });
-
-        if (response.ok) {
-            // Parse the page to extract CSRF token
-            const html = await response.text();
-
-            // Extract from meta tag
-            const metaMatch = html.match(/<meta name="csrf-token" content="([^"]+)"/);
-            if (metaMatch && metaMatch[1]) {
-                return metaMatch[1];
-            }
-
-            // Extract from hidden input
-            const inputMatch = html.match(/<input[^>]*name="csrf_rfid_token"[^>]*value="([^"]+)"/);
-            if (inputMatch && inputMatch[1]) {
-                return inputMatch[1];
-            }
-        }
-
-        return null;
-    } catch (error) {
-        console.error('Error refreshing CSRF token:', error);
-        return null;
-    }
-}
-
-async function makeAjaxRequest(endpoint, data = {}) {
-    console.log(`Making AJAX request to: ${endpoint}`);
-
-    // Use the correct URL pattern
-    const baseUrl = window.location.origin + '/shoesmith/recruiter/chat/';
-    let fullUrl = baseUrl + endpoint;
-
-    console.log(`Full URL: ${fullUrl}`);
-
-    // Check if this is a file upload request
-    const hasFiles = data.documents && Array.isArray(data.documents) && data.documents.length > 0;
-
-    if (hasFiles) {
-        // Use FormData for file uploads
-        return makeFileUploadRequest(fullUrl, data);
-    } else {
-        // Use regular GET request for normal messages
-        return makeGetRequest(fullUrl, data);
-    }
-}
-
-async function makeFileUploadRequest(url, data) {
-    // Get CSRF token
-    const csrfToken = document.querySelector('input[name="csrf_rfid_token"]')?.value;
-
-    // Create FormData
-    const formData = new FormData();
-
-    // Add CSRF token
-    if (csrfToken) {
-        formData.append('csrf_rfid_token', csrfToken);
-    }
-
-    // Add other data
-    Object.keys(data).forEach(key => {
-        if (data[key] !== null && data[key] !== undefined) {
-            if (key === 'documents' && Array.isArray(data[key])) {
-                // Add each file
-                data[key].forEach((file, index) => {
-                    if (file instanceof File) {
-                        formData.append('documents[]', file, file.name || `file_${index}`);
-                    }
-                });
-            } else {
-                formData.append(key, data[key]);
-            }
-        }
-    });
-
-    try {
-        const response = await fetch(url, {
-            method: 'POST',
-            body: formData,
-            headers: {
-                'X-Requested-With': 'XMLHttpRequest'
-            },
-            credentials: 'same-origin'
-        });
-
-        const result = await response.json();
-
-        // Update CSRF token if provided
-        if (result.csrf_token) {
-            document.querySelectorAll('input[name="csrf_rfid_token"]').forEach(input => {
-                input.value = result.csrf_token;
-            });
-        }
-
-        return result;
-
-    } catch (error) {
-        console.error('File upload request failed:', error);
-        return {
-            success: false,
-            message: 'Network error: ' + error.message
-        };
-    }
-}
-
-async function makeGetRequest(url, data) {
-    // Get CSRF token
-    const csrfToken = document.querySelector('input[name="csrf_rfid_token"]')?.value;
-
-    // Build query string for GET request
-    const params = new URLSearchParams();
-
-    // Add CSRF token if available
-    if (csrfToken) {
-        params.append('csrf_rfid_token', csrfToken);
-    }
-
-    // Add other data
-    Object.keys(data).forEach(key => {
-        if (data[key] !== null && data[key] !== undefined && key !== 'documents') {
-            params.append(key, data[key]);
-        }
-    });
-
-    // Append query string to URL
-    const queryString = params.toString();
-    if (queryString) {
-        url += '?' + queryString;
-    }
-
-    try {
-        const response = await fetch(url, {
-            method: 'GET',
-            headers: {
-                'X-Requested-With': 'XMLHttpRequest',
-                'Accept': 'application/json'
-            }
-        });
-
-        const result = await response.json();
-
-        // Update CSRF token if provided
-        if (result.csrf_token) {
-            document.querySelectorAll('input[name="csrf_rfid_token"]').forEach(input => {
-                input.value = result.csrf_token;
-            });
-        }
-
-        return result;
-
-    } catch (error) {
-        console.error('GET request failed:', error);
-        return {
-            success: false,
-            message: 'Network error: ' + error.message
-        };
-    }
-}
-
-// Debug function to test URLs
-function debugEndpoint(endpoint) {
-    const currentPath = window.location.pathname;
-    console.log('Current path:', currentPath);
-
-    // Different URL building strategies
-    const strategies = [
-        // Strategy 1: Direct from base
-        window.location.origin + '/shoesmith/recruiter/chat/' + endpoint,
-
-        // Strategy 2: From current conversation path
-        window.location.origin + currentPath.replace(/\/conversation\/[^\/]+$/, '') + '/' + endpoint,
-
-        // Strategy 3: Relative to current path
-        window.location.origin + currentPath + '/' + endpoint,
-
-        // Strategy 4: Full URL
-        window.location.origin + window.location.pathname.replace(/\/[^\/]*$/, '') + '/' + endpoint
-    ];
-
-    console.log('URL strategies:');
-    strategies.forEach((url, i) => {
-        console.log(`  ${i + 1}: ${url}`);
-    });
-
-    return strategies[0]; // Use first strategy as default
+    window.location.href = `/shoesmith/recruiter/chat/switch_to_general/${conversationUuid}/${agencyId}`;
 }
 </script>

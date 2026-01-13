@@ -50,10 +50,52 @@ class Chat extends CRUD_Controller
     $this->load->model('agency/Model_notifications');
     $this->load->helper('csrf');
     
-    $login_data = $this->session->userdata('login');
+     $login_data = $this->session->userdata('login');
     if (empty($login_data['agency'])) {
         redirect('agency/login');
     }
+    
+    // ===== ADD THIS: Track agency session activity =====
+    $agency_id = $this->get_user_agency_id();
+    if ($agency_id) {
+        $this->update_agency_activity($agency_id);
+    }
+}
+
+// ===== ADD THIS METHOD to agency Chat.php =====
+private function update_agency_activity($agency_id)
+{
+    // Update or create user session for agency
+    $session_data = [
+        'user_id' => $agency_id,
+        'user_type' => 'agency',
+        'last_activity' => date('Y-m-d H:i:s'),
+        'created_at' => date('Y-m-d H:i:s')
+    ];
+    
+    // Check if session exists
+    $existing_session = $this->db->where('user_id', $agency_id)
+                                 ->where('user_type', 'agency')
+                                 ->get('user_sessions')
+                                 ->row();
+    
+    if ($existing_session) {
+        // Update existing session
+        $this->db->where('id', $existing_session->id)
+                 ->update('user_sessions', [
+                     'last_activity' => date('Y-m-d H:i:s')
+                 ]);
+    } else {
+        // Create new session
+        $this->db->insert('user_sessions', $session_data);
+    }
+    
+    // Also update agencies table for backup
+    $this->db->where('id', $agency_id)
+             ->update('agencies', [
+                 'last_activity_at' => date('Y-m-d H:i:s'),
+                 'updated_at' => date('Y-m-d H:i:s')
+             ]);
 }
 // This method should exist in agency Chat.php:
 public function ajax_get_chat_notifications()

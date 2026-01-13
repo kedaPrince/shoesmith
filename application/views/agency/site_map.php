@@ -24,7 +24,7 @@ $this->siteMap = array(
     (object)array(
         'group'         => 'Agency Staff',
         'page'          => 'agency_staff',
-        'label'         => lang('agency_staff_heading'),
+        'label'         => 'Internal Staff',
         'icon'          => 'fa-universal-access',
         'url'           => url('agency_staff'),
         'class'         => 'Agency_Staff',

@@ -220,20 +220,51 @@ public function cleanup_old_sessions()
     $deleted = $this->db->where('last_activity <', $five_minutes_ago)
                        ->delete('user_sessions');
     
-    // Update recruiters who had expired sessions
-    $recruiter_ids = [];
+    // Update different user types who had expired sessions
+    $user_ids_by_type = [];
     foreach ($expired_sessions as $session) {
-        if ($session->user_type == 'recruiter') {
-            $recruiter_ids[] = $session->user_id;
-        }
+        $user_ids_by_type[$session->user_type][] = $session->user_id;
     }
     
-    if (!empty($recruiter_ids)) {
-        $this->db->where_in('id', array_unique($recruiter_ids))
-                 ->update('recruiters', [
-                     'last_logout_at' => date('Y-m-d H:i:s'),
-                     'updated_at' => date('Y-m-d H:i:s')
-                 ]);
+    // Update each user type table
+    foreach ($user_ids_by_type as $user_type => $ids) {
+        if (empty($ids)) continue;
+        
+        $ids = array_unique($ids);
+        
+        switch ($user_type) {
+            case 'recruiter':
+                $this->db->where_in('id', $ids)
+                         ->update('recruiters', [
+                             'last_logout_at' => date('Y-m-d H:i:s'),
+                             'updated_at' => date('Y-m-d H:i:s')
+                         ]);
+                break;
+                
+            case 'agency':
+                $this->db->where_in('id', $ids)
+                         ->update('agencies', [
+                             'last_logout_at' => date('Y-m-d H:i:s'),
+                             'updated_at' => date('Y-m-d H:i:s')
+                         ]);
+                break;
+                
+            case 'agency_staff':
+                $this->db->where_in('id', $ids)
+                         ->update('agency_staff', [
+                             'last_logout_at' => date('Y-m-d H:i:s'),
+                             'updated_at' => date('Y-m-d H:i:s')
+                         ]);
+                break;
+                
+            case 'candidate':
+                $this->db->where_in('id', $ids)
+                         ->update('candidates', [
+                             'last_logout_at' => date('Y-m-d H:i:s'),
+                             'updated_at' => date('Y-m-d H:i:s')
+                         ]);
+                break;
+        }
     }
     
     log_message('debug', 'Cleaned up ' . $deleted . ' old sessions');
@@ -244,22 +275,13 @@ public function ajax_update_logout_time()
 {
     $data = $this->session->login;
     
-    if (isset($data['recruiter'])) {
-        $recruiter_id = $data['recruiter']['id'];
-        
-        // Delete ALL sessions for this recruiter
-        $this->db->where('user_id', $recruiter_id)
-                 ->where('user_type', 'recruiter')
-                 ->delete('user_sessions');
-        
-        // Update last_logout_at for recruiter
-        $this->db->where('id', $recruiter_id)
-                 ->update('recruiters', [
-                     'last_logout_at' => date('Y-m-d H:i:s'),
-                     'updated_at' => date('Y-m-d H:i:s')
-                 ]);
-        
-        log_message('debug', 'Cleared sessions for recruiter: ' . $recruiter_id);
+    foreach ($data as $group => $user) {
+        if (isset($user['id'])) {
+            // Use the cleanup function
+            $this->cleanup_user_session($user['id'], $group);
+            
+            log_message('debug', 'AJAX cleared sessions for ' . $group . ': ' . $user['id']);
+        }
     }
     
     $this->output->set_content_type('application/json')->set_output(json_encode(['success' => true]));
@@ -271,6 +293,7 @@ public function logout($group = "")
     
     // Log the session ID for debugging
     log_message('debug', 'Logout called. Session ID: ' . $current_session_id);
+    log_message('debug', 'Logout group: ' . $group);
     
     // Allow both GET and POST requests for logout
     if ($this->input->server('REQUEST_METHOD') === 'POST') {
@@ -289,53 +312,30 @@ public function logout($group = "")
     if (!empty($group)) {
         if (isset($data[$group])) {
             $user_id = $data[$group]['id'];
+            $user_name = isset($data[$group]['first_name']) ? 
+                        $data[$group]['first_name'] . ' ' . $data[$group]['last_name'] : 
+                        $data[$group]['name'];
             
-            Logger::log($data[$group]['first_name'].' '.$data[$group]['last_name'].' ('.$data[$group]['group'].') has logged out', $data[$group], $group, $user_id);
+            Logger::log($user_name . ' (' . $data[$group]['group'] . ') has logged out', $data[$group], $group, $user_id);
             
-            // ✅ CRITICAL FIX: Delete ALL sessions for this user
-            if ($group == 'recruiter' && $user_id) {
-                log_message('debug', 'Deleting sessions for recruiter ID: ' . $user_id);
-                
-                // Delete from user_sessions table
-                $deleted = $this->db->where('user_id', $user_id)
-                         ->where('user_type', 'recruiter')
-                         ->delete('user_sessions');
-                
-                log_message('debug', 'Deleted ' . $deleted . ' sessions from user_sessions table');
-                
-                // Also update recruiters table
-                $this->db->where('id', $user_id)
-                         ->update('recruiters', [
-                             'last_logout_at' => date('Y-m-d H:i:s'),
-                             'updated_at' => date('Y-m-d H:i:s')
-                         ]);
-            }
+            // ✅ Cleanup sessions for this user
+            $this->cleanup_user_session($user_id, $group);
             
             unset($data[$group]);
         }
     } else {
+        // Logout all groups
         foreach ($loginGroups as $g => $groupData) {
             if (isset($data[$g])) {
                 $user_id = $data[$g]['id'];
+                $user_name = isset($data[$g]['first_name']) ? 
+                            $data[$g]['first_name'] . ' ' . $data[$g]['last_name'] : 
+                            (isset($data[$g]['name']) ? $data[$g]['name'] : 'User');
                 
-                Logger::log($data[$g]['first_name'].' '.$data[$g]['last_name'].' ('.$data[$g]['group'].') has logged out', $data[$g], $g, $user_id);
+                Logger::log($user_name . ' (' . $data[$g]['group'] . ') has logged out', $data[$g], $g, $user_id);
                 
-                // ✅ CRITICAL FIX: Delete ALL sessions for this recruiter
-                if ($g == 'recruiter' && $user_id) {
-                    log_message('debug', 'Deleting sessions for recruiter ID: ' . $user_id);
-                    
-                    $deleted = $this->db->where('user_id', $user_id)
-                             ->where('user_type', 'recruiter')
-                             ->delete('user_sessions');
-                    
-                    log_message('debug', 'Deleted ' . $deleted . ' sessions from user_sessions table');
-                    
-                    $this->db->where('id', $user_id)
-                             ->update('recruiters', [
-                                 'last_logout_at' => date('Y-m-d H:i:s'),
-                                 'updated_at' => date('Y-m-d H:i:s')
-                             ]);
-                }
+                // ✅ Cleanup sessions for this user
+                $this->cleanup_user_session($user_id, $g);
                 
                 unset($data[$g]);
             }
@@ -353,8 +353,9 @@ public function logout($group = "")
         
         // ✅ Also delete the current session from user_sessions table
         if ($current_session_id) {
-            $this->db->where('session_id', $current_session_id)
+            $deleted_current = $this->db->where('session_id', $current_session_id)
                      ->delete('user_sessions');
+            log_message('debug', 'Deleted current session: ' . $current_session_id . ' - ' . $deleted_current . ' rows');
         }
         
         $this->session->sess_destroy();
@@ -1040,38 +1041,50 @@ private function update_or_create_session($session_data)
     }
     
     // Clean up old sessions for this user (keep only the latest 5)
-    $this->cleanup_user_sessions($session_data['user_id'], $session_data['user_type']);
+    $this->cleanup_user_session($session_data['user_id'], $session_data['user_type']);
 }
 
-    /**
-     * Clean up old sessions for a user
-     */
-    private function cleanup_user_sessions($user_id, $user_type)
-    {
-        // Get all sessions for this user, ordered by last_activity
-        $this->db->where('user_id', $user_id)
-                ->where('user_type', $user_type)
-                ->order_by('last_activity', 'DESC');
-        
-        $sessions = $this->db->get('user_sessions')->result();
-        
-        // If more than 5 sessions, delete the oldest ones
-        if (count($sessions) > 5) {
-            $sessions_to_delete = array_slice($sessions, 5);
-            
-            foreach ($sessions_to_delete as $session) {
-                $this->db->where('id', $session->id)
-                        ->delete('user_sessions');
-            }
-        }
-        
-        // Also delete sessions older than 1 day
-        $one_day_ago = date('Y-m-d H:i:s', strtotime('-1 day'));
-        $this->db->where('user_id', $user_id)
-                ->where('user_type', $user_type)
-                ->where('last_activity <', $one_day_ago)
-                ->delete('user_sessions');
+   // Add this function to the Login class
+private function cleanup_user_session($user_id, $user_type)
+{
+    if (!$user_id || !$user_type) {
+        return false;
     }
+    
+    // Delete from user_sessions table
+    $deleted = $this->db->where('user_id', $user_id)
+                        ->where('user_type', $user_type)
+                        ->delete('user_sessions');
+    
+    log_message('debug', 'Cleaned up ' . $deleted . ' sessions for ' . $user_type . ' ID: ' . $user_id);
+    
+    // Update based on user type - using ONLY fields that exist in your database
+    if ($user_type == 'recruiter') {
+        // For recruiters, update last_logout_at (this column exists in recruiters table)
+        $this->db->where('id', $user_id)
+                 ->update('recruiters', [
+                     'last_logout_at' => date('Y-m-d H:i:s'),
+                     'updated_at' => date('Y-m-d H:i:s')
+                 ]);
+    } 
+    elseif ($user_type == 'agency') {
+        // For agencies, only update updated_at (agencies table doesn't have last_logout_at)
+        $this->db->where('id', $user_id)
+                 ->update('agencies', [
+                     'updated_at' => date('Y-m-d H:i:s')
+                 ]);
+    } 
+    elseif ($user_type == 'agency_staff') {
+        // For agency_staff, only update updated_at (agency_staff table doesn't have last_logout_at)
+        $this->db->where('id', $user_id)
+                 ->update('agency_staff', [
+                     'updated_at' => date('Y-m-d H:i:s')
+                 ]);
+    }
+    // Add other user types as needed
+    
+    return $deleted;
+}
     
     private function do_login($email, $group) {
         //Reset filter data

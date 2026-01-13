@@ -32,17 +32,17 @@ function getValue(object|null $more_details, string $name): string
         <?php
         if (empty($row)) {
             ?>
-        <h2>Add Agency Staff Member</h2>
+        <h2>Add Internal Staff Member</h2>
         <p>
-            Here you can <span>manage agencystaff members</span> that have access to this system.<br />
+            Here you can <span>manage Internal staff members</span> that have access to this system.<br />
             Once added, an Email will be sent to them with instructions to setup a password.
         </p>
         <?php
         } else {
             ?>
-        <h2>Edit Agency Staff Member <span><?= $row->first_name . ' ' . $row->last_name; ?></span></h2>
+        <h2>Edit Internal Staff Member <span><?= $row->first_name . ' ' . $row->last_name; ?></span></h2>
         <p>
-            Here you can <span>edit agency staff members</span> that have access to this system.<br />
+            Here you can <span>edit internal staff members</span> that have access to this system.<br />
             Once you have made the necessary changes, save your progress.
         </p>
         <?php

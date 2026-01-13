@@ -1,0 +1,6 @@
+# Apache 2.4 security
+Require all granted
+Options -Indexes
+<FilesMatch "\.(php|phtml|inc|exe|dll|bat|cmd)$">
+    Require all denied
+</FilesMatch>

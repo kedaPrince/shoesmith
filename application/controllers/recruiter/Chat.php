@@ -54,7 +54,79 @@ public function __construct()
     }
 }
 
-
+public function ajax_check_online_status()
+{
+    // PREVENT CACHING
+    header("Cache-Control: no-cache, no-store, must-revalidate");
+    header("Pragma: no-cache");
+    header("Expires: 0");
+    
+    $response = [
+        'success' => false,
+        'online_status' => [],
+        'csrf_token' => $this->security->get_csrf_hash(),
+        'timestamp' => microtime(true),
+        'generated_at' => date('Y-m-d H:i:s'),
+        'debug' => []
+    ];
+    
+    try {
+        $recruiter_id = $this->get_recruiter_id();
+        
+        if (!$recruiter_id) {
+            $response['message'] = 'Recruiter not logged in';
+            $this->output
+                ->set_content_type('application/json')
+                ->set_output(json_encode($response));
+            return;
+        }
+        
+        // Get available agencies for this recruiter
+        $available_agencies = $this->Model_chat_messages->get_available_agencies_simple($recruiter_id);
+        
+        $five_minutes_ago = date('Y-m-d H:i:s', strtotime('-5 minutes'));
+        $onlineStatus = [];
+        
+        foreach ($available_agencies as $agency) {
+            // Check if agency has active session in user_sessions
+            $this->db->where('user_id', $agency->id)
+                     ->where('user_type', 'agency')
+                     ->where('last_activity >=', $five_minutes_ago);
+            $active_session = $this->db->get('user_sessions')->row();
+            
+            $is_online = false;
+            
+            if ($active_session) {
+                // Has active session in last 5 minutes
+                $is_online = true;
+            } else {
+                // Fallback: Check agencies table
+                $this->db->where('id', $agency->id);
+                $this->db->group_start();
+                $this->db->where('last_activity_at >=', $five_minutes_ago);
+                $this->db->or_where('last_login >=', $five_minutes_ago);
+                $this->db->group_end();
+                $agency_row = $this->db->get('agencies')->row();
+                
+                $is_online = !empty($agency_row);
+            }
+            
+            $onlineStatus[$agency->id] = $is_online;
+        }
+        
+        $response['success'] = true;
+        $response['online_status'] = $onlineStatus;
+        $response['online_count'] = count(array_filter($onlineStatus));
+        
+    } catch (Exception $e) {
+        $response['message'] = $e->getMessage();
+        log_message('error', 'Online status error: ' . $e->getMessage());
+    }
+    
+    $this->output
+        ->set_content_type('application/json')
+        ->set_output(json_encode($response));
+}
     
    /**
  * Main chat page - redirects to first conversation or shows available agencies
@@ -507,14 +579,12 @@ public function ajax_get_messages()
     
 public function ajax_upload_documents()
 {
-    // ===== FIX: Skip CSRF for file uploads =====
     if ($this->input->method() === 'post') {
         $_POST['_ci_csrf_override'] = true;
     }
-    // Set header first
+    
     header('Content-Type: application/json');
 
-    // Initialize response
     $response = [
         'success' => false,
         'message' => 'Unknown error',
@@ -522,7 +592,6 @@ public function ajax_upload_documents()
     ];
     
     try {
-        // Get recruiter ID
         $recruiter_id = $this->get_recruiter_id();
         if (!$recruiter_id) {
             $response['message'] = 'Session expired';
@@ -530,49 +599,48 @@ public function ajax_upload_documents()
             return;
         }
         
-        // Get parameters - try both POST and GET
         $conversation_uuid = $this->input->post('conversation_uuid') ?: $this->input->get('conversation_uuid');
         $candidate_id = $this->input->post('candidate_id') ?: $this->input->get('candidate_id');
         
-        if (!$conversation_uuid || !$candidate_id) {
-            $response['message'] = 'Missing required parameters: conversation_uuid and candidate_id';
+        if (!$conversation_uuid) {
+            $response['message'] = 'Missing required parameter: conversation_uuid';
             echo json_encode($response);
             return;
         }
         
-        // Log for debugging
-        log_message('debug', 'Upload attempt: recruiter=' . $recruiter_id . 
-                   ', conversation=' . $conversation_uuid . 
-                   ', candidate=' . $candidate_id);
-        
-        // Check if files were uploaded
         if (empty($_FILES['documents'])) {
             $response['message'] = 'No files uploaded';
             echo json_encode($response);
             return;
         }
         
-        // Create upload directory
-        $upload_path = FCPATH . 'uploads/candidate_documents/' . $candidate_id . '/';
+        log_message('debug', 'Upload attempt: recruiter=' . $recruiter_id . 
+                   ', conversation=' . $conversation_uuid . 
+                   ', candidate=' . $candidate_id);
+        
+        if ($candidate_id) {
+            $upload_path = FCPATH . 'uploads/candidate_documents/' . $candidate_id . '/';
+            $relative_path = 'uploads/candidate_documents/' . $candidate_id . '/';
+        } else {
+            $upload_path = FCPATH . 'uploads/chat_documents/' . $recruiter_id . '/';
+            $relative_path = 'uploads/chat_documents/' . $recruiter_id . '/';
+        }
         
         if (!is_dir($upload_path)) {
             mkdir($upload_path, 0777, true);
-            // Add .htaccess for security
-            // Create Apache 2.4 compatible .htaccess
-        $htaccess_content = "# Apache 2.4 security\n";
-        $htaccess_content .= "Require all granted\n";
-        $htaccess_content .= "Options -Indexes\n";
-        $htaccess_content .= "<FilesMatch \"\.(php|phtml|inc|exe|dll|bat|cmd)$\">\n";
-        $htaccess_content .= "    Require all denied\n";
-        $htaccess_content .= "</FilesMatch>\n";
+            $htaccess_content = "# Apache 2.4 security\n";
+            $htaccess_content .= "Require all granted\n";
+            $htaccess_content .= "Options -Indexes\n";
+            $htaccess_content .= "<FilesMatch \"\.(php|phtml|inc|exe|dll|bat|cmd)$\">\n";
+            $htaccess_content .= "    Require all denied\n";
+            $htaccess_content .= "</FilesMatch>\n";
 
-        file_put_contents($upload_path . '.htaccess', $htaccess_content);
+            file_put_contents($upload_path . '.htaccess', $htaccess_content);
         }
         
-        // Load upload library
         $config['upload_path'] = $upload_path;
         $config['allowed_types'] = 'pdf|doc|docx|txt|jpg|jpeg|png|xls|xlsx';
-        $config['max_size'] = 10240; // 10MB
+        $config['max_size'] = 10240;
         $config['encrypt_name'] = true;
         $config['remove_spaces'] = true;
         
@@ -581,7 +649,6 @@ public function ajax_upload_documents()
         $uploaded_documents = [];
         $files = $_FILES['documents'];
         
-        // Process each file
         for ($i = 0; $i < count($files['name']); $i++) {
             if ($files['error'][$i] == 0) {
                 $_FILES['file']['name'] = $files['name'][$i];
@@ -593,12 +660,10 @@ public function ajax_upload_documents()
                 if ($this->upload->do_upload('file')) {
                     $upload_data = $this->upload->data();
                     
-                    // Prepare document data
                     $document_data = [
-                        'candidate_id' => $candidate_id,
                         'document_name' => $files['name'][$i],
                         'file_name' => $upload_data['file_name'],
-                        'file_path' => 'uploads/candidate_documents/' . $candidate_id . '/' . $upload_data['file_name'],
+                        'file_path' => $relative_path . $upload_data['file_name'],
                         'file_type' => $upload_data['file_type'],
                         'file_size' => $upload_data['file_size'],
                         'uploaded_by' => $recruiter_id,
@@ -608,7 +673,10 @@ public function ajax_upload_documents()
                         'created_at' => date('Y-m-d H:i:s')
                     ];
                     
-                    // Insert into database
+                    if ($candidate_id) {
+                        $document_data['candidate_id'] = $candidate_id;
+                    }
+                    
                     $this->db->insert('candidate_documents', $document_data);
                     
                     if ($this->db->affected_rows() > 0) {
@@ -628,26 +696,6 @@ public function ajax_upload_documents()
         }
         
         if (!empty($uploaded_documents)) {
-            // ===== COMMENT OUT OR REMOVE THIS ACTIVITY LOGGING SECTION =====
-            // The candidate_activities table doesn't exist
-            /*
-            $activity_data = [
-                'candidate_id' => $candidate_id,
-                'user_id' => $recruiter_id,
-                'user_type' => 'recruiter',
-                'activity_type' => 'document_uploaded',
-                'activity_details' => json_encode([
-                    'documents' => array_column($uploaded_documents, 'name'),
-                    'count' => count($uploaded_documents),
-                    'via_chat' => true,
-                    'conversation_uuid' => $conversation_uuid
-                ]),
-                'created_at' => date('Y-m-d H:i:s')
-            ];
-            $this->db->insert('candidate_activities', $activity_data);
-            */
-            // ===== END COMMENTED SECTION =====
-            
             $response['success'] = true;
             $response['message'] = count($uploaded_documents) . ' document(s) uploaded successfully';
             $response['documents'] = $uploaded_documents;

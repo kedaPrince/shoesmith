@@ -9,8 +9,8 @@ class Agency_Staff extends CRUD_Controller
     public $view = '';
     public $model = 'Model_agency_staff';
     public $sorting = array('first_name' => 'ASC', 'last_name' => 'ASC');
-    public $singular = 'Agency Staff Member';
-    public $plural = 'Agency Staff Members';
+    public $singular = 'Internal Staff Member';
+    public $plural = 'Internal Staff Members';
     public $quickManage = true;
     public $identifierField = 'first_name';
     public $hideSubNav = true;
