@@ -15,95 +15,75 @@ class Dashboard extends CRUD_Controller {
     public $hideSubNav  = true;
 
     public function __construct() {
-    parent::__construct();
-    
-    // Log session data for debugging
-    log_message('debug', '=== DASHBOARD CONSTRUCTOR ===');
-    $login_data = $this->session->userdata('login');
-    log_message('debug', 'Session login data: ' . print_r($login_data, true));
-    log_message('debug', '=== DASHBOARD REQUEST ===');
-    log_message('debug', 'Request Method: ' . $this->input->server('REQUEST_METHOD'));
-    log_message('debug', 'Request URI: ' . $this->input->server('REQUEST_URI'));
-    log_message('debug', 'HTTP_REFERER: ' . $this->input->server('HTTP_REFERER'));
-    
-    // Check multiple ways agency might be logged in
-    $is_agency_logged_in = false;
-    
-    // Method 1: Check if 'agency' exists in login data
-    if (!empty($login_data['agency'])) {
-        $is_agency_logged_in = true;
-        log_message('debug', 'Agency user found via login[agency]');
-    } 
-    // Method 2: Check if 'agency_staff' exists (agency staff can also access dashboard)
-    elseif (!empty($login_data['agency_staff'])) {
-        $is_agency_logged_in = true;
-        log_message('debug', 'Agency staff found via login[agency_staff]');
-    }
-    // Method 3: Check is_logged_in flag
-    elseif ($this->session->userdata('is_logged_in')) {
-        // Check what type of user is logged in
-        if (!empty($login_data)) {
-            foreach ($login_data as $group => $user) {
-                if (in_array($group, ['agency', 'agency_staff'])) {
-                    $is_agency_logged_in = true;
-                    log_message('debug', 'Found agency/agency_staff via is_logged_in check');
-                    break;
+        parent::__construct();
+        
+        $login_data = $this->session->userdata('login');
+        
+        // Check multiple ways agency might be logged in
+        $is_agency_logged_in = false;
+        
+        // Method 1: Check if 'agency' exists in login data
+        if (!empty($login_data['agency'])) {
+            $is_agency_logged_in = true;
+        } 
+        // Method 2: Check if 'agency_staff' exists (agency staff can also access dashboard)
+        elseif (!empty($login_data['agency_staff'])) {
+            $is_agency_logged_in = true;
+        }
+        // Method 3: Check is_logged_in flag
+        elseif ($this->session->userdata('is_logged_in')) {
+            // Check what type of user is logged in
+            if (!empty($login_data)) {
+                foreach ($login_data as $group => $user) {
+                    if (in_array($group, ['agency', 'agency_staff'])) {
+                        $is_agency_logged_in = true;
+                        break;
+                    }
                 }
             }
         }
+        
+        if (!$is_agency_logged_in) {
+            redirect('agency/login');
+            exit();
+        }
+            
+        $this->load->model($this->folder.'/'.$this->model);
+        $this->load->model('agency/Model_notifications');
+        $this->zone = array(
+            'title' => lang('label_dashboard'),
+            'url'   => url('agency/'.$this->pageName)
+        );
     }
-    
-    if (!$is_agency_logged_in) {
-        log_message('debug', 'No valid agency session found - Redirecting to login');
-        redirect('agency/login');
-        exit();
-    }
-    
-    log_message('debug', 'Agency user authenticated, proceeding to dashboard');
-    
-    $this->load->model($this->folder.'/'.$this->model);
-    $this->load->model('agency/Model_notifications');
-    $this->zone = array(
-        'title' => lang('label_dashboard'),
-        'url'   => url('agency/'.$this->pageName)
-    );
-}
 
     public function index() {
-    log_message('debug', '===== ENTERED DASHBOARD index() =====');
+        $agency_id = $this->get_agency_id();
 
-    $agency_id = $this->get_agency_id();
-    log_message('debug', 'get_agency_id() in index() returned: ' . ($agency_id ?? 'NULL'));
+        // Safety net – should never happen after constructor, but protect anyway
+        if (!$agency_id) {
+            $this->session->set_flashdata('error', 'Session error - please login again');
+            redirect('agency/login');
+            exit();
+        }
 
-    // Safety net – should never happen after constructor, but protect anyway
-    if (!$agency_id) {
-        log_message('error', 'CRITICAL: agency_id became NULL in index() after passing constructor');
-        $this->session->set_flashdata('error', 'Session error - please login again');
-        redirect('agency/login');
-        exit();
+        try {
+            $data['stats']          = $this->get_agency_stats($agency_id);
+            $data['agency_name']    = $this->get_agency_name($agency_id);
+            $data['recent_activity']= $this->get_recent_activity($agency_id);
+            
+            $data['notifications']  = $this->Model_notifications->get_agency_notifications($agency_id, 5)->result();
+            $data['unread_count']   = $this->Model_notifications->get_unread_count($agency_id);
+            $data['agency_id']      = $agency_id;
+
+            $this->setup_breadcrumbs();
+            $this->load->view($this->folder.'/view_header', $data);
+            $this->load->view('agency/dashboard/view_dashboard_enhanced', $data);
+            $this->load->view($this->folder.'/view_footer');
+        }
+        catch (Exception $e) {
+            show_error('Dashboard error: ' . $e->getMessage(), 500);
+        }
     }
-
-    try {
-        $data['stats']          = $this->get_agency_stats($agency_id);
-        $data['agency_name']    = $this->get_agency_name($agency_id);
-        $data['recent_activity']= $this->get_recent_activity($agency_id);
-        
-        $data['notifications']  = $this->Model_notifications->get_agency_notifications($agency_id, 5)->result();
-        $data['unread_count']   = $this->Model_notifications->get_unread_count($agency_id);
-        $data['agency_id']      = $agency_id;
-
-        log_message('debug', 'All dashboard data loaded successfully');
-
-        $this->setup_breadcrumbs();
-        $this->load->view($this->folder.'/view_header', $data);
-        $this->load->view('agency/dashboard/view_dashboard_enhanced', $data);
-        $this->load->view($this->folder.'/view_footer');
-    }
-    catch (Exception $e) {
-        log_message('error', 'Dashboard rendering error: ' . $e->getMessage());
-        show_error('Dashboard error: ' . $e->getMessage(), 500);
-    }
-}
 
     /**
      * Get the logged-in agency's ID
@@ -357,28 +337,28 @@ class Dashboard extends CRUD_Controller {
     }
 
     // Advanced dashboard view
-  public function advanced() {
-    $agency_id = $this->get_agency_id();
-    
-    if (!$agency_id) {
-        redirect('agency/login');
+    public function advanced() {
+        $agency_id = $this->get_agency_id();
+        
+        if (!$agency_id) {
+            redirect('agency/login');
+        }
+        
+        // Get comprehensive stats
+        $data['stats'] = $this->get_advanced_agency_stats($agency_id);
+        $data['agency_name'] = $this->get_agency_name($agency_id);
+        $data['recent_activity'] = $this->get_recent_activity($agency_id);
+        $data['recent_submissions'] = $this->get_recent_submissions($agency_id);
+        $data['upcoming_tasks'] = $this->get_upcoming_tasks($agency_id);
+        $data['notifications'] = $this->Model_notifications->get_agency_notifications($agency_id, 10)->result();
+        $data['agency_id'] = $agency_id;
+        
+        $this->setup_breadcrumbs();
+        
+        $this->load->view($this->folder.'/view_header', $data);
+        $this->load->view('agency/dashboard/view_dashboard_advanced', $data); // FIXED: Removed leading slash
+        $this->load->view($this->folder.'/view_footer');
     }
-    
-    // Get comprehensive stats
-    $data['stats'] = $this->get_advanced_agency_stats($agency_id);
-    $data['agency_name'] = $this->get_agency_name($agency_id);
-    $data['recent_activity'] = $this->get_recent_activity($agency_id);
-    $data['recent_submissions'] = $this->get_recent_submissions($agency_id);
-    $data['upcoming_tasks'] = $this->get_upcoming_tasks($agency_id);
-    $data['notifications'] = $this->Model_notifications->get_agency_notifications($agency_id, 10)->result();
-    $data['agency_id'] = $agency_id;
-    
-    $this->setup_breadcrumbs();
-    
-    $this->load->view($this->folder.'/view_header', $data);
-    $this->load->view('agency/dashboard/view_dashboard_advanced', $data); // FIXED: Removed leading slash
-    $this->load->view($this->folder.'/view_footer');
-}
 
     private function get_advanced_agency_stats($agency_id) {
         $stats = new stdClass();
@@ -476,52 +456,52 @@ class Dashboard extends CRUD_Controller {
     }
 
     private function get_upcoming_tasks($agency_id) {
-    $tasks = [];
-    
-    // Documents pending review
-    $docs_tasks = $this->db
-        ->select('c.id as candidate_id, c.first_name, c.last_name, c.reference_number')
-        ->select("'documents_request' as type")
-        ->select("'Review submitted documents' as title")
-        ->select("'Candidate has submitted required documents for review' as description")
-        ->select("'high' as priority")
-        ->select('NULL as due_date', false) // Use false to prevent escaping
-        ->from('candidates c')
-        ->join('candidate_agencies ca', 'ca.candidate_id = c.id', 'inner')
-        ->join('candidate_onboarding_progress cop', 'cop.candidate_id = c.id', 'left')
-        ->where('ca.agency_id', $agency_id)
-        ->where('c.removed', 0)
-        ->where('cop.documents_required', 1)
-        ->where('cop.stage_documents_decision', 1)
-        ->where('c.status !=', 'rejected')
-        ->limit(3)
-        ->get()
-        ->result_array();
-    
-    $tasks = array_merge($tasks, $docs_tasks);
-    
-    // HM decisions pending
-    $hm_tasks = $this->db
-        ->select('c.id as candidate_id, c.first_name, c.last_name, c.reference_number')
-        ->select("'hm_decision' as type")
-        ->select("'Make HM decision' as title")
-        ->select("'Hiring Manager decision is pending for candidate' as description")
-        ->select("'medium' as priority")
-        ->select('NULL as due_date', false) // Use false to prevent escaping
-        ->from('candidates c')
-        ->join('candidate_agencies ca', 'ca.candidate_id = c.id', 'inner')
-        ->where('ca.agency_id', $agency_id)
-        ->where('c.removed', 0)
-        ->where('c.hm_decision', 'pending')
-        ->where('c.status IN ("reviewed", "shortlisted", "interviewed")')
-        ->limit(2)
-        ->get()
-        ->result_array();
-    
-    $tasks = array_merge($tasks, $hm_tasks);
-    
-    return $tasks;
-}
+        $tasks = [];
+        
+        // Documents pending review
+        $docs_tasks = $this->db
+            ->select('c.id as candidate_id, c.first_name, c.last_name, c.reference_number')
+            ->select("'documents_request' as type")
+            ->select("'Review submitted documents' as title")
+            ->select("'Candidate has submitted required documents for review' as description")
+            ->select("'high' as priority")
+            ->select('NULL as due_date', false) // Use false to prevent escaping
+            ->from('candidates c')
+            ->join('candidate_agencies ca', 'ca.candidate_id = c.id', 'inner')
+            ->join('candidate_onboarding_progress cop', 'cop.candidate_id = c.id', 'left')
+            ->where('ca.agency_id', $agency_id)
+            ->where('c.removed', 0)
+            ->where('cop.documents_required', 1)
+            ->where('cop.stage_documents_decision', 1)
+            ->where('c.status !=', 'rejected')
+            ->limit(3)
+            ->get()
+            ->result_array();
+        
+        $tasks = array_merge($tasks, $docs_tasks);
+        
+        // HM decisions pending
+        $hm_tasks = $this->db
+            ->select('c.id as candidate_id, c.first_name, c.last_name, c.reference_number')
+            ->select("'hm_decision' as type")
+            ->select("'Make HM decision' as title")
+            ->select("'Hiring Manager decision is pending for candidate' as description")
+            ->select("'medium' as priority")
+            ->select('NULL as due_date', false) // Use false to prevent escaping
+            ->from('candidates c')
+            ->join('candidate_agencies ca', 'ca.candidate_id = c.id', 'inner')
+            ->where('ca.agency_id', $agency_id)
+            ->where('c.removed', 0)
+            ->where('c.hm_decision', 'pending')
+            ->where('c.status IN ("reviewed", "shortlisted", "interviewed")')
+            ->limit(2)
+            ->get()
+            ->result_array();
+        
+        $tasks = array_merge($tasks, $hm_tasks);
+        
+        return $tasks;
+    }
 
     /**
      * Setup breadcrumbs for dashboard

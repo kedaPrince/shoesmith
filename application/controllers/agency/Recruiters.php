@@ -291,56 +291,55 @@ class Recruiters extends CRUD_Controller
         return true;
     }
 
-// In recruiter logout function
-public function logout()
-{
-    // Get recruiter ID before clearing session
-    $login_data = $this->session->userdata('login');
-    $recruiter_id = isset($login_data['recruiter']['id']) ? $login_data['recruiter']['id'] : 0;
-    
-    // ===== ONLY HERE: Remove from user_sessions table =====
-    if ($recruiter_id) {
-        $this->db->where('user_id', $recruiter_id)
-                 ->where('user_type', 'recruiter')
-                 ->delete('user_sessions');
+    // In recruiter logout function
+    public function logout()
+    {
+        // Get recruiter ID before clearing session
+        $login_data = $this->session->userdata('login');
+        $recruiter_id = isset($login_data['recruiter']['id']) ? $login_data['recruiter']['id'] : 0;
         
-        // Also set last_activity_at to old time
-        $this->db->where('id', $recruiter_id)
-                 ->update('recruiters', [
-                     'last_activity_at' => date('Y-m-d H:i:s', strtotime('-10 minutes'))
-                 ]);
-    }
-    
-    // Clear PHP session
-    $this->session->unset_userdata('login');
-    
-    // Redirect to login
-    redirect('recruiter/login');
-}
-
-public function update_activity()
-{
-    $login_data = $this->session->userdata('login');
-    $recruiter_id = isset($login_data['recruiter']['id']) ? $login_data['recruiter']['id'] : 0;
-    
-    if ($recruiter_id) {
-        // Update recruiter's last_activity_at
-        $this->db->where('id', $recruiter_id)
-                 ->update('recruiters', [
-                     'last_activity_at' => date('Y-m-d H:i:s')
-                 ]);
+        // ===== ONLY HERE: Remove from user_sessions table =====
+        if ($recruiter_id) {
+            $this->db->where('user_id', $recruiter_id)
+                    ->where('user_type', 'recruiter')
+                    ->delete('user_sessions');
+            
+            // Also set last_activity_at to old time
+            $this->db->where('id', $recruiter_id)
+                    ->update('recruiters', [
+                        'last_activity_at' => date('Y-m-d H:i:s', strtotime('-10 minutes'))
+                    ]);
+        }
         
-        // Update user_sessions
-        $session_id = session_id();
-        $this->db->where('session_id', $session_id)
-                 ->where('user_id', $recruiter_id)
-                 ->where('user_type', 'recruiter')
-                 ->update('user_sessions', [
-                     'last_activity' => date('Y-m-d H:i:s')
-                 ]);
+        // Clear PHP session
+        $this->session->unset_userdata('login');
+        
+        // Redirect to login
+        redirect('recruiter/login');
     }
-    
-    echo json_encode(['success' => true]);
-}
-}
 
+    public function update_activity()
+    {
+        $login_data = $this->session->userdata('login');
+        $recruiter_id = isset($login_data['recruiter']['id']) ? $login_data['recruiter']['id'] : 0;
+        
+        if ($recruiter_id) {
+            // Update recruiter's last_activity_at
+            $this->db->where('id', $recruiter_id)
+                    ->update('recruiters', [
+                        'last_activity_at' => date('Y-m-d H:i:s')
+                    ]);
+            
+            // Update user_sessions
+            $session_id = session_id();
+            $this->db->where('session_id', $session_id)
+                    ->where('user_id', $recruiter_id)
+                    ->where('user_type', 'recruiter')
+                    ->update('user_sessions', [
+                        'last_activity' => date('Y-m-d H:i:s')
+                    ]);
+        }
+        
+        echo json_encode(['success' => true]);
+    }
+}

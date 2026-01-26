@@ -10,125 +10,126 @@ class Chat extends CRUD_Controller
     public $group = 'Chat';
     
     public function __construct()
-{
-    // ===== START: CSRF FIX FOR AJAX REQUESTS =====
-    // Check if this is an AJAX request
-    $is_ajax = isset($_SERVER['HTTP_X_REQUESTED_WITH']) && 
-               strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest';
-    
-    // Also check for POST data with X-Requested-With header
-    if (!$is_ajax && isset($_POST['X-Requested-With'])) {
-        $is_ajax = true;
-    }
-    
-    // If it's an AJAX request, disable CodeIgniter's CSRF protection
-    if ($is_ajax) {
-        // Store original CSRF setting
-        $original_csrf = true; // Assume it's enabled
+    {
+        // ===== START: CSRF FIX FOR AJAX REQUESTS =====
+        // Check if this is an AJAX request
+        $is_ajax = isset($_SERVER['HTTP_X_REQUESTED_WITH']) && 
+                strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest';
         
-        // Check current config if we can
-        if (function_exists('config_item')) {
-            $original_csrf = config_item('csrf_protection');
+        // Also check for POST data with X-Requested-With header
+        if (!$is_ajax && isset($_POST['X-Requested-With'])) {
+            $is_ajax = true;
         }
         
-        // Disable CSRF BEFORE parent constructor
-        if (class_exists('CI_Controller')) {
-            // We need to access the config before parent::__construct()
-            // This is a bit hacky but works
-            $_POST['_ci_csrf_override'] = true; // CodeIgniter's internal flag to skip CSRF
+        // If it's an AJAX request, disable CodeIgniter's CSRF protection
+        if ($is_ajax) {
+            // Store original CSRF setting
+            $original_csrf = true; // Assume it's enabled
+            
+            // Check current config if we can
+            if (function_exists('config_item')) {
+                $original_csrf = config_item('csrf_protection');
+            }
+            
+            // Disable CSRF BEFORE parent constructor
+            if (class_exists('CI_Controller')) {
+
+                $_POST['_ci_csrf_override'] = true; 
+            }
         }
-    }
-    // ===== END: CSRF FIX =====
-    
-    // Now call parent constructor
-    parent::__construct();
-
-
-    
-    $this->folder = 'agency';
-    $this->load->model('agency/Model_chat_messages');
-    $this->load->model('agency/Model_notifications');
-    $this->load->helper('csrf');
-    
-     $login_data = $this->session->userdata('login');
-    if (empty($login_data['agency'])) {
-        redirect('agency/login');
-    }
-    
-    // ===== ADD THIS: Track agency session activity =====
-    $agency_id = $this->get_user_agency_id();
-    if ($agency_id) {
-        $this->update_agency_activity($agency_id);
-    }
-}
-
-// ===== ADD THIS METHOD to agency Chat.php =====
-private function update_agency_activity($agency_id)
-{
-    // Update or create user session for agency
-    $session_data = [
-        'user_id' => $agency_id,
-        'user_type' => 'agency',
-        'last_activity' => date('Y-m-d H:i:s'),
-        'created_at' => date('Y-m-d H:i:s')
-    ];
-    
-    // Check if session exists
-    $existing_session = $this->db->where('user_id', $agency_id)
-                                 ->where('user_type', 'agency')
-                                 ->get('user_sessions')
-                                 ->row();
-    
-    if ($existing_session) {
-        // Update existing session
-        $this->db->where('id', $existing_session->id)
-                 ->update('user_sessions', [
-                     'last_activity' => date('Y-m-d H:i:s')
-                 ]);
-    } else {
-        // Create new session
-        $this->db->insert('user_sessions', $session_data);
-    }
-    
-    // Also update agencies table for backup
-    $this->db->where('id', $agency_id)
-             ->update('agencies', [
-                 'last_activity_at' => date('Y-m-d H:i:s'),
-                 'updated_at' => date('Y-m-d H:i:s')
-             ]);
-}
-// This method should exist in agency Chat.php:
-public function ajax_get_chat_notifications()
-{
-    $agency_id = $this->get_user_agency_id();
-    
-    $response = [
-        'success' => false,
-        'unread_count' => 0,
-        'csrf_token' => $this->security->get_csrf_hash()
-    ];
-
-    try {
-        if (!$agency_id) {
-            $response['message'] = 'Not logged in';
-            $this->output->set_content_type('application/json')->set_output(json_encode($response));
-            return;
-        }
-
-        // Get unread count from chat messages
-        $unread_count = $this->Model_chat_messages->get_unread_count_for_agency($agency_id);
+        // ===== END: CSRF FIX =====
         
-        $response['unread_count'] = (int)$unread_count;
-        $response['success'] = true;
+        // Now call parent constructor
+        parent::__construct();
 
-    } catch (Exception $e) {
-        $response['message'] = 'Server error: ' . $e->getMessage();
+
+        
+        $this->folder = 'agency';
+        $this->load->model('agency/Model_chat_messages');
+        $this->load->model('agency/Model_notifications');
+        $this->load->helper('csrf');
+        
+        $login_data = $this->session->userdata('login');
+        if (empty($login_data['agency'])) {
+            redirect('agency/login');
+        }
+        
+        // ===== ADD THIS: Track agency session activity =====
+        $agency_id = $this->get_user_agency_id();
+        if ($agency_id) {
+            $this->update_agency_activity($agency_id);
+        }
     }
 
-    $this->output
-        ->set_content_type('application/json')
-        ->set_output(json_encode($response));
-}
+    // ===== ADD THIS METHOD to agency Chat.php =====
+    private function update_agency_activity($agency_id)
+    {
+        // Update or create user session for agency
+        $session_data = [
+            'user_id' => $agency_id,
+            'user_type' => 'agency',
+            'last_activity' => date('Y-m-d H:i:s'),
+            'created_at' => date('Y-m-d H:i:s')
+        ];
+        
+        // Check if session exists
+        $existing_session = $this->db->where('user_id', $agency_id)
+                                    ->where('user_type', 'agency')
+                                    ->get('user_sessions')
+                                    ->row();
+        
+        if ($existing_session) {
+            // Update existing session
+            $this->db->where('id', $existing_session->id)
+                    ->update('user_sessions', [
+                        'last_activity' => date('Y-m-d H:i:s')
+                    ]);
+        } else {
+            // Create new session
+            $this->db->insert('user_sessions', $session_data);
+        }
+        
+        // Also update agencies table for backup
+        $this->db->where('id', $agency_id)
+                ->update('agencies', [
+                    'last_activity_at' => date('Y-m-d H:i:s'),
+                    'updated_at' => date('Y-m-d H:i:s')
+                ]);
+    }
+
+    // This method should exist in agency Chat.php:
+    public function ajax_get_chat_notifications()
+    {
+        $agency_id = $this->get_user_agency_id();
+        
+        $response = [
+            'success' => false,
+            'unread_count' => 0,
+            'csrf_token' => $this->security->get_csrf_hash()
+        ];
+
+        try {
+            if (!$agency_id) {
+                $response['message'] = 'Not logged in';
+                $this->output->set_content_type('application/json')->set_output(json_encode($response));
+                return;
+            }
+
+            // Get unread count from chat messages
+            $unread_count = $this->Model_chat_messages->get_unread_count_for_agency($agency_id);
+            
+            $response['unread_count'] = (int)$unread_count;
+            $response['success'] = true;
+
+        } catch (Exception $e) {
+            $response['message'] = 'Server error: ' . $e->getMessage();
+        }
+
+        $this->output
+            ->set_content_type('application/json')
+            ->set_output(json_encode($response));
+    }
+
     private function set_security_headers() {
         if (!headers_sent()) {
             header('X-Frame-Options: DENY');
@@ -321,336 +322,330 @@ public function ajax_get_chat_notifications()
         }
     }
 
-public function ajax_send_message()
-{
-    // Always return CSRF token in response
-    $response = [
-        'success' => false,
-        'message' => '',
-        'csrf_token' => $this->security->get_csrf_hash() // Always include fresh token
-    ];
-    
-    // Check if it's POST (requires CSRF validation) or GET (bypass CSRF like Notifications)
-    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-        // For POST requests, validate CSRF
-        $csrf_name = $this->security->get_csrf_token_name();
-        $csrf_token = $this->input->post($csrf_name);
+    public function ajax_send_message()
+    {
+        // Always return CSRF token in response
+        $response = [
+            'success' => false,
+            'message' => '',
+            'csrf_token' => $this->security->get_csrf_hash() // Always include fresh token
+        ];
         
-        if (!$csrf_token || $csrf_token !== $this->security->get_csrf_hash()) {
-            $response['message'] = 'Security token expired. Please try again.';
-            $response['csrf_invalid'] = true;
-            $response['needs_retry'] = true;
+        // Check if it's POST (requires CSRF validation) or GET (bypass CSRF like Notifications)
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            // For POST requests, validate CSRF
+            $csrf_name = $this->security->get_csrf_token_name();
+            $csrf_token = $this->input->post($csrf_name);
             
+            if (!$csrf_token || $csrf_token !== $this->security->get_csrf_hash()) {
+                $response['message'] = 'Security token expired. Please try again.';
+                $response['csrf_invalid'] = true;
+                $response['needs_retry'] = true;
+                
+                $this->output
+                    ->set_content_type('application/json')
+                    ->set_output(json_encode($response));
+                return;
+            }
+        }
+        // For GET requests, skip CSRF validation (like Notifications controller does)
+        
+        $conversation_uuid = $this->input->get_post('conversation_uuid');
+        $message_text = $this->input->get_post('message');
+        $agency_id = $this->get_user_agency_id();
+        
+        if (!$agency_id) {
+            $response['message'] = 'Session expired. Please refresh the page.';
+            $response['session_expired'] = true;
             $this->output
                 ->set_content_type('application/json')
                 ->set_output(json_encode($response));
             return;
         }
-    }
-    // For GET requests, skip CSRF validation (like Notifications controller does)
-    
-    $conversation_uuid = $this->input->get_post('conversation_uuid');
-    $message_text = $this->input->get_post('message');
-    $agency_id = $this->get_user_agency_id();
-    
-    log_message('debug', 'CSRF Token validated successfully');
-    log_message('debug', 'Conversation UUID: ' . $conversation_uuid);
-    log_message('debug', 'Message length: ' . strlen($message_text));
-    
-    if (!$agency_id) {
-        $response['message'] = 'Session expired. Please refresh the page.';
-        $response['session_expired'] = true;
-        $this->output
-            ->set_content_type('application/json')
-            ->set_output(json_encode($response));
-        return;
-    }
-    
-    if (!$conversation_uuid || !$message_text) {
-        $response['message'] = 'Missing required parameters';
-        $this->output
-            ->set_content_type('application/json')
-            ->set_output(json_encode($response));
-        return;
-    }
-    
-    $conversation = $this->Model_chat_messages->get_conversation_for_agency_by_uuid(
-        $conversation_uuid, 
-        $agency_id
-    );
-    
-    if (!$conversation) {
-        log_message('error', 'Conversation not found. UUID: ' . $conversation_uuid . ', Agency ID: ' . $agency_id);
-        $response['message'] = 'Conversation not found or access denied';
-        $this->output
-            ->set_content_type('application/json')
-            ->set_output(json_encode($response));
-        return;
-    }
-    
-    $message_id = $this->Model_chat_messages->send_message(
-        $conversation->id,
-        'agency',
-        $agency_id,
-        $message_text,
-        'text',
-        null
-    );
-    
-    if ($message_id) {
-        $this->Model_chat_messages->create_chat_notification(
-            $conversation->id,
-            $conversation->recruiter_id,  // Send to recruiter
-            'recruiter',                  // Recruiter type
-            $message_text,                // Message content
-            $agency_id                    // Sender is agency
-        );
-        // ===== ADD THIS: Update sender's activity =====
-        // If agency sent message, update agency activity
-        $this->db->where('user_id', $agency_id)
-                 ->where('user_type', 'agency')
-                 ->update('user_sessions', [
-                     'last_activity' => date('Y-m-d H:i:s')
-                 ]);
         
-        // ===== ADD THIS: Also update conversation activity =====
-        if (isset($conversation) && $conversation->recruiter_id) {
-            // Update recruiter's activity since they received a message
-            $this->db->where('user_id', $conversation->recruiter_id)
+        if (!$conversation_uuid || !$message_text) {
+            $response['message'] = 'Missing required parameters';
+            $this->output
+                ->set_content_type('application/json')
+                ->set_output(json_encode($response));
+            return;
+        }
+        
+        $conversation = $this->Model_chat_messages->get_conversation_for_agency_by_uuid(
+            $conversation_uuid, 
+            $agency_id
+        );
+        
+        if (!$conversation) {
+            $response['message'] = 'Conversation not found or access denied';
+            $this->output
+                ->set_content_type('application/json')
+                ->set_output(json_encode($response));
+            return;
+        }
+        
+        $message_id = $this->Model_chat_messages->send_message(
+            $conversation->id,
+            'agency',
+            $agency_id,
+            $message_text,
+            'text',
+            null
+        );
+        
+        if ($message_id) {
+            $this->Model_chat_messages->create_chat_notification(
+                $conversation->id,
+                $conversation->recruiter_id,  // Send to recruiter
+                'recruiter',                  // Recruiter type
+                $message_text,                // Message content
+                $agency_id                    // Sender is agency
+            );
+            // ===== ADD THIS: Update sender's activity =====
+            // If agency sent message, update agency activity
+            $this->db->where('user_id', $agency_id)
+                    ->where('user_type', 'agency')
+                    ->update('user_sessions', [
+                        'last_activity' => date('Y-m-d H:i:s')
+                    ]);
+            
+            // ===== ADD THIS: Also update conversation activity =====
+            if (isset($conversation) && $conversation->recruiter_id) {
+                // Update recruiter's activity since they received a message
+                $this->db->where('user_id', $conversation->recruiter_id)
+                        ->where('user_type', 'recruiter')
+                        ->update('user_sessions', [
+                            'last_activity' => date('Y-m-d H:i:s')
+                        ]);
+            }
+            // =====================================================
+            
+            $response['success'] = true;
+            $response['message'] = 'Message sent successfully';
+            $response['message_id'] = $message_id;
+            $response['csrf_token'] = $this->security->get_csrf_hash();
+        } else {
+            $response['message'] = 'Failed to save message';
+        }
+        
+        $this->output
+            ->set_content_type('application/json')
+            ->set_output(json_encode($response));
+    }
+
+    // Add this to Chat.php or create separate recruiter chat controller
+    public function ajax_recruiter_send_message()
+    {
+        $recruiter_id = $this->session->userdata('login')['recruiter']['id'] ?? 0;
+        
+        if (!$recruiter_id) {
+            echo json_encode(['success' => false, 'message' => 'Not logged in']);
+            return;
+        }
+        
+        // ... get message data ...
+        
+        $message_id = $this->Model_chat_messages->send_message(
+            $conversation_id,
+            'recruiter',
+            $recruiter_id,
+            $message_text,
+            'text',
+            null
+        );
+        
+        if ($message_id) {
+            // ===== CRITICAL: Update recruiter's activity =====
+            $this->db->where('user_id', $recruiter_id)
                     ->where('user_type', 'recruiter')
                     ->update('user_sessions', [
                         'last_activity' => date('Y-m-d H:i:s')
                     ]);
+            
+            // Also update recruiters table
+            $this->db->where('id', $recruiter_id)
+                    ->update('recruiters', [
+                        'last_activity_at' => date('Y-m-d H:i:s')
+                    ]);
+            // ================================================
+            
+            echo json_encode(['success' => true, 'message_id' => $message_id]);
+        } else {
+            echo json_encode(['success' => false, 'message' => 'Failed to send']);
         }
-        // =====================================================
+    }
+
+    public function ajax_get_messages()
+    {
+        // Always return JSON with CSRF token
+        $response = [
+            'success' => false,
+            'message' => '',
+            'csrf_token' => $this->security->get_csrf_hash()
+        ];
+        
+        // Get parameters from either GET or POST
+        $conversation_uuid = $this->input->get_post('conversation_uuid');
+        $last_message_id = $this->input->get_post('last_message_id') ?: 0;
+        $agency_id = $this->get_user_agency_id();
+        
+        if (!$conversation_uuid) {
+            $response['message'] = 'Conversation UUID required';
+            $this->output
+                ->set_content_type('application/json')
+                ->set_output(json_encode($response));
+            return;
+        }
+        
+        $conversation = $this->Model_chat_messages->get_conversation_for_agency_by_uuid(
+            $conversation_uuid, 
+            $agency_id
+        );
+        
+        if (!$conversation) {
+            $response['message'] = 'Access denied';
+            $this->output
+                ->set_content_type('application/json')
+                ->set_output(json_encode($response));
+            return;
+        }
+        
+        $this->db->select('cm.*, 
+                        CASE 
+                            WHEN cm.sender_type = "agency" THEN a.name
+                            WHEN cm.sender_type = "recruiter" THEN CONCAT(r.first_name, " ", r.last_name)
+                        END as sender_name');
+        $this->db->from('chat_messages cm');
+        $this->db->join('agencies a', 'a.id = cm.sender_id AND cm.sender_type = "agency"', 'left');
+        $this->db->join('recruiters r', 'r.id = cm.sender_id AND cm.sender_type = "recruiter"', 'left');
+        $this->db->where('cm.conversation_id', $conversation->id);
+        
+        if ($last_message_id > 0) {
+            $this->db->where('cm.id >', $last_message_id);
+        }
+        
+        $this->db->where('cm.enabled', 1);
+        $this->db->where('cm.removed', 0);
+        $this->db->order_by('cm.created_at', 'ASC');
+        
+        $query = $this->db->get();
+        $messages = $query->result();
+                
+        $latest_message_id = $last_message_id;
+        if (!empty($messages)) {
+            $last_message = end($messages);
+            $latest_message_id = $last_message->id;
+        }
         
         $response['success'] = true;
-        $response['message'] = 'Message sent successfully';
-        $response['message_id'] = $message_id;
-        $response['csrf_token'] = $this->security->get_csrf_hash();
-    } else {
-        $response['message'] = 'Failed to save message';
-    }
-    
-    $this->output
-        ->set_content_type('application/json')
-        ->set_output(json_encode($response));
-}
-// Add this to Chat.php or create separate recruiter chat controller
-public function ajax_recruiter_send_message()
-{
-    $recruiter_id = $this->session->userdata('login')['recruiter']['id'] ?? 0;
-    
-    if (!$recruiter_id) {
-        echo json_encode(['success' => false, 'message' => 'Not logged in']);
-        return;
-    }
-    
-    // ... get message data ...
-    
-    $message_id = $this->Model_chat_messages->send_message(
-        $conversation_id,
-        'recruiter',
-        $recruiter_id,
-        $message_text,
-        'text',
-        null
-    );
-    
-    if ($message_id) {
-        // ===== CRITICAL: Update recruiter's activity =====
-        $this->db->where('user_id', $recruiter_id)
-                 ->where('user_type', 'recruiter')
-                 ->update('user_sessions', [
-                     'last_activity' => date('Y-m-d H:i:s')
-                 ]);
+        $response['messages'] = $messages;
+        $response['last_message_id'] = $latest_message_id;
+        $response['has_new_messages'] = !empty($messages);
         
-        // Also update recruiters table
-        $this->db->where('id', $recruiter_id)
-                 ->update('recruiters', [
-                     'last_activity_at' => date('Y-m-d H:i:s')
-                 ]);
-        // ================================================
-        
-        echo json_encode(['success' => true, 'message_id' => $message_id]);
-    } else {
-        echo json_encode(['success' => false, 'message' => 'Failed to send']);
-    }
-}
-public function ajax_get_messages()
-{
-    // Always return JSON with CSRF token
-    $response = [
-        'success' => false,
-        'message' => '',
-        'csrf_token' => $this->security->get_csrf_hash()
-    ];
-    
-    // Get parameters from either GET or POST
-    $conversation_uuid = $this->input->get_post('conversation_uuid');
-    $last_message_id = $this->input->get_post('last_message_id') ?: 0;
-    $agency_id = $this->get_user_agency_id();
-    
-    if (!$conversation_uuid) {
-        $response['message'] = 'Conversation UUID required';
         $this->output
             ->set_content_type('application/json')
             ->set_output(json_encode($response));
-        return;
-    }
-    
-    $conversation = $this->Model_chat_messages->get_conversation_for_agency_by_uuid(
-        $conversation_uuid, 
-        $agency_id
-    );
-    
-    if (!$conversation) {
-        $response['message'] = 'Access denied';
-        $this->output
-            ->set_content_type('application/json')
-            ->set_output(json_encode($response));
-        return;
-    }
-    
-    $this->db->select('cm.*, 
-                      CASE 
-                          WHEN cm.sender_type = "agency" THEN a.name
-                          WHEN cm.sender_type = "recruiter" THEN CONCAT(r.first_name, " ", r.last_name)
-                      END as sender_name');
-    $this->db->from('chat_messages cm');
-    $this->db->join('agencies a', 'a.id = cm.sender_id AND cm.sender_type = "agency"', 'left');
-    $this->db->join('recruiters r', 'r.id = cm.sender_id AND cm.sender_type = "recruiter"', 'left');
-    $this->db->where('cm.conversation_id', $conversation->id);
-    
-    if ($last_message_id > 0) {
-        $this->db->where('cm.id >', $last_message_id);
-    }
-    
-    $this->db->where('cm.enabled', 1);
-    $this->db->where('cm.removed', 0);
-    $this->db->order_by('cm.created_at', 'ASC');
-    
-    $query = $this->db->get();
-    $messages = $query->result();
-    
-    log_message('debug', 'Found ' . count($messages) . ' new messages');
-    
-    $latest_message_id = $last_message_id;
-    if (!empty($messages)) {
-        $last_message = end($messages);
-        $latest_message_id = $last_message->id;
-    }
-    
-    $response['success'] = true;
-    $response['messages'] = $messages;
-    $response['last_message_id'] = $latest_message_id;
-    $response['has_new_messages'] = !empty($messages);
-    
-    $this->output
-        ->set_content_type('application/json')
-        ->set_output(json_encode($response));
-}
-
-public function ajax_get_conversations()
-{
-    // Check CSRF first
-    if (!$this->validate_csrf_with_buffer()) {
-        log_message('error', 'CSRF validation failed in ajax_get_conversations');
-        
-        // Return JSON response
-        $this->output
-            ->set_content_type('application/json')
-            ->set_output(json_encode([
-                'success' => false,
-                'message' => 'Security token expired. Please refresh.',
-                'csrf_invalid' => true,
-                'needs_retry' => true,
-                'csrf_token' => $this->security->get_csrf_hash() // Always return fresh token
-            ]));
-        return;
-    }
-        
-    $agency_id = $this->get_user_agency_id();
-    
-    if (!$agency_id) {
-        $this->ajax_response([
-            'message' => 'Agency not logged in'
-        ], false);
-        return;
     }
 
-    try {
-        $conversations = $this->Model_chat_messages->get_agency_conversations($agency_id);
-        $total_unread_count = 0;
-        
-        $formatted_conversations = [];
-        foreach ($conversations as $conv) {
-            $formatted_conversations[] = [
-                'id' => $conv->id,
-                'uuid' => $conv->uuid,
-                'recruiter_name' => $conv->recruiter_name,
-                'last_message' => $conv->last_message,
-                'last_message_at' => $conv->last_message_at,
-                'last_sender_type' => isset($conv->last_sender_type) ? $conv->last_sender_type : 'recruiter',
-                'unread_count' => isset($conv->unread_count) ? $conv->unread_count : 0,
-                'is_online' => isset($conv->is_online) ? $conv->is_online : false,
-                'recruiter_id' => isset($conv->recruiter_id) ? $conv->recruiter_id : 0
-            ];
+    public function ajax_get_conversations()
+    {
+        // Check CSRF first
+        if (!$this->validate_csrf_with_buffer()) {            
+            // Return JSON response
+            $this->output
+                ->set_content_type('application/json')
+                ->set_output(json_encode([
+                    'success' => false,
+                    'message' => 'Security token expired. Please refresh.',
+                    'csrf_invalid' => true,
+                    'needs_retry' => true,
+                    'csrf_token' => $this->security->get_csrf_hash() // Always return fresh token
+                ]));
+            return;
+        }
             
-            $total_unread_count += isset($conv->unread_count) ? $conv->unread_count : 0;
+        $agency_id = $this->get_user_agency_id();
+        
+        if (!$agency_id) {
+            $this->ajax_response([
+                'message' => 'Agency not logged in'
+            ], false);
+            return;
         }
 
-        $this->ajax_response([
-            'conversations' => $formatted_conversations,
-            'total_unread_count' => $total_unread_count
-        ], true);
+        try {
+            $conversations = $this->Model_chat_messages->get_agency_conversations($agency_id);
+            $total_unread_count = 0;
+            
+            $formatted_conversations = [];
+            foreach ($conversations as $conv) {
+                $formatted_conversations[] = [
+                    'id' => $conv->id,
+                    'uuid' => $conv->uuid,
+                    'recruiter_name' => $conv->recruiter_name,
+                    'last_message' => $conv->last_message,
+                    'last_message_at' => $conv->last_message_at,
+                    'last_sender_type' => isset($conv->last_sender_type) ? $conv->last_sender_type : 'recruiter',
+                    'unread_count' => isset($conv->unread_count) ? $conv->unread_count : 0,
+                    'is_online' => isset($conv->is_online) ? $conv->is_online : false,
+                    'recruiter_id' => isset($conv->recruiter_id) ? $conv->recruiter_id : 0
+                ];
+                
+                $total_unread_count += isset($conv->unread_count) ? $conv->unread_count : 0;
+            }
 
-    } catch (Exception $e) {
-        log_message('error', 'Error fetching conversations: ' . $e->getMessage());
-        $this->ajax_response([
-            'message' => 'Server error'
-        ], false);
+            $this->ajax_response([
+                'conversations' => $formatted_conversations,
+                'total_unread_count' => $total_unread_count
+            ], true);
+
+        } catch (Exception $e) {
+            $this->ajax_response([
+                'message' => 'Server error'
+            ], false);
+        }
     }
-}
-protected function validate_csrf_with_buffer()
-{
-    return csrf_safe_validate($this, 10); // 10 second buffer
-}
-    
-protected function ajax_response($data = [], $success = true)
-{
-    $csrf_data = get_csrf_response_data($this);
-    $response = array_merge($data, $csrf_data);
-    $response['success'] = $success;
-    
-    $this->output
-        ->set_content_type('application/json')
-        ->set_output(json_encode($response));
-}
 
-public function ajax_check_session()
-{
-    $agency_id = $this->get_user_agency_id();
+    protected function validate_csrf_with_buffer()
+    {
+        return csrf_safe_validate($this, 10); // 10 second buffer
+    }
     
-    if (!$agency_id) {
+    protected function ajax_response($data = [], $success = true)
+    {
+        $csrf_data = get_csrf_response_data($this);
+        $response = array_merge($data, $csrf_data);
+        $response['success'] = $success;
+        
+        $this->output
+            ->set_content_type('application/json')
+            ->set_output(json_encode($response));
+    }
+
+    public function ajax_check_session()
+    {
+        $agency_id = $this->get_user_agency_id();
+        
+        if (!$agency_id) {
+            $this->output
+                ->set_content_type('application/json')
+                ->set_output(json_encode([
+                    'success' => false,
+                    'message' => 'Not logged in',
+                    'csrf_token' => $this->security->get_csrf_hash()
+                ]));
+            return;
+        }
+        
         $this->output
             ->set_content_type('application/json')
             ->set_output(json_encode([
-                'success' => false,
-                'message' => 'Not logged in',
+                'success' => true,
+                'message' => 'Session valid',
                 'csrf_token' => $this->security->get_csrf_hash()
             ]));
-        return;
     }
-    
-    $this->output
-        ->set_content_type('application/json')
-        ->set_output(json_encode([
-            'success' => true,
-            'message' => 'Session valid',
-            'csrf_token' => $this->security->get_csrf_hash()
-        ]));
-}
+
     private function get_user_agency_id()
     {
         $login = $this->session->userdata('login');
@@ -672,7 +667,7 @@ public function ajax_check_session()
         return null;
     }
 
-        public function cleanup_old_sessions()
+    public function cleanup_old_sessions()
     {
         // Delete sessions older than 1 day
         $one_day_ago = date('Y-m-d H:i:s', strtotime('-1 day'));
@@ -682,79 +677,79 @@ public function ajax_check_session()
         echo "Cleaned up old sessions";
     }
 
-public function ajax_check_online_status()
-{
-    // PREVENT CACHING
-    header("Cache-Control: no-cache, no-store, must-revalidate");
-    header("Pragma: no-cache");
-    header("Expires: 0");
-    
-    $response = [
-        'success' => true,
-        'online_status' => [],
-        'csrf_token' => $this->security->get_csrf_hash(),
-        'timestamp' => microtime(true),
-        'generated_at' => date('Y-m-d H:i:s')
-    ];
-    
-    try {
-        $agency_id = $this->get_user_agency_id();
+    public function ajax_check_online_status()
+    {
+        // PREVENT CACHING
+        header("Cache-Control: no-cache, no-store, must-revalidate");
+        header("Pragma: no-cache");
+        header("Expires: 0");
         
-        if (!$agency_id) {
-            throw new Exception('Not logged in');
-        }
-        
-        // FIRST: Clean up expired sessions (older than 10 minutes)
-        $ten_minutes_ago = date('Y-m-d H:i:s', strtotime('-10 minutes'));
-        $this->db->where('last_activity <', $ten_minutes_ago)
-                 ->delete('user_sessions');
-        
-        // GET ALL RECRUITERS FOR THIS AGENCY
-        $recruiters = $this->Model_chat_messages->get_available_recruiters($agency_id);
-        
-        $onlineStatus = [];
-        
-        foreach ($recruiters as $recruiter) {
-            // Check if there's an active session within last 10 minutes
-            $this->db->select('id, last_activity');
-            $this->db->from('user_sessions');
-            $this->db->where('user_id', $recruiter->id);
-            $this->db->where('user_type', 'recruiter');
-            $this->db->where('last_activity >=', $ten_minutes_ago);
-            $this->db->limit(1);
-            
-            $session_exists = $this->db->get()->row() !== null;
-            
-            $onlineStatus[$recruiter->id] = $session_exists;
-            
-            // Also update the recruiter's last_activity_at in recruiters table
-            if ($session_exists) {
-                $this->db->where('id', $recruiter->id)
-                         ->update('recruiters', [
-                             'last_activity_at' => date('Y-m-d H:i:s'),
-                             'updated_at' => date('Y-m-d H:i:s')
-                         ]);
-            }
-        }
-        
-        $response['online_status'] = $onlineStatus;
-        $response['debug_info'] = [
-            'current_time' => date('Y-m-d H:i:s'),
-            'threshold' => $ten_minutes_ago,
-            'total_recruiters' => count($recruiters),
-            'online_count' => array_sum($onlineStatus),
-            'note' => '10-minute threshold, sessions auto-cleaned'
+        $response = [
+            'success' => true,
+            'online_status' => [],
+            'csrf_token' => $this->security->get_csrf_hash(),
+            'timestamp' => microtime(true),
+            'generated_at' => date('Y-m-d H:i:s')
         ];
         
-    } catch (Exception $e) {
-        $response['success'] = false;
-        $response['message'] = $e->getMessage();
+        try {
+            $agency_id = $this->get_user_agency_id();
+            
+            if (!$agency_id) {
+                throw new Exception('Not logged in');
+            }
+            
+            // FIRST: Clean up expired sessions (older than 10 minutes)
+            $ten_minutes_ago = date('Y-m-d H:i:s', strtotime('-10 minutes'));
+            $this->db->where('last_activity <', $ten_minutes_ago)
+                    ->delete('user_sessions');
+            
+            // GET ALL RECRUITERS FOR THIS AGENCY
+            $recruiters = $this->Model_chat_messages->get_available_recruiters($agency_id);
+            
+            $onlineStatus = [];
+            
+            foreach ($recruiters as $recruiter) {
+                // Check if there's an active session within last 10 minutes
+                $this->db->select('id, last_activity');
+                $this->db->from('user_sessions');
+                $this->db->where('user_id', $recruiter->id);
+                $this->db->where('user_type', 'recruiter');
+                $this->db->where('last_activity >=', $ten_minutes_ago);
+                $this->db->limit(1);
+                
+                $session_exists = $this->db->get()->row() !== null;
+                
+                $onlineStatus[$recruiter->id] = $session_exists;
+                
+                // Also update the recruiter's last_activity_at in recruiters table
+                if ($session_exists) {
+                    $this->db->where('id', $recruiter->id)
+                            ->update('recruiters', [
+                                'last_activity_at' => date('Y-m-d H:i:s'),
+                                'updated_at' => date('Y-m-d H:i:s')
+                            ]);
+                }
+            }
+            
+            $response['online_status'] = $onlineStatus;
+            $response['debug_info'] = [
+                'current_time' => date('Y-m-d H:i:s'),
+                'threshold' => $ten_minutes_ago,
+                'total_recruiters' => count($recruiters),
+                'online_count' => array_sum($onlineStatus),
+                'note' => '10-minute threshold, sessions auto-cleaned'
+            ];
+            
+        } catch (Exception $e) {
+            $response['success'] = false;
+            $response['message'] = $e->getMessage();
+        }
+        
+        $this->output
+            ->set_content_type('application/json')
+            ->set_output(json_encode($response));
     }
-    
-    $this->output
-        ->set_content_type('application/json')
-        ->set_output(json_encode($response));
-}
 
 
 }

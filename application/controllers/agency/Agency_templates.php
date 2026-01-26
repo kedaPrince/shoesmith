@@ -82,85 +82,73 @@ class Agency_templates extends CRUD_Controller
         $this->load->view($this->folder . '/view_footer');
     }
 
-public function save_custom_template() 
-{
-       // ============ FIX: Manually parse input for AJAX/fetch requests ============
-    // Check if we need to parse the raw input
-    if (empty($_POST) && !empty($this->input->raw_input_stream)) {
-        parse_str($this->input->raw_input_stream, $_POST);
-        
-        // Also update CodeIgniter's input cache
-        $this->input->_post_args = $_POST;
-        $this->input->post = $_POST;
-    }
-    // ============ END FIX ============
-    
-    // ============ DEBUG CSRF ============
-    log_message('error', '=== DEBUG: save_custom_template() called ===');
-    
-    $csrf_name = $this->security->get_csrf_token_name();
-    $csrf_hash = $this->security->get_csrf_hash();
-    $csrf_token = $this->input->post($csrf_name);
-    
-    log_message('error', 'CSRF token name from config: ' . $csrf_name);
-    log_message('error', 'CSRF hash expected: ' . $csrf_hash);
-    log_message('error', 'CSRF token from POST: ' . ($csrf_token ?: 'EMPTY'));
-    log_message('error', 'All POST data after fix: ' . print_r($this->input->post(), true));
-    
-    log_message('error', '=== CSRF PASSED ===');
-    
-    try {
-        $agency_id = $this->input->post('agency_id');
-        $template_id = $this->input->post('template_id');
-        $template_name = $this->input->post('template_name');
-        $description = $this->input->post('description');
-        $sections_json = $this->input->post('sections');
-        $is_new = empty($template_id);
-
-        // Process sections
-        $sections = [];
-        if (!empty($sections_json)) {
-            $sections = json_decode($sections_json, true);
-            if (!is_array($sections)) {
-                $sections = [];
-            }
-        }
-
-        if ($is_new) {
-            // Save NEW template
-            $template_id = $this->{$this->model}->save_agency_template(
-                $agency_id, 
-                $template_name, 
-                $description, 
-                $sections
-            );
-            $message = 'New template created successfully!';
-        } else {
-            // Update EXISTING template
-            $template_id = $this->{$this->model}->update_agency_template(
-                $template_id,
-                $template_name, 
-                $description, 
-                $sections
-            );
-            $message = 'Template updated successfully!';
-        }
-
-        if ($template_id) {
-            $this->session->set_flashdata('success', $message);
-            redirect('agency/templates'); // Redirect to templates listing
-        } else {
-            throw new Exception('Failed to save template');
-        }
+    public function save_custom_template() 
+    {
+        // ============ FIX: Manually parse input for AJAX/fetch requests ============
+        // Check if we need to parse the raw input
+        if (empty($_POST) && !empty($this->input->raw_input_stream)) {
+            parse_str($this->input->raw_input_stream, $_POST);
             
-    } catch (Exception $e) {
-        log_message('error', '=== EXCEPTION CAUGHT ===');
-        log_message('error', 'Exception: ' . $e->getMessage());
+            // Also update CodeIgniter's input cache
+            $this->input->_post_args = $_POST;
+            $this->input->post = $_POST;
+        }
+        // ============ END FIX ============
         
-        $this->session->set_flashdata('error', 'Error saving template: ' . $e->getMessage());
-        redirect('agency/agency_templates/build/' . ($agency_id ?? 1));
+        $csrf_name = $this->security->get_csrf_token_name();
+        $csrf_hash = $this->security->get_csrf_hash();
+        $csrf_token = $this->input->post($csrf_name);
+        
+        try {
+            $agency_id = $this->input->post('agency_id');
+            $template_id = $this->input->post('template_id');
+            $template_name = $this->input->post('template_name');
+            $description = $this->input->post('description');
+            $sections_json = $this->input->post('sections');
+            $is_new = empty($template_id);
+
+            // Process sections
+            $sections = [];
+            if (!empty($sections_json)) {
+                $sections = json_decode($sections_json, true);
+                if (!is_array($sections)) {
+                    $sections = [];
+                }
+            }
+
+            if ($is_new) {
+                // Save NEW template
+                $template_id = $this->{$this->model}->save_agency_template(
+                    $agency_id, 
+                    $template_name, 
+                    $description, 
+                    $sections
+                );
+                $message = 'New template created successfully!';
+            } else {
+                // Update EXISTING template
+                $template_id = $this->{$this->model}->update_agency_template(
+                    $template_id,
+                    $template_name, 
+                    $description, 
+                    $sections
+                );
+                $message = 'Template updated successfully!';
+            }
+
+            if ($template_id) {
+                $this->session->set_flashdata('success', $message);
+                redirect('agency/templates'); // Redirect to templates listing
+            } else {
+                throw new Exception('Failed to save template');
+            }
+                
+        } catch (Exception $e) {
+            
+            $this->session->set_flashdata('error', 'Error saving template: ' . $e->getMessage());
+            redirect('agency/agency_templates/build/' . ($agency_id ?? 1));
+        }
     }
-}
 
     public function select_template($agency_id, $template_id)
     {
@@ -393,92 +381,83 @@ public function save_custom_template()
     }
 
 
-
     public function reset_template($agency_id = 1)
     {
         // ============ ADDED CSRF PROTECTION ============
-    // Check if this is a POST request (should be)
-    if ($this->input->server('REQUEST_METHOD') === 'POST') {
-        $csrf_name = $this->security->get_csrf_token_name();
-        $csrf_token = $this->input->post($csrf_name);
-        
-        if (!$csrf_token || $csrf_token !== $this->security->get_csrf_hash()) {
-            show_error('Invalid security token', 400);
+        // Check if this is a POST request (should be)
+        if ($this->input->server('REQUEST_METHOD') === 'POST') {
+            $csrf_name = $this->security->get_csrf_token_name();
+            $csrf_token = $this->input->post($csrf_name);
+            
+            if (!$csrf_token || $csrf_token !== $this->security->get_csrf_hash()) {
+                show_error('Invalid security token', 400);
+                return;
+            }
+        } else {
+            // If GET request, show confirmation form with CSRF
+            $this->load->view($this->folder . '/view_header');
+            echo '<div class="container">';
+            echo '<h2>Reset Template</h2>';
+            echo '<p>Are you sure you want to reset the template for agency ' . $agency_id . '?</p>';
+            echo '<form method="POST" action="' . site_url('agency/agency_templates/reset_template/' . $agency_id) . '">';
+            echo '<input type="hidden" name="' . $this->security->get_csrf_token_name() . '" value="' . $this->security->get_csrf_hash() . '">';
+            echo '<button type="submit" class="btn btn-danger">Yes, Reset Template</button>';
+            echo ' <a href="' . site_url('agency/agency_templates/build/' . $agency_id) . '" class="btn btn-secondary">Cancel</a>';
+            echo '</form>';
+            echo '</div>';
+            $this->load->view($this->folder . '/view_footer');
             return;
         }
-    } else {
-        // If GET request, show confirmation form with CSRF
-        $this->load->view($this->folder . '/view_header');
-        echo '<div class="container">';
-        echo '<h2>Reset Template</h2>';
-        echo '<p>Are you sure you want to reset the template for agency ' . $agency_id . '?</p>';
-        echo '<form method="POST" action="' . site_url('agency/agency_templates/reset_template/' . $agency_id) . '">';
-        echo '<input type="hidden" name="' . $this->security->get_csrf_token_name() . '" value="' . $this->security->get_csrf_hash() . '">';
-        echo '<button type="submit" class="btn btn-danger">Yes, Reset Template</button>';
-        echo ' <a href="' . site_url('agency/agency_templates/build/' . $agency_id) . '" class="btn btn-secondary">Cancel</a>';
-        echo '</form>';
-        echo '</div>';
-        $this->load->view($this->folder . '/view_footer');
-        return;
-    }
-    // ============ END CSRF PROTECTION ============
-        $this->db->trans_start();
-        
-        // Delete template sections
-        $template = $this->{$this->model}->get_agency_template($agency_id);
-        if ($template) {
-            $this->db->delete('agency_template_sections', ['agency_template_id' => $template->id]);
-            $this->db->delete('agency_custom_templates', ['id' => $template->id]);
-        }
-        
-        $this->db->trans_complete();
-        
-        if ($this->db->trans_status()) {
-            echo "Template reset successfully for agency $agency_id";
-        } else {
-            echo "Error resetting template";
-        }
-        
-        // Redirect back to builder
-        redirect('agency/agency_templates/build/' . $agency_id);
+        // ============ END CSRF PROTECTION ============
+            $this->db->trans_start();
+            
+            // Delete template sections
+            $template = $this->{$this->model}->get_agency_template($agency_id);
+            if ($template) {
+                $this->db->delete('agency_template_sections', ['agency_template_id' => $template->id]);
+                $this->db->delete('agency_custom_templates', ['id' => $template->id]);
+            }
+            
+            $this->db->trans_complete();
+            
+            if ($this->db->trans_status()) {
+                echo "Template reset successfully for agency $agency_id";
+            } else {
+                echo "Error resetting template";
+            }
+            
+            // Redirect back to builder
+            redirect('agency/agency_templates/build/' . $agency_id);
     }
 
 
-public function debug_post() 
-{
-    // ============ SAME FIX ============
-    if (empty($_POST) && !empty($this->input->raw_input_stream)) {
-        parse_str($this->input->raw_input_stream, $_POST);
-        $this->input->_post_args = $_POST;
-        $this->input->post = $_POST;
+    public function debug_post() 
+    {
+        // ============ SAME FIX ============
+        if (empty($_POST) && !empty($this->input->raw_input_stream)) {
+            parse_str($this->input->raw_input_stream, $_POST);
+            $this->input->_post_args = $_POST;
+            $this->input->post = $_POST;
+        }
+        // ============ END FIX ============       
+        // Check CodeIgniter Input class
+        $csrf_name = $this->security->get_csrf_token_name();
+ 
+        
+        // Return JSON
+        $this->output->set_content_type('application/json');
+        $this->output->set_output(json_encode([
+            'post' => $_POST,
+            'raw_input' => file_get_contents('php://input'),
+            'csrf_name' => $csrf_name,
+            'csrf_value' => $_POST[$csrf_name] ?? null,
+            'ci_csrf_value' => $this->input->post($csrf_name),
+            'ci_all_post' => $this->input->post(),
+            'server' => [
+                'REQUEST_METHOD' => $_SERVER['REQUEST_METHOD'] ?? 'NOT SET',
+                'CONTENT_TYPE' => $_SERVER['CONTENT_TYPE'] ?? 'NOT SET'
+            ]
+        ]));
     }
-    // ============ END FIX ============
-    
-    log_message('error', '=== DEBUG POST RECEIVED ===');
-    
-    // Check ALL input methods
-    log_message('error', '$_POST data: ' . print_r($_POST, true));
-    log_message('error', 'php://input raw: ' . file_get_contents('php://input'));
-    
-    // Check CodeIgniter Input class
-    $csrf_name = $this->security->get_csrf_token_name();
-    log_message('error', 'CI Input->post(' . $csrf_name . '): ' . $this->input->post($csrf_name));
-    log_message('error', 'CI Input->post() all: ' . print_r($this->input->post(), true));
-    
-    // Return JSON
-    $this->output->set_content_type('application/json');
-    $this->output->set_output(json_encode([
-        'post' => $_POST,
-        'raw_input' => file_get_contents('php://input'),
-        'csrf_name' => $csrf_name,
-        'csrf_value' => $_POST[$csrf_name] ?? null,
-        'ci_csrf_value' => $this->input->post($csrf_name),
-        'ci_all_post' => $this->input->post(),
-        'server' => [
-            'REQUEST_METHOD' => $_SERVER['REQUEST_METHOD'] ?? 'NOT SET',
-            'CONTENT_TYPE' => $_SERVER['CONTENT_TYPE'] ?? 'NOT SET'
-        ]
-    ]));
-}
 
 }

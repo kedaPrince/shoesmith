@@ -16,206 +16,166 @@ class Agency_Staff extends CRUD_Controller
     public $hideSubNav = true;
     public $quickManageSize = 3;
 
-public function __construct()
-{
-    parent::__construct();
-    // After parent::__construct() but before any lang() calls
-log_message('debug', 'Testing lang() function...');
-try {
-    $test_lang = lang('label_first_name');
-    log_message('debug', 'lang() function works: ' . $test_lang);
-} catch (Exception $e) {
-    log_message('error', 'lang() function error: ' . $e->getMessage());
-}
-    
-    // ENABLE ERROR DISPLAY FOR DEBUGGING (remove in production)
-    error_reporting(E_ALL);
-    ini_set('display_errors', 1);
-    
-    // LOG ENTRY POINT
-    log_message('debug', '=== AGENCY_STAFF CONSTRUCTOR START ===');
-    log_message('debug', 'Request URI: ' . uri_string());
-    log_message('debug', 'Session ID: ' . session_id());
-    log_message('debug', 'Session status: ' . session_status());
-    
-    // Check session library
-    if (!isset($this->session)) {
-        log_message('error', 'Session library not loaded!');
-        $this->load->library('session');
-    }
-    
-    // Log session data
-    $session_data = $this->session->all_userdata();
-    log_message('debug', 'Session data: ' . print_r($session_data, true));
-    
-    // Log cookies
-    log_message('debug', 'Cookies: ' . print_r($_COOKIE, true));
-    
-    // Check access helper
-    log_message('debug', 'Loading profile_helper...');
-    if (!function_exists('getLoggedInUserTypeMenu')) {
-        $this->load->helper('profile_helper');
-        log_message('debug', 'profile_helper loaded');
-    }
-    
-    try {
-        $userType = getLoggedInUserTypeMenu();
-        log_message('debug', 'User type: ' . $userType);
-        
-        if (!in_array($userType, ['admin', 'agency'])) {
-            log_message('warning', 'User not authorized. Type: ' . $userType);
-            redir('dashboard');
-        }
-    } catch (Exception $e) {
-        log_message('error', 'Error in getLoggedInUserTypeMenu: ' . $e->getMessage());
-    }
-    
-    // Load model with logging
-    $model_name = $this->folder . '/' . $this->model;
-    log_message('debug', 'Loading model: ' . $model_name);
-    
-    try {
-        $this->load->model($model_name);
-        log_message('debug', 'Model loaded successfully');
-    } catch (Exception $e) {
-        log_message('error', 'Failed to load model: ' . $e->getMessage());
-        show_error('Model loading failed: ' . $e->getMessage());
-    }
-    
-    log_message('debug', 'Setting up listing...');
-    $this->setup_listing();
-    
-    log_message('debug', 'Setting up fields...');
-    $this->setup_fields();
-    
-    $this->zone = array(
-        'title' => lang($this->pageName . '_heading'),
-        'url' => redir($this->pageName, true),
-    );
-    
-    log_message('debug', '=== AGENCY_STAFF CONSTRUCTOR END ===');
-}
+    public function __construct()
+    {
+        parent::__construct();
 
-private function setup_listing(): void
-{
-    log_message('debug', '=== SETUP_LISTING START ===');
-    
-    // Get user's agency ID to filter options
-    $user_agency_id = $this->get_user_agency_id();
-    log_message('debug', 'User agency ID in setup_listing: ' . ($user_agency_id ?: 'NULL'));
-    
-    // Get agency options for the filter - filtered by user's agency
-    $agency_options = [];
-    log_message('debug', 'Querying agencies...');
-    
     try {
-        $agencies_query = $this->db->select('id, name')
-                                  ->where('enabled', 1)
-                                  ->where('removed', 0);
-        
-        if (!empty($user_agency_id)) {
-            $agencies_query->where('id', $user_agency_id);
-            log_message('debug', 'Filtering agencies by ID: ' . $user_agency_id);
-        }
-        
-        $agencies_query->order_by('name');
-        $agencies_result = $agencies_query->get('agencies');
-        log_message('debug', 'Agencies query executed. Rows: ' . $agencies_result->num_rows());
-        
-        if ($agencies_result->num_rows() > 0) {
-            $agency_options = $agencies_result->result_array();
-            log_message('debug', 'Agency options loaded: ' . count($agency_options));
-        } else {
-            log_message('warning', 'No agencies found for user agency ID: ' . $user_agency_id);
-        }
+        $test_lang = lang('label_first_name');
     } catch (Exception $e) {
-        log_message('error', 'Error querying agencies: ' . $e->getMessage());
-        log_message('error', 'Query: ' . $this->db->last_query());
+
+    }
+    
+        // Check session library
+        if (!isset($this->session)) {
+            $this->load->library('session');
+        }
+        
+        // Log session data
+        $session_data = $this->session->all_userdata();
+
+        if (!function_exists('getLoggedInUserTypeMenu')) {
+            $this->load->helper('profile_helper');
+        }
+        
+        try {
+            $userType = getLoggedInUserTypeMenu();
+            
+            if (!in_array($userType, ['admin', 'agency'])) {
+                redir('dashboard');
+            }
+        } catch (Exception $e) {
+        }
+        
+        // Load model with logging
+        $model_name = $this->folder . '/' . $this->model;
+        
+        try {
+            $this->load->model($model_name);
+        } catch (Exception $e) {
+            show_error('Model loading failed: ' . $e->getMessage());
+        }
+        
+        $this->setup_listing();
+        
+        $this->setup_fields();
+        
+        $this->zone = array(
+            'title' => lang($this->pageName . '_heading'),
+            'url' => redir($this->pageName, true),
+        );
+        
     }
 
-    $this->listFields = array(
-        'first_name' => array(
-            'label' => lang('label_first_name'),
-            'sort' => true,
-        ),
-        'last_name' => array(
-            'label' => lang('label_last_name'),
-            'sort' => true,
-        ),
-        'email' => array(
-            'label' => lang('label_email'),
-            'sort' => true,
-        ),
-        'agency_name' => array(
-            'label' => lang('label_agency'),
-            'sort' => true,
-            'field' => 'agencies.name'
-        ),
-        'job_role' => array(
-            'label' => lang('label_job_role'),
-            'sort' => true,
-        ),
-    );
-    
-    log_message('debug', 'List fields set');
-    
-    $this->listActions = array(
-        'edit' => array(
-            'label'     => lang('label_edit'),
-            'url'       => redir($this->pageName . '/edit/{id}', true),
-            'icon'      => 'fa-edit',
-            'class'     => 'edit-row',
-        ),
-        'enable' => array(
-            'label'    => lang('label_enable'),
-            'url'      => redir($this->pageName . '/enable/{id}', true),
-            'icon'     => 'fa-eye',
-            'class'    => 'enable-row btn-enable',
-            'function' => (function ($str, $row) {
-                return !$row->enabled ? $str : false; // Show only if disabled
-            }),
-        ),
-        'disable' => array(
-            'label'     => lang('label_disable'),
-            'url'       => redir($this->pageName . '/disable/{id}', true),
-            'icon'      => 'fa-eye-slash',
-            'class'     => 'disable-row btn-disable',
-            'function'  => (function ($str, $row) {
-                return $row->enabled ? $str : false; // Show only if enabled
-            }),
-        ),
-        'delete' => array(
-            'label'     => lang('label_delete'),
-            'url'       => redir($this->pageName . '/remove/{id}', true),
-            'icon'      => 'fa-trash-o',
-            'class'     => 'delete-row btn-delete',
-        ),
-    );
-    
-        log_message('debug', 'List actions set');
-      $this->filters = array(
-        'general' => array(
-            'label'     => lang('label_search'),
-            'type'      => 'autocomplete',
-            'field'     => array(
-                'CONCAT(agency_staff.first_name," ",agency_staff.last_name)', // ✓ CORRECT
-                'agency_staff.email',                                         // ✓ CORRECT
-                'agency_staff.job_role',                                      // ✓ CORRECT
+    private function setup_listing(): void
+    {
+        
+        // Get user's agency ID to filter options
+        $user_agency_id = $this->get_user_agency_id();
+        
+        // Get agency options for the filter - filtered by user's agency
+        $agency_options = [];
+        
+        try {
+            $agencies_query = $this->db->select('id, name')
+                                    ->where('enabled', 1)
+                                    ->where('removed', 0);
+            
+            if (!empty($user_agency_id)) {
+                $agencies_query->where('id', $user_agency_id);
+            }
+            
+            $agencies_query->order_by('name');
+            $agencies_result = $agencies_query->get('agencies');
+            
+            if ($agencies_result->num_rows() > 0) {
+                $agency_options = $agencies_result->result_array();
+            } else {
+            }
+        } catch (Exception $e) {
+
+        }
+
+        $this->listFields = array(
+            'first_name' => array(
+                'label' => lang('label_first_name'),
+                'sort' => true,
             ),
-        ),
-        // 'agency' => array(
-        //     'label'     => lang('label_agency'),
-        //     'type'      => 'dropdown',
-        //     'field'     => 'agency_staff.agency_id', // ✓ CORRECT
-        //     'options'   => $agency_options,
-        //     'id_field'  => 'id',
-        //     'name_field'=> 'name',
-        // ),
-    );
-    
-        log_message('debug', 'Filters set. Agency options count: ' . count($agency_options));
-        log_message('debug', '=== SETUP_LISTING END ===');
-    }
+            'last_name' => array(
+                'label' => lang('label_last_name'),
+                'sort' => true,
+            ),
+            'email' => array(
+                'label' => lang('label_email'),
+                'sort' => true,
+            ),
+            'agency_name' => array(
+                'label' => lang('label_agency'),
+                'sort' => true,
+                'field' => 'agencies.name'
+            ),
+            'job_role' => array(
+                'label' => lang('label_job_role'),
+                'sort' => true,
+            ),
+        );
+        
+
+        
+        $this->listActions = array(
+            'edit' => array(
+                'label'     => lang('label_edit'),
+                'url'       => redir($this->pageName . '/edit/{id}', true),
+                'icon'      => 'fa-edit',
+                'class'     => 'edit-row',
+            ),
+            'enable' => array(
+                'label'    => lang('label_enable'),
+                'url'      => redir($this->pageName . '/enable/{id}', true),
+                'icon'     => 'fa-eye',
+                'class'    => 'enable-row btn-enable',
+                'function' => (function ($str, $row) {
+                    return !$row->enabled ? $str : false; // Show only if disabled
+                }),
+            ),
+            'disable' => array(
+                'label'     => lang('label_disable'),
+                'url'       => redir($this->pageName . '/disable/{id}', true),
+                'icon'      => 'fa-eye-slash',
+                'class'     => 'disable-row btn-disable',
+                'function'  => (function ($str, $row) {
+                    return $row->enabled ? $str : false; // Show only if enabled
+                }),
+            ),
+            'delete' => array(
+                'label'     => lang('label_delete'),
+                'url'       => redir($this->pageName . '/remove/{id}', true),
+                'icon'      => 'fa-trash-o',
+                'class'     => 'delete-row btn-delete',
+            ),
+        );
+
+        $this->filters = array(
+            'general' => array(
+                'label'     => lang('label_search'),
+                'type'      => 'autocomplete',
+                'field'     => array(
+                    'CONCAT(agency_staff.first_name," ",agency_staff.last_name)', 
+                    'agency_staff.email',                                         
+                    'agency_staff.job_role',                                      
+                ),
+            ),
+            // 'agency' => array(
+            //     'label'     => lang('label_agency'),
+            //     'type'      => 'dropdown',
+            //     'field'     => 'agency_staff.agency_id', 
+            //     'options'   => $agency_options,
+            //     'id_field'  => 'id',
+            //     'name_field'=> 'name',
+            // ),
+        );
+
+        }
 
     public function setup_fields(): void
     {
@@ -281,25 +241,24 @@ private function setup_listing(): void
 
 
 
-public function index(): void
-{
-    // AGENCY FILTERING REMOVED - Model handles it
-    
-    $this->breadcrumbs = array(
-        array(
-            'title' => lang($this->pageName . '_heading'),
-            'url'   => redir($this->pageName, true)
-        ),
-    );
-    $this->view = 'listing';
+    public function index(): void
+    {
 
-    $this->load->view($this->folder . '/' . 'view_header');
-    $this->load->view('cms/crud/view_list', array(
-        'heading'           => lang($this->pageName . '_heading'),
-        'noRows'            => lang($this->pageName . '_no_rows'),
-    ));
-    $this->load->view($this->folder . '/' . 'view_footer');
-}
+        $this->breadcrumbs = array(
+            array(
+                'title' => lang($this->pageName . '_heading'),
+                'url'   => redir($this->pageName, true)
+            ),
+        );
+        $this->view = 'listing';
+
+        $this->load->view($this->folder . '/' . 'view_header');
+        $this->load->view('cms/crud/view_list', array(
+            'heading'           => lang($this->pageName . '_heading'),
+            'noRows'            => lang($this->pageName . '_no_rows'),
+        ));
+        $this->load->view($this->folder . '/' . 'view_footer');
+    }
 
 
 
@@ -323,51 +282,50 @@ public function index(): void
     }
 
    /**
- * Get default access groups for user type
- */
-private function get_default_access_groups_for_user_type($usr_type_id)
-{
-    $defaults = [
-        5 => [1],           // Agency Admin → Full Access
-        6 => [2],           // Agency Manager → Staff Management
-        7 => [3, 10],       // Agency Agent → Candidate + Onboarding
-        8 => [4],           // Agency Support → Basic Access
-    ];
-    
-    return isset($defaults[$usr_type_id]) ? $defaults[$usr_type_id] : [4]; // Default to basic access
-}
+     * Get default access groups for user type
+     */
+    private function get_default_access_groups_for_user_type($usr_type_id)
+    {
+        $defaults = [
+            5 => [1],           // Agency Admin → Full Access
+            6 => [2],           // Agency Manager → Staff Management
+            7 => [3, 10],       // Agency Agent → Candidate + Onboarding
+            8 => [4],           // Agency Support → Basic Access
+        ];
+        
+        return isset($defaults[$usr_type_id]) ? $defaults[$usr_type_id] : [4]; // Default to basic access
+    }
 
-/**
- * Assign access groups to new staff member
- */
-private function assign_access_groups_to_staff($staff_id, $usr_type_id, $selected_groups = [])
-{
-    // If groups were manually selected in form, use those
-    if (!empty($selected_groups) && is_array($selected_groups)) {
-        $groups_to_assign = $selected_groups;
-    } else {
-        // Otherwise use defaults based on user type
-        $groups_to_assign = $this->get_default_access_groups_for_user_type($usr_type_id);
-    }
-    
-    // Always add Full Access for Agency Admin (type 5)
-    if ($usr_type_id == 5 && !in_array(1, $groups_to_assign)) {
-        $groups_to_assign[] = 1;
-    }
-    
-    // Insert the groups
-    foreach ($groups_to_assign as $group_id) {
-        if ($group_id) { // Make sure it's not empty
-            $this->db->insert('pivot_agency_staff_access_groups', [
-                'agency_staff_id' => $staff_id,
-                'access_group_id' => $group_id
-            ]);
+    /**
+     * Assign access groups to new staff member
+     */
+    private function assign_access_groups_to_staff($staff_id, $usr_type_id, $selected_groups = [])
+    {
+        // If groups were manually selected in form, use those
+        if (!empty($selected_groups) && is_array($selected_groups)) {
+            $groups_to_assign = $selected_groups;
+        } else {
+            // Otherwise use defaults based on user type
+            $groups_to_assign = $this->get_default_access_groups_for_user_type($usr_type_id);
         }
+        
+        // Always add Full Access for Agency Admin (type 5)
+        if ($usr_type_id == 5 && !in_array(1, $groups_to_assign)) {
+            $groups_to_assign[] = 1;
+        }
+        
+        // Insert the groups
+        foreach ($groups_to_assign as $group_id) {
+            if ($group_id) { // Make sure it's not empty
+                $this->db->insert('pivot_agency_staff_access_groups', [
+                    'agency_staff_id' => $staff_id,
+                    'access_group_id' => $group_id
+                ]);
+            }
+        }
+        
+        return count($groups_to_assign);
     }
-    
-    log_message('debug', "Assigned access groups to staff $staff_id: " . implode(', ', $groups_to_assign));
-    return count($groups_to_assign);
-}
 
     /**
      * Is Unique Email
@@ -421,7 +379,6 @@ private function assign_access_groups_to_staff($staff_id, $usr_type_id, $selecte
         $this->db->set('token', $token);
         $this->db->set('new_user', $newUser);
 
-        //Because the created_at time needs to be return, it's manually set.
         $this->db->set('created_at', $date);
         $result = $this->db->insert('sys_password_reset_tokens');
 
@@ -559,52 +516,52 @@ private function assign_access_groups_to_staff($staff_id, $usr_type_id, $selecte
         $this->send_password_mail($id);
     }
 
-    public function update_success_extra($id): void
-    {
-        // Update profile data in agency_staff table
-        $profileData = [
-            'job_role'                      => $this->input->post('job_role'),
-            'id_number'                     => $this->input->post('id_number'),
-            'contact_number'                => $this->input->post('contact_number'),
-            'gender'                        => $this->input->post('gender'),
-            'linkedin_profile_url'          => $this->input->post('linkedin_profile_url'),
-            'date_of_birth'                 => $this->input->post('date_of_birth'),
-            'date_of_employment'            => $this->input->post('date_of_employment'),
-            'address_line_1'                => $this->input->post('address_line_1'),
-            'address_line_2'                => $this->input->post('address_line_2'),
-            'city'                          => $this->input->post('city'),
-            'country'                       => $this->input->post('country'),
-            'updated_at'                    => date('Y-m-d H:i:s'),
-        ];
+        public function update_success_extra($id): void
+        {
+            // Update profile data in agency_staff table
+            $profileData = [
+                'job_role'                      => $this->input->post('job_role'),
+                'id_number'                     => $this->input->post('id_number'),
+                'contact_number'                => $this->input->post('contact_number'),
+                'gender'                        => $this->input->post('gender'),
+                'linkedin_profile_url'          => $this->input->post('linkedin_profile_url'),
+                'date_of_birth'                 => $this->input->post('date_of_birth'),
+                'date_of_employment'            => $this->input->post('date_of_employment'),
+                'address_line_1'                => $this->input->post('address_line_1'),
+                'address_line_2'                => $this->input->post('address_line_2'),
+                'city'                          => $this->input->post('city'),
+                'country'                       => $this->input->post('country'),
+                'updated_at'                    => date('Y-m-d H:i:s'),
+            ];
 
-        // Update the agency_staff record with profile data
-        $this->db->where('id', $id);
-        $this->db->update('agency_staff', $profileData);
+            // Update the agency_staff record with profile data
+            $this->db->where('id', $id);
+            $this->db->update('agency_staff', $profileData);
 
-        // Also update the name field
-        $this->db->where('id', $id);
-        $this->db->update('agency_staff', [
-            'name' => $this->input->post('first_name') . ' ' . $this->input->post('last_name')
-        ]);
-    $selected_groups = $this->input->post('access_groups');
-    if ($selected_groups !== null) {
-        // First, remove existing groups
-        $this->db->where('agency_staff_id', $id);
-        $this->db->delete('pivot_agency_staff_access_groups');
-        
-        // Add new groups
-        if (!empty($selected_groups) && is_array($selected_groups)) {
-            foreach ($selected_groups as $group_id) {
-                if ($group_id) {
-                    $this->db->insert('pivot_agency_staff_access_groups', [
-                        'agency_staff_id' => $id,
-                        'access_group_id' => $group_id
-                    ]);
+            // Also update the name field
+            $this->db->where('id', $id);
+            $this->db->update('agency_staff', [
+                'name' => $this->input->post('first_name') . ' ' . $this->input->post('last_name')
+            ]);
+        $selected_groups = $this->input->post('access_groups');
+        if ($selected_groups !== null) {
+            // First, remove existing groups
+            $this->db->where('agency_staff_id', $id);
+            $this->db->delete('pivot_agency_staff_access_groups');
+            
+            // Add new groups
+            if (!empty($selected_groups) && is_array($selected_groups)) {
+                foreach ($selected_groups as $group_id) {
+                    if ($group_id) {
+                        $this->db->insert('pivot_agency_staff_access_groups', [
+                            'agency_staff_id' => $id,
+                            'access_group_id' => $group_id
+                        ]);
+                    }
                 }
             }
         }
     }
-}
 
     public function login_as($id): void
     {
@@ -699,7 +656,6 @@ private function assign_access_groups_to_staff($staff_id, $usr_type_id, $selecte
         redirect(site_url() . $defaultUrl);
     }
 
-  
 
     /**
      * Build parameters for create/update
@@ -721,137 +677,136 @@ private function assign_access_groups_to_staff($staff_id, $usr_type_id, $selecte
     }
 
 
-  // ============================================
+    // ============================================
     // 🔒 ADD THESE SECURITY CHECKS TO ALL METHODS
     // ============================================
 
 
-/**
- * 🔒 SECURITY FIX: Override parent's _get_data to add agency filtering
- * This is called by listing and AJAX methods
- */
-public function _get_data($limit = null, $offset = null, $sort_by = null, $sort_order = null)
-{
-    // Let parent handle with our secured model
-    return parent::_get_data($limit, $offset, $sort_by, $sort_order);
-}
-
-/**
- * 🔒 SECURITY FIX: Secure the AJAX pager method
- */
-public function ajax_pager_fetch_batch($batch = 1, $section = "", $template = "listing")
-{
-    // Parent will use our secured get_all() method
-    parent::ajax_pager_fetch_batch($batch, $section, $template);
-}
-
-/**
- * 🔒 SECURITY FIX: Override quick_manage method
- */
-public function quick_manage($id = false)
-{
-    if ($id && !$this->check_staff_access($id)) {
-        $this->access_denied();
-        return;
+    /**
+     * 🔒 SECURITY FIX: Override parent's _get_data to add agency filtering
+     * This is called by listing and AJAX methods
+     */
+    public function _get_data($limit = null, $offset = null, $sort_by = null, $sort_order = null)
+    {
+        // Let parent handle with our secured model
+        return parent::_get_data($limit, $offset, $sort_by, $sort_order);
     }
-    
-    parent::quick_manage($id);
-}
 
-/**
- * 🔒 Check if current user can access this staff member - FIXED VERSION
- */
-private function check_staff_access($staff_id)
-{
-    // Get user's agency ID
-    $user_agency_id = $this->get_user_agency_id();
-    
-    if (empty($user_agency_id)) {
-        // If no agency ID, check if admin
-        $user_type = getLoggedInUserTypeMenu();
-        if ($user_type === 'admin') {
-            return true; // Admins can access everything
+    /**
+     * 🔒 SECURITY FIX: Secure the AJAX pager method
+     */
+    public function ajax_pager_fetch_batch($batch = 1, $section = "", $template = "listing")
+    {
+        // Parent will use our secured get_all() method
+        parent::ajax_pager_fetch_batch($batch, $section, $template);
+    }
+
+    /**
+     * 🔒 SECURITY FIX: Override quick_manage method
+     */
+    public function quick_manage($id = false)
+    {
+        if ($id && !$this->check_staff_access($id)) {
+            $this->access_denied();
+            return;
         }
-        return false; // No agency, not admin = no access
+        
+        parent::quick_manage($id);
     }
-    
-    // DIRECT DATABASE CHECK - Don't rely on model method
-    $this->db->select('1');
-    $this->db->from('agency_staff');
-    $this->db->where('id', $staff_id);
-    $this->db->where('agency_id', $user_agency_id);
-    $this->db->where('removed', 0);
-    
-    $result = $this->db->get()->row();
-    
-    if (!$result) {
-        // Log the violation
-        log_message('error', 'ACCESS VIOLATION: Agency ' . $user_agency_id . 
-                   ' tried to access staff ' . $staff_id);
-        return false;
-    }
-    
-    return true;
-}
 
-/**
- * 🔒 Universal access denied handler
- */
-private function access_denied()
-{
-    if (is_ajax()) {
-        ajax_return([
-            'success' => false,
-            'error' => 'Access denied to this staff member'
-        ]);
-    } else {
-        show_error('Access denied', 403);
-    }
-    exit; // Stop execution
-}
+    /**
+     * 🔒 Check if current user can access this staff member - FIXED VERSION
+     */
+    private function check_staff_access($staff_id)
+    {
+        // Get user's agency ID
+        $user_agency_id = $this->get_user_agency_id();
+        
+        if (empty($user_agency_id)) {
+            // If no agency ID, check if admin
+            $user_type = getLoggedInUserTypeMenu();
+            if ($user_type === 'admin') {
+                return true; // Admins can access everything
+            }
+            return false; // No agency, not admin = no access
+        }
+        
+        // DIRECT DATABASE CHECK - Don't rely on model method
+        $this->db->select('1');
+        $this->db->from('agency_staff');
+        $this->db->where('id', $staff_id);
+        $this->db->where('agency_id', $user_agency_id);
+        $this->db->where('removed', 0);
+        
+        $result = $this->db->get()->row();
+        
+        if (!$result) {
 
-/**
- * 🔒 SECURITY FIX: Handle all CRUD operations with access control
- * This is a universal pre-check for any staff operation
- */
-private function check_crud_access($id = null)
-{
-    if ($id && !$this->check_staff_access($id)) {
-        $this->access_denied();
-        return false;
+            return false;
+        }
+        
+        return true;
     }
-    return true;
-}
 
-// Override any other parent methods that might exist
-public function ajax_get_staff($id)
-{
-    if (!$this->check_crud_access($id)) {
-        return;
-    }
-    
-    // If parent has this method, call it
-    if (method_exists(get_parent_class($this), 'ajax_get_staff')) {
-        parent::ajax_get_staff($id);
-    } else {
-        // Return minimal safe data or error
+    /**
+     * 🔒 Universal access denied handler
+     */
+    private function access_denied()
+    {
         if (is_ajax()) {
             ajax_return([
                 'success' => false,
-                'error' => 'Method not available'
+                'error' => 'Access denied to this staff member'
             ]);
+        } else {
+            show_error('Access denied', 403);
+        }
+        exit; // Stop execution
+    }
+
+    /**
+     * 🔒 SECURITY FIX: Handle all CRUD operations with access control
+     * This is a universal pre-check for any staff operation
+     */
+    private function check_crud_access($id = null)
+    {
+        if ($id && !$this->check_staff_access($id)) {
+            $this->access_denied();
+            return false;
+        }
+        return true;
+    }
+
+    // Override any other parent methods that might exist
+    public function ajax_get_staff($id)
+    {
+        if (!$this->check_crud_access($id)) {
+            return;
+        }
+        
+        // If parent has this method, call it
+        if (method_exists(get_parent_class($this), 'ajax_get_staff')) {
+            parent::ajax_get_staff($id);
+        } else {
+            // Return minimal safe data or error
+            if (is_ajax()) {
+                ajax_return([
+                    'success' => false,
+                    'error' => 'Method not available'
+                ]);
+            }
         }
     }
-}
-public function edit($id): void
-{
-    // 🔒 Simple, direct check
-    if (!$this->check_staff_access($id)) {
-        $this->access_denied();
+
+    public function edit($id): void
+    {
+        // 🔒 Simple, direct check
+        if (!$this->check_staff_access($id)) {
+            $this->access_denied();
+        }
+        
+        parent::edit($id);
     }
-    
-    parent::edit($id);
-}
 
     /**
      * 🔒 Override parent view method with agency check
@@ -965,107 +920,99 @@ public function edit($id): void
         parent::update($id);
     }
 
-    /**
-     * 🔒 Override parent create method (if needed)
-     */
-/**
- * Handle additional profile data
- */
-private function handle_additional_data($staff_id, $form_data = [])
-{
-    try {
-        // If form_data is empty, try to get from POST
-        if (empty($form_data) && !empty($_POST)) {
-            $form_data = $_POST;
-        }
-        
-        // Profile details
-        $profile_data = [
-            'job_role'          => isset($form_data['job_role']) ? trim($form_data['job_role']) : '',
-            'id_number'         => isset($form_data['id_number']) ? trim($form_data['id_number']) : '',
-            'contact_number'    => isset($form_data['contact_number']) ? trim($form_data['contact_number']) : '',
-            'gender'            => isset($form_data['gender']) ? trim($form_data['gender']) : '',
-            'linkedin_profile_url' => isset($form_data['linkedin_profile_url']) ? trim($form_data['linkedin_profile_url']) : '',
-            'date_of_birth'     => isset($form_data['date_of_birth']) ? trim($form_data['date_of_birth']) : NULL,
-            'date_of_employment' => isset($form_data['date_of_employment']) ? trim($form_data['date_of_employment']) : NULL,
-            'address_line_1'    => isset($form_data['address_line_1']) ? trim($form_data['address_line_1']) : '',
-            'address_line_2'    => isset($form_data['address_line_2']) ? trim($form_data['address_line_2']) : '',
-            'city'              => isset($form_data['city']) ? trim($form_data['city']) : '',
-            'country'           => isset($form_data['country']) ? trim($form_data['country']) : '',
-            'updated_at'        => date('Y-m-d H:i:s')
-        ];
-        
-        // Update agency_staff with profile data
-        $this->db->where('id', $staff_id);
-        $this->db->update('agency_staff', $profile_data);
-        
-        // Update name field
-        $first_name = isset($form_data['first_name']) ? trim($form_data['first_name']) : '';
-        $last_name = isset($form_data['last_name']) ? trim($form_data['last_name']) : '';
-        if ($first_name || $last_name) {
-            $this->db->where('id', $staff_id);
-            $this->db->update('agency_staff', [
-                'name' => $first_name . ' ' . $last_name
-            ]);
-        }
-        
-        // Handle access groups if provided
-        if (isset($form_data['access_groups'])) {
-            $access_groups = $form_data['access_groups'];
-            if (!is_array($access_groups)) {
-                $access_groups = [$access_groups];
+
+    private function handle_additional_data($staff_id, $form_data = [])
+    {
+        try {
+            // If form_data is empty, try to get from POST
+            if (empty($form_data) && !empty($_POST)) {
+                $form_data = $_POST;
             }
             
-            foreach ($access_groups as $group_id) {
-                if ($group_id) {
-                    $this->db->insert('pivot_agency_staff_access_groups', [
-                        'agency_staff_id' => $staff_id,
-                        'access_group_id' => $group_id
-                    ]);
+            // Profile details
+            $profile_data = [
+                'job_role'          => isset($form_data['job_role']) ? trim($form_data['job_role']) : '',
+                'id_number'         => isset($form_data['id_number']) ? trim($form_data['id_number']) : '',
+                'contact_number'    => isset($form_data['contact_number']) ? trim($form_data['contact_number']) : '',
+                'gender'            => isset($form_data['gender']) ? trim($form_data['gender']) : '',
+                'linkedin_profile_url' => isset($form_data['linkedin_profile_url']) ? trim($form_data['linkedin_profile_url']) : '',
+                'date_of_birth'     => isset($form_data['date_of_birth']) ? trim($form_data['date_of_birth']) : NULL,
+                'date_of_employment' => isset($form_data['date_of_employment']) ? trim($form_data['date_of_employment']) : NULL,
+                'address_line_1'    => isset($form_data['address_line_1']) ? trim($form_data['address_line_1']) : '',
+                'address_line_2'    => isset($form_data['address_line_2']) ? trim($form_data['address_line_2']) : '',
+                'city'              => isset($form_data['city']) ? trim($form_data['city']) : '',
+                'country'           => isset($form_data['country']) ? trim($form_data['country']) : '',
+                'updated_at'        => date('Y-m-d H:i:s')
+            ];
+            
+            // Update agency_staff with profile data
+            $this->db->where('id', $staff_id);
+            $this->db->update('agency_staff', $profile_data);
+            
+            // Update name field
+            $first_name = isset($form_data['first_name']) ? trim($form_data['first_name']) : '';
+            $last_name = isset($form_data['last_name']) ? trim($form_data['last_name']) : '';
+            if ($first_name || $last_name) {
+                $this->db->where('id', $staff_id);
+                $this->db->update('agency_staff', [
+                    'name' => $first_name . ' ' . $last_name
+                ]);
+            }
+            
+            // Handle access groups if provided
+            if (isset($form_data['access_groups'])) {
+                $access_groups = $form_data['access_groups'];
+                if (!is_array($access_groups)) {
+                    $access_groups = [$access_groups];
+                }
+                
+                foreach ($access_groups as $group_id) {
+                    if ($group_id) {
+                        $this->db->insert('pivot_agency_staff_access_groups', [
+                            'agency_staff_id' => $staff_id,
+                            'access_group_id' => $group_id
+                        ]);
+                    }
                 }
             }
+            
+            
+        } catch (Exception $e) {
+            // Don't fail the whole create if additional data fails
+        }
+    }
+
+    /**
+     * Handle profile picture upload
+     */
+    private function handle_profile_pic_upload($staff_id)
+    {
+        $config['upload_path'] = './uploads/agency_staff/';
+        $config['allowed_types'] = 'gif|jpg|png|jpeg|webp';
+        $config['max_size'] = 5120; // 5MB
+        $config['encrypt_name'] = true;
+        
+        // Create directory if it doesn't exist
+        if (!is_dir($config['upload_path'])) {
+            mkdir($config['upload_path'], 0755, true);
         }
         
-        log_message('debug', 'Additional data saved for staff ID: ' . $staff_id);
+        $this->load->library('upload', $config);
         
-    } catch (Exception $e) {
-        log_message('error', 'Additional data error: ' . $e->getMessage());
-        // Don't fail the whole create if additional data fails
-    }
-}
+        if (!$this->upload->do_upload('profile_pic')) {
+            $error = $this->upload->display_errors();
+            throw new Exception('Profile picture upload failed: ' . $error);
+        }
+        
+        $upload_data = $this->upload->data();
 
-/**
- * Handle profile picture upload
- */
-private function handle_profile_pic_upload($staff_id)
-{
-    $config['upload_path'] = './uploads/agency_staff/';
-    $config['allowed_types'] = 'gif|jpg|png|jpeg|webp';
-    $config['max_size'] = 5120; // 5MB
-    $config['encrypt_name'] = true;
-    
-    // Create directory if it doesn't exist
-    if (!is_dir($config['upload_path'])) {
-        mkdir($config['upload_path'], 0755, true);
+        
+        // Update staff record with image filename
+        $this->db->where('id', $staff_id);
+        $this->db->update('agency_staff', [
+            'profile_pic' => $upload_data['file_name']
+        ]);
     }
-    
-    $this->load->library('upload', $config);
-    
-    if (!$this->upload->do_upload('profile_pic')) {
-        $error = $this->upload->display_errors();
-        log_message('error', 'Profile pic upload failed: ' . $error);
-        throw new Exception('Profile picture upload failed: ' . $error);
-    }
-    
-    $upload_data = $this->upload->data();
-    log_message('debug', 'File uploaded: ' . $upload_data['file_name']);
-    
-    // Update staff record with image filename
-    $this->db->where('id', $staff_id);
-    $this->db->update('agency_staff', [
-        'profile_pic' => $upload_data['file_name']
-    ]);
-}
 
 
     /**
@@ -1086,128 +1033,129 @@ private function handle_profile_pic_upload($staff_id)
         return null;
     }
 
-/**
-     * 🔒 Override ajax_quick_manage method with agency check
+        /**
+         * 🔒 Override ajax_quick_manage method with agency check
+         */
+        public function ajax_quick_manage($id = FALSE)
+        {
+            if ($id && !$this->check_staff_access($id)) {
+                ajax_return([
+                    'success' => false,
+                    'error' => 'Access denied to this staff member'
+                ]);
+                return;
+            }
+            
+            parent::ajax_quick_manage($id);
+        }
+
+    /**
+     * Debug method to test access
      */
-    public function ajax_quick_manage($id = FALSE)
+    public function test_access_control($staff_id)
     {
-        if ($id && !$this->check_staff_access($id)) {
-            ajax_return([
-                'success' => false,
-                'error' => 'Access denied to this staff member'
-            ]);
-            return;
+        echo "<h2>Access Control Test</h2>";
+        
+        // Test 1: Get current agency
+        $user_agency_id = $this->get_user_agency_id();
+        echo "Current User Agency ID: <strong>" . ($user_agency_id ?: 'NULL') . "</strong><br>";
+        
+        // Test 2: Check access
+        $can_access = $this->check_staff_access($staff_id);
+        echo "Can access staff $staff_id: <strong>" . ($can_access ? 'YES' : 'NO') . "</strong><br>";
+        
+        // Test 3: Direct DB check
+        $this->db->select('id, agency_id, first_name, last_name');
+        $this->db->from('agency_staff');
+        $this->db->where('id', $staff_id);
+        $this->db->where('removed', 0);
+        $staff = $this->db->get()->row();
+        
+        if ($staff) {
+            echo "Staff exists: " . $staff->first_name . " " . $staff->last_name . "<br>";
+            echo "Staff Agency ID: " . $staff->agency_id . "<br>";
+            echo "Match user agency? " . ($staff->agency_id == $user_agency_id ? 'YES' : 'NO') . "<br>";
+        } else {
+            echo "Staff not found or removed<br>";
         }
         
-        parent::ajax_quick_manage($id);
+        echo "<hr>";
+        echo "<a href='/shoesmith/agency/agency_staff/edit/$staff_id'>Try to edit staff $staff_id</a>";
     }
 
     /**
- * Debug method to test access
- */
-public function test_access_control($staff_id)
-{
-    echo "<h2>Access Control Test</h2>";
-    
-    // Test 1: Get current agency
-    $user_agency_id = $this->get_user_agency_id();
-    echo "Current User Agency ID: <strong>" . ($user_agency_id ?: 'NULL') . "</strong><br>";
-    
-    // Test 2: Check access
-    $can_access = $this->check_staff_access($staff_id);
-    echo "Can access staff $staff_id: <strong>" . ($can_access ? 'YES' : 'NO') . "</strong><br>";
-    
-    // Test 3: Direct DB check
-    $this->db->select('id, agency_id, first_name, last_name');
-    $this->db->from('agency_staff');
-    $this->db->where('id', $staff_id);
-    $this->db->where('removed', 0);
-    $staff = $this->db->get()->row();
-    
-    if ($staff) {
-        echo "Staff exists: " . $staff->first_name . " " . $staff->last_name . "<br>";
-        echo "Staff Agency ID: " . $staff->agency_id . "<br>";
-        echo "Match user agency? " . ($staff->agency_id == $user_agency_id ? 'YES' : 'NO') . "<br>";
-    } else {
-        echo "Staff not found or removed<br>";
-    }
-    
-    echo "<hr>";
-    echo "<a href='/shoesmith/agency/agency_staff/edit/$staff_id'>Try to edit staff $staff_id</a>";
-}
-
-/**
- * DEBUG: Test Agency Staff search after adding main_filters()
- */
-public function debug_staff_filters_fix()
-{
-    echo "=== DEBUG: TESTING AGENCY STAFF FILTERS FIX ===<br><br>";
-    
-    echo "1. Testing if main_filters() method exists:<br>";
-    $this->load->model('agency/Model_agency_staff');
-    
-    if (method_exists($this->Model_agency_staff, 'main_filters')) {
-        echo "   ✅ main_filters() method exists<br><br>";
-    } else {
-        echo "   ❌ main_filters() method NOT FOUND<br>";
-        echo "   Add the method to Model_agency_staff.php<br><br>";
-        return;
-    }
-    
-    echo "2. Setting test filter for 'test':<br>";
-    $testFilters = [
-        'general' => [
-            'value' => 'test',
-            'type' => 'autocomplete',
-            'field' => [
-                'CONCAT(agency_staff.first_name," ",agency_staff.last_name)',
-                'agency_staff.email',
-                'agency_staff.job_role'
-            ]
-        ]
-    ];
-    
-    $this->session->set_userdata('agency_staff_filters', $testFilters);
-    
-    echo "3. Testing get_count() with new main_filters():<br>";
-    try {
-        $count = $this->Model_agency_staff->get_count();
-        echo "   ✅ get_count() = {$count}<br><br>";
+     * DEBUG: Test Agency Staff search after adding main_filters()
+     */
+    public function debug_staff_filters_fix()
+    {
+        echo "=== DEBUG: TESTING AGENCY STAFF FILTERS FIX ===<br><br>";
         
-        echo "4. SQL Query generated:<br>";
-        echo "   <pre>" . htmlspecialchars($this->db->last_query()) . "</pre><br>";
+        echo "1. Testing if main_filters() method exists:<br>";
+        $this->load->model('agency/Model_agency_staff');
         
-        // Check if search condition is in query
-        if (strpos($this->db->last_query(), 'test') !== false) {
-            echo "   ✅ Search condition 'test' found in query!<br>";
+        if (method_exists($this->Model_agency_staff, 'main_filters')) {
+            echo "   ✅ main_filters() method exists<br><br>";
         } else {
-            echo "   ❌ Search condition NOT in query<br>";
+            echo "   ❌ main_filters() method NOT FOUND<br>";
+            echo "   Add the method to Model_agency_staff.php<br><br>";
+            return;
         }
         
-        echo "<br>5. Testing get_all() to see full query:<br>";
-        $this->db->flush_cache();
-        $query = $this->Model_agency_staff->get_all(10, 0);
-        echo "   SQL:<br>";
-        echo "   <pre>" . htmlspecialchars($this->db->last_query()) . "</pre><br>";
+        echo "2. Setting test filter for 'test':<br>";
+        $testFilters = [
+            'general' => [
+                'value' => 'test',
+                'type' => 'autocomplete',
+                'field' => [
+                    'CONCAT(agency_staff.first_name," ",agency_staff.last_name)',
+                    'agency_staff.email',
+                    'agency_staff.job_role'
+                ]
+            ]
+        ];
         
-        echo "   Rows returned: " . $query->num_rows() . "<br>";
+        $this->session->set_userdata('agency_staff_filters', $testFilters);
         
-    } catch (Exception $e) {
-        echo "   ❌ Error: " . $e->getMessage() . "<br>";
-        echo "   SQL Error: " . $this->db->error()['message'] . "<br>";
+        echo "3. Testing get_count() with new main_filters():<br>";
+        try {
+            $count = $this->Model_agency_staff->get_count();
+            echo "   ✅ get_count() = {$count}<br><br>";
+            
+            echo "4. SQL Query generated:<br>";
+            echo "   <pre>" . htmlspecialchars($this->db->last_query()) . "</pre><br>";
+            
+            // Check if search condition is in query
+            if (strpos($this->db->last_query(), 'test') !== false) {
+                echo "   ✅ Search condition 'test' found in query!<br>";
+            } else {
+                echo "   ❌ Search condition NOT in query<br>";
+            }
+            
+            echo "<br>5. Testing get_all() to see full query:<br>";
+            $this->db->flush_cache();
+            $query = $this->Model_agency_staff->get_all(10, 0);
+            echo "   SQL:<br>";
+            echo "   <pre>" . htmlspecialchars($this->db->last_query()) . "</pre><br>";
+            
+            echo "   Rows returned: " . $query->num_rows() . "<br>";
+            
+        } catch (Exception $e) {
+            echo "   ❌ Error: " . $e->getMessage() . "<br>";
+            echo "   SQL Error: " . $this->db->error()['message'] . "<br>";
+        }
+        
+        // Clean up
+        $this->session->unset_userdata('agency_staff_filters');
+        
+        echo "<br>6. Test in browser:<br>";
+        echo "   Clear browser cache (Ctrl+F5)<br>";
+        echo "   Go to Agency Staff list<br>";
+        echo "   Try searching - should work now!<br>";
+        
+        echo "<br>=== IMPORTANT ===<br>";
+        echo "Make sure you have BOTH fixes:<br>";
+        echo "1. Controller: Correct filter field names with 'agency_staff.' prefix<br>";
+        echo "2. Model: main_filters() method that handles these filters<br>";
     }
-    
-    // Clean up
-    $this->session->unset_userdata('agency_staff_filters');
-    
-    echo "<br>6. Test in browser:<br>";
-    echo "   Clear browser cache (Ctrl+F5)<br>";
-    echo "   Go to Agency Staff list<br>";
-    echo "   Try searching - should work now!<br>";
-    
-    echo "<br>=== IMPORTANT ===<br>";
-    echo "Make sure you have BOTH fixes:<br>";
-    echo "1. Controller: Correct filter field names with 'agency_staff.' prefix<br>";
-    echo "2. Model: main_filters() method that handles these filters<br>";
-}
+
 }
