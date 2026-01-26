@@ -1,4 +1,5 @@
 <?php defined('BASEPATH') || exit('No direct script access allowed'); ?>
+
 <?php
 // At the top of your ajax_manage.php file
 $form_action = !empty($uuid) ? 

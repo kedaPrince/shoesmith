@@ -3755,4 +3755,352 @@ private function determine_stage($candidate) {
         return 'not_started';
     }
 }
+
+// Add these methods to the Candidates controller
+
+/**
+ * Request contact information access
+ */
+public function request_contact_access()
+{
+    if (!$this->input->is_ajax_request()) {
+        show_404();
+    }
+    
+    $candidate_uuid = $this->input->post('candidate_uuid');
+    $notes = $this->input->post('notes', true);
+    
+    if (!$candidate_uuid) {
+        ajax_return(['success' => false, 'message' => 'Candidate not specified']);
+        return;
+    }
+    
+    // Get candidate
+    $candidate = $this->Model_candidates->get_candidate_by_uuid($candidate_uuid);
+    if (!$candidate) {
+        ajax_return(['success' => false, 'message' => 'Candidate not found']);
+        return;
+    }
+    
+    $candidate_id = $candidate->id;
+    $agency_id = $this->get_user_agency_id();
+    
+    if (!$agency_id) {
+        ajax_return(['success' => false, 'message' => 'Agency not found']);
+        return;
+    }
+    
+    // Check if already has access
+    if ($this->Model_candidates->check_contact_access($candidate_id, $agency_id)) {
+        ajax_return(['success' => false, 'message' => 'You already have access to contact information']);
+        return;
+    }
+    
+    // Request access
+    $request_id = $this->Model_candidates->request_contact_access(
+        $candidate_id, 
+        $agency_id, 
+        loginID('agency'), 
+        $notes
+    );
+    
+    if ($request_id) {
+        // Send notification to recruiter
+        $this->Model_candidates->create_contact_request_notification(
+            $candidate_id, 
+            $agency_id, 
+            $request_id
+        );
+        
+        // Log activity
+        $this->Model_candidates->log_candidate_activity([
+            'candidate_id' => $candidate_id,
+            'action' => 'contact_info_requested',
+            'description' => 'Requested contact information access',
+            'created_by' => loginID('agency'),
+            'created_by_type' => 'agency',
+            'metadata' => json_encode(['request_id' => $request_id]),
+            'created_at' => date('Y-m-d H:i:s')
+        ]);
+        
+        ajax_return([
+            'success' => true, 
+            'message' => 'Contact information request sent to recruiter',
+            'request_id' => $request_id
+        ]);
+    } else {
+        ajax_return(['success' => false, 'message' => 'Failed to send request']);
+    }
+}
+
+/**
+ * Check contact access status
+ */
+public function check_contact_access_status($candidate_uuid = null)
+{
+    if (!$this->input->is_ajax_request()) {
+        show_404();
+    }
+    
+    if (!$candidate_uuid) {
+        $candidate_uuid = $this->input->get('candidate_uuid');
+    }
+    
+    $candidate = $this->Model_candidates->get_candidate_by_uuid($candidate_uuid);
+    if (!$candidate) {
+        ajax_return(['success' => false, 'message' => 'Candidate not found']);
+        return;
+    }
+    
+    $candidate_id = $candidate->id;
+    $agency_id = $this->get_user_agency_id();
+    
+    if (!$agency_id) {
+        ajax_return(['success' => false, 'message' => 'Agency not found']);
+        return;
+    }
+    
+    // Check if has access
+    $has_access = $this->Model_candidates->check_contact_access($candidate_id, $agency_id);
+    
+    if ($has_access) {
+        // Get full contact info
+        $contact_info = [
+            'email' => $candidate->email,
+            'phone' => $candidate->phone,
+            'has_access' => true
+        ];
+    } else {
+        // Get masked info
+        $masked_info = $this->Model_candidates->mask_contact_info(
+            $candidate->email, 
+            $candidate->phone
+        );
+        
+        // Check if request is pending
+        $this->db->select('id, status, last_requested_at');
+        $this->db->from('candidate_contact_access');
+        $this->db->where('candidate_id', $candidate_id);
+        $this->db->where('agency_id', $agency_id);
+        $this->db->where('removed', 0);
+        $request = $this->db->get()->row();
+        
+        $contact_info = array_merge($masked_info, [
+            'has_access' => false,
+            'request_pending' => ($request && $request->status == 'pending'),
+            'request_status' => $request ? $request->status : null,
+            'last_requested' => $request ? $request->last_requested_at : null
+        ]);
+    }
+    
+    ajax_return([
+        'success' => true,
+        'contact_info' => $contact_info,
+        'candidate_name' => $candidate->first_name . ' ' . $candidate->last_name
+    ]);
+}
+
+/**
+ * View contact information (with access check)
+ */
+public function view_contact_info($candidate_uuid = null)
+{
+    if (!$candidate_uuid) {
+        show_error('Candidate not specified', 400);
+    }
+    
+    $candidate = $this->Model_candidates->get_candidate_by_uuid($candidate_uuid);
+    if (!$candidate) {
+        show_404();
+    }
+    
+    $candidate_id = $candidate->id;
+    $agency_id = $this->get_user_agency_id();
+    
+    if (!$agency_id) {
+        show_error('Access denied', 403);
+    }
+    
+    // Check access
+    if (!$this->Model_candidates->check_contact_access($candidate_id, $agency_id)) {
+        $this->session->set_flashdata('error', 'You do not have access to view contact information. Please request access from the recruiter.');
+        redirect('agency/candidates/view/' . $candidate_uuid);
+    }
+    
+    // Get candidate with full info
+    $data = [
+        'candidate' => $candidate,
+        'heading' => 'Contact Information - ' . $candidate->first_name . ' ' . $candidate->last_name,
+        'contact_info' => [
+            'email' => $candidate->email,
+            'phone' => $candidate->phone,
+            'alternate_phone' => $candidate->alternate_phone,
+            'has_access' => true
+        ]
+    ];
+    
+    $this->load->view($this->folder . '/view_header');
+    $this->load->view('agency/candidates/contact_info', $data);
+    $this->load->view($this->folder . '/view_footer');
+}
+// In Recruiter/Candidates controller
+
+/**
+ * Manage contact information requests
+ */
+public function contact_requests($candidate_id = null)
+{
+    $recruiter_id = loginID('recruiter');
+    
+    if ($candidate_id) {
+        // View requests for specific candidate
+        $candidate = $this->Model_candidates->get_candidate($candidate_id);
+        if (!$candidate || $candidate->recruiter_id != $recruiter_id) {
+            show_error('Access denied', 403);
+        }
+        
+        $requests = $this->Model_candidates->get_contact_access_requests($candidate_id);
+        
+        $data = [
+            'candidate' => $candidate,
+            'requests' => $requests,
+            'heading' => 'Contact Requests - ' . $candidate->first_name . ' ' . $candidate->last_name
+        ];
+        
+        $this->load->view('recruiter/view_header');
+        $this->load->view('recruiter/candidates/contact_requests', $data);
+        $this->load->view('recruiter/view_footer');
+        
+    } else {
+        // View all pending requests
+        $this->db->select('cca.*, c.first_name, c.last_name, c.reference_number, a.name as agency_name');
+        $this->db->from('candidate_contact_access cca');
+        $this->db->join('candidates c', 'c.id = cca.candidate_id');
+        $this->db->join('agencies a', 'a.id = cca.agency_id');
+        $this->db->where('c.recruiter_id', $recruiter_id);
+        $this->db->where('cca.status', 'pending');
+        $this->db->where('cca.removed', 0);
+        $this->db->order_by('cca.created_at', 'DESC');
+        
+        $requests = $this->db->get()->result();
+        
+        $data = [
+            'requests' => $requests,
+            'heading' => 'Pending Contact Information Requests'
+        ];
+        
+        $this->load->view('recruiter/view_header');
+        $this->load->view('recruiter/candidates/all_contact_requests', $data);
+        $this->load->view('recruiter/view_footer');
+    }
+}
+
+/**
+ * Grant contact access
+ */
+public function grant_contact_access()
+{
+    if (!$this->input->is_ajax_request()) {
+        show_404();
+    }
+    
+    $request_id = $this->input->post('request_id');
+    $candidate_id = $this->input->post('candidate_id');
+    
+    $recruiter_id = loginID('recruiter');
+    
+    // Verify recruiter owns this candidate
+    $candidate = $this->Model_candidates->get_candidate($candidate_id);
+    if (!$candidate || $candidate->recruiter_id != $recruiter_id) {
+        ajax_return(['success' => false, 'message' => 'Access denied']);
+        return;
+    }
+    
+    // Grant access
+    $result = $this->Model_candidates->grant_contact_access($request_id, $recruiter_id);
+    
+    if ($result) {
+        // Get request details
+        $this->db->select('cca.agency_id, cca.candidate_id');
+        $this->db->from('candidate_contact_access cca');
+        $this->db->where('cca.id', $request_id);
+        $request = $this->db->get()->row();
+        
+        if ($request) {
+            // Send notification to agency
+            $this->Model_candidates->create_contact_granted_notification(
+                $request->candidate_id,
+                $request->agency_id,
+                $recruiter_id
+            );
+        }
+        
+        ajax_return(['success' => true, 'message' => 'Access granted successfully']);
+    } else {
+        ajax_return(['success' => false, 'message' => 'Failed to grant access']);
+    }
+}
+
+/**
+ * Deny contact access
+ */
+public function deny_contact_access()
+{
+    if (!$this->input->is_ajax_request()) {
+        show_404();
+    }
+    
+    $request_id = $this->input->post('request_id');
+    $candidate_id = $this->input->post('candidate_id');
+    $reason = $this->input->post('reason', true);
+    
+    $recruiter_id = loginID('recruiter');
+    
+    // Verify recruiter owns this candidate
+    $candidate = $this->Model_candidates->get_candidate($candidate_id);
+    if (!$candidate || $candidate->recruiter_id != $recruiter_id) {
+        ajax_return(['success' => false, 'message' => 'Access denied']);
+        return;
+    }
+    
+    // Deny access
+    $result = $this->Model_candidates->deny_contact_access($request_id, $recruiter_id, $reason);
+    
+    if ($result) {
+        ajax_return(['success' => true, 'message' => 'Access denied']);
+    } else {
+        ajax_return(['success' => false, 'message' => 'Failed to deny access']);
+    }
+}
+
+/**
+ * Get request details (AJAX)
+ */
+public function get_request_details($request_id)
+{
+    if (!$this->input->is_ajax_request()) {
+        show_404();
+    }
+    
+    $recruiter_id = loginID('recruiter');
+    
+    $this->db->select('cca.*, c.first_name, c.last_name, c.reference_number, 
+                      a.name as agency_name, a.email as agency_email,
+                      u1.first_name as requested_by_first_name, u1.last_name as requested_by_last_name,
+                      u1.email as requested_by_email');
+    $this->db->from('candidate_contact_access cca');
+    $this->db->join('candidates c', 'c.id = cca.candidate_id');
+    $this->db->join('agencies a', 'a.id = cca.agency_id');
+    $this->db->join('agency_staff u1', 'u1.id = cca.requested_by', 'left');
+    $this->db->where('cca.id', $request_id);
+    $this->db->where('c.recruiter_id', $recruiter_id);
+    
+    $request = $this->db->get()->row();
+    
+    if ($request) {
+        ajax_return(['success' => true, 'request' => $request]);
+    } else {
+        ajax_return(['success' => false, 'message' => 'Request not found']);
+    }
+}
 }

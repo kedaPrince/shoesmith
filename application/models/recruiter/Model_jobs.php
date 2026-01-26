@@ -24,7 +24,15 @@ class Model_jobs extends CRUD_Model
         'mod_industries.name AS industry_name'
     ]);
 }
-
+// In application/models/recruiter/Model_jobs.php
+public function get_job_by_id($job_id)
+{
+    $this->db->select('uuid');
+    $this->db->from('mod_jobs');
+    $this->db->where('id', $job_id);
+    $this->db->where('removed', 0);
+    return $this->db->get()->row();
+}
     public function joins()
     {
         $this->db->join('agencies', 'agencies.id = mod_jobs.agency_id', 'left');

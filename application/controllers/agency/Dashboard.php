@@ -15,47 +15,95 @@ class Dashboard extends CRUD_Controller {
     public $hideSubNav  = true;
 
     public function __construct() {
-        parent::__construct();
-
-        // Check if user is logged in as agency
-        $login_data = $this->session->userdata('login');
-        $is_agency_logged_in = !empty($login_data['agency']);
-        
-        if (!$is_agency_logged_in) {
-            redirect('agency/login');
-        }
-
-        $this->load->model($this->folder.'/'.$this->model);
-        $this->load->model('agency/Model_notifications');
-        $this->zone = array(
-            'title' => lang('label_dashboard'),
-            'url'   => url('agency/'.$this->pageName)
-        );
+    parent::__construct();
+    
+    // Log session data for debugging
+    log_message('debug', '=== DASHBOARD CONSTRUCTOR ===');
+    $login_data = $this->session->userdata('login');
+    log_message('debug', 'Session login data: ' . print_r($login_data, true));
+    log_message('debug', '=== DASHBOARD REQUEST ===');
+    log_message('debug', 'Request Method: ' . $this->input->server('REQUEST_METHOD'));
+    log_message('debug', 'Request URI: ' . $this->input->server('REQUEST_URI'));
+    log_message('debug', 'HTTP_REFERER: ' . $this->input->server('HTTP_REFERER'));
+    
+    // Check multiple ways agency might be logged in
+    $is_agency_logged_in = false;
+    
+    // Method 1: Check if 'agency' exists in login data
+    if (!empty($login_data['agency'])) {
+        $is_agency_logged_in = true;
+        log_message('debug', 'Agency user found via login[agency]');
+    } 
+    // Method 2: Check if 'agency_staff' exists (agency staff can also access dashboard)
+    elseif (!empty($login_data['agency_staff'])) {
+        $is_agency_logged_in = true;
+        log_message('debug', 'Agency staff found via login[agency_staff]');
     }
+    // Method 3: Check is_logged_in flag
+    elseif ($this->session->userdata('is_logged_in')) {
+        // Check what type of user is logged in
+        if (!empty($login_data)) {
+            foreach ($login_data as $group => $user) {
+                if (in_array($group, ['agency', 'agency_staff'])) {
+                    $is_agency_logged_in = true;
+                    log_message('debug', 'Found agency/agency_staff via is_logged_in check');
+                    break;
+                }
+            }
+        }
+    }
+    
+    if (!$is_agency_logged_in) {
+        log_message('debug', 'No valid agency session found - Redirecting to login');
+        redirect('agency/login');
+        exit();
+    }
+    
+    log_message('debug', 'Agency user authenticated, proceeding to dashboard');
+    
+    $this->load->model($this->folder.'/'.$this->model);
+    $this->load->model('agency/Model_notifications');
+    $this->zone = array(
+        'title' => lang('label_dashboard'),
+        'url'   => url('agency/'.$this->pageName)
+    );
+}
 
     public function index() {
-        // Get agency ID
-        $agency_id = $this->get_agency_id();
+    log_message('debug', '===== ENTERED DASHBOARD index() =====');
+
+    $agency_id = $this->get_agency_id();
+    log_message('debug', 'get_agency_id() in index() returned: ' . ($agency_id ?? 'NULL'));
+
+    // Safety net – should never happen after constructor, but protect anyway
+    if (!$agency_id) {
+        log_message('error', 'CRITICAL: agency_id became NULL in index() after passing constructor');
+        $this->session->set_flashdata('error', 'Session error - please login again');
+        redirect('agency/login');
+        exit();
+    }
+
+    try {
+        $data['stats']          = $this->get_agency_stats($agency_id);
+        $data['agency_name']    = $this->get_agency_name($agency_id);
+        $data['recent_activity']= $this->get_recent_activity($agency_id);
         
-        // Get agency stats
-        $data['stats'] = $this->get_agency_stats($agency_id);
-        
-        // Get agency name
-        $data['agency_name'] = $this->get_agency_name($agency_id);
-        
-        // Get recent activity
-        $data['recent_activity'] = $this->get_recent_activity($agency_id);
-        
-        // Get notifications
-        $data['notifications'] = $this->Model_notifications->get_agency_notifications($agency_id, 5)->result();
-        $data['unread_count'] = $this->Model_notifications->get_unread_count($agency_id);
-        $data['agency_id'] = $agency_id;
-       
+        $data['notifications']  = $this->Model_notifications->get_agency_notifications($agency_id, 5)->result();
+        $data['unread_count']   = $this->Model_notifications->get_unread_count($agency_id);
+        $data['agency_id']      = $agency_id;
+
+        log_message('debug', 'All dashboard data loaded successfully');
+
         $this->setup_breadcrumbs();
         $this->load->view($this->folder.'/view_header', $data);
         $this->load->view('agency/dashboard/view_dashboard_enhanced', $data);
         $this->load->view($this->folder.'/view_footer');
     }
+    catch (Exception $e) {
+        log_message('error', 'Dashboard rendering error: ' . $e->getMessage());
+        show_error('Dashboard error: ' . $e->getMessage(), 500);
+    }
+}
 
     /**
      * Get the logged-in agency's ID

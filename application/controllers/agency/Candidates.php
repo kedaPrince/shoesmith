@@ -908,6 +908,28 @@ private function recalculate_job_progress($progress_id)
 
 public function update_hm_decision() 
 {
+    // 🔴 ADD AT THE START OF METHOD
+    $candidate_uuid = $this->input->post('candidate_uuid');
+    if (!$candidate_uuid) {
+        $candidate_uuid = $this->input->get('candidate_uuid');
+    }
+    
+    if ($candidate_uuid) {
+        $candidate = $this->db->where('uuid', $candidate_uuid)
+                             ->where('removed', 0)
+                             ->get('candidates')
+                             ->row();
+        if ($candidate && !$this->enforce_candidate_access($candidate->id)) {
+            // Return JSON error for AJAX
+            echo json_encode([
+                'success' => false, 
+                'message' => 'Access denied',
+                'csrf_token' => $this->security->get_csrf_hash()
+            ]);
+            exit();
+        }
+    }
+    // 🔴 END ACCESS CHECK
     // Force no cache
     $this->output->set_header('Cache-Control: no-cache, no-store, must-revalidate');
     $this->output->set_header('Pragma: no-cache');
@@ -2132,93 +2154,91 @@ private function get_submitting_recruiter_for_job($candidate_id, $job_id)
         return $result;
     }
 
+    
     public function edit($uuid_or_id = null)
-    {
-        if (!$uuid_or_id) {
-            show_error('Candidate identifier required', 400);
-        }
-        
-        $candidate = $this->{$this->model}->get_candidate($uuid_or_id);
-        
-        if (empty($candidate)) {
-            show_404();
-        }
-        
-        $candidate_id = $candidate->id;
-        
-        if (!$this->enforce_candidate_access($candidate_id)) {
-            return;
-        }
-        
-        $agency_id = $this->get_user_agency_id();
-        if ($agency_id) {
-            $exists = $this->db->select('1')
-                ->from('candidate_agencies')
-                ->where('candidate_id', $candidate_id)
-                ->where('agency_id', $agency_id)
-                ->get()
-                ->row();
-            
-            if (!$exists) {
-                show_error('Candidate not found or access denied', 403);
-            }
-        }
-        
-        parent::edit($candidate_id);
+{
+    if (!$uuid_or_id) {
+        show_error('Candidate identifier required', 400);
+        return;
     }
+    
+    // Get agency ID
+    $agency_id = $this->get_user_agency_id();
+    
+    if (!$agency_id) {
+        show_error('Access denied', 403);
+        return;
+    }
+    
+    // Get candidate
+    $candidate = $this->{$this->model}->get_candidate($uuid_or_id);
+    
+    if (empty($candidate)) {
+        show_404();
+        return;
+    }
+    
+    $candidate_id = $candidate->id;
+    
+    // Check agency access via candidate_agencies table
+    $has_access = $this->db->select('1')
+        ->from('candidate_agencies')
+        ->where('candidate_id', $candidate_id)
+        ->where('agency_id', $agency_id)
+        ->get()
+        ->row();
+    
+    if (!$has_access) {
+        log_message('error', 'SECURITY EDIT: Agency ' . $agency_id . ' tried to EDIT candidate ' . $candidate_id);
+        show_error('Access denied to this candidate', 403);
+        return;
+    }
+    
+    // Also call enforce_candidate_access for additional security
+    if (!$this->enforce_candidate_access($candidate_id)) {
+        return;
+    }
+    
+    parent::edit($candidate_id);
+}
 
 public function view($uuid = null)
 {
     if (!$uuid) {
         show_error('Candidate identifier required', 400);
+        return;
     }
     
-    // Load model
-    $this->load->model('agency/Model_candidates');
-    
-    // Get candidate by UUID
-    $candidate = $this->Model_candidates->get_candidate_by_uuid($uuid);
-    
-    if (!$candidate) {
-        show_404();
-    }
-    
-    $candidate_id = $candidate->id;
-    
-    // Check access
+    // Get current agency ID
     $agency_id = $this->get_user_agency_id();
     
     if (!$agency_id) {
         show_error('Access denied', 403);
+        return;
     }
     
-    // Verify candidate belongs to this agency
-    $this->db->select('1');
-    $this->db->from('candidate_agencies');
-    $this->db->where('candidate_id', $candidate_id);
-    $this->db->where('agency_id', $agency_id);
-    $has_access = $this->db->get()->row();
+    // Get candidate with agency access check in ONE query
+    $this->db->select('c.*');
+    $this->db->from('candidates c');
+    $this->db->join('candidate_agencies ca', 'ca.candidate_id = c.id AND ca.agency_id = ' . $this->db->escape($agency_id));
+    $this->db->where('c.uuid', $uuid);
+    $this->db->where('c.removed', 0);
+    $this->db->limit(1);
     
-    if (!$has_access) {
-        show_error('Access denied to this candidate', 403);
+    $candidate = $this->db->get()->row();
+    
+    if (!$candidate) {
+        show_error('Candidate not found or access denied', 404);
+        return;
     }
+    
+    $candidate_id = $candidate->id;
+    $candidate_uuid = $candidate->uuid;
     
     // Get job UUID from URL
     $job_uuid = $this->input->get('job');
     
-    // **FIXED: Get candidate WITH SPECIFIC job assignment**
-    $this->db->select('c.*');
-    $this->db->from('candidates c');
-    $this->db->where('c.id', $candidate_id);
-    $this->db->where('c.removed', 0);
-    
-    $row = $this->db->get()->row();
-    
-    if (!$row) {
-        show_404();
-    }
-    
-    // **FIXED: Now get the SPECIFIC job assignment based on job_uuid**
+    // Get SPECIFIC job assignment based on job_uuid
     if ($job_uuid) {
         // Try to get the specific job assignment
         $this->db->select('cja.job_id, j.name as job_name, j.uuid as job_uuid, j.reference_number as job_ref');
@@ -2235,13 +2255,12 @@ public function view($uuid = null)
         
         if ($specific_job) {
             // Candidate IS assigned to this specific job
-            $row->job_id = $specific_job->job_id;
-            $row->job_name = $specific_job->job_name;
-            $row->job_uuid = $specific_job->job_uuid;
-            $row->job_ref = $specific_job->job_ref;
+            $candidate->job_id = $specific_job->job_id;
+            $candidate->job_name = $specific_job->job_name;
+            $candidate->job_uuid = $specific_job->job_uuid;
+            $candidate->job_ref = $specific_job->job_ref;
         } else {
             // Candidate is NOT assigned to this specific job
-            // This means the URL has wrong job parameter
             // Get any job assignment for this agency instead
             $this->db->select('cja.job_id, j.name as job_name, j.uuid as job_uuid, j.reference_number as job_ref');
             $this->db->from('candidate_job_assignments cja');
@@ -2256,16 +2275,16 @@ public function view($uuid = null)
             $any_job = $this->db->get()->row();
             
             if ($any_job) {
-                $row->job_id = $any_job->job_id;
-                $row->job_name = $any_job->job_name;
-                $row->job_uuid = $any_job->job_uuid;
-                $row->job_ref = $any_job->job_ref;
+                $candidate->job_id = $any_job->job_id;
+                $candidate->job_name = $any_job->job_name;
+                $candidate->job_uuid = $any_job->job_uuid;
+                $candidate->job_ref = $any_job->job_ref;
             } else {
                 // No job assignments at all for this agency
-                $row->job_id = null;
-                $row->job_name = null;
-                $row->job_uuid = null;
-                $row->job_ref = null;
+                $candidate->job_id = null;
+                $candidate->job_name = null;
+                $candidate->job_uuid = null;
+                $candidate->job_ref = null;
             }
         }
     } else {
@@ -2283,25 +2302,20 @@ public function view($uuid = null)
         $any_job = $this->db->get()->row();
         
         if ($any_job) {
-            $row->job_id = $any_job->job_id;
-            $row->job_name = $any_job->job_name;
-            $row->job_uuid = $any_job->job_uuid;
-            $row->job_ref = $any_job->job_ref;
+            $candidate->job_id = $any_job->job_id;
+            $candidate->job_name = $any_job->job_name;
+            $candidate->job_uuid = $any_job->job_uuid;
+            $candidate->job_ref = $any_job->job_ref;
         }
     }
     
     // Set data for the view
     $data = [
-        'candidate' => $row,
-        'candidate_id' => $row->id,
-        'job_uuid' => $job_uuid ?: ($row->job_uuid ?? null),
-        'heading' => 'Candidate Details - ' . $row->first_name . ' ' . $row->last_name,
+        'candidate' => $candidate,
+        'candidate_id' => $candidate->id,
+        'job_uuid' => $job_uuid ?: ($candidate->job_uuid ?? null),
+        'heading' => 'Candidate Details - ' . $candidate->first_name . ' ' . $candidate->last_name,
     ];
-    
-    // **Add debug info to page**
-    echo "<!-- DEBUG: Job UUID from URL: " . ($job_uuid ?? 'NONE') . " -->\n";
-    echo "<!-- DEBUG: Displayed Job: " . ($row->job_name ?? 'NONE') . " -->\n";
-    echo "<!-- DEBUG: Displayed Job UUID: " . ($row->job_uuid ?? 'NONE') . " -->\n";
     
     // Load the candidates_list/view.php file
     $this->load->view($this->folder . '/view_header');
@@ -2583,6 +2597,12 @@ private function get_submitting_agency_id($candidate_id) {
             ]);
             return;
         }
+
+        // ✅ ✅ ✅ CRITICAL SECURITY FIX: Check agency access FIRST ✅ ✅ ✅
+    if (!$this->enforce_candidate_access($candidate_id)) {
+        // enforce_candidate_access() already sends the AJAX response
+        return;
+    }
         
         $this->db->select('c.*, ca.agency_id as submitting_agency_id')
                  ->from('candidates c')
@@ -2639,63 +2659,82 @@ private function get_submitting_agency_id($candidate_id) {
         ]);
     }
 
-    public function start_candidate_chat($uuid_or_id)
-    {
-        if (!$uuid_or_id) {
-            show_error('Candidate identifier required', 400);
-        }
-        
-        $candidate = $this->{$this->model}->get_candidate($uuid_or_id);
-        
-        if (empty($candidate)) {
-            show_404();
-        }
-        
-        $candidate_id = $candidate->id;
-        $candidate_uuid = $candidate->uuid;
-        
-        $agency_id = $this->get_user_agency_id();
-        
-        if (!$agency_id) {
-            show_error('Access denied', 403);
-        }
-        
-        if (!$this->enforce_candidate_access($candidate_id)) {
-            return;
-        }
-        
-        $this->db->select('c.*')
-                 ->from('candidates c')
-                 ->join('candidate_agencies ca', 'ca.candidate_id = c.id')
-                 ->where('c.id', $candidate_id)
-                 ->where('ca.agency_id', $agency_id)
-                 ->where('c.removed', 0);
-    
-        $candidate = $this->db->get()->row();
-        
-        if (!$candidate) {
-            show_404();
-        }
-        
-        $recruiter = $this->Model_chat_messages->get_candidate_recruiter($candidate_id);
-        
-        if (!$recruiter) {
-            show_error('No recruiter found for this candidate', 404);
-        }
-        
-        $conversation = $this->Model_chat_messages->get_or_create_candidate_conversation(
-            $agency_id,
-            $recruiter->id,
-            $candidate_id,
-            $candidate->job_id
-        );
-        
-        if ($conversation) {
-            redirect('/agency/chat/conversation/' . $conversation->uuid);
-        } else {
-            show_error('Failed to create chat conversation');
-        }
+ public function start_candidate_chat($uuid_or_id)
+{
+    if (!$uuid_or_id) {
+        show_error('Candidate identifier required', 400);
+        return;
     }
+    
+    $candidate = $this->{$this->model}->get_candidate($uuid_or_id);
+    
+    if (empty($candidate)) {
+        show_404();
+        return;
+    }
+    
+    $candidate_id = $candidate->id;
+    $candidate_uuid = $candidate->uuid;
+    
+    $agency_id = $this->get_user_agency_id();
+    
+    if (!$agency_id) {
+        show_error('Access denied', 403);
+        return;
+    }
+    
+    // Check agency access BEFORE proceeding
+    $has_access = $this->db->select('1')
+        ->from('candidate_agencies')
+        ->where('candidate_id', $candidate_id)
+        ->where('agency_id', $agency_id)
+        ->get()
+        ->row();
+    
+    if (!$has_access) {
+        log_message('error', 'SECURITY CHAT: Agency ' . $agency_id . ' tried to chat about candidate ' . $candidate_id . ' without access');
+        show_error('Access denied to this candidate', 403);
+        return;
+    }
+    
+    if (!$this->enforce_candidate_access($candidate_id)) {
+        return;
+    }
+    
+    $this->db->select('c.*')
+             ->from('candidates c')
+             ->join('candidate_agencies ca', 'ca.candidate_id = c.id')
+             ->where('c.id', $candidate_id)
+             ->where('ca.agency_id', $agency_id)
+             ->where('c.removed', 0);
+    
+    $candidate = $this->db->get()->row();
+    
+    if (!$candidate) {
+        show_404();
+        return;
+    }
+    
+    $recruiter = $this->Model_chat_messages->get_candidate_recruiter($candidate_id);
+    
+    if (!$recruiter) {
+        show_error('No recruiter found for this candidate', 404);
+        return;
+    }
+    
+    $conversation = $this->Model_chat_messages->get_or_create_candidate_conversation(
+        $agency_id,
+        $recruiter->id,
+        $candidate_id,
+        $candidate->job_id
+    );
+    
+    if ($conversation) {
+        redirect('/agency/chat/conversation/' . $conversation->uuid);
+    } else {
+        show_error('Failed to create chat conversation');
+    }
+}
 
     private function check_candidate_access($candidate_id)
     {
@@ -2765,23 +2804,36 @@ private function get_submitting_agency_id($candidate_id) {
     }
 
     private function enforce_candidate_access($candidate_id)
-    {
-        $agency_id = $this->get_user_agency_id();
-        
-        if (!$agency_id) {
-            $this->candidate_access_denied();
-            return false;
-        }
-        
-        $has_access = $this->check_candidate_agency_access_direct($agency_id, $candidate_id);
-        
-        if (!$has_access) {
-            $this->candidate_access_denied();
-            return false;
-        }
-        
-        return true;
+{
+    // Get current agency
+    $agency_id = $this->get_user_agency_id();
+    
+    if (!$agency_id) {
+        log_message('error', "ACCESS DENIED: No agency ID for candidate $candidate_id");
+        $this->candidate_access_denied();
+        return false;
     }
+    
+    // 🔴 ULTRA-STRICT CHECK - NO BYPASSES
+    $this->db->select('COUNT(*) as has_access');
+    $this->db->from('candidate_agencies ca');
+    $this->db->join('candidates c', 'c.id = ca.candidate_id');
+    $this->db->where('ca.candidate_id', $candidate_id);
+    $this->db->where('ca.agency_id', $agency_id);
+    $this->db->where('c.removed', 0);
+    $this->db->limit(1);
+    
+    $result = $this->db->get()->row();
+    
+    if (!$result || $result->has_access == 0) {
+        log_message('error', "ACCESS DENIED: Agency $agency_id tried to access candidate $candidate_id");
+        $this->candidate_access_denied();
+        return false;
+    }
+    
+    log_message('debug', "ACCESS GRANTED: Agency $agency_id to candidate $candidate_id");
+    return true;
+}
 
     private function can_view_candidate($candidate_id)
     {
@@ -3184,93 +3236,258 @@ private function send_test_notification($candidate_id, $job_id, $decision, $note
     }
 }
 
+// In agency/Candidates.php controller
 /**
- * DEBUG: Test all filters
+ * Log when agency views contact information (for audit trail)
  */
-public function debug_all_filters()
+public function log_contact_access($candidate_id)
 {
-    echo "=== TESTING ALL FILTERS ===<br><br>";
+    if (!$this->input->is_ajax_request()) {
+        show_404();
+    }
     
-    // Test 1: Status filter
-    echo "1. Testing STATUS filter 'reviewed':<br>";
-    $filters1 = [
-        'status' => [
-            'value' => 'reviewed',
-            'type' => 'dropdown',
-            'field' => 'c.status'
-        ]
+    $agency_id = $this->get_user_agency_id();
+    
+    if (!$agency_id) {
+        ajax_return(['success' => false, 'message' => 'Agency not found']);
+        return;
+    }
+    
+    // Verify the agency has access to this candidate
+    $this->db->select('1');
+    $this->db->from('candidate_agencies');
+    $this->db->where('candidate_id', $candidate_id);
+    $this->db->where('agency_id', $agency_id);
+    $has_access = $this->db->get()->row() !== null;
+    
+    if (!$has_access) {
+        ajax_return(['success' => false, 'message' => 'Access denied']);
+        return;
+    }
+    
+    // ✅ ✅ ✅ CRITICAL SECURITY FIX: Check agency access FIRST ✅ ✅ ✅
+    if (!$this->enforce_candidate_access($candidate_id)) {
+        // enforce_candidate_access() already sends the AJAX response
+        return;
+    }
+    
+    // Also verify contact access is granted
+    $this->db->select('1');
+    $this->db->from('candidate_contact_access');
+    $this->db->where('candidate_id', $candidate_id);
+    $this->db->where('agency_id', $agency_id);
+    $this->db->where('access_granted', 1);
+    $this->db->where('removed', 0);
+    $has_contact_access = $this->db->get()->row() !== null;
+    
+    if (!$has_contact_access) {
+        ajax_return(['success' => false, 'message' => 'Contact access not granted']);
+        return;
+    }
+    
+    // Log the access
+    $log_data = [
+        'candidate_id' => $candidate_id,
+        'agency_id' => $agency_id,
+        'viewed_by' => loginID('agency'),
+        'viewed_at' => date('Y-m-d H:i:s'),
+        'ip_address' => $this->input->ip_address(),
+        'user_agent' => $this->input->user_agent()
     ];
     
-    $this->session->set_userdata('candidates_filters', $filters1);
+    $result = $this->db->insert('contact_access_logs', $log_data);
     
+    if ($result) {
+        ajax_return(['success' => true]);
+    } else {
+        ajax_return(['success' => false, 'message' => 'Failed to log access']);
+    }
+}
+// In agency/Candidates.php controller
+public function check_contact_access_status()
+{
+    if (!$this->input->is_ajax_request()) {
+        show_404();
+    }
+    
+    $candidate_identifier = $this->input->get('candidate_uuid');
+    
+    if (!$candidate_identifier) {
+        ajax_return(['success' => false, 'message' => 'Candidate not specified']);
+        return;
+    }
+    
+    // Get candidate
     $this->load->model('agency/Model_candidates');
     
-    try {
-        $count1 = $this->Model_candidates->get_count();
-        echo "   ✅ Status filter count = {$count1}<br>";
-        echo "   SQL: <pre>" . $this->db->last_query() . "</pre><br>";
-    } catch (Exception $e) {
-        echo "   ❌ Status filter error: " . $e->getMessage() . "<br>";
+    // Check if identifier is UUID or ID
+    if (is_numeric($candidate_identifier)) {
+        $candidate = $this->Model_candidates->get_candidate($candidate_identifier);
+    } else {
+        $candidate = $this->Model_candidates->get_candidate_by_uuid($candidate_identifier);
     }
     
-    // Clear
-    $this->session->unset_userdata('candidates_filters');
-    
-    // Test 2: Onboarding filter
-    echo "<br>2. Testing ONBOARDING filter 'not_started':<br>";
-    $filters2 = [
-        'onboarding_stage' => [
-            'value' => 'not_started',
-            'type' => 'dropdown',
-            'field' => 'c.onboarding_stage'
-        ]
-    ];
-    
-    $this->session->set_userdata('candidates_filters', $filters2);
-    
-    try {
-        $count2 = $this->Model_candidates->get_count();
-        echo "   ✅ Onboarding filter count = {$count2}<br>";
-        echo "   SQL: <pre>" . $this->db->last_query() . "</pre><br>";
-    } catch (Exception $e) {
-        echo "   ❌ Onboarding filter error: " . $e->getMessage() . "<br>";
+    if (!$candidate) {
+        ajax_return(['success' => false, 'message' => 'Candidate not found']);
+        return;
     }
     
-    // Clear
-    $this->session->unset_userdata('candidates_filters');
+    $candidate_id = $candidate->id;
     
-    // Test 3: Combined filter
-    echo "<br>3. Testing COMBINED filter (status=reviewed AND search='Prince'):<br>";
-    $filters3 = [
-        'status' => [
-            'value' => 'reviewed',
-            'type' => 'dropdown',
-            'field' => 'c.status'
-        ],
-        'general' => [
-            'value' => 'Prince',
-            'type' => 'autocomplete',
-            'field' => ['c.first_name', 'c.last_name', 'c.email', 'c.reference_number']
-        ]
-    ];
-    
-    $this->session->set_userdata('candidates_filters', $filters3);
-    
-    try {
-        $count3 = $this->Model_candidates->get_count();
-        echo "   ✅ Combined filter count = {$count3}<br>";
-        echo "   SQL: <pre>" . $this->db->last_query() . "</pre><br>";
-    } catch (Exception $e) {
-        echo "   ❌ Combined filter error: " . $e->getMessage() . "<br>";
+    // ✅ ✅ ✅ CRITICAL SECURITY FIX: Check agency access FIRST ✅ ✅ ✅
+    if (!$this->enforce_candidate_access($candidate_id)) {
+        // enforce_candidate_access() already sends the AJAX response
+        return;
     }
     
-    // Clear
-    $this->session->unset_userdata('candidates_filters');
+    $agency_id = $this->get_user_agency_id();
     
-    echo "<br>=== INSTRUCTIONS ===<br>";
-    echo "1. Update controller setup_listing() with 'c.' prefix for ALL filters<br>";
-    echo "2. Update model apply_filters_fixed() to handle all filter types<br>";
-    echo "3. Clear browser cache and test all filters!<br>";
+    if (!$agency_id) {
+        ajax_return(['success' => false, 'message' => 'Agency not found']);
+        return;
+    }
+    
+    // Check if has contact access (separate from basic candidate access)
+    $has_contact_access = $this->Model_candidates->check_contact_access($candidate_id, $agency_id);
+    
+    if ($has_contact_access) {
+        // Get full contact info
+        $contact_info = [
+            'email' => $candidate->email,
+            'phone' => $candidate->phone,
+            'alternate_phone' => $candidate->alternate_phone,
+            'has_access' => true
+        ];
+    } else {
+        // Get masked info
+        $masked_info = $this->Model_candidates->mask_contact_info(
+            $candidate->email, 
+            $candidate->phone
+        );
+        
+        // Check if request is pending
+        $this->db->select('id, status, last_requested_at');
+        $this->db->from('candidate_contact_access');
+        $this->db->where('candidate_id', $candidate_id);
+        $this->db->where('agency_id', $agency_id);
+        $this->db->where('removed', 0);
+        $request = $this->db->get()->row();
+        
+        $contact_info = array_merge($masked_info, [
+            'has_access' => false,
+            'request_pending' => ($request && $request->status == 'pending'),
+            'request_status' => $request ? $request->status : null,
+            'last_requested' => $request ? $request->last_requested_at : null
+        ]);
+    }
+    
+    ajax_return([
+        'success' => true,
+        'contact_info' => $contact_info,
+        'candidate_name' => $candidate->first_name . ' ' . $candidate->last_name
+    ]);
 }
+
+/**
+ * Request contact information access
+ */
+public function request_contact_access()
+{
+    if (!$this->input->is_ajax_request()) {
+        show_404();
+    }
+    
+    $agency_id = $this->get_user_agency_id();
+    
+    if (!$agency_id) {
+        ajax_return(['success' => false, 'message' => 'Agency not found']);
+        return;
+    }
+    
+    $candidate_identifier = $this->input->post('candidate_uuid');
+    $notes = $this->input->post('notes');
+    
+    if (!$candidate_identifier) {
+        ajax_return(['success' => false, 'message' => 'Candidate not specified']);
+        return;
+    }
+    
+    // Load the model
+    $this->load->model('agency/Model_candidates');
+    
+    // Get candidate
+    if (is_numeric($candidate_identifier)) {
+        $candidate = $this->Model_candidates->get_candidate($candidate_identifier);
+    } else {
+        $candidate = $this->Model_candidates->get_candidate_by_uuid($candidate_identifier);
+    }
+    
+    if (!$candidate) {
+        ajax_return(['success' => false, 'message' => 'Candidate not found']);
+        return;
+    }
+    
+    $candidate_id = $candidate->id;
+    
+    // ✅ ✅ ✅ CRITICAL SECURITY FIX: Check agency access FIRST ✅ ✅ ✅
+    if (!$this->enforce_candidate_access($candidate_id)) {
+        // enforce_candidate_access() already sends the AJAX response
+        return;
+    }
+    
+    // Rest of your existing code continues...
+    // Verify the agency has access to this candidate first
+    $this->db->select('1');
+    $this->db->from('candidate_agencies');
+    $this->db->where('candidate_id', $candidate_id);
+    $this->db->where('agency_id', $agency_id);
+    $has_access = $this->db->get()->row() !== null;
+    
+    if (!$has_access) {
+        ajax_return(['success' => false, 'message' => 'Access denied to this candidate']);
+        return;
+    }
+    
+    // Check if a request already exists and was recently made (within last 24 hours)
+    $this->db->where('candidate_id', $candidate_id);
+    $this->db->where('agency_id', $agency_id);
+    $this->db->where('removed', 0);
+    $this->db->where('last_requested_at >=', date('Y-m-d H:i:s', strtotime('-24 hours')));
+    $existing_recent = $this->db->get('candidate_contact_access')->row();
+    
+    if ($existing_recent) {
+        ajax_return([
+            'success' => false, 
+            'message' => 'You have already requested access within the last 24 hours. Please wait before requesting again.'
+        ]);
+        return;
+    }
+    
+    // Request contact access
+    $result = $this->Model_candidates->request_contact_access(
+        $candidate_id, 
+        $agency_id, 
+        loginID('agency'), 
+        $notes
+    );
+    
+    if ($result) {
+        // Send notification to recruiter
+        $notification_result = $this->Model_candidates->create_contact_request_notification(
+            $candidate_id, 
+            $agency_id, 
+            $result
+        );
+        
+        ajax_return([
+            'success' => true,
+            'message' => 'Contact information request sent successfully to the recruiter.',
+            'request_id' => $result
+        ]);
+    } else {
+        ajax_return(['success' => false, 'message' => 'Failed to send request. Please try again.']);
+    }
+}
+
 
 }

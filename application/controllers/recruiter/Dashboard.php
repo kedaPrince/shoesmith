@@ -374,8 +374,11 @@ class Dashboard extends CRUD_Controller {
     /**
      * Page to view all notifications
      */
-    public function notifications() {
-        // Check if this is a POST request (form submission)
+/**
+ * Page to view all notifications
+ */
+public function notifications() {
+    // Check if this is a POST request (form submission)
     if ($this->input->server('REQUEST_METHOD') === 'POST') {
         // If it's a POST without valid CSRF, redirect to GET version
         $csrf_name = $this->security->get_csrf_token_name();
@@ -387,14 +390,41 @@ class Dashboard extends CRUD_Controller {
             return;
         }
     }
-        $recruiter_id = $this->get_recruiter_id();
+    
+    $recruiter_id = $this->get_recruiter_id();
+    
+    // Get all notifications
+    $notifications = $this->Model_notifications->get_all_notifications($recruiter_id);
+    
+    // Load the jobs model to get UUIDs
+    $this->load->model('recruiter/model_jobs');
+    
+    // Add job UUIDs to each notification
+    foreach ($notifications as &$notification) {
+        // Initialize job_uuid property
+        $notification->job_uuid = '';
         
-        $data['notifications'] = $this->Model_notifications->get_all_notifications($recruiter_id);
-        $data['unread_count'] = $this->Model_notifications->count_unread_notifications($recruiter_id);
-        
-        $this->setup_notifications_breadcrumbs();
-        load_custom_page($this->folder.'/'.$this->pageName.'/view_notifications', $data);
+        // Only get UUID for job-related notifications (not HM decisions or documents requests)
+        if ($notification->related_entity === 'job' && !empty($notification->related_entity_id)) {
+            // Check if it's a job notification (not candidate/HM decision)
+            $is_hm_decision = $notification->type === 'hm_decision';
+            $is_documents_request = $notification->type === 'documents_request';
+            
+            if (!$is_hm_decision && !$is_documents_request) {
+                $job = $this->model_jobs->get_job_by_id($notification->related_entity_id);
+                if ($job && !empty($job->uuid)) {
+                    $notification->job_uuid = $job->uuid;
+                }
+            }
+        }
     }
+    
+    $data['notifications'] = $notifications;
+    $data['unread_count'] = $this->Model_notifications->count_unread_notifications($recruiter_id);
+    
+    $this->setup_notifications_breadcrumbs();
+    load_custom_page($this->folder.'/'.$this->pageName.'/view_notifications', $data);
+}
 
 /**
  * AJAX method to get HM decision notifications for popup

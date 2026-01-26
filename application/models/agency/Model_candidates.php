@@ -2592,4 +2592,349 @@ public function get_candidate_details_by_agency_and_job($identifier, $agency_id 
         
         return $leaks;
     }
+
+    // Add these methods to Model_candidates.php
+
+/**
+ * Mask contact information for agency users
+ */
+public function mask_contact_info($email, $phone)
+{
+    // Mask email (e.g., prince@example.com -> prin***@***.com)
+    $masked_email = $this->mask_email($email);
+    
+    // Mask phone (e.g., 0621234567 -> 062*******)
+    $masked_phone = $this->mask_phone($phone);
+    
+    return [
+        'masked_email' => $masked_email,
+        'masked_phone' => $masked_phone,
+        'has_access' => false
+    ];
+}
+
+/**
+ * Mask email address
+ */
+private function mask_email($email)
+{
+    if (empty($email)) {
+        return 'N/A';
+    }
+    
+    $parts = explode('@', $email);
+    if (count($parts) != 2) {
+        return $email;
+    }
+    
+    $username = $parts[0];
+    $domain = $parts[1];
+    
+    // Keep first 3 characters of username
+    $masked_username = substr($username, 0, 3) . '***';
+    
+    // Mask domain
+    $domain_parts = explode('.', $domain);
+    if (count($domain_parts) > 1) {
+        $tld = array_pop($domain_parts);
+        $main_domain = implode('.', $domain_parts);
+        $masked_domain = '***.' . $tld;
+    } else {
+        $masked_domain = '***';
+    }
+    
+    return $masked_username . '@' . $masked_domain;
+}
+
+/**
+ * Mask phone number
+ */
+private function mask_phone($phone)
+{
+    if (empty($phone)) {
+        return 'N/A';
+    }
+    
+    // Keep first 3 digits
+    if (strlen($phone) > 3) {
+        return substr($phone, 0, 3) . '*******';
+    }
+    
+    return $phone;
+}
+
+/**
+ * Check if agency has access to candidate's contact info
+ */
+public function check_contact_access($candidate_id, $agency_id = null)
+{
+    if (!$agency_id) {
+        $agency_id = $this->get_current_agency_id();
+    }
+    
+    if (!$agency_id) {
+        return false;
+    }
+    
+    // Check if agency has been granted access
+    $this->db->select('1');
+    $this->db->from('candidate_contact_access');
+    $this->db->where('candidate_id', $candidate_id);
+    $this->db->where('agency_id', $agency_id);
+    $this->db->where('access_granted', 1);
+    $this->db->where('removed', 0);
+    
+    $result = $this->db->get()->row();
+    
+    return $result !== null;
+}
+
+/**
+ * Request contact information access
+ */
+public function request_contact_access($candidate_id, $agency_id, $requested_by = null, $notes = '')
+{
+    // Check if request already exists
+    $this->db->where('candidate_id', $candidate_id);
+    $this->db->where('agency_id', $agency_id);
+    $this->db->where('removed', 0);
+    $existing = $this->db->get('candidate_contact_access')->row();
+    
+    if ($existing) {
+        // Update existing request
+        $data = [
+            'status' => 'pending',
+            'request_count' => $existing->request_count + 1,
+            'last_requested_at' => date('Y-m-d H:i:s'),
+            'updated_at' => date('Y-m-d H:i:s')
+        ];
+        
+        if ($notes) {
+            $data['notes'] = $notes;
+        }
+        
+        $this->db->where('id', $existing->id);
+        return $this->db->update('candidate_contact_access', $data);
+    } else {
+        // Create new request
+        $data = [
+            'candidate_id' => $candidate_id,
+            'agency_id' => $agency_id,
+            'requested_by' => $requested_by,
+            'notes' => $notes,
+            'status' => 'pending',
+            'request_count' => 1,
+            'access_granted' => 0,
+            'first_requested_at' => date('Y-m-d H:i:s'),
+            'last_requested_at' => date('Y-m-d H:i:s'),
+            'created_at' => date('Y-m-d H:i:s'),
+            'updated_at' => date('Y-m-d H:i:s')
+        ];
+        
+        return $this->db->insert('candidate_contact_access', $data);
+    }
+
+    // Send notification to recruiter
+    if ($request_id) {
+        $this->load->model('recruiter/Model_notifications');
+        $this->Model_notifications->create_contact_request_notification(
+            $candidate_id, 
+            $agency_id, 
+            $request_id
+        );
+        
+        // Also send email notification if you have email system
+        $this->send_contact_request_email($candidate_id, $agency_id, $request_id);
+    }
+    
+    return $request_id;
+}
+
+/**
+ * Grant contact information access
+ */
+public function grant_contact_access($request_id, $granted_by = null)
+{
+    $data = [
+        'access_granted' => 1,
+        'status' => 'granted',
+        'granted_by' => $granted_by,
+        'granted_at' => date('Y-m-d H:i:s'),
+        'updated_at' => date('Y-m-d H:i:s')
+    ];
+    
+    $this->db->where('id', $request_id);
+    return $this->db->update('candidate_contact_access', $data);
+}
+
+/**
+ * Deny contact information access
+ */
+public function deny_contact_access($request_id, $denied_by = null, $reason = '')
+{
+    $data = [
+        'access_granted' => 0,
+        'status' => 'denied',
+        'denied_by' => $denied_by,
+        'denial_reason' => $reason,
+        'denied_at' => date('Y-m-d H:i:s'),
+        'updated_at' => date('Y-m-d H:i:s')
+    ];
+    
+    $this->db->where('id', $request_id);
+    return $this->db->update('candidate_contact_access', $data);
+}
+
+/**
+ * Get contact access requests for a candidate
+ */
+public function get_contact_access_requests($candidate_id, $status = null)
+{
+    $this->db->select('cca.*, 
+                      a.name as agency_name,
+                      u1.first_name as requested_by_first_name,
+                      u1.last_name as requested_by_last_name,
+                      u2.first_name as granted_by_first_name,
+                      u2.last_name as granted_by_last_name');
+    
+    $this->db->from('candidate_contact_access cca');
+    $this->db->join('agencies a', 'a.id = cca.agency_id', 'left');
+    $this->db->join('agency_staff u1', 'u1.id = cca.requested_by', 'left');
+    $this->db->join('agency_staff u2', 'u2.id = cca.granted_by', 'left');
+    
+    $this->db->where('cca.candidate_id', $candidate_id);
+    $this->db->where('cca.removed', 0);
+    
+    if ($status) {
+        $this->db->where('cca.status', $status);
+    }
+    
+    $this->db->order_by('cca.created_at', 'DESC');
+    
+    return $this->db->get()->result();
+}
+
+/**
+ * Create notification for contact info request
+ */
+public function create_contact_request_notification($candidate_id, $agency_id, $request_id)
+{
+    try {
+        // Get candidate info
+        $candidate = $this->db->where('id', $candidate_id)
+                             ->where('removed', 0)
+                             ->get('candidates')
+                             ->row();
+        
+        if (!$candidate) {
+            return false;
+        }
+        
+        // Get agency info
+        $agency = $this->db->where('id', $agency_id)
+                          ->get('agencies')
+                          ->row();
+        
+        // Get recruiter (from candidate.recruiter_id)
+        if (empty($candidate->recruiter_id)) {
+            return false;
+        }
+        
+        $recruiter_id = $candidate->recruiter_id;
+        
+        // Prepare notification
+        $notification_data = [
+            'title' => "Contact Info Request: {$candidate->first_name} {$candidate->last_name}",
+            'message' => "Agency {$agency->name} has requested contact information for candidate {$candidate->first_name} {$candidate->last_name}",
+            'type' => 'contact_request',
+            'sender_type' => 'agency',
+            'sender_id' => $agency_id,
+            'receiver_type' => 'recruiter',
+            'receiver_id' => $recruiter_id,
+            'related_entity' => 'candidate',
+            'related_entity_id' => $candidate_id,
+            'metadata' => json_encode([
+                'candidate_id' => $candidate_id,
+                'candidate_name' => "{$candidate->first_name} {$candidate->last_name}",
+                'candidate_ref' => $candidate->reference_number,
+                'agency_id' => $agency_id,
+                'agency_name' => $agency->name,
+                'request_id' => $request_id,
+                'action_url' => site_url("recruiter/candidates/contact_requests/{$candidate_id}")
+            ]),
+            'is_read' => 0,
+            'created_at' => date('Y-m-d H:i:s'),
+            'updated_at' => date('Y-m-d H:i:s'),
+            'removed' => 0,
+            'enabled' => 1
+        ];
+        
+        return $this->db->insert('notifications', $notification_data);
+        
+    } catch (Exception $e) {
+        log_message('error', "ERROR in create_contact_request_notification: " . $e->getMessage());
+        return false;
+    }
+}
+
+/**
+ * Create notification for contact info access granted
+ */
+public function create_contact_granted_notification($candidate_id, $agency_id, $recruiter_id)
+{
+    try {
+        // Get candidate info
+        $candidate = $this->db->where('id', $candidate_id)
+                             ->where('removed', 0)
+                             ->get('candidates')
+                             ->row();
+        
+        if (!$candidate) {
+            return false;
+        }
+        
+        // Get agency info
+        $agency = $this->db->where('id', $agency_id)
+                          ->get('agencies')
+                          ->row();
+        
+        // Get recruiter info
+        $recruiter = $this->db->where('id', $recruiter_id)
+                             ->get('recruiters')
+                             ->row();
+        
+        // Prepare notification for agency
+        $notification_data = [
+            'title' => "Contact Info Access Granted",
+            'message' => "Recruiter {$recruiter->first_name} {$recruiter->last_name} has granted you access to contact information for {$candidate->first_name} {$candidate->last_name}",
+            'type' => 'contact_granted',
+            'sender_type' => 'recruiter',
+            'sender_id' => $recruiter_id,
+            'receiver_type' => 'agency',
+            'receiver_id' => $agency_id,
+            'related_entity' => 'candidate',
+            'related_entity_id' => $candidate_id,
+            'metadata' => json_encode([
+                'candidate_id' => $candidate_id,
+                'candidate_name' => "{$candidate->first_name} {$candidate->last_name}",
+                'candidate_ref' => $candidate->reference_number,
+                'recruiter_id' => $recruiter_id,
+                'recruiter_name' => "{$recruiter->first_name} {$recruiter->last_name}",
+                'action_url' => site_url("agency/candidates/view/{$candidate->uuid}")
+            ]),
+            'is_read' => 0,
+            'created_at' => date('Y-m-d H:i:s'),
+            'updated_at' => date('Y-m-d H:i:s'),
+            'removed' => 0,
+            'enabled' => 1
+        ];
+        
+        return $this->db->insert('notifications', $notification_data);
+        
+    } catch (Exception $e) {
+        log_message('error', "ERROR in create_contact_granted_notification: " . $e->getMessage());
+        return false;
+    }
+}
+
 }

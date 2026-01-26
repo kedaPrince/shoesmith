@@ -31,7 +31,7 @@ class Recruiters extends CRUD_Controller
         // For agency context, always allow editing and filter by agency
         $this->allowEdit = true;
         $this->rowClick = $this->allowEdit ? 'edit-row' : 'vieww-row';
-        $this->adding = $this->allowEdit;
+        $this->adding = false;
         $this->editing = $this->allowEdit;
         $this->abling = $this->allowEdit;
         $this->deleting = $this->allowEdit;
@@ -343,3 +343,4 @@ public function update_activity()
     echo json_encode(['success' => true]);
 }
 }
+

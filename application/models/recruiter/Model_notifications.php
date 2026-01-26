@@ -29,6 +29,19 @@ class Model_notifications extends CRUD_model
     }
 
     /**
+ * Get job UUID by ID
+ */
+public function get_job_uuid($job_id)
+{
+    $this->db->select('uuid');
+    $this->db->from('mod_jobs');
+    $this->db->where('id', $job_id);
+    $result = $this->db->get()->row();
+    
+    return $result ? $result->uuid : '';
+}
+
+    /**
      * Count unread notifications for recruiter
      */
     public function count_unread_notifications($recruiter_id)
@@ -833,4 +846,167 @@ public function create_candidate_submission_notification($candidateData, $create
         $result = $this->db->get()->row();
         return $result ? $result->unread_count : 0;
     }
+
+    // In recruiter/Model_notifications.php
+
+/**
+ * Create notification for contact info request
+ */
+public function create_contact_request_notification($candidate_id, $agency_id, $request_id)
+{
+    try {
+        // Get candidate info
+        $this->db->select('c.*, r.id as recruiter_id, r.first_name as recruiter_first_name, r.last_name as recruiter_last_name');
+        $this->db->from('candidates c');
+        $this->db->join('recruiters r', 'r.id = c.recruiter_id', 'left');
+        $this->db->where('c.id', $candidate_id);
+        $candidate = $this->db->get()->row();
+        
+        if (!$candidate) {
+            return false;
+        }
+        
+        // Get agency info
+        $agency = $this->db->where('id', $agency_id)->get('agencies')->row();
+        
+        // Prepare notification
+        $notification_data = [
+            'title' => "Contact Info Request: {$candidate->first_name} {$candidate->last_name}",
+            'message' => "Agency {$agency->name} has requested contact information for candidate {$candidate->first_name} {$candidate->last_name}",
+            'type' => 'contact_request',
+            'sender_type' => 'agency',
+            'sender_id' => $agency_id,
+            'receiver_type' => 'recruiter',
+            'receiver_id' => $candidate->recruiter_id,
+            'related_entity' => 'candidate',
+            'related_entity_id' => $candidate_id,
+            'metadata' => json_encode([
+                'candidate_id' => $candidate_id,
+                'candidate_name' => "{$candidate->first_name} {$candidate->last_name}",
+                'candidate_ref' => $candidate->reference_number,
+                'agency_id' => $agency_id,
+                'agency_name' => $agency->name,
+                'request_id' => $request_id,
+                'action_url' => site_url("recruiter/candidates/contact_requests/{$candidate_id}")
+            ]),
+            'is_read' => 0,
+            'created_at' => date('Y-m-d H:i:s'),
+            'updated_at' => date('Y-m-d H:i:s'),
+            'removed' => 0,
+            'enabled' => 1
+        ];
+        
+        return $this->db->insert('notifications', $notification_data);
+        
+    } catch (Exception $e) {
+        log_message('error', "ERROR in create_contact_request_notification: " . $e->getMessage());
+        return false;
+    }
+}
+
+/**
+ * Create notification for contact info granted
+ */
+public function create_contact_granted_notification($candidate_id, $agency_id, $recruiter_id, $notes = '')
+{
+    try {
+        // Get candidate info
+        $candidate = $this->db->where('id', $candidate_id)->get('candidates')->row();
+        if (!$candidate) {
+            return false;
+        }
+        
+        // Get agency info
+        $agency = $this->db->where('id', $agency_id)->get('agencies')->row();
+        
+        // Get recruiter info
+        $recruiter = $this->db->where('id', $recruiter_id)->get('recruiters')->row();
+        
+        // Prepare notification
+        $notification_data = [
+            'title' => "Contact Info Access Granted",
+            'message' => "Recruiter {$recruiter->first_name} {$recruiter->last_name} has granted you access to contact information for {$candidate->first_name} {$candidate->last_name}",
+            'type' => 'contact_granted',
+            'sender_type' => 'recruiter',
+            'sender_id' => $recruiter_id,
+            'receiver_type' => 'agency',
+            'receiver_id' => $agency_id,
+            'related_entity' => 'candidate',
+            'related_entity_id' => $candidate_id,
+            'metadata' => json_encode([
+                'candidate_id' => $candidate_id,
+                'candidate_name' => "{$candidate->first_name} {$candidate->last_name}",
+                'candidate_ref' => $candidate->reference_number,
+                'recruiter_id' => $recruiter_id,
+                'recruiter_name' => "{$recruiter->first_name} {$recruiter->last_name}",
+                'notes' => $notes,
+                'action_url' => site_url("agency/candidates/view/{$candidate->uuid}")
+            ]),
+            'is_read' => 0,
+            'created_at' => date('Y-m-d H:i:s'),
+            'updated_at' => date('Y-m-d H:i:s'),
+            'removed' => 0,
+            'enabled' => 1
+        ];
+        
+        return $this->db->insert('notifications', $notification_data);
+        
+    } catch (Exception $e) {
+        log_message('error', "ERROR in create_contact_granted_notification: " . $e->getMessage());
+        return false;
+    }
+}
+
+/**
+ * Create notification for contact info denied
+ */
+public function create_contact_denied_notification($candidate_id, $agency_id, $recruiter_id, $reason = '')
+{
+    try {
+        // Get candidate info
+        $candidate = $this->db->where('id', $candidate_id)->get('candidates')->row();
+        if (!$candidate) {
+            return false;
+        }
+        
+        // Get agency info
+        $agency = $this->db->where('id', $agency_id)->get('agencies')->row();
+        
+        // Get recruiter info
+        $recruiter = $this->db->where('id', $recruiter_id)->get('recruiters')->row();
+        
+        // Prepare notification
+        $notification_data = [
+            'title' => "Contact Info Access Denied",
+            'message' => "Recruiter {$recruiter->first_name} {$recruiter->last_name} has denied your request for contact information for {$candidate->first_name} {$candidate->last_name}",
+            'type' => 'contact_denied',
+            'sender_type' => 'recruiter',
+            'sender_id' => $recruiter_id,
+            'receiver_type' => 'agency',
+            'receiver_id' => $agency_id,
+            'related_entity' => 'candidate',
+            'related_entity_id' => $candidate_id,
+            'metadata' => json_encode([
+                'candidate_id' => $candidate_id,
+                'candidate_name' => "{$candidate->first_name} {$candidate->last_name}",
+                'candidate_ref' => $candidate->reference_number,
+                'recruiter_id' => $recruiter_id,
+                'recruiter_name' => "{$recruiter->first_name} {$recruiter->last_name}",
+                'denial_reason' => $reason,
+                'action_url' => site_url("agency/candidates/view/{$candidate->uuid}")
+            ]),
+            'is_read' => 0,
+            'created_at' => date('Y-m-d H:i:s'),
+            'updated_at' => date('Y-m-d H:i:s'),
+            'removed' => 0,
+            'enabled' => 1
+        ];
+        
+        return $this->db->insert('notifications', $notification_data);
+        
+    } catch (Exception $e) {
+        log_message('error', "ERROR in create_contact_denied_notification: " . $e->getMessage());
+        return false;
+    }
+}
 }
