@@ -53,7 +53,6 @@ class Model_candidates extends CRUD_Model
             $this->db->order_by('name', 'ASC');
             return $this->db->get()->result_array(); // Changed to result_array()
         } catch (Exception $e) {
-            error_log('Error in get_agencies_all: ' . $e->getMessage());
             return [];
         }
     }
@@ -67,7 +66,6 @@ class Model_candidates extends CRUD_Model
             $this->db->order_by('job_title', 'ASC');
             return $this->db->get()->result_array(); // Changed to result_array()
         } catch (Exception $e) {
-            error_log('Error in get_jobs_all: ' . $e->getMessage());
             return [];
         }
     }
@@ -89,7 +87,6 @@ class Model_candidates extends CRUD_Model
             
             return $this->db->get()->result_array(); // Changed to result_array()
         } catch (Exception $e) {
-            error_log('Error in get_agency_agents_all: ' . $e->getMessage());
             return [];
         }
     }
@@ -104,7 +101,6 @@ class Model_candidates extends CRUD_Model
             $this->db->where('enabled', 1);
             return $this->db->get()->row();
         } catch (Exception $e) {
-            error_log('Error in get_candidate_details: ' . $e->getMessage());
             return null;
         }
     }
@@ -121,7 +117,6 @@ class Model_candidates extends CRUD_Model
             $sequence = ($result->total ?? 0) + 1;
             return $prefix . '-' . date('Y') . '-' . str_pad($sequence, 4, '0', STR_PAD_LEFT);
         } catch (Exception $e) {
-            error_log('Error in generate_reference_number: ' . $e->getMessage());
             return $prefix . '-' . date('Y') . '-0001';
         }
     }
@@ -134,7 +129,6 @@ class Model_candidates extends CRUD_Model
             }
             return false;
         } catch (Exception $e) {
-            error_log('Error in log_candidate_activity: ' . $e->getMessage());
             return false;
         }
     }
@@ -147,7 +141,6 @@ class Model_candidates extends CRUD_Model
             }
             return false;
         } catch (Exception $e) {
-            error_log('Error in create_agent_notification: ' . $e->getMessage());
             return false;
         }
     }
@@ -160,7 +153,6 @@ class Model_candidates extends CRUD_Model
             $this->db->where('enabled', 1);
             return $this->db->get()->row();
         } catch (Exception $e) {
-            error_log('Error in get_agent: ' . $e->getMessage());
             return null;
         }
     }

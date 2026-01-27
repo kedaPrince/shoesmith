@@ -36,10 +36,8 @@ public function __construct()
 
     // Debug agency filter
     $user_agency_id = $this->get_user_agency_id();
-    log_message('debug', 'User agency ID: ' . ($user_agency_id ?: 'NULL'));
     
     if ($user_agency_id) {
-        log_message('debug', 'Applying agency filter: agency_id = ' . $user_agency_id);
         $this->db->where('mod_jobs.agency_id', $user_agency_id);
     }
 
@@ -70,237 +68,238 @@ private function is_job_expired($job)
     $today = date('Y-m-d');
     return $job->closing_date < $today;
 }
-    private function setup_listing()
-    {
-        $this->listFields = array(
-            'name' => array(
-                'label' => lang('label_title'), 
-                'sort' => true,
-                'function' => function($str, $row) {
-                    $is_expired = $this->is_job_expired($row);
-                    $name = !empty($str) ? htmlspecialchars($str, ENT_QUOTES, 'UTF-8') : 'N/A';
-                    if ($is_expired) {
-                        return '<span class="expired-job-text">' . $name . '</span>';
-                    }
-                    return $name;
-                }
-            ),
-            'reference_number' => array(
-                'label' => lang('label_reference_number'), 
-                'sort' => true,
-                'function' => function($str, $row) {
-                    $is_expired = $this->is_job_expired($row);
-                    $ref = htmlspecialchars($str, ENT_QUOTES, 'UTF-8');
-                    
-                    if ($is_expired) {
-                        return '<span class="expired-job-text">' . $ref . '</span>';
-                    }
-                    return $ref;
-                }
-            ),
-            'employment_type' => array(
-                'label' => lang('label_job_type'), 
-                'sort' => true,
-                'function' => function($str, $row) {
-                    $is_expired = $this->is_job_expired($row);
-                    $employment_types = [
-                        'full-time' => 'Full Time',
-                        'part-time' => 'Part Time', 
-                        'contract' => 'Contract',
-                        'internship' => 'Internship',
-                        'temporary' => 'Temporary'
-                    ];
-                    $display_value = $employment_types[$str] ?? $str;
-                    
-                    if ($is_expired) {
-                        return '<span class="expired-job-text">' . $display_value . '</span>';
-                    }
-                    return $display_value;
-                }
-            ),
-            'closing_date' => array(
-                'label' => 'Closing Date', 
-                'sort' => true,
-                'function' => function($str, $row) {
-                    if (empty($row->closing_date) || $row->closing_date == '0000-00-00') {
-                        return '<span class="text-muted">Not set</span>';
-                    }
-                    
-                    $closing_date = date('M j, Y', strtotime($row->closing_date));
-                    $today = date('Y-m-d');
-                    $is_expired = $this->is_job_expired($row);
-                    
-                    if ($is_expired) {
-                        return '<span class="text-danger expired-job-text" title="Job expired"><i class="fa fa-exclamation-circle"></i> ' . $closing_date . '</span>';
-                    }
-                    
-                    // Check if closing date is within 7 days
-                    $one_week_later = date('Y-m-d', strtotime('+7 days'));
-                    if ($row->closing_date <= $one_week_later) {
-                        return '<span class="text-warning" title="Closing soon"><i class="fa fa-clock-o"></i> ' . $closing_date . '</span>';
-                    }
-                    
-                    return '<span class="text-success">' . $closing_date . '</span>';
-                }
-            ),
-            'industry_name' => array(
-                'label' => lang('label_industry'),
-                'sort' => true,
-                'function' => function($str, $row) {
-                    $is_expired = $this->is_job_expired($row);
-                    $industry = htmlspecialchars($str, ENT_QUOTES, 'UTF-8');
-                    
-                    if ($is_expired) {
-                        return '<span class="expired-job-text">' . $industry . '</span>';
-                    }
-                    return $industry;
-                }
-            ),
-            'agency_name' => array(
-                'label' => lang('label_agency'),
-                'sort' => true,
-                'function' => function($str, $row) {
-                    $is_expired = $this->is_job_expired($row);
-                    $agency = htmlspecialchars($str, ENT_QUOTES, 'UTF-8');
-                    
-                    if ($is_expired) {
-                        return '<span class="expired-job-text">' . $agency . '</span>';
-                    }
-                    return $agency;
-                }
-            ),
 
-            'candidate_count' => array(
-            'label' => 'My Candidates',
+private function setup_listing()
+{
+    $this->listFields = array(
+        'name' => array(
+            'label' => lang('label_title'), 
             'sort' => true,
             'function' => function($str, $row) {
-                // Load the model if not already loaded
-                $this->load->model('recruiter/model_jobs');
-                
-                // Get current recruiter ID
-                $recruiter_id = $this->get_current_recruiter_id();
-                
-                // Use the new method to count ONLY this recruiter's candidates
-                $count = $this->model_jobs->get_candidate_count_for_job($row->id, $recruiter_id);
-                
-                // FIX: Use UUID instead of ID
-                $url = site_url('recruiter/candidates/for_job/' . $row->uuid); // <-- CHANGED TO UUID
-                
                 $is_expired = $this->is_job_expired($row);
-                
-                if ($count > 0) {
-                    if ($is_expired) {
-                        return '<span class="btn btn-sm btn-secondary expired-job-btn" title="Job expired - view only">' . $count . '</span>';
-                    }
-                    return '<a href="' . $url . '" class="btn btn-sm btn-info" title="View my ' . $count . ' Candidates">' . $count . '</a>';
-                } else {
-                    if ($is_expired) {
-                        return '<span class="text-muted expired-job-text">0</span>';
-                    }
-                    return '<span class="text-muted">0</span>';
+                $name = !empty($str) ? htmlspecialchars($str, ENT_QUOTES, 'UTF-8') : 'N/A';
+                if ($is_expired) {
+                    return '<span class="expired-job-text">' . $name . '</span>';
                 }
+                return $name;
             }
         ),
-        );
-
-           // In setup_listing() method, update the listActions:
-        $this->listActions = array(
-    'view' => array(
-        'label'     => lang('label_view'),
-        'url'       => url($this->pageName . '/view/{uuid}'),
-        'icon'      => 'fa-eye',
-        'class'     => 'view-row btn-info',
-        'title'     => 'View job details',
-    ),
-    'view_candidates' => array(
-        'label'     => 'View Candidates',
-        'url'       => url('candidates/for_job/{uuid}'),
-        'icon'      => 'fa-users',
-        'class'     => 'view-candidates-row btn-primary',
-        'title'     => 'View candidates for this job',
-    ),
-    'add_candidate' => array(
-        'label'     => 'Add Candidate',
-        'url'       => url('candidates/add/{uuid}'),
-        'icon'      => 'fa-user-plus',
-        'class'     => 'add-candidate-row btn-success',
-        'title'     => 'Add candidate to this job',
-    ),
-    // ADD THIS NEW ACTION FOR CHAT
-    'chat' => array(
-        'label'     => 'Chat',
-        'url'       => url('chat/start_job_chat/{uuid}'),
-        'icon'      => 'fa-comments',
-        'class'     => 'chat-job-row btn-warning',
-        'title'     => 'Chat with agency about this job',
-    ),
-);
-
-        //built-in listRowAttributes for styling
-        $this->listRowAttributes = function($row) {
-            $is_expired = $this->is_job_expired($row);
-            if ($is_expired) {
-                return [
-                    'class' => 'expired-job-row'
-                ];
+        'reference_number' => array(
+            'label' => lang('label_reference_number'), 
+            'sort' => true,
+            'function' => function($str, $row) {
+                $is_expired = $this->is_job_expired($row);
+                $ref = htmlspecialchars($str, ENT_QUOTES, 'UTF-8');
+                
+                if ($is_expired) {
+                    return '<span class="expired-job-text">' . $ref . '</span>';
+                }
+                return $ref;
             }
-            return [];
-        };
+        ),
+        'employment_type' => array(
+            'label' => lang('label_job_type'), 
+            'sort' => true,
+            'function' => function($str, $row) {
+                $is_expired = $this->is_job_expired($row);
+                $employment_types = [
+                    'full-time' => 'Full Time',
+                    'part-time' => 'Part Time', 
+                    'contract' => 'Contract',
+                    'internship' => 'Internship',
+                    'temporary' => 'Temporary'
+                ];
+                $display_value = $employment_types[$str] ?? $str;
+                
+                if ($is_expired) {
+                    return '<span class="expired-job-text">' . $display_value . '</span>';
+                }
+                return $display_value;
+            }
+        ),
+        'closing_date' => array(
+            'label' => 'Closing Date', 
+            'sort' => true,
+            'function' => function($str, $row) {
+                if (empty($row->closing_date) || $row->closing_date == '0000-00-00') {
+                    return '<span class="text-muted">Not set</span>';
+                }
+                
+                $closing_date = date('M j, Y', strtotime($row->closing_date));
+                $today = date('Y-m-d');
+                $is_expired = $this->is_job_expired($row);
+                
+                if ($is_expired) {
+                    return '<span class="text-danger expired-job-text" title="Job expired"><i class="fa fa-exclamation-circle"></i> ' . $closing_date . '</span>';
+                }
+                
+                // Check if closing date is within 7 days
+                $one_week_later = date('Y-m-d', strtotime('+7 days'));
+                if ($row->closing_date <= $one_week_later) {
+                    return '<span class="text-warning" title="Closing soon"><i class="fa fa-clock-o"></i> ' . $closing_date . '</span>';
+                }
+                
+                return '<span class="text-success">' . $closing_date . '</span>';
+            }
+        ),
+        'industry_name' => array(
+            'label' => lang('label_industry'),
+            'sort' => true,
+            'function' => function($str, $row) {
+                $is_expired = $this->is_job_expired($row);
+                $industry = htmlspecialchars($str, ENT_QUOTES, 'UTF-8');
+                
+                if ($is_expired) {
+                    return '<span class="expired-job-text">' . $industry . '</span>';
+                }
+                return $industry;
+            }
+        ),
+        'agency_name' => array(
+            'label' => lang('label_agency'),
+            'sort' => true,
+            'function' => function($str, $row) {
+                $is_expired = $this->is_job_expired($row);
+                $agency = htmlspecialchars($str, ENT_QUOTES, 'UTF-8');
+                
+                if ($is_expired) {
+                    return '<span class="expired-job-text">' . $agency . '</span>';
+                }
+                return $agency;
+            }
+        ),
 
-        $this->filters = array(
-            'general' => array(
-                'label' => lang('label_search'),
-                'type' => 'autocomplete',
-                'field' => array('mod_jobs.name', 'mod_jobs.reference_number'),
-            ),
-        );
-    }
+        'candidate_count' => array(
+        'label' => 'My Candidates',
+        'sort' => true,
+        'function' => function($str, $row) {
+            // Load the model if not already loaded
+            $this->load->model('recruiter/model_jobs');
+            
+            // Get current recruiter ID
+            $recruiter_id = $this->get_current_recruiter_id();
+            
+            // Use the new method to count ONLY this recruiter's candidates
+            $count = $this->model_jobs->get_candidate_count_for_job($row->id, $recruiter_id);
+            
+            // FIX: Use UUID instead of ID
+            $url = site_url('recruiter/candidates/for_job/' . $row->uuid); // <-- CHANGED TO UUID
+            
+            $is_expired = $this->is_job_expired($row);
+            
+            if ($count > 0) {
+                if ($is_expired) {
+                    return '<span class="btn btn-sm btn-secondary expired-job-btn" title="Job expired - view only">' . $count . '</span>';
+                }
+                return '<a href="' . $url . '" class="btn btn-sm btn-info" title="View my ' . $count . ' Candidates">' . $count . '</a>';
+            } else {
+                if ($is_expired) {
+                    return '<span class="text-muted expired-job-text">0</span>';
+                }
+                return '<span class="text-muted">0</span>';
+            }
+        }
+    ),
+    );
 
-    public function setup_fields()
-    {
-        $this->formFields = array(
-            'main' => array(
-                'name' => 'trim|required|strip_tags',
-                'reference_number' => 'trim|required|strip_tags|callback_is_unique_reference',
-                'description' => 'trim',
-                'department' => 'trim|strip_tags',
-                'agency_id' => 'trim|required|numeric',
-                'industry_id' => 'trim|numeric',
-                'employment_type' => 'trim|required',
-                'salary_min' => 'trim|numeric',
-                'salary_max' => 'trim|numeric',
-                'pay_rate' => 'trim|strip_tags',
-                'is_remote' => 'trim|numeric',
-                'roster' => 'trim|strip_tags',
-                'accommodation' => 'trim|strip_tags',
-                'transport' => 'trim|strip_tags',
-                'application_email' => 'trim|valid_email',
-                'application_url' => 'trim|valid_url',
-                'closing_date' => 'trim',
-                'skills' => 'trim',
-                'qualifications' => 'trim', 
-            ),
-        
-        );
-    }
+            // In setup_listing() method, update the listActions:
+            $this->listActions = array(
+        'view' => array(
+            'label'     => lang('label_view'),
+            'url'       => url($this->pageName . '/view/{uuid}'),
+            'icon'      => 'fa-eye',
+            'class'     => 'view-row btn-info',
+            'title'     => 'View job details',
+        ),
+        'view_candidates' => array(
+            'label'     => 'View Candidates',
+            'url'       => url('candidates/for_job/{uuid}'),
+            'icon'      => 'fa-users',
+            'class'     => 'view-candidates-row btn-primary',
+            'title'     => 'View candidates for this job',
+        ),
+        'add_candidate' => array(
+            'label'     => 'Add Candidate',
+            'url'       => url('candidates/add/{uuid}'),
+            'icon'      => 'fa-user-plus',
+            'class'     => 'add-candidate-row btn-success',
+            'title'     => 'Add candidate to this job',
+        ),
+        // ADD THIS NEW ACTION FOR CHAT
+        'chat' => array(
+            'label'     => 'Chat',
+            'url'       => url('chat/start_job_chat/{uuid}'),
+            'icon'      => 'fa-comments',
+            'class'     => 'chat-job-row btn-warning',
+            'title'     => 'Chat with agency about this job',
+        ),
+    );
 
-    public function index()
-    {
-  
-        $this->breadcrumbs = array(
-            array(
-                'title' => lang($this->pageName . '_heading'),
-                'url' => redir($this->pageName, true),
-            ),
-        );
-        $this->view = 'listing';
-        $this->load->view($this->folder . '/view_header');
-        $this->load->view('cms/crud/view_list', array(
-            'heading' => lang($this->pageName . '_heading'),
-            'noRows' => lang($this->pageName . '_no_rows'),
-        ));
-        $this->load->view($this->folder . '/view_footer');
-    }
+    //built-in listRowAttributes for styling
+    $this->listRowAttributes = function($row) {
+        $is_expired = $this->is_job_expired($row);
+        if ($is_expired) {
+            return [
+                'class' => 'expired-job-row'
+            ];
+        }
+        return [];
+    };
+
+    $this->filters = array(
+        'general' => array(
+            'label' => lang('label_search'),
+            'type' => 'autocomplete',
+            'field' => array('mod_jobs.name', 'mod_jobs.reference_number'),
+        ),
+    );
+}
+
+public function setup_fields()
+{
+    $this->formFields = array(
+        'main' => array(
+            'name' => 'trim|required|strip_tags',
+            'reference_number' => 'trim|required|strip_tags|callback_is_unique_reference',
+            'description' => 'trim',
+            'department' => 'trim|strip_tags',
+            'agency_id' => 'trim|required|numeric',
+            'industry_id' => 'trim|numeric',
+            'employment_type' => 'trim|required',
+            'salary_min' => 'trim|numeric',
+            'salary_max' => 'trim|numeric',
+            'pay_rate' => 'trim|strip_tags',
+            'is_remote' => 'trim|numeric',
+            'roster' => 'trim|strip_tags',
+            'accommodation' => 'trim|strip_tags',
+            'transport' => 'trim|strip_tags',
+            'application_email' => 'trim|valid_email',
+            'application_url' => 'trim|valid_url',
+            'closing_date' => 'trim',
+            'skills' => 'trim',
+            'qualifications' => 'trim', 
+        ),
+    
+    );
+}
+
+public function index()
+{
+
+    $this->breadcrumbs = array(
+        array(
+            'title' => lang($this->pageName . '_heading'),
+            'url' => redir($this->pageName, true),
+        ),
+    );
+    $this->view = 'listing';
+    $this->load->view($this->folder . '/view_header');
+    $this->load->view('cms/crud/view_list', array(
+        'heading' => lang($this->pageName . '_heading'),
+        'noRows' => lang($this->pageName . '_no_rows'),
+    ));
+    $this->load->view($this->folder . '/view_footer');
+}
 
 
 public function ajax_assign_candidate_to_job()
@@ -446,6 +445,7 @@ public function ajax_assign_candidate_to_job()
         ]);
     }
 }
+
 public function ajax_get_candidates_for_job()
 {
     if (!$this->input->is_ajax_request()) {
@@ -500,39 +500,39 @@ public function ajax_get_candidates_for_job()
         ]);
     }
 }
-    /**
-     * Get the agency ID of the logged-in recruiter
-     */
-    private function get_user_agency_id()
-    {
-        $login = $this->session->userdata('login');
-        if (!empty($login['recruiters']['agency_id'])) {
-            return (int) $login['recruiters']['agency_id'];
-        }
-        return null;
+/**
+ * Get the agency ID of the logged-in recruiter
+ */
+private function get_user_agency_id()
+{
+    $login = $this->session->userdata('login');
+    if (!empty($login['recruiters']['agency_id'])) {
+        return (int) $login['recruiters']['agency_id'];
     }
+    return null;
+}
 
-    public function is_unique_reference($reference)
-    {
-        $id = $this->input->post('id');
-        $this->form_validation->set_message('is_unique_reference', lang('ref_exists'));
-        return $this->{$this->model}->is_unique_reference($reference, $id);
-    }
+public function is_unique_reference($reference)
+{
+    $id = $this->input->post('id');
+    $this->form_validation->set_message('is_unique_reference', lang('ref_exists'));
+    return $this->{$this->model}->is_unique_reference($reference, $id);
+}
 
-    public function edit($id)
-    {
-        show_404(); // Block access to edit
-    }
+public function edit($id)
+{
+    show_404(); // Block access to edit
+}
 
-    public function enable($id)
-    {
-        show_404(); // Block access to enable
-    }
+public function enable($id)
+{
+    show_404(); // Block access to enable
+}
 
-    public function disable($id)
-    {
-        show_404(); // Block access to disable
-    }
+public function disable($id)
+{
+    show_404(); // Block access to disable
+}
 
     /**
      * View job details - Only method recruiters can access
@@ -582,7 +582,6 @@ public function ajax_get_candidates_for_job()
 public function view_candidates($job_uuid)
 {
     $recruiter_id = $this->get_current_recruiter_id();
-    log_message('debug', 'view_candidates - Recruiter ID: ' . ($recruiter_id ?: 'NULL'));
 
     // Get job details by UUID
     $this->db->select('mod_jobs.*, agencies.name as agency_name');
@@ -591,7 +590,6 @@ public function view_candidates($job_uuid)
     $this->db->where('mod_jobs.uuid', $job_uuid);
     
     $user_agency_id = $this->get_user_agency_id();
-    log_message('debug', 'view_candidates - User agency ID: ' . ($user_agency_id ?: 'NULL'));
     
     if ($user_agency_id) {
         $this->db->where('mod_jobs.agency_id', $user_agency_id);
@@ -600,15 +598,11 @@ public function view_candidates($job_uuid)
     $job = $this->db->get()->row();
     
     if (!$job) {
-        log_message('error', 'Job not found for UUID: ' . $job_uuid);
         show_404();
     }
 
-    log_message('debug', 'Job found - ID: ' . $job->id . ', Agency: ' . $job->agency_id);
 
-    // ✅ FIX: Get candidates BEFORE logging count
     $candidates = $this->model_jobs->get_candidates_for_job($job->id, $recruiter_id);
-    log_message('debug', 'Candidates count: ' . count($candidates));
 
     $data['candidates'] = $candidates;
     $data['job'] = $job;
@@ -621,122 +615,120 @@ public function view_candidates($job_uuid)
     $this->load->view($this->folder . '/view_footer');
 }
 
-
-
-    /**
-     * Get updated fields from notifications for this job
-     */
-    private function get_updated_fields_for_job($job_id) 
-    {
-        $recruiter_id = $this->get_current_recruiter_id();
-        
-        if (!$recruiter_id) {
-            return [];
-        }
-
-
-        // Get the latest unread update notification for this job
-        $this->db->select('updated_fields, id, created_at, type');
-        $this->db->from('notifications');
-        $this->db->where('receiver_type', 'recruiter');
-        $this->db->where('receiver_id', $recruiter_id);
-        $this->db->where('related_entity', 'job');
-        $this->db->where('related_entity_id', $job_id);
-        $this->db->where("(type = 'job_updated' OR type = '')");
-        $this->db->where('is_read', 0);
-        $this->db->order_by('created_at', 'DESC');
-        $this->db->limit(1);
-        
-        $query = $this->db->get();
-
-        if ($query->num_rows() > 0) {
-            $notification = $query->row();
-            
-            if (!empty($notification->updated_fields)) {
-                $updated_fields = json_decode($notification->updated_fields, true);
-                return is_array($updated_fields) ? $updated_fields : [];
-            }
-        } else {
-        }
-
+/**
+ * Get updated fields from notifications for this job
+ */
+private function get_updated_fields_for_job($job_id) 
+{
+    $recruiter_id = $this->get_current_recruiter_id();
+    
+    if (!$recruiter_id) {
         return [];
     }
 
-    /**
-     * Get current recruiter ID from session
-     */
-    private function get_current_recruiter_id() 
-    {
-        $login_data = $this->session->userdata('login');
-        $recruiter_id = !empty($login_data['recruiter']['id']) ? $login_data['recruiter']['id'] : null;
-        return $recruiter_id;
+
+    // Get the latest unread update notification for this job
+    $this->db->select('updated_fields, id, created_at, type');
+    $this->db->from('notifications');
+    $this->db->where('receiver_type', 'recruiter');
+    $this->db->where('receiver_id', $recruiter_id);
+    $this->db->where('related_entity', 'job');
+    $this->db->where('related_entity_id', $job_id);
+    $this->db->where("(type = 'job_updated' OR type = '')");
+    $this->db->where('is_read', 0);
+    $this->db->order_by('created_at', 'DESC');
+    $this->db->limit(1);
+    
+    $query = $this->db->get();
+
+    if ($query->num_rows() > 0) {
+        $notification = $query->row();
+        
+        if (!empty($notification->updated_fields)) {
+            $updated_fields = json_decode($notification->updated_fields, true);
+            return is_array($updated_fields) ? $updated_fields : [];
+        }
+    } else {
     }
 
-    public function debug_job_assignments($job_id)
-    {
-        $recruiter_id = $this->get_current_recruiter_id();
-        
-        echo "<h2>Debug Info for Job ID: $job_id</h2>";
-        echo "<h3>Recruiter ID: $recruiter_id</h3>";
-        
-        // Show all candidates for this recruiter
-        echo "<h4>All Candidates for Recruiter:</h4>";
-        $all_candidates = $this->db->select('id, first_name, last_name, reference_number')
-                                ->from('candidates')
-                                ->where('assigned_agent_id', $recruiter_id)
-                                ->where('enabled', 1)
-                                ->where('removed', 0)
+    return [];
+}
+
+/**
+ * Get current recruiter ID from session
+ */
+private function get_current_recruiter_id() 
+{
+    $login_data = $this->session->userdata('login');
+    $recruiter_id = !empty($login_data['recruiter']['id']) ? $login_data['recruiter']['id'] : null;
+    return $recruiter_id;
+}
+
+public function debug_job_assignments($job_id)
+{
+    $recruiter_id = $this->get_current_recruiter_id();
+    
+    echo "<h2>Debug Info for Job ID: $job_id</h2>";
+    echo "<h3>Recruiter ID: $recruiter_id</h3>";
+    
+    // Show all candidates for this recruiter
+    echo "<h4>All Candidates for Recruiter:</h4>";
+    $all_candidates = $this->db->select('id, first_name, last_name, reference_number')
+                            ->from('candidates')
+                            ->where('assigned_agent_id', $recruiter_id)
+                            ->where('enabled', 1)
+                            ->where('removed', 0)
+                            ->get()
+                            ->result();
+    echo "<pre>";
+    print_r($all_candidates);
+    echo "</pre>";
+    
+    // Show active assignments for this job
+    echo "<h4>Active Assignments for Job:</h4>";
+    $active_assignments = $this->db->select('cja.*, c.first_name, c.last_name')
+                                ->from('candidate_job_assignments cja')
+                                ->join('candidates c', 'c.id = cja.candidate_id')
+                                ->where('cja.job_id', $job_id)
+                                ->where('cja.removed', 0)
                                 ->get()
                                 ->result();
-        echo "<pre>";
-        print_r($all_candidates);
-        echo "</pre>";
-        
-        // Show active assignments for this job
-        echo "<h4>Active Assignments for Job:</h4>";
-        $active_assignments = $this->db->select('cja.*, c.first_name, c.last_name')
-                                    ->from('candidate_job_assignments cja')
-                                    ->join('candidates c', 'c.id = cja.candidate_id')
-                                    ->where('cja.job_id', $job_id)
-                                    ->where('cja.removed', 0)
+    echo "<pre>";
+    print_r($active_assignments);
+    echo "</pre>";
+    
+    // Show removed assignments for this job
+    echo "<h4>Removed Assignments for Job:</h4>";
+    $removed_assignments = $this->db->select('cja.*, c.first_name, c.last_name')
+                                ->from('candidate_job_assignments cja')
+                                ->join('candidates c', 'c.id = cja.candidate_id')
+                                ->where('cja.job_id', $job_id)
+                                ->where('cja.removed', 1)
+                                ->get()
+                                ->result();
+    echo "<pre>";
+    print_r($removed_assignments);
+    echo "</pre>";
+    
+    // Test the query used in ajax_get_candidates_for_job
+    echo "<h4>Candidates Available for Assignment (AJAX query result):</h4>";
+    $available_candidates = $this->db->select('c.id, c.first_name, c.last_name, c.reference_number, c.email')
+                                    ->from('candidates c')
+                                    ->where('c.assigned_agent_id', $recruiter_id)
+                                    ->where('c.enabled', 1)
+                                    ->where('c.removed', 0)
+                                    ->where("c.id NOT IN (
+                                        SELECT candidate_id 
+                                        FROM candidate_job_assignments 
+                                        WHERE job_id = $job_id 
+                                        AND removed = 0
+                                    )")
                                     ->get()
                                     ->result();
-        echo "<pre>";
-        print_r($active_assignments);
-        echo "</pre>";
-        
-        // Show removed assignments for this job
-        echo "<h4>Removed Assignments for Job:</h4>";
-        $removed_assignments = $this->db->select('cja.*, c.first_name, c.last_name')
-                                    ->from('candidate_job_assignments cja')
-                                    ->join('candidates c', 'c.id = cja.candidate_id')
-                                    ->where('cja.job_id', $job_id)
-                                    ->where('cja.removed', 1)
-                                    ->get()
-                                    ->result();
-        echo "<pre>";
-        print_r($removed_assignments);
-        echo "</pre>";
-        
-        // Test the query used in ajax_get_candidates_for_job
-        echo "<h4>Candidates Available for Assignment (AJAX query result):</h4>";
-        $available_candidates = $this->db->select('c.id, c.first_name, c.last_name, c.reference_number, c.email')
-                                        ->from('candidates c')
-                                        ->where('c.assigned_agent_id', $recruiter_id)
-                                        ->where('c.enabled', 1)
-                                        ->where('c.removed', 0)
-                                        ->where("c.id NOT IN (
-                                            SELECT candidate_id 
-                                            FROM candidate_job_assignments 
-                                            WHERE job_id = $job_id 
-                                            AND removed = 0
-                                        )")
-                                        ->get()
-                                        ->result();
-        echo "<pre>";
-        print_r($available_candidates);
-        echo "</pre>";
-    }
+    echo "<pre>";
+    print_r($available_candidates);
+    echo "</pre>";
+}
 
 /**
  * Sync candidate_jobs table when assignments are made

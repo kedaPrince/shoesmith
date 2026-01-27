@@ -9,58 +9,58 @@ class Model_candidates extends CRUD_Model
         parent::__construct();
     }
 
-// IN Model_candidates.php - COMPLETELY REVISED main_selects()
-public function main_selects()
-{
-    $agency_id = $this->get_current_agency_id();
-    
-    // Start with candidate_job_assignments as base table
-    // This gives us ONE ROW PER JOB ASSIGNMENT
-    $this->db->from('candidate_job_assignments cja');
-    
-    // Join with candidates
-    $this->db->join('candidates c', 'c.id = cja.candidate_id AND c.removed = 0', 'inner');
-    
-    // Select candidate fields with aliases
-    $this->db->select('c.*, c.id as candidate_id, c.enabled as candidate_enabled, c.uuid as candidate_uuid');
-    
-    if ($agency_id) {
-        // CRITICAL: Only show jobs from THIS agency
-        $this->db->join('mod_jobs j', 
-            'j.id = cja.job_id AND j.removed = 0 AND j.agency_id = ' . $this->db->escape($agency_id), 
-            'inner');
+
+    public function main_selects()
+    {
+        $agency_id = $this->get_current_agency_id();
         
-        // Also verify candidate belongs to this agency
-        $this->db->join('candidate_agencies ca', 'ca.candidate_id = c.id AND ca.agency_id = ' . $this->db->escape($agency_id), 'inner');
+        // Start with candidate_job_assignments as base table
+        // This gives us ONE ROW PER JOB ASSIGNMENT
+        $this->db->from('candidate_job_assignments cja');
         
-        // Select job information
-        $this->db->select('j.name as job_name, j.uuid as job_uuid, j.reference_number as job_ref');
+        // Join with candidates
+        $this->db->join('candidates c', 'c.id = cja.candidate_id AND c.removed = 0', 'inner');
         
-        // Select the assignment ID for grouping if needed
-        $this->db->select('cja.id as assignment_id');
+        // Select candidate fields with aliases
+        $this->db->select('c.*, c.id as candidate_id, c.enabled as candidate_enabled, c.uuid as candidate_uuid');
         
-    } else {
-        // Admin view - see everything
-        $user_type = getLoggedInUserTypeMenu();
-        if ($user_type !== 'admin') {
-            $this->db->where('c.id', 0);
+        if ($agency_id) {
+            // CRITICAL: Only show jobs from THIS agency
+            $this->db->join('mod_jobs j', 
+                'j.id = cja.job_id AND j.removed = 0 AND j.agency_id = ' . $this->db->escape($agency_id), 
+                'inner');
+            
+            // Also verify candidate belongs to this agency
+            $this->db->join('candidate_agencies ca', 'ca.candidate_id = c.id AND ca.agency_id = ' . $this->db->escape($agency_id), 'inner');
+            
+            // Select job information
+            $this->db->select('j.name as job_name, j.uuid as job_uuid, j.reference_number as job_ref');
+            
+            // Select the assignment ID for grouping if needed
+            $this->db->select('cja.id as assignment_id');
+            
+        } else {
+            // Admin view - see everything
+            $user_type = getLoggedInUserTypeMenu();
+            if ($user_type !== 'admin') {
+                $this->db->where('c.id', 0);
+            }
+            
+            $this->db->join('mod_jobs j', 'j.id = cja.job_id AND j.removed = 0', 'left');
+            $this->db->select('j.name as job_name, j.uuid as job_uuid, j.reference_number as job_ref');
         }
         
-        $this->db->join('mod_jobs j', 'j.id = cja.job_id AND j.removed = 0', 'left');
-        $this->db->select('j.name as job_name, j.uuid as job_uuid, j.reference_number as job_ref');
+        // Only active assignments
+        $this->db->where('cja.removed', 0);
+        
+        // NO GROUP BY - we want multiple rows!
+        // $this->db->group_by('c.id'); // REMOVE THIS!
     }
-    
-    // Only active assignments
-    $this->db->where('cja.removed', 0);
-    
-    // NO GROUP BY - we want multiple rows!
-    // $this->db->group_by('c.id'); // REMOVE THIS!
-}
 
     public function main_joins()
-{
-   // $this->db->join('mod_jobs', 'mod_jobs.id = candidates.job_id', 'left');
-}
+    {
+    // $this->db->join('mod_jobs', 'mod_jobs.id = candidates.job_id', 'left');
+    }
 
     public function main_wheres()
     {
@@ -373,61 +373,61 @@ public function main_selects()
         return null;
     }
     
-public function get_all($limit = 0, $offset = 0, $section = '')
-{
-    $agency_id = $this->get_current_agency_id();
-    
-    // Use the new base table approach
-    $this->db->from('candidate_job_assignments cja2');  // Changed alias to cja2
-    $this->db->join('candidates c', 'c.id = cja2.candidate_id AND c.removed = 0', 'inner');
-    
-    // Select with aliases
-    $this->db->select('c.*, c.id as candidate_id, c.enabled as candidate_enabled, c.uuid as candidate_uuid');
-    
-    if (empty($agency_id)) {
-        $user_type = getLoggedInUserTypeMenu();
-        if ($user_type !== 'admin') {
-            $this->db->where('c.id', 0);
+    public function get_all($limit = 0, $offset = 0, $section = '')
+    {
+        $agency_id = $this->get_current_agency_id();
+        
+        // Use the new base table approach
+        $this->db->from('candidate_job_assignments cja2');  // Changed alias to cja2
+        $this->db->join('candidates c', 'c.id = cja2.candidate_id AND c.removed = 0', 'inner');
+        
+        // Select with aliases
+        $this->db->select('c.*, c.id as candidate_id, c.enabled as candidate_enabled, c.uuid as candidate_uuid');
+        
+        if (empty($agency_id)) {
+            $user_type = getLoggedInUserTypeMenu();
+            if ($user_type !== 'admin') {
+                $this->db->where('c.id', 0);
+            }
+            $this->db->join('mod_jobs j', 'j.id = cja2.job_id AND j.removed = 0', 'left');
+        } else {
+            // CRITICAL: Agency-specific filtering
+            $this->db->join('mod_jobs j', 
+                'j.id = cja2.job_id AND j.removed = 0 AND j.agency_id = ' . $this->db->escape($agency_id), 
+                'inner');
+            $this->db->join('candidate_agencies ca', 
+                'ca.candidate_id = c.id AND ca.agency_id = ' . $this->db->escape($agency_id), 
+                'inner');
         }
-        $this->db->join('mod_jobs j', 'j.id = cja2.job_id AND j.removed = 0', 'left');
-    } else {
-        // CRITICAL: Agency-specific filtering
-        $this->db->join('mod_jobs j', 
-            'j.id = cja2.job_id AND j.removed = 0 AND j.agency_id = ' . $this->db->escape($agency_id), 
-            'inner');
-        $this->db->join('candidate_agencies ca', 
-            'ca.candidate_id = c.id AND ca.agency_id = ' . $this->db->escape($agency_id), 
-            'inner');
-    }
-    
-    $this->db->select('j.name as job_name, j.uuid as job_uuid, j.reference_number as job_ref');
-    $this->db->where('cja2.removed', 0);
-    
-    // NO GROUP BY - allow multiple rows
-    // $this->db->group_by('c.id'); // REMOVE THIS!
-    
-    // Apply the filters from the CRUD system
-    $this->main_filters();
-    
-    if (!empty($this->sorting)) {
-        foreach ($this->sorting as $field => $direction) {
-            // Handle sorting for candidate or job fields
-            if (in_array($field, ['first_name', 'last_name', 'email', 'reference_number'])) {
-                $this->db->order_by('c.' . $field, $direction);
-            } elseif ($field === 'job_name') {
-                $this->db->order_by('j.name', $direction);
-            } else {
-                $this->db->order_by($field, $direction);
+        
+        $this->db->select('j.name as job_name, j.uuid as job_uuid, j.reference_number as job_ref');
+        $this->db->where('cja2.removed', 0);
+        
+        // NO GROUP BY - allow multiple rows
+        // $this->db->group_by('c.id'); // REMOVE THIS!
+        
+        // Apply the filters from the CRUD system
+        $this->main_filters();
+        
+        if (!empty($this->sorting)) {
+            foreach ($this->sorting as $field => $direction) {
+                // Handle sorting for candidate or job fields
+                if (in_array($field, ['first_name', 'last_name', 'email', 'reference_number'])) {
+                    $this->db->order_by('c.' . $field, $direction);
+                } elseif ($field === 'job_name') {
+                    $this->db->order_by('j.name', $direction);
+                } else {
+                    $this->db->order_by($field, $direction);
+                }
             }
         }
+        
+        if ($limit > 0) {
+            $this->db->limit($limit, $offset);
+        }
+        
+        return $this->db->get();
     }
-    
-    if ($limit > 0) {
-        $this->db->limit($limit, $offset);
-    }
-    
-    return $this->db->get();
-}
         /**
      * Override parent get_count() to fix filter field names
      */
@@ -497,6 +497,8 @@ public function get_all($limit = 0, $offset = 0, $section = '')
             }
         }
     }
+
+
     public function get_by_id($id, $table = false)
     {
         $table = $table ? $table : $this->table;
@@ -1413,97 +1415,47 @@ public function get_all($limit = 0, $offset = 0, $section = '')
         return $this->db->get('candidates')->row();
     }
 
-    /**
- * 🔒 Get ONLY this agency's job assignments for a candidate (SECURITY FIXED)
- */
-public function get_candidate_jobs_for_agency_secure($candidate_id, $agency_id = null)
-{
-    if (!$agency_id) {
-        $agency_id = $this->get_current_agency_id();
-    }
-    
-    if (!$agency_id) {
-        return [];
-    }
-    
-    // First verify candidate belongs to this agency
-    $this->db->select('1');
-    $this->db->from('candidate_agencies ca');
-    $this->db->where('ca.candidate_id', $candidate_id);
-    $this->db->where('ca.agency_id', $agency_id);
-    $has_access = $this->db->get()->row() !== null;
-    
-    if (!$has_access) {
-        return [];
-    }
-    
-    // Now get ONLY jobs from this agency
-    $this->db->select('cja.*, 
-                      j.name as job_name, 
-                      j.uuid as job_uuid, 
-                      j.reference_number as job_ref,
-                      j.agency_id as job_agency_id');
-    $this->db->from('candidate_job_assignments cja');
-    
-    // 🔒 CRITICAL: Filter by BOTH candidate_job_assignments.agency_id AND jobs.agency_id
-    $this->db->join('mod_jobs j', 
-                   'j.id = cja.job_id AND j.removed = 0 AND j.agency_id = ' . $this->db->escape($agency_id) . 
-                   ' AND cja.agency_id = ' . $this->db->escape($agency_id), 
-                   'inner');
-    
-    $this->db->where('cja.candidate_id', $candidate_id);
-    $this->db->where('cja.removed', 0);
-    
-    return $this->db->get()->result();
-}
 
-/**
- * 🔒 Debug method to check for data leaks
- */
-public function debug_candidate_job_access($candidate_id, $agency_id)
-{
-    echo "=== DEBUG CANDIDATE JOB ACCESS ===\n";
-    echo "Candidate ID: {$candidate_id}\n";
-    echo "Agency ID: {$agency_id}\n\n";
-    
-    // What the application SHOULD show
-    echo "1. Application View (Secure):\n";
-    $secure_jobs = $this->get_candidate_jobs_for_agency_secure($candidate_id, $agency_id);
-    foreach ($secure_jobs as $job) {
-        echo "   - {$job->job_name} (Agency: {$job->job_agency_id})\n";
-    }
-    
-    // What the raw data contains
-    echo "\n2. Raw Database Data (Unfiltered):\n";
-    $this->db->select('cja.*, j.name as job_name, j.agency_id as job_agency_id');
-    $this->db->from('candidate_job_assignments cja');
-    $this->db->join('mod_jobs j', 'j.id = cja.job_id', 'left');
-    $this->db->where('cja.candidate_id', $candidate_id);
-    $this->db->where('cja.removed', 0);
-    $all_jobs = $this->db->get()->result();
-    
-    foreach ($all_jobs as $job) {
-        $status = ($job->job_agency_id == $agency_id) ? "✅ YOURS" : "🚫 OTHER AGENCY";
-        echo "   - {$job->job_name} (Agency: {$job->job_agency_id}) - {$status}\n";
-    }
-    
-    // Check if candidate_job_assignments table has agency_id column
-    echo "\n3. Checking candidate_job_assignments table structure:\n";
-    $this->db->query("SHOW COLUMNS FROM candidate_job_assignments");
-    $columns = $this->db->get()->result();
-    $has_agency_column = false;
-    foreach ($columns as $col) {
-        echo "   - {$col->Field} ({$col->Type})\n";
-        if ($col->Field == 'agency_id') {
-            $has_agency_column = true;
+    public function get_candidate_jobs_for_agency_secure($candidate_id, $agency_id = null)
+    {
+        if (!$agency_id) {
+            $agency_id = $this->get_current_agency_id();
         }
+        
+        if (!$agency_id) {
+            return [];
+        }
+        
+        // First verify candidate belongs to this agency
+        $this->db->select('1');
+        $this->db->from('candidate_agencies ca');
+        $this->db->where('ca.candidate_id', $candidate_id);
+        $this->db->where('ca.agency_id', $agency_id);
+        $has_access = $this->db->get()->row() !== null;
+        
+        if (!$has_access) {
+            return [];
+        }
+        
+        // Now get ONLY jobs from this agency
+        $this->db->select('cja.*, 
+                        j.name as job_name, 
+                        j.uuid as job_uuid, 
+                        j.reference_number as job_ref,
+                        j.agency_id as job_agency_id');
+        $this->db->from('candidate_job_assignments cja');
+        
+        // 🔒 CRITICAL: Filter by BOTH candidate_job_assignments.agency_id AND jobs.agency_id
+        $this->db->join('mod_jobs j', 
+                    'j.id = cja.job_id AND j.removed = 0 AND j.agency_id = ' . $this->db->escape($agency_id) . 
+                    ' AND cja.agency_id = ' . $this->db->escape($agency_id), 
+                    'inner');
+        
+        $this->db->where('cja.candidate_id', $candidate_id);
+        $this->db->where('cja.removed', 0);
+        
+        return $this->db->get()->result();
     }
-    
-    if (!$has_agency_column) {
-        echo "\n⚠️ WARNING: candidate_job_assignments table doesn't have agency_id column!\n";
-        echo "   This is causing data leaks. You need to add agency_id to this table.\n";
-    }
-}
 
 
     public function get_candidate_details($identifier, $agency_id = null)
@@ -1967,13 +1919,11 @@ public function debug_candidate_job_access($candidate_id, $agency_id)
         $candidate = $this->db->get()->row();
         
         if (!$candidate) {
-            log_message('error', 'Candidate not found for notification: ' . $candidate_id);
             return false;
         }
         
         // ============ CRITICAL: Check if candidate has recruiter_id ============
         if (empty($candidate->recruiter_id)) {
-            log_message('error', 'Candidate has no recruiter_id: ' . $candidate_id);
             return false;
         }
         
@@ -1987,7 +1937,6 @@ public function debug_candidate_job_access($candidate_id, $agency_id)
                              ->row();
         
         if (!$recruiter) {
-            log_message('error', 'Recruiter not found or disabled: ' . $recruiter_id);
             return false;
         }
         // ============ END CRITICAL ============
@@ -2021,15 +1970,12 @@ public function debug_candidate_job_access($candidate_id, $agency_id)
         $result = $this->db->insert('notifications', $notification_data);
         
         if ($result) {
-            log_message('debug', "HM decision notification sent to recruiter {$recruiter_id}");
             return true;
         } else {
-            log_message('error', "Failed to insert HM decision notification");
             return false;
         }
         
     } catch (Exception $e) {
-        log_message('error', "ERROR in create_hm_decision_notification: " . $e->getMessage());
         return false;
     }
 }
@@ -2131,7 +2077,6 @@ public function debug_candidate_job_access($candidate_id, $agency_id)
             }
             return false;
         } catch (Exception $e) {
-            error_log('Error in log_candidate_activity: ' . $e->getMessage());
             return false;
         }
     }
@@ -2167,7 +2112,6 @@ public function debug_candidate_job_access($candidate_id, $agency_id)
             return $result;
 
         } catch (Exception $e) {
-            log_message('error', 'Error in get_onboarding_stats: ' . $e->getMessage());
             return $this->get_empty_stats_object();
         }
     }
@@ -2309,8 +2253,7 @@ public function debug_candidate_job_access($candidate_id, $agency_id)
 
     public function debug_candidate_assignments($candidate_id)
     {
-        log_message('debug', '=== DEBUG CANDIDATE ASSIGNMENTS ===');
-        log_message('debug', 'Candidate ID: ' . $candidate_id);
+
         
         $this->db->select('cja.*, j.name as job_name, j.uuid as job_uuid, j.agency_id as job_agency_id');
         $this->db->from('candidate_job_assignments cja');
@@ -2320,96 +2263,93 @@ public function debug_candidate_job_access($candidate_id, $agency_id)
         $assignments = $this->db->get()->result();
         
         foreach ($assignments as $assignment) {
-            log_message('debug', 'Assignment - Job ID: ' . $assignment->job_id . 
-                       ', Job Name: ' . $assignment->job_name . 
-                       ', Agency ID: ' . $assignment->job_agency_id);
         }
         
         return $assignments;
     }
 
-public function get_candidate_details_by_agency_and_job($identifier, $agency_id = null, $job_uuid = null)
-{
-    if (!$agency_id) {
-        $agency_id = $this->get_current_agency_id();
-    }
-    
-    if (!$agency_id) {
-        return null;
-    }
-    
-    // Get candidate basic info
-    if (is_string($identifier) && strlen($identifier) == 36 && strpos($identifier, '-') !== false) {
-        $this->db->where('c.uuid', $identifier);
-    } else {
-        $this->db->where('c.id', $identifier);
-    }
-    
-    $this->db->select('c.*');
-    $this->db->from('candidates c');
-    $this->db->where('c.removed', 0);
-    
-    // Check access through candidate_agencies
-    $this->db->join('candidate_agencies ca', 'ca.candidate_id = c.id AND ca.agency_id = ' . $this->db->escape($agency_id), 'inner');
-    
-    $candidate = $this->db->get()->row();
-    
-    if (!$candidate) {
-        return null;
-    }
-    
-    $candidate_id = $candidate->id;
-    
-    // Now get the SPECIFIC job assignment based on job_uuid parameter
-    if ($job_uuid) {
-        // Get the specific job assignment
+    public function get_candidate_details_by_agency_and_job($identifier, $agency_id = null, $job_uuid = null)
+    {
+        if (!$agency_id) {
+            $agency_id = $this->get_current_agency_id();
+        }
+        
+        if (!$agency_id) {
+            return null;
+        }
+        
+        // Get candidate basic info
+        if (is_string($identifier) && strlen($identifier) == 36 && strpos($identifier, '-') !== false) {
+            $this->db->where('c.uuid', $identifier);
+        } else {
+            $this->db->where('c.id', $identifier);
+        }
+        
+        $this->db->select('c.*');
+        $this->db->from('candidates c');
+        $this->db->where('c.removed', 0);
+        
+        // Check access through candidate_agencies
+        $this->db->join('candidate_agencies ca', 'ca.candidate_id = c.id AND ca.agency_id = ' . $this->db->escape($agency_id), 'inner');
+        
+        $candidate = $this->db->get()->row();
+        
+        if (!$candidate) {
+            return null;
+        }
+        
+        $candidate_id = $candidate->id;
+        
+        // Now get the SPECIFIC job assignment based on job_uuid parameter
+        if ($job_uuid) {
+            // Get the specific job assignment
+            $this->db->select('cja.*, j.name as job_name, j.uuid as job_uuid, j.reference_number as job_ref, j.agency_id as job_agency_id');
+            $this->db->from('candidate_job_assignments cja');
+            $this->db->join('mod_jobs j', 'j.id = cja.job_id AND j.uuid = "' . $this->db->escape_str($job_uuid) . '"', 'inner');
+            $this->db->where('cja.candidate_id', $candidate_id);
+            $this->db->where('cja.removed', 0);
+            $this->db->where('j.agency_id', $agency_id);
+            
+            $job_assignment = $this->db->get()->row();
+            
+            if ($job_assignment) {
+                // Add job info to candidate object
+                foreach ($job_assignment as $key => $value) {
+                    if ($key != 'id') { // Avoid overwriting candidate id
+                        $candidate->$key = $value;
+                    }
+                }
+                return $candidate;
+            }
+        }
+        
+        // If no specific job_uuid provided, get the FIRST job assignment for this agency
         $this->db->select('cja.*, j.name as job_name, j.uuid as job_uuid, j.reference_number as job_ref, j.agency_id as job_agency_id');
         $this->db->from('candidate_job_assignments cja');
-        $this->db->join('mod_jobs j', 'j.id = cja.job_id AND j.uuid = "' . $this->db->escape_str($job_uuid) . '"', 'inner');
+        $this->db->join('mod_jobs j', 'j.id = cja.job_id AND j.agency_id = ' . $this->db->escape($agency_id), 'inner');
         $this->db->where('cja.candidate_id', $candidate_id);
         $this->db->where('cja.removed', 0);
-        $this->db->where('j.agency_id', $agency_id);
+        $this->db->order_by('cja.created_at', 'DESC'); // Get most recent first
+        $this->db->limit(1);
         
         $job_assignment = $this->db->get()->row();
         
         if ($job_assignment) {
-            // Add job info to candidate object
             foreach ($job_assignment as $key => $value) {
-                if ($key != 'id') { // Avoid overwriting candidate id
+                if ($key != 'id') {
                     $candidate->$key = $value;
                 }
             }
-            return $candidate;
+        } else {
+            // No job assignment found for this agency
+            $candidate->job_name = null;
+            $candidate->job_uuid = null;
+            $candidate->job_ref = null;
+            $candidate->job_agency_id = null;
         }
+        
+        return $candidate;
     }
-    
-    // If no specific job_uuid provided, get the FIRST job assignment for this agency
-    $this->db->select('cja.*, j.name as job_name, j.uuid as job_uuid, j.reference_number as job_ref, j.agency_id as job_agency_id');
-    $this->db->from('candidate_job_assignments cja');
-    $this->db->join('mod_jobs j', 'j.id = cja.job_id AND j.agency_id = ' . $this->db->escape($agency_id), 'inner');
-    $this->db->where('cja.candidate_id', $candidate_id);
-    $this->db->where('cja.removed', 0);
-    $this->db->order_by('cja.created_at', 'DESC'); // Get most recent first
-    $this->db->limit(1);
-    
-    $job_assignment = $this->db->get()->row();
-    
-    if ($job_assignment) {
-        foreach ($job_assignment as $key => $value) {
-            if ($key != 'id') {
-                $candidate->$key = $value;
-            }
-        }
-    } else {
-        // No job assignment found for this agency
-        $candidate->job_name = null;
-        $candidate->job_uuid = null;
-        $candidate->job_ref = null;
-        $candidate->job_agency_id = null;
-    }
-    
-    return $candidate;
-}
 
     public function get_onboarding_candidates_by_agency($agency_id, $limit = null, $offset = null)
     {
@@ -2593,64 +2533,64 @@ public function get_candidate_details_by_agency_and_job($identifier, $agency_id 
         return $leaks;
     }
 
-    // Add these methods to Model_candidates.php
+  
 
-/**
- * Mask contact information for agency users
- */
-public function mask_contact_info($email, $phone)
-{
-    // Mask email (e.g., prince@example.com -> prin***@***.com)
-    $masked_email = $this->mask_email($email);
-    
-    // Mask phone (e.g., 0621234567 -> 062*******)
-    $masked_phone = $this->mask_phone($phone);
-    
-    return [
-        'masked_email' => $masked_email,
-        'masked_phone' => $masked_phone,
-        'has_access' => false
-    ];
-}
+    /**
+     * Mask contact information for agency users
+     */
+    public function mask_contact_info($email, $phone)
+    {
+        // Mask email (e.g., prince@example.com -> prin***@***.com)
+        $masked_email = $this->mask_email($email);
+        
+        // Mask phone (e.g., 0621234567 -> 062*******)
+        $masked_phone = $this->mask_phone($phone);
+        
+        return [
+            'masked_email' => $masked_email,
+            'masked_phone' => $masked_phone,
+            'has_access' => false
+        ];
+    }
 
-/**
- * Mask email address
- */
-private function mask_email($email)
-{
-    if (empty($email)) {
-        return 'N/A';
+    /**
+     * Mask email address
+     */
+    private function mask_email($email)
+    {
+        if (empty($email)) {
+            return 'N/A';
+        }
+        
+        $parts = explode('@', $email);
+        if (count($parts) != 2) {
+            return $email;
+        }
+        
+        $username = $parts[0];
+        $domain = $parts[1];
+        
+        // Keep first 3 characters of username
+        $masked_username = substr($username, 0, 3) . '***';
+        
+        // Mask domain
+        $domain_parts = explode('.', $domain);
+        if (count($domain_parts) > 1) {
+            $tld = array_pop($domain_parts);
+            $main_domain = implode('.', $domain_parts);
+            $masked_domain = '***.' . $tld;
+        } else {
+            $masked_domain = '***';
+        }
+        
+        return $masked_username . '@' . $masked_domain;
     }
-    
-    $parts = explode('@', $email);
-    if (count($parts) != 2) {
-        return $email;
-    }
-    
-    $username = $parts[0];
-    $domain = $parts[1];
-    
-    // Keep first 3 characters of username
-    $masked_username = substr($username, 0, 3) . '***';
-    
-    // Mask domain
-    $domain_parts = explode('.', $domain);
-    if (count($domain_parts) > 1) {
-        $tld = array_pop($domain_parts);
-        $main_domain = implode('.', $domain_parts);
-        $masked_domain = '***.' . $tld;
-    } else {
-        $masked_domain = '***';
-    }
-    
-    return $masked_username . '@' . $masked_domain;
-}
 
-/**
- * Mask phone number
- */
-private function mask_phone($phone)
-{
+    /**
+     * Mask phone number
+     */
+    private function mask_phone($phone)
+    {
     if (empty($phone)) {
         return 'N/A';
     }
@@ -2661,280 +2601,278 @@ private function mask_phone($phone)
     }
     
     return $phone;
-}
-
-/**
- * Check if agency has access to candidate's contact info
- */
-public function check_contact_access($candidate_id, $agency_id = null)
-{
-    if (!$agency_id) {
-        $agency_id = $this->get_current_agency_id();
     }
-    
-    if (!$agency_id) {
-        return false;
-    }
-    
-    // Check if agency has been granted access
-    $this->db->select('1');
-    $this->db->from('candidate_contact_access');
-    $this->db->where('candidate_id', $candidate_id);
-    $this->db->where('agency_id', $agency_id);
-    $this->db->where('access_granted', 1);
-    $this->db->where('removed', 0);
-    
-    $result = $this->db->get()->row();
-    
-    return $result !== null;
-}
 
-/**
- * Request contact information access
- */
-public function request_contact_access($candidate_id, $agency_id, $requested_by = null, $notes = '')
-{
-    // Check if request already exists
-    $this->db->where('candidate_id', $candidate_id);
-    $this->db->where('agency_id', $agency_id);
-    $this->db->where('removed', 0);
-    $existing = $this->db->get('candidate_contact_access')->row();
-    
-    if ($existing) {
-        // Update existing request
-        $data = [
-            'status' => 'pending',
-            'request_count' => $existing->request_count + 1,
-            'last_requested_at' => date('Y-m-d H:i:s'),
-            'updated_at' => date('Y-m-d H:i:s')
-        ];
-        
-        if ($notes) {
-            $data['notes'] = $notes;
+    /**
+     * Check if agency has access to candidate's contact info
+     */
+    public function check_contact_access($candidate_id, $agency_id = null)
+    {
+        if (!$agency_id) {
+            $agency_id = $this->get_current_agency_id();
         }
         
-        $this->db->where('id', $existing->id);
-        return $this->db->update('candidate_contact_access', $data);
-    } else {
-        // Create new request
-        $data = [
-            'candidate_id' => $candidate_id,
-            'agency_id' => $agency_id,
-            'requested_by' => $requested_by,
-            'notes' => $notes,
-            'status' => 'pending',
-            'request_count' => 1,
-            'access_granted' => 0,
-            'first_requested_at' => date('Y-m-d H:i:s'),
-            'last_requested_at' => date('Y-m-d H:i:s'),
-            'created_at' => date('Y-m-d H:i:s'),
-            'updated_at' => date('Y-m-d H:i:s')
-        ];
-        
-        return $this->db->insert('candidate_contact_access', $data);
-    }
-
-    // Send notification to recruiter
-    if ($request_id) {
-        $this->load->model('recruiter/Model_notifications');
-        $this->Model_notifications->create_contact_request_notification(
-            $candidate_id, 
-            $agency_id, 
-            $request_id
-        );
-        
-        // Also send email notification if you have email system
-        $this->send_contact_request_email($candidate_id, $agency_id, $request_id);
-    }
-    
-    return $request_id;
-}
-
-/**
- * Grant contact information access
- */
-public function grant_contact_access($request_id, $granted_by = null)
-{
-    $data = [
-        'access_granted' => 1,
-        'status' => 'granted',
-        'granted_by' => $granted_by,
-        'granted_at' => date('Y-m-d H:i:s'),
-        'updated_at' => date('Y-m-d H:i:s')
-    ];
-    
-    $this->db->where('id', $request_id);
-    return $this->db->update('candidate_contact_access', $data);
-}
-
-/**
- * Deny contact information access
- */
-public function deny_contact_access($request_id, $denied_by = null, $reason = '')
-{
-    $data = [
-        'access_granted' => 0,
-        'status' => 'denied',
-        'denied_by' => $denied_by,
-        'denial_reason' => $reason,
-        'denied_at' => date('Y-m-d H:i:s'),
-        'updated_at' => date('Y-m-d H:i:s')
-    ];
-    
-    $this->db->where('id', $request_id);
-    return $this->db->update('candidate_contact_access', $data);
-}
-
-/**
- * Get contact access requests for a candidate
- */
-public function get_contact_access_requests($candidate_id, $status = null)
-{
-    $this->db->select('cca.*, 
-                      a.name as agency_name,
-                      u1.first_name as requested_by_first_name,
-                      u1.last_name as requested_by_last_name,
-                      u2.first_name as granted_by_first_name,
-                      u2.last_name as granted_by_last_name');
-    
-    $this->db->from('candidate_contact_access cca');
-    $this->db->join('agencies a', 'a.id = cca.agency_id', 'left');
-    $this->db->join('agency_staff u1', 'u1.id = cca.requested_by', 'left');
-    $this->db->join('agency_staff u2', 'u2.id = cca.granted_by', 'left');
-    
-    $this->db->where('cca.candidate_id', $candidate_id);
-    $this->db->where('cca.removed', 0);
-    
-    if ($status) {
-        $this->db->where('cca.status', $status);
-    }
-    
-    $this->db->order_by('cca.created_at', 'DESC');
-    
-    return $this->db->get()->result();
-}
-
-/**
- * Create notification for contact info request
- */
-public function create_contact_request_notification($candidate_id, $agency_id, $request_id)
-{
-    try {
-        // Get candidate info
-        $candidate = $this->db->where('id', $candidate_id)
-                             ->where('removed', 0)
-                             ->get('candidates')
-                             ->row();
-        
-        if (!$candidate) {
+        if (!$agency_id) {
             return false;
         }
         
-        // Get agency info
-        $agency = $this->db->where('id', $agency_id)
-                          ->get('agencies')
-                          ->row();
+        // Check if agency has been granted access
+        $this->db->select('1');
+        $this->db->from('candidate_contact_access');
+        $this->db->where('candidate_id', $candidate_id);
+        $this->db->where('agency_id', $agency_id);
+        $this->db->where('access_granted', 1);
+        $this->db->where('removed', 0);
         
-        // Get recruiter (from candidate.recruiter_id)
-        if (empty($candidate->recruiter_id)) {
-            return false;
-        }
+        $result = $this->db->get()->row();
         
-        $recruiter_id = $candidate->recruiter_id;
+        return $result !== null;
+    }
+
+    /**
+     * Request contact information access
+     */
+    public function request_contact_access($candidate_id, $agency_id, $requested_by = null, $notes = '')
+    {
+        // Check if request already exists
+        $this->db->where('candidate_id', $candidate_id);
+        $this->db->where('agency_id', $agency_id);
+        $this->db->where('removed', 0);
+        $existing = $this->db->get('candidate_contact_access')->row();
         
-        // Prepare notification
-        $notification_data = [
-            'title' => "Contact Info Request: {$candidate->first_name} {$candidate->last_name}",
-            'message' => "Agency {$agency->name} has requested contact information for candidate {$candidate->first_name} {$candidate->last_name}",
-            'type' => 'contact_request',
-            'sender_type' => 'agency',
-            'sender_id' => $agency_id,
-            'receiver_type' => 'recruiter',
-            'receiver_id' => $recruiter_id,
-            'related_entity' => 'candidate',
-            'related_entity_id' => $candidate_id,
-            'metadata' => json_encode([
+        if ($existing) {
+            // Update existing request
+            $data = [
+                'status' => 'pending',
+                'request_count' => $existing->request_count + 1,
+                'last_requested_at' => date('Y-m-d H:i:s'),
+                'updated_at' => date('Y-m-d H:i:s')
+            ];
+            
+            if ($notes) {
+                $data['notes'] = $notes;
+            }
+            
+            $this->db->where('id', $existing->id);
+            return $this->db->update('candidate_contact_access', $data);
+        } else {
+            // Create new request
+            $data = [
                 'candidate_id' => $candidate_id,
-                'candidate_name' => "{$candidate->first_name} {$candidate->last_name}",
-                'candidate_ref' => $candidate->reference_number,
                 'agency_id' => $agency_id,
-                'agency_name' => $agency->name,
-                'request_id' => $request_id,
-                'action_url' => site_url("recruiter/candidates/contact_requests/{$candidate_id}")
-            ]),
-            'is_read' => 0,
-            'created_at' => date('Y-m-d H:i:s'),
-            'updated_at' => date('Y-m-d H:i:s'),
-            'removed' => 0,
-            'enabled' => 1
-        ];
-        
-        return $this->db->insert('notifications', $notification_data);
-        
-    } catch (Exception $e) {
-        log_message('error', "ERROR in create_contact_request_notification: " . $e->getMessage());
-        return false;
-    }
-}
+                'requested_by' => $requested_by,
+                'notes' => $notes,
+                'status' => 'pending',
+                'request_count' => 1,
+                'access_granted' => 0,
+                'first_requested_at' => date('Y-m-d H:i:s'),
+                'last_requested_at' => date('Y-m-d H:i:s'),
+                'created_at' => date('Y-m-d H:i:s'),
+                'updated_at' => date('Y-m-d H:i:s')
+            ];
+            
+            return $this->db->insert('candidate_contact_access', $data);
+        }
 
-/**
- * Create notification for contact info access granted
- */
-public function create_contact_granted_notification($candidate_id, $agency_id, $recruiter_id)
-{
-    try {
-        // Get candidate info
-        $candidate = $this->db->where('id', $candidate_id)
-                             ->where('removed', 0)
-                             ->get('candidates')
-                             ->row();
-        
-        if (!$candidate) {
-            return false;
+        // Send notification to recruiter
+        if ($request_id) {
+            $this->load->model('recruiter/Model_notifications');
+            $this->Model_notifications->create_contact_request_notification(
+                $candidate_id, 
+                $agency_id, 
+                $request_id
+            );
+            
+            // Also send email notification if you have email system
+            $this->send_contact_request_email($candidate_id, $agency_id, $request_id);
         }
         
-        // Get agency info
-        $agency = $this->db->where('id', $agency_id)
-                          ->get('agencies')
-                          ->row();
-        
-        // Get recruiter info
-        $recruiter = $this->db->where('id', $recruiter_id)
-                             ->get('recruiters')
-                             ->row();
-        
-        // Prepare notification for agency
-        $notification_data = [
-            'title' => "Contact Info Access Granted",
-            'message' => "Recruiter {$recruiter->first_name} {$recruiter->last_name} has granted you access to contact information for {$candidate->first_name} {$candidate->last_name}",
-            'type' => 'contact_granted',
-            'sender_type' => 'recruiter',
-            'sender_id' => $recruiter_id,
-            'receiver_type' => 'agency',
-            'receiver_id' => $agency_id,
-            'related_entity' => 'candidate',
-            'related_entity_id' => $candidate_id,
-            'metadata' => json_encode([
-                'candidate_id' => $candidate_id,
-                'candidate_name' => "{$candidate->first_name} {$candidate->last_name}",
-                'candidate_ref' => $candidate->reference_number,
-                'recruiter_id' => $recruiter_id,
-                'recruiter_name' => "{$recruiter->first_name} {$recruiter->last_name}",
-                'action_url' => site_url("agency/candidates/view/{$candidate->uuid}")
-            ]),
-            'is_read' => 0,
-            'created_at' => date('Y-m-d H:i:s'),
-            'updated_at' => date('Y-m-d H:i:s'),
-            'removed' => 0,
-            'enabled' => 1
+        return $request_id;
+    }
+
+    /**
+     * Grant contact information access
+     */
+    public function grant_contact_access($request_id, $granted_by = null)
+    {
+        $data = [
+            'access_granted' => 1,
+            'status' => 'granted',
+            'granted_by' => $granted_by,
+            'granted_at' => date('Y-m-d H:i:s'),
+            'updated_at' => date('Y-m-d H:i:s')
         ];
         
-        return $this->db->insert('notifications', $notification_data);
-        
-    } catch (Exception $e) {
-        log_message('error', "ERROR in create_contact_granted_notification: " . $e->getMessage());
-        return false;
+        $this->db->where('id', $request_id);
+        return $this->db->update('candidate_contact_access', $data);
     }
-}
+
+    /**
+     * Deny contact information access
+     */
+    public function deny_contact_access($request_id, $denied_by = null, $reason = '')
+    {
+        $data = [
+            'access_granted' => 0,
+            'status' => 'denied',
+            'denied_by' => $denied_by,
+            'denial_reason' => $reason,
+            'denied_at' => date('Y-m-d H:i:s'),
+            'updated_at' => date('Y-m-d H:i:s')
+        ];
+        
+        $this->db->where('id', $request_id);
+        return $this->db->update('candidate_contact_access', $data);
+    }
+
+    /**
+     * Get contact access requests for a candidate
+     */
+    public function get_contact_access_requests($candidate_id, $status = null)
+    {
+        $this->db->select('cca.*, 
+                        a.name as agency_name,
+                        u1.first_name as requested_by_first_name,
+                        u1.last_name as requested_by_last_name,
+                        u2.first_name as granted_by_first_name,
+                        u2.last_name as granted_by_last_name');
+        
+        $this->db->from('candidate_contact_access cca');
+        $this->db->join('agencies a', 'a.id = cca.agency_id', 'left');
+        $this->db->join('agency_staff u1', 'u1.id = cca.requested_by', 'left');
+        $this->db->join('agency_staff u2', 'u2.id = cca.granted_by', 'left');
+        
+        $this->db->where('cca.candidate_id', $candidate_id);
+        $this->db->where('cca.removed', 0);
+        
+        if ($status) {
+            $this->db->where('cca.status', $status);
+        }
+        
+        $this->db->order_by('cca.created_at', 'DESC');
+        
+        return $this->db->get()->result();
+    }
+
+    /**
+     * Create notification for contact info request
+     */
+    public function create_contact_request_notification($candidate_id, $agency_id, $request_id)
+    {
+        try {
+            // Get candidate info
+            $candidate = $this->db->where('id', $candidate_id)
+                                ->where('removed', 0)
+                                ->get('candidates')
+                                ->row();
+            
+            if (!$candidate) {
+                return false;
+            }
+            
+            // Get agency info
+            $agency = $this->db->where('id', $agency_id)
+                            ->get('agencies')
+                            ->row();
+            
+            // Get recruiter (from candidate.recruiter_id)
+            if (empty($candidate->recruiter_id)) {
+                return false;
+            }
+            
+            $recruiter_id = $candidate->recruiter_id;
+            
+            // Prepare notification
+            $notification_data = [
+                'title' => "Contact Info Request: {$candidate->first_name} {$candidate->last_name}",
+                'message' => "Agency {$agency->name} has requested contact information for candidate {$candidate->first_name} {$candidate->last_name}",
+                'type' => 'contact_request',
+                'sender_type' => 'agency',
+                'sender_id' => $agency_id,
+                'receiver_type' => 'recruiter',
+                'receiver_id' => $recruiter_id,
+                'related_entity' => 'candidate',
+                'related_entity_id' => $candidate_id,
+                'metadata' => json_encode([
+                    'candidate_id' => $candidate_id,
+                    'candidate_name' => "{$candidate->first_name} {$candidate->last_name}",
+                    'candidate_ref' => $candidate->reference_number,
+                    'agency_id' => $agency_id,
+                    'agency_name' => $agency->name,
+                    'request_id' => $request_id,
+                    'action_url' => site_url("recruiter/candidates/contact_requests/{$candidate_id}")
+                ]),
+                'is_read' => 0,
+                'created_at' => date('Y-m-d H:i:s'),
+                'updated_at' => date('Y-m-d H:i:s'),
+                'removed' => 0,
+                'enabled' => 1
+            ];
+            
+            return $this->db->insert('notifications', $notification_data);
+            
+        } catch (Exception $e) {
+            return false;
+        }
+    }
+
+    /**
+     * Create notification for contact info access granted
+     */
+    public function create_contact_granted_notification($candidate_id, $agency_id, $recruiter_id)
+    {
+        try {
+            // Get candidate info
+            $candidate = $this->db->where('id', $candidate_id)
+                                ->where('removed', 0)
+                                ->get('candidates')
+                                ->row();
+            
+            if (!$candidate) {
+                return false;
+            }
+            
+            // Get agency info
+            $agency = $this->db->where('id', $agency_id)
+                            ->get('agencies')
+                            ->row();
+            
+            // Get recruiter info
+            $recruiter = $this->db->where('id', $recruiter_id)
+                                ->get('recruiters')
+                                ->row();
+            
+            // Prepare notification for agency
+            $notification_data = [
+                'title' => "Contact Info Access Granted",
+                'message' => "Recruiter {$recruiter->first_name} {$recruiter->last_name} has granted you access to contact information for {$candidate->first_name} {$candidate->last_name}",
+                'type' => 'contact_granted',
+                'sender_type' => 'recruiter',
+                'sender_id' => $recruiter_id,
+                'receiver_type' => 'agency',
+                'receiver_id' => $agency_id,
+                'related_entity' => 'candidate',
+                'related_entity_id' => $candidate_id,
+                'metadata' => json_encode([
+                    'candidate_id' => $candidate_id,
+                    'candidate_name' => "{$candidate->first_name} {$candidate->last_name}",
+                    'candidate_ref' => $candidate->reference_number,
+                    'recruiter_id' => $recruiter_id,
+                    'recruiter_name' => "{$recruiter->first_name} {$recruiter->last_name}",
+                    'action_url' => site_url("agency/candidates/view/{$candidate->uuid}")
+                ]),
+                'is_read' => 0,
+                'created_at' => date('Y-m-d H:i:s'),
+                'updated_at' => date('Y-m-d H:i:s'),
+                'removed' => 0,
+                'enabled' => 1
+            ];
+            
+            return $this->db->insert('notifications', $notification_data);
+            
+        } catch (Exception $e) {
+            return false;
+        }
+    }
 
 }

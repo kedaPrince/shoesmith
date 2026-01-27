@@ -36,17 +36,11 @@ class Model_template_sections extends CRUD_Model
 
     public function save($data, $id = null)
     {
-        // Debug what we're receiving
-        log_message('debug', 'MODEL SAVE called with agency_id: ' . ($data['agency_id'] ?? 'NOT SET'));
-        
-        // Just save to mod_template_sections
-        // The agency_template_sections table is a junction table for template-section relationships
-        // It should only be populated when sections are added to agency templates, not when creating sections
+       
         $result = parent::save($data, $id);
         
         if ($result) {
             $saved_id = $id ?: $this->db->insert_id();
-            log_message('debug', 'Saved to mod_template_sections with ID: ' . $saved_id . ', agency_id: ' . ($data['agency_id'] ?? 'NOT SET'));
         }
         
         return $result;
@@ -73,7 +67,6 @@ class Model_template_sections extends CRUD_Model
             $this->db->where('section_id', $whereValue)
                     ->delete('agency_template_sections');
                     
-            log_message('debug', 'Removed from agency_template_sections junction table for section_id: ' . $whereValue);
         }
         
         $this->db->trans_complete();
@@ -96,31 +89,31 @@ class Model_template_sections extends CRUD_Model
     }
 
    public function main_joins()
-{
-    // Join with form schemas
-    $this->db->join('sys_form_schemas', 'sys_form_schemas.id = mod_template_sections.schema_id', 'left');
-    
-    // ADD THIS: Join with agencies table to get agency name
-    $this->db->join('agencies', 'agencies.id = mod_template_sections.agency_id', 'left');
-}
-
-public function main_wheres()
-{
-    // Use full table names - NO ALIASES
-    $this->db->where('mod_template_sections.removed', 0);
-    $this->db->where('mod_template_sections.enabled', 1);
-    
-    // FIXED: Show sections owned by current agency OR with form schemas from current agency
-    $agency_id = $this->session->userdata('agency_id');
-    if ($agency_id) {
-        $this->db->group_start();
-        $this->db->where('mod_template_sections.agency_id', $agency_id);
-        $this->db->or_where('sys_form_schemas.agency_id', $agency_id);
-        $this->db->group_end();
-    } else {
-        $this->db->where('1=0'); // Show nothing if no agency ID
+    {
+        // Join with form schemas
+        $this->db->join('sys_form_schemas', 'sys_form_schemas.id = mod_template_sections.schema_id', 'left');
+        
+        // ADD THIS: Join with agencies table to get agency name
+        $this->db->join('agencies', 'agencies.id = mod_template_sections.agency_id', 'left');
     }
-}
+
+    public function main_wheres()
+    {
+        // Use full table names - NO ALIASES
+        $this->db->where('mod_template_sections.removed', 0);
+        $this->db->where('mod_template_sections.enabled', 1);
+        
+        // FIXED: Show sections owned by current agency OR with form schemas from current agency
+        $agency_id = $this->session->userdata('agency_id');
+        if ($agency_id) {
+            $this->db->group_start();
+            $this->db->where('mod_template_sections.agency_id', $agency_id);
+            $this->db->or_where('sys_form_schemas.agency_id', $agency_id);
+            $this->db->group_end();
+        } else {
+            $this->db->where('1=0'); // Show nothing if no agency ID
+        }
+    }
 
     public function main_filters()
     {
@@ -160,76 +153,76 @@ public function main_wheres()
         // No grouping needed
     }
 
-public function get_all($section_type = null) 
-{
-    $agency_id = $this->session->userdata('agency_id');
-    
-    $this->db->select('mod_template_sections.*, sys_form_schemas.name as schema_name, agencies.name as agency_name')
-             ->from('mod_template_sections')
-             ->join('sys_form_schemas', 'sys_form_schemas.id = mod_template_sections.schema_id', 'left')
-             ->join('agencies', 'agencies.id = mod_template_sections.agency_id', 'left') // Add this
-             ->where('mod_template_sections.removed', 0)
-             ->where('mod_template_sections.enabled', 1);
-    
-    if ($agency_id) {
-        $this->db->where('mod_template_sections.agency_id', $agency_id);
-    } else {
-        $this->db->where('1=0');
-    }
-    
-    if ($section_type && $section_type !== 'all') {
-        $this->db->where('mod_template_sections.section_type', $section_type);
-    }
-    
-    $this->db->order_by('mod_template_sections.sort_order', 'ASC')
-             ->order_by('mod_template_sections.name', 'ASC');
-             
-    return $this->db->get();
-}
-
-public function get($id = null, $single = false, $params = array())
-{
-    $agency_id = $this->session->userdata('agency_id');
-    
-    $this->db->select('mod_template_sections.*, sys_form_schemas.name as schema_name, agencies.name as agency_name')
-             ->from('mod_template_sections')
-             ->join('sys_form_schemas', 'sys_form_schemas.id = mod_template_sections.schema_id', 'left')
-             ->join('agencies', 'agencies.id = mod_template_sections.agency_id', 'left') // Add this
-             ->where('mod_template_sections.removed', 0)
-             ->where('mod_template_sections.enabled', 1);
-
-    if ($agency_id) {
-        $this->db->where('mod_template_sections.agency_id', $agency_id);
-    } else {
-        $this->db->where('1=0');
+    public function get_all($section_type = null) 
+    {
+        $agency_id = $this->session->userdata('agency_id');
+        
+        $this->db->select('mod_template_sections.*, sys_form_schemas.name as schema_name, agencies.name as agency_name')
+                ->from('mod_template_sections')
+                ->join('sys_form_schemas', 'sys_form_schemas.id = mod_template_sections.schema_id', 'left')
+                ->join('agencies', 'agencies.id = mod_template_sections.agency_id', 'left') // Add this
+                ->where('mod_template_sections.removed', 0)
+                ->where('mod_template_sections.enabled', 1);
+        
+        if ($agency_id) {
+            $this->db->where('mod_template_sections.agency_id', $agency_id);
+        } else {
+            $this->db->where('1=0');
+        }
+        
+        if ($section_type && $section_type !== 'all') {
+            $this->db->where('mod_template_sections.section_type', $section_type);
+        }
+        
+        $this->db->order_by('mod_template_sections.sort_order', 'ASC')
+                ->order_by('mod_template_sections.name', 'ASC');
+                
+        return $this->db->get();
     }
 
-    if ($id != null) {
-        $this->db->where('mod_template_sections.id', $id);
-    }
+    public function get($id = null, $single = false, $params = array())
+    {
+        $agency_id = $this->session->userdata('agency_id');
+        
+        $this->db->select('mod_template_sections.*, sys_form_schemas.name as schema_name, agencies.name as agency_name')
+                ->from('mod_template_sections')
+                ->join('sys_form_schemas', 'sys_form_schemas.id = mod_template_sections.schema_id', 'left')
+                ->join('agencies', 'agencies.id = mod_template_sections.agency_id', 'left') // Add this
+                ->where('mod_template_sections.removed', 0)
+                ->where('mod_template_sections.enabled', 1);
 
-    // Apply any additional filters
-    if (!empty($params['filters'])) {
-        foreach ($params['filters'] as $key => $value) {
-            if ($key === 'search') {
-                $this->db->group_start();
-                $this->db->like('mod_template_sections.name', $value);
-                $this->db->or_like('mod_template_sections.code', $value);
-                $this->db->or_like('sys_form_schemas.name', $value);
-                $this->db->or_like('agencies.name', $value); // Add agency name to search
-                $this->db->group_end();
-            } elseif ($key === 'section_type') {
-                $this->db->where('mod_template_sections.section_type', $value);
+        if ($agency_id) {
+            $this->db->where('mod_template_sections.agency_id', $agency_id);
+        } else {
+            $this->db->where('1=0');
+        }
+
+        if ($id != null) {
+            $this->db->where('mod_template_sections.id', $id);
+        }
+
+        // Apply any additional filters
+        if (!empty($params['filters'])) {
+            foreach ($params['filters'] as $key => $value) {
+                if ($key === 'search') {
+                    $this->db->group_start();
+                    $this->db->like('mod_template_sections.name', $value);
+                    $this->db->or_like('mod_template_sections.code', $value);
+                    $this->db->or_like('sys_form_schemas.name', $value);
+                    $this->db->or_like('agencies.name', $value); // Add agency name to search
+                    $this->db->group_end();
+                } elseif ($key === 'section_type') {
+                    $this->db->where('mod_template_sections.section_type', $value);
+                }
             }
         }
-    }
 
-    if ($single) {
-        return $this->db->get()->row();
-    }
+        if ($single) {
+            return $this->db->get()->row();
+        }
 
-    return $this->db->get()->result();
-}
+        return $this->db->get()->result();
+    }
 
     public function get_available_section_types() 
     {
@@ -271,8 +264,6 @@ public function get($id = null, $single = false, $params = array())
         
         return $result;
     }
-
-    
 
     public function get_enabled_sections($agency_id = null, $section_type = null)
     {

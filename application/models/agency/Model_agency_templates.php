@@ -17,28 +17,19 @@ class Model_agency_templates extends CI_Model
         $this->db->trans_start();
 
         try {
-            // Debug: Check what we're receiving
-            error_log("=== MODEL SAVE DEBUG ===");
-            error_log("Sections received in model: " . print_r($sections, true));
-            error_log("Sections type: " . gettype($sections));
-            error_log("Is array: " . (is_array($sections) ? 'YES' : 'NO'));
 
             // Ensure sections is an array
             if (!is_array($sections)) {
-                error_log("Sections is not array, converting...");
+               
                 if (is_string($sections)) {
                     $sections = json_decode($sections, true);
                     if (json_last_error() !== JSON_ERROR_NONE) {
-                        error_log("JSON decode error in model: " . json_last_error_msg());
                         $sections = [];
                     }
                 } else {
                     $sections = [];
                 }
             }
-
-            error_log("Sections after model processing: " . print_r($sections, true));
-            error_log("Sections count in model: " . count($sections));
 
             // ALWAYS CREATE NEW TEMPLATE - don't check for existing
             // Create new template
@@ -70,7 +61,6 @@ class Model_agency_templates extends CI_Model
                 }
                 
                 if (!empty($section_data)) {
-                    error_log("Inserting section data: " . print_r($section_data, true));
                     $this->db->insert_batch('agency_template_sections', $section_data);
                 }
             }
@@ -119,19 +109,16 @@ class Model_agency_templates extends CI_Model
 
     public function get_template_with_sections($template_id) 
     {
-        error_log("=== GET TEMPLATE WITH SECTIONS DEBUG ===");
-        error_log("Looking for template ID: " . $template_id);
+
         
         $template = $this->db->where('id', $template_id)
                            ->get($this->table)
                            ->row();
         
         if (!$template) {
-            error_log("Template not found for ID: " . $template_id);
             return null;
         }
 
-        error_log("Found template: " . $template->template_name);
 
         // Get the section associations from agency_template_sections - NO ALIAS
         $template_sections = $this->db->select('agency_template_sections.section_id, agency_template_sections.sort_order')
@@ -141,12 +128,9 @@ class Model_agency_templates extends CI_Model
                                      ->get()
                                      ->result();
 
-        error_log("Found " . count($template_sections) . " section associations in agency_template_sections");
-
         // Get the full section data for each section ID
         $template->sections = [];
         foreach ($template_sections as $ts) {
-            error_log("Looking for section ID: " . $ts->section_id);
             
             $section = $this->db->where('id', $ts->section_id)
                                ->where('enabled', 1)
@@ -154,7 +138,6 @@ class Model_agency_templates extends CI_Model
                                ->row();
             
             if ($section) {
-                error_log("Found section: " . $section->name . " (ID: " . $section->id . ")");
                 // Create a clean section object with the correct ID
                 $clean_section = new stdClass();
                 $clean_section->id = $section->id; // This is the crucial part - use the actual section ID
@@ -168,13 +151,10 @@ class Model_agency_templates extends CI_Model
                 
                 $template->sections[] = $clean_section;
             } else {
-                error_log("Section not found for ID: " . $ts->section_id);
             }
         }
 
-        error_log("Final sections count: " . count($template->sections));
         foreach ($template->sections as $s) {
-            error_log(" - Section: " . $s->id . " - " . $s->name);
         }
 
         return $template;
@@ -325,7 +305,6 @@ class Model_agency_templates extends CI_Model
             return $form->form_view;
 
         } catch (Exception $e) {
-            error_log('Form render error: ' . $e->getMessage());
             return '<div class="alert alert-danger">Error rendering form: ' . $e->getMessage() . '</div>';
         }
     }

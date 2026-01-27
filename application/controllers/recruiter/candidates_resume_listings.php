@@ -119,58 +119,58 @@ class Candidates_resume_listings extends CRUD_Controller
         $this->load->view($this->folder . '/view_footer');
     }
 
- public function download_cv($id)
-{
-    $candidate = $this->{$this->model}->get_candidate_with_cv($id);
-    
-    // Check if candidate exists AND belongs to current recruiter
-    if (!$candidate) {
-        flash_notification(lang('cv_not_found_or_no_access'), 'error');
-        redirect(redir($this->pageName, true));
-    }
-    
-    // Double-check recruiter ownership (redundant but safe)
-    $login_data = $this->session->userdata('login');
-    if (!empty($login_data['recruiter'])) {
-        // Access as array instead of object
-        $recruiter_id = $login_data['recruiter']['id'] ?? $login_data['recruiter']->id ?? null;
-        if ($recruiter_id && $candidate->recruiter_id != $recruiter_id) {
-            flash_notification(lang('no_permission_to_access_cv'), 'error');
+    public function download_cv($id)
+    {
+        $candidate = $this->{$this->model}->get_candidate_with_cv($id);
+        
+        // Check if candidate exists AND belongs to current recruiter
+        if (!$candidate) {
+            flash_notification(lang('cv_not_found_or_no_access'), 'error');
             redirect(redir($this->pageName, true));
         }
-    }
-    
-    if (empty($candidate->cv_file)) {
-        flash_notification(lang('cv_not_found'), 'error');
-        redirect(redir($this->pageName, true));
-    }
+        
+        // Double-check recruiter ownership (redundant but safe)
+        $login_data = $this->session->userdata('login');
+        if (!empty($login_data['recruiter'])) {
+            // Access as array instead of object
+            $recruiter_id = $login_data['recruiter']['id'] ?? $login_data['recruiter']->id ?? null;
+            if ($recruiter_id && $candidate->recruiter_id != $recruiter_id) {
+                flash_notification(lang('no_permission_to_access_cv'), 'error');
+                redirect(redir($this->pageName, true));
+            }
+        }
+        
+        if (empty($candidate->cv_file)) {
+            flash_notification(lang('cv_not_found'), 'error');
+            redirect(redir($this->pageName, true));
+        }
 
-    $file_path = FCPATH . 'uploads/candidates/cv/' . $candidate->cv_file;
-    
-    if (!file_exists($file_path)) {
-        flash_notification(lang('cv_file_not_found'), 'error');
-        redirect(redir($this->pageName, true));
-    }
+        $file_path = FCPATH . 'uploads/candidates/cv/' . $candidate->cv_file;
+        
+        if (!file_exists($file_path)) {
+            flash_notification(lang('cv_file_not_found'), 'error');
+            redirect(redir($this->pageName, true));
+        }
 
-    // Get file info
-    $file_info = pathinfo($file_path);
-    $clean_name = $candidate->first_name . '_' . $candidate->last_name . '_CV.' . $file_info['extension'];
-    
-    // Set headers for download
-    header('Content-Type: application/octet-stream');
-    header('Content-Disposition: attachment; filename="' . $clean_name . '"');
-    header('Content-Length: ' . filesize($file_path));
-    header('Cache-Control: must-revalidate');
-    header('Pragma: public');
-    
-    // Clear output buffer
-    ob_clean();
-    flush();
-    
-    // Output file
-    readfile($file_path);
-    exit;
-}
+        // Get file info
+        $file_info = pathinfo($file_path);
+        $clean_name = $candidate->first_name . '_' . $candidate->last_name . '_CV.' . $file_info['extension'];
+        
+        // Set headers for download
+        header('Content-Type: application/octet-stream');
+        header('Content-Disposition: attachment; filename="' . $clean_name . '"');
+        header('Content-Length: ' . filesize($file_path));
+        header('Cache-Control: must-revalidate');
+        header('Pragma: public');
+        
+        // Clear output buffer
+        ob_clean();
+        flush();
+        
+        // Output file
+        readfile($file_path);
+        exit;
+    }
 
     public function custom_field_cv_file($value, $row)
     {

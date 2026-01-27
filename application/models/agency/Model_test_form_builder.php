@@ -13,7 +13,6 @@ class Model_test_form_builder extends CRUD_Model {
             $data['is_public'] = 0; // Agency-specific forms are not public by default
         }
         
-        // Rest of your update logic...
         if (isset($data['schema'])) {
             $schema = json_decode($data['schema'], true);
             // Ensure multi-select has options if dynamic
@@ -39,8 +38,6 @@ class Model_test_form_builder extends CRUD_Model {
             return false;
         }
 
-        //  SIMPLE FIX: Return the ID we're updating instead of querying for it
-        // This prevents the "Attempt to read property 'id' on null" error
         return $whereValue;
     }
 
@@ -104,7 +101,7 @@ class Model_test_form_builder extends CRUD_Model {
         return $this->db->where('id', $id)->get($table)->row();
     }
 
-    // Keep if used elsewhere
+   
     public function get_form_data($id) {
         return $this->db
             ->get_where($this->table, ['id' => $id])

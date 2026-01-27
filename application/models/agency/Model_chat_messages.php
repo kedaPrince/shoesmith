@@ -11,7 +11,6 @@ class Model_chat_messages extends CRUD_Model
         parent::__construct();
     }
 
-    // ==================== ADD THESE METHODS ====================
 
     /**
      * Get recruiter for a candidate
@@ -335,7 +334,6 @@ class Model_chat_messages extends CRUD_Model
      */
     public function get_conversation_for_agency($conversation_id, $agency_id)
     {
-        log_message('debug', 'get_conversation_for_agency called: conversation=' . $conversation_id . ', agency=' . $agency_id);
         
         $this->db->select('cc.*, 
                           a.name as agency_name, 
@@ -354,9 +352,7 @@ class Model_chat_messages extends CRUD_Model
         
         $result = $this->db->get()->row();
         
-        log_message('debug', 'Query result: ' . ($result ? 'FOUND' : 'NOT FOUND'));
         if ($result) {
-            log_message('debug', 'Result agency_id: ' . $result->agency_id);
         }
         
         return $result;
@@ -407,7 +403,6 @@ class Model_chat_messages extends CRUD_Model
         $this->db->insert('chat_conversations', $conversation_data);
         
         if ($this->db->error()['code']) {
-            log_message('error', 'Failed to create conversation: ' . $this->db->error()['message']);
             if ($this->db->error()['code'] == 1062) {
                 $conversation_data['uuid'] = $this->generate_uuid();
                 $this->db->insert('chat_conversations', $conversation_data);
@@ -522,68 +517,68 @@ class Model_chat_messages extends CRUD_Model
     /**
      * Send message
      */
-public function send_message($conversation_id, $sender_type, $sender_id, $message, $message_type = 'text', $file_data = null)
-{
-    $message_data = [
-        'conversation_id' => $conversation_id,
-        'sender_type' => $sender_type,
-        'sender_id' => $sender_id,
-        'message' => $message,
-        'message_type' => $message_type,
-        'is_read' => 0,
-        'created_at' => date('Y-m-d H:i:s'),
-        'updated_at' => date('Y-m-d H:i:s'),
-        'enabled' => 1
-    ];
-    
-    if ($file_data) {
-        $message_data['file_name'] = $file_data['file_name'];
-        $message_data['file_path'] = $file_data['file_path'];
-        $message_data['file_size'] = $file_data['file_size'];
-    }
-    
-    $this->db->insert('chat_messages', $message_data);
-    $message_id = $this->db->insert_id();
-    
-    // Update conversation last message time
-    $this->db->where('id', $conversation_id)
-             ->update('chat_conversations', [
-                 'last_message_at' => date('Y-m-d H:i:s'),
-                 'updated_at' => date('Y-m-d H:i:s')
-             ]);
-    
-    // ===== ADD THIS: Create notification for the other party =====
-    if ($message_id) {
-        // Get conversation details to know who to notify
-        $conversation = $this->db->where('id', $conversation_id)
-                                 ->get('chat_conversations')
-                                 ->row();
+    public function send_message($conversation_id, $sender_type, $sender_id, $message, $message_type = 'text', $file_data = null)
+    {
+        $message_data = [
+            'conversation_id' => $conversation_id,
+            'sender_type' => $sender_type,
+            'sender_id' => $sender_id,
+            'message' => $message,
+            'message_type' => $message_type,
+            'is_read' => 0,
+            'created_at' => date('Y-m-d H:i:s'),
+            'updated_at' => date('Y-m-d H:i:s'),
+            'enabled' => 1
+        ];
         
-        if ($conversation) {
-            if ($sender_type === 'recruiter') {
-                // Recruiter sent message, notify agency
-                $recipient_id = $conversation->agency_id;
-                $recipient_type = 'agency';
-            } else {
-                // Agency sent message, notify recruiter
-                $recipient_id = $conversation->recruiter_id;
-                $recipient_type = 'recruiter';
-            }
-            
-            // Create the notification
-            $this->create_chat_notification(
-                $conversation_id,
-                $recipient_id,
-                $recipient_type,
-                $message,
-                $sender_id
-            );
+        if ($file_data) {
+            $message_data['file_name'] = $file_data['file_name'];
+            $message_data['file_path'] = $file_data['file_path'];
+            $message_data['file_size'] = $file_data['file_size'];
         }
+        
+        $this->db->insert('chat_messages', $message_data);
+        $message_id = $this->db->insert_id();
+        
+        // Update conversation last message time
+        $this->db->where('id', $conversation_id)
+                ->update('chat_conversations', [
+                    'last_message_at' => date('Y-m-d H:i:s'),
+                    'updated_at' => date('Y-m-d H:i:s')
+                ]);
+        
+        // ===== ADD THIS: Create notification for the other party =====
+        if ($message_id) {
+            // Get conversation details to know who to notify
+            $conversation = $this->db->where('id', $conversation_id)
+                                    ->get('chat_conversations')
+                                    ->row();
+            
+            if ($conversation) {
+                if ($sender_type === 'recruiter') {
+                    // Recruiter sent message, notify agency
+                    $recipient_id = $conversation->agency_id;
+                    $recipient_type = 'agency';
+                } else {
+                    // Agency sent message, notify recruiter
+                    $recipient_id = $conversation->recruiter_id;
+                    $recipient_type = 'recruiter';
+                }
+                
+                // Create the notification
+                $this->create_chat_notification(
+                    $conversation_id,
+                    $recipient_id,
+                    $recipient_type,
+                    $message,
+                    $sender_id
+                );
+            }
+        }
+        // ===== END ADDITION =====
+        
+        return $message_id;
     }
-    // ===== END ADDITION =====
-    
-    return $message_id;
-}
 
     /**
      * Mark messages as read
@@ -642,36 +637,36 @@ public function send_message($conversation_id, $sender_type, $sender_id, $messag
      * Create chat notification for your existing table structure
      */
     
-public function create_chat_notification($conversation_id, $recipient_id, $recipient_type, $message, $sender_id)
-{
-    $sender_type = ($recipient_type === 'recruiter') ? 'agency' : 'recruiter';
-    $receiver_type = $recipient_type;
-    
-    $notification_data = [
-        'title' => 'New Chat Message',
-        'message' => $this->truncate_message($message),
-        'type' => 'chat',
-        'sender_type' => $sender_type,
-        'sender_id' => $sender_id,
-        'receiver_type' => $receiver_type,
-        'receiver_id' => $recipient_id,
-        'related_entity' => 'chat_conversation',
-        'related_entity_id' => $conversation_id,
-        'metadata' => json_encode([
-            'conversation_id' => $conversation_id,
-            'message_preview' => $this->truncate_message($message, 50),
-            'is_chat_notification' => true,
-            'sender_type' => $sender_type
-        ]),
-        'is_read' => 0,
-        'created_at' => date('Y-m-d H:i:s'),
-        'updated_at' => date('Y-m-d H:i:s'),
-        'enabled' => 1
-    ];
+    public function create_chat_notification($conversation_id, $recipient_id, $recipient_type, $message, $sender_id)
+    {
+        $sender_type = ($recipient_type === 'recruiter') ? 'agency' : 'recruiter';
+        $receiver_type = $recipient_type;
+        
+        $notification_data = [
+            'title' => 'New Chat Message',
+            'message' => $this->truncate_message($message),
+            'type' => 'chat',
+            'sender_type' => $sender_type,
+            'sender_id' => $sender_id,
+            'receiver_type' => $receiver_type,
+            'receiver_id' => $recipient_id,
+            'related_entity' => 'chat_conversation',
+            'related_entity_id' => $conversation_id,
+            'metadata' => json_encode([
+                'conversation_id' => $conversation_id,
+                'message_preview' => $this->truncate_message($message, 50),
+                'is_chat_notification' => true,
+                'sender_type' => $sender_type
+            ]),
+            'is_read' => 0,
+            'created_at' => date('Y-m-d H:i:s'),
+            'updated_at' => date('Y-m-d H:i:s'),
+            'enabled' => 1
+        ];
 
-    $this->db->insert('notifications', $notification_data);
-    return $this->db->insert_id();
-}
+        $this->db->insert('notifications', $notification_data);
+        return $this->db->insert_id();
+    }
 
 
     /**
@@ -856,7 +851,6 @@ public function create_chat_notification($conversation_id, $recipient_id, $recip
         $this->db->insert('chat_conversations', $conversation_data);
         
         if ($this->db->error()['code']) {
-            log_message('error', 'Failed to create candidate conversation: ' . $this->db->error()['message']);
             return false;
         }
         

@@ -96,7 +96,7 @@ public function get_count()
     $this->db->where('cv_file IS NOT NULL');
     $this->db->where('cv_file !=', '');
     
-    // ADD THIS: Filter by recruiter
+    
     $login_data = $this->session->userdata('login');
     if (!empty($login_data['recruiter'])) {
         // Access as array instead of object
@@ -150,7 +150,7 @@ public function get_candidate_with_cv($id)
     $this->db->where('candidates.id', $id);
     $this->db->where('candidates.removed', 0);
     
-    // ADD THIS: Filter by recruiter for security
+    
     $login_data = $this->session->userdata('login');
     if (!empty($login_data['recruiter'])) {
         // Access as array instead of object

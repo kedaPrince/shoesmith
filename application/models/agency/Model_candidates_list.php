@@ -26,40 +26,40 @@ class Model_candidates_list extends CRUD_Model
         return $login['agency']['agency_id'] ?? $login['agency']['id'] ?? null;
     }
 
-private function get_candidates_for_job($job_id, $agency_id, $limit = null, $offset = null, $sort_by = null, $sort_order = null)
-{
-    $this->db->select('c.*, 
-                       j.name as job_name, 
-                       j.reference_number as job_ref, 
-                       a.name as agency_name,
-                       COALESCE(cja.status, "submitted") as status,
-                       COALESCE(cja.assigned_at, cj.created_at, c.application_date) as application_date');
+    private function get_candidates_for_job($job_id, $agency_id, $limit = null, $offset = null, $sort_by = null, $sort_order = null)
+    {
+        $this->db->select('c.*, 
+                        j.name as job_name, 
+                        j.reference_number as job_ref, 
+                        a.name as agency_name,
+                        COALESCE(cja.status, "submitted") as status,
+                        COALESCE(cja.assigned_at, cj.created_at, c.application_date) as application_date');
 
-    $this->db->from('candidates c');
-    
-    $this->db->join('candidate_job_assignments cja', 
-                   'cja.candidate_id = c.id AND cja.job_id = ' . (int)$job_id . ' AND cja.removed = 0', 'left');
-    $this->db->join('candidate_jobs cj', 
-                   'cj.candidate_id = c.id AND cj.job_id = ' . (int)$job_id, 'left');
-    
-    $this->db->join('mod_jobs j', 'j.id = ' . (int)$job_id, 'left');
-    $this->db->join('agencies a', 'a.id = c.agency_id', 'left');
+        $this->db->from('candidates c');
+        
+        $this->db->join('candidate_job_assignments cja', 
+                    'cja.candidate_id = c.id AND cja.job_id = ' . (int)$job_id . ' AND cja.removed = 0', 'left');
+        $this->db->join('candidate_jobs cj', 
+                    'cj.candidate_id = c.id AND cj.job_id = ' . (int)$job_id, 'left');
+        
+        $this->db->join('mod_jobs j', 'j.id = ' . (int)$job_id, 'left');
+        $this->db->join('agencies a', 'a.id = c.agency_id', 'left');
 
-    // REMOVED candidate_agencies join entirely
-    // Because: if a candidate is assigned to a job, they should appear — regardless of candidate_agencies
+        // REMOVED candidate_agencies join entirely
+        // Because: if a candidate is assigned to a job, they should appear — regardless of candidate_agencies
 
-    $this->db->where('c.removed', 0);
-    $this->db->where('(cja.candidate_id IS NOT NULL OR cj.candidate_id IS NOT NULL)', null, false);
+        $this->db->where('c.removed', 0);
+        $this->db->where('(cja.candidate_id IS NOT NULL OR cj.candidate_id IS NOT NULL)', null, false);
 
-    $this->db->group_by('c.id');
-    $this->apply_custom_sorting($sort_by, $sort_order);
+        $this->db->group_by('c.id');
+        $this->apply_custom_sorting($sort_by, $sort_order);
 
-    if ($limit !== null) {
-        $this->db->limit($limit, $offset);
+        if ($limit !== null) {
+            $this->db->limit($limit, $offset);
+        }
+
+        return $this->db->get();
     }
-
-    return $this->db->get();
-}
 
     private function apply_custom_sorting($sort_by = null, $sort_order = null)
     {

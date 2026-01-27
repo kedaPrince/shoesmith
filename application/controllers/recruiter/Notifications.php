@@ -11,7 +11,6 @@ class Notifications extends CRUD_Controller
 
     public function ajax_get_notifications()
     {
-        // ✅ ADD CSRF VALIDATION
         $csrf_name = $this->security->get_csrf_token_name();
         $csrf_hash = $this->security->get_csrf_hash();
         

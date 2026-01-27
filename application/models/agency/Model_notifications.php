@@ -13,10 +13,6 @@ class Model_notifications extends CRUD_Model
 
     
 
-   
-
- 
-
    /**
      * Get notifications for agency
      */
@@ -145,9 +141,6 @@ class Model_notifications extends CRUD_Model
         return $this->db->insert('notifications', $notification_data);
     }
 
- 
-
-
 
     // In Model_notifications - add this method
     public function get_notification($notification_id, $agency_id)
@@ -158,29 +151,30 @@ class Model_notifications extends CRUD_Model
         return $this->db->get('notifications')->row();
     }
 
-/**
- * Remove notification (actual deletion)
- */
-public function remove($whereValue, $whereField = 'id', $table = false)
-{
-    $this->db->where($whereField, $whereValue);
-    return $this->db->delete('notifications');
-}
+    /**
+     * Remove notification (actual deletion)
+     */
+    public function remove($whereValue, $whereField = 'id', $table = false)
+    {
+        $this->db->where($whereField, $whereValue);
+        return $this->db->delete('notifications');
+    }
 
-/**
- * Override CRUD methods to prevent enable/disable actions but allow remove
- */
-public function enable($whereValue, $whereField = 'id', $table = false)
-{
-    // Notifications don't have enable/disable functionality
-    return true;
-}
+    /**
+     * Override CRUD methods to prevent enable/disable actions but allow remove
+     */
+    public function enable($whereValue, $whereField = 'id', $table = false)
+    {
+        // Notifications don't have enable/disable functionality
+        return true;
+    }
 
-public function disable($whereValue, $whereField = 'id', $table = false)
-{
-    // Notifications don't have enable/disable functionality
-    return true;
-}
+    public function disable($whereValue, $whereField = 'id', $table = false)
+    {
+        // Notifications don't have enable/disable functionality
+        return true;
+    }
+
     /**
      * Compatibility methods for Dashboard
      */
@@ -734,104 +728,102 @@ public function disable($whereValue, $whereField = 'id', $table = false)
             return false;
         }
     }
-// In application/models/agency/Model_notifications.php
 
-/**
- * Get chat unread count for agency
- */
-public function get_chat_unread_count_for_agency($agency_staff_id)
-{
-    try {
-        $this->db->select('COUNT(cm.id) as unread_count')
-                ->from('chat_messages cm')
-                ->join('chat_conversations cc', 'cc.id = cm.conversation_id')
-                ->where('cc.agency_id', $agency_staff_id)
-                ->where('cm.sender_type', 'recruiter') // Messages FROM recruiter
-                ->where('cm.is_read', 0)
-                ->where('cm.enabled', 1)
-                ->where('cm.removed', 0);
-        
-        $result = $this->db->get()->row();
-        return $result ? $result->unread_count : 0;
-        
-    } catch (Exception $e) {
-        log_message('error', 'Error getting chat unread count: ' . $e->getMessage());
-        return 0;
+
+    /**
+     * Get chat unread count for agency
+     */
+    public function get_chat_unread_count_for_agency($agency_staff_id)
+    {
+        try {
+            $this->db->select('COUNT(cm.id) as unread_count')
+                    ->from('chat_messages cm')
+                    ->join('chat_conversations cc', 'cc.id = cm.conversation_id')
+                    ->where('cc.agency_id', $agency_staff_id)
+                    ->where('cm.sender_type', 'recruiter') // Messages FROM recruiter
+                    ->where('cm.is_read', 0)
+                    ->where('cm.enabled', 1)
+                    ->where('cm.removed', 0);
+            
+            $result = $this->db->get()->row();
+            return $result ? $result->unread_count : 0;
+            
+        } catch (Exception $e) {
+            return 0;
+        }
     }
-}
 
-/**
- * Get recent chat conversations for dropdown
- */
-public function get_recent_chat_conversations($agency_staff_id, $limit = 5)
-{
-    try {
-        $this->db->select('cc.*, cc.uuid, 
-                          CONCAT(r.first_name, " ", r.last_name) as recruiter_name,
-                          (SELECT COUNT(*) FROM chat_messages 
-                           WHERE conversation_id = cc.id 
-                           AND sender_type = "recruiter" 
-                           AND is_read = 0) as unread_count,
-                          (SELECT message FROM chat_messages 
-                           WHERE conversation_id = cc.id 
-                           AND enabled = 1 
-                           AND removed = 0 
-                           ORDER BY created_at DESC LIMIT 1) as last_message,
-                          (SELECT created_at FROM chat_messages 
-                           WHERE conversation_id = cc.id 
-                           AND enabled = 1 
-                           AND removed = 0 
-                           ORDER BY created_at DESC LIMIT 1) as last_message_at')
-                ->from('chat_conversations cc')
-                ->join('recruiters r', 'r.id = cc.recruiter_id')
-                ->where('cc.agency_id', $agency_staff_id)
-                ->where('cc.enabled', 1)
-                ->where('cc.removed', 0)
-                ->order_by('cc.updated_at', 'DESC')
-                ->limit($limit);
-        
-        return $this->db->get()->result();
-        
-    } catch (Exception $e) {
-        log_message('error', 'Error getting recent chats: ' . $e->getMessage());
-        return [];
+    /**
+     * Get recent chat conversations for dropdown
+     */
+    public function get_recent_chat_conversations($agency_staff_id, $limit = 5)
+    {
+        try {
+            $this->db->select('cc.*, cc.uuid, 
+                            CONCAT(r.first_name, " ", r.last_name) as recruiter_name,
+                            (SELECT COUNT(*) FROM chat_messages 
+                            WHERE conversation_id = cc.id 
+                            AND sender_type = "recruiter" 
+                            AND is_read = 0) as unread_count,
+                            (SELECT message FROM chat_messages 
+                            WHERE conversation_id = cc.id 
+                            AND enabled = 1 
+                            AND removed = 0 
+                            ORDER BY created_at DESC LIMIT 1) as last_message,
+                            (SELECT created_at FROM chat_messages 
+                            WHERE conversation_id = cc.id 
+                            AND enabled = 1 
+                            AND removed = 0 
+                            ORDER BY created_at DESC LIMIT 1) as last_message_at')
+                    ->from('chat_conversations cc')
+                    ->join('recruiters r', 'r.id = cc.recruiter_id')
+                    ->where('cc.agency_id', $agency_staff_id)
+                    ->where('cc.enabled', 1)
+                    ->where('cc.removed', 0)
+                    ->order_by('cc.updated_at', 'DESC')
+                    ->limit($limit);
+            
+            return $this->db->get()->result();
+            
+        } catch (Exception $e) {
+            return [];
+        }
     }
-}
 
-/**
- * AJAX endpoint for chat notifications
- */
-public function ajax_get_chat_notifications()
-{
-    $login_data = $this->session->userdata('login');
-    $agency_staff_id = !empty($login_data['agency']['id']) ? $login_data['agency']['id'] : null;
-    
-    $response = [
-        'success' => false,
-        'unread_count' => 0,
-        'message' => ''
-    ];
+    /**
+     * AJAX endpoint for chat notifications
+     */
+    public function ajax_get_chat_notifications()
+    {
+        $login_data = $this->session->userdata('login');
+        $agency_staff_id = !empty($login_data['agency']['id']) ? $login_data['agency']['id'] : null;
+        
+        $response = [
+            'success' => false,
+            'unread_count' => 0,
+            'message' => ''
+        ];
 
-    try {
-        if (!$agency_staff_id) {
-            $response['message'] = 'Agency not logged in';
-            $this->output->set_content_type('application/json')->set_output(json_encode($response));
-            return;
+        try {
+            if (!$agency_staff_id) {
+                $response['message'] = 'Agency not logged in';
+                $this->output->set_content_type('application/json')->set_output(json_encode($response));
+                return;
+            }
+
+            $unread_count = $this->get_chat_unread_count_for_agency($agency_staff_id);
+            
+            $response['unread_count'] = (int)$unread_count;
+            $response['success'] = true;
+
+        } catch (Exception $e) {
+            $response['message'] = 'Server error: ' . $e->getMessage();
         }
 
-        $unread_count = $this->get_chat_unread_count_for_agency($agency_staff_id);
-        
-        $response['unread_count'] = (int)$unread_count;
-        $response['success'] = true;
-
-    } catch (Exception $e) {
-        $response['message'] = 'Server error: ' . $e->getMessage();
+        $this->output
+            ->set_content_type('application/json')
+            ->set_output(json_encode($response));
     }
-
-    $this->output
-        ->set_content_type('application/json')
-        ->set_output(json_encode($response));
-}
 
 
 
